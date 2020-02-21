@@ -1,0 +1,26 @@
+" Normal mode mappings.
+
+" Disable Shift + Right Mouse search
+nnoremap <S-RightMouse> <Nop>
+
+" Disable Shift + Up and Shift + Down
+nnoremap <S-Up> <Nop>
+nnoremap <S-Down> <Nop>
+
+" Move between splits
+nnoremap <C-Left> <C-w>h
+nnoremap <C-Down> <C-w>j
+nnoremap <C-Up> <C-w>k
+nnoremap <C-Right> <C-w>l
+
+" Multi-mode mappings (Normal, Visual, Operating-pending modes).
+noremap Y y$
+
+" Toggle list (display unprintable characters)
+noremap <F2> :set list!<CR>
+
+" Toggle between number and nonumber
+noremap <F3> :set invnumber<CR>
+
+" Avoid unintentional switches to Ex mode.
+noremap Q <Nop>
