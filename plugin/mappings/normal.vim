@@ -13,6 +13,11 @@ nnoremap <C-Down> <C-w>j
 nnoremap <C-Up> <C-w>k
 nnoremap <C-Right> <C-w>l
 
+" Disable vim command line window
+nnoremap q: <Nop>
+nnoremap q/ <Nop>
+nnoremap q? <Nop>
+
 " Multi-mode mappings (Normal, Visual, Operating-pending modes).
 noremap Y y$
 
@@ -24,3 +29,4 @@ noremap <F3> :set invnumber<CR>
 
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
+

@@ -16,9 +16,9 @@ nmap <Nop><F2> <Plug>(Loupen)
 
 " Return to last edit position when opening files
 autocmd BufReadPost *
-  \ if line("'\"") >= 1 && line("'\"") <= line("$") |
-  \   exe "normal! g`\"" |
-  \ endif
+			\ if line("'\"") >= 1 && line("'\"") <= line("$") |
+			\ exe "normal! g`\"" |
+			\ endif
 
 let s:vimrc_local=$HOME . '/.vim/vimrc.local'
 if filereadable(s:vimrc_local)
@@ -27,34 +27,45 @@ endif
 
 if &loadplugins
 	if has('packages')
+		packadd! airline			" https://github.com/vim-airline/vim-airline
+		packadd! ansible			" https://github.com/pearofducks/ansible-vim
+		packadd! bufferline			" https://github.com/bling/vim-bufferline
+		packadd! cmake				" https://github.com/pboettch/vim-cmake-syntax
+		packadd! commentary			" https://github.com/tpope/vim-commentary
+		packadd! dockerfile			" https://github.com/ekalinin/Dockerfile.vim
+		packadd! easydir			" https://github.com/duggiefresh/vim-easydir
 		packadd! fzf				" https://github.com/junegunn/fzf
-		packadd! neomake			" https://github.com/neomake/neomake
-		packadd! onedark			" https://github.com/joshdick/onedark.vim
-		packadd! terminus			" https://github.com/wincent/terminus
+		packadd! git				" https://github.com/tpope/vim-git
+		packadd! go					" https://github.com/fatih/vim-go
+		packadd! haproxy			" https://github.com/CH-DanReif/haproxy.vim
+		packadd! log				" https://github.com/MTDL9/vim-log-highlighting
 		packadd! loupe				" https://github.com/wincent/loupe
+		packadd! manpager			" https://github.com/lambdalisue/vim-manpager
+		packadd! neomake			" https://github.com/neomake/neomake
+		packadd! nginx				" https://github.com/chr4/nginx.vim
+		packadd! onedark			" https://github.com/joshdick/onedark.vim
+		packadd! repeat				" https://github.com/tpope/vim-repeat
 		packadd! replay				" https://github.com/wincent/replay
 		packadd! scalpel			" https://github.com/wincent/scalpel
-		packadd! suda.vim			" https://github.com/lambdalisue/suda.vim
+		packadd! speeddating		" https://github.com/tpope/vim-surround
+		packadd! suda				" https://github.com/lambdalisue/suda.vim
 		packadd! supertab			" https://github.com/ervandew/supertab
-		packadd! vim-airline		" https://github.com/vim-airline/vim-airline
-		packadd! vim-bufferline		" https://github.com/bling/vim-bufferline
-		packadd! vim-commentary		" https://github.com/tpope/vim-commentary
-		packadd! vim-easydir		" https://github.com/duggiefresh/vim-easydir
-		packadd! vim-manpager		" https://github.com/lambdalisue/vim-manpager
-		packadd! vim-polyglot		" https://github.com/sheerun/vim-polyglot
-		packadd! vim-repeat			" https://github.com/tpope/vim-repeat
-		packadd! vim-speeddating	" https://github.com/tpope/vim-surround
-		packadd! vim-surround		" https://github.com/tpope/vim-speeddating
-		packadd! vim-windowswap		" https://github.com/wesQ3/vim-windowswap
-		packadd! vim-zsh			" https://github.com/chrisbra/vim-zsh
+		packadd! surround			" https://github.com/tpope/vim-speeddating
+		packadd! systemd			" https://github.com/Matt-Deacalion/vim-systemd-syntax
+		packadd! terminus			" https://github.com/wincent/terminus
+		packadd! tmux				" https://github.com/ericpruitt/tmux.vim
+		packadd! toml				" https://github.com/cespare/vim-toml
+		packadd! windowswap			" https://github.com/wesQ3/vim-windowswap
+		packadd! yaml				" https://github.com/stephpy/vim-yaml
+		packadd! zsh				" https://github.com/chrisbra/vim-zsh
 		if has('nvim')
 			packadd! semshi			" https://github.com/numirias/semshi
 		else
-			packadd! python-syntax	" https://github.com/vim-python/python-syntax
+			packadd! python			" https://github.com/vim-python/python-syntax
 			packadd! matchit		" ships with vim and built-in into neovim
 		endif
 	else
-		source $HOME/.vim/pack/bundle/opt/vim-pathogen/autoload/pathogen.vim
+		source $HOME/.vim/pack/bundle/opt/pathogen/autoload/pathogen.vim
 		call pathogen#infect('pack/bundle/opt/{}')
 	endif
 endif
