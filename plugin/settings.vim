@@ -178,6 +178,7 @@ if v:version > 703 || v:version == 703 && has('patch541')
   set formatoptions+=j                " remove comment leader when joining comment lines
 endif
 set formatoptions+=n                  " smart auto-indenting inside numbered lists
+set formatoptions+=cro                " smart auto-commenting
 
 if exists('&inccommand')
   set inccommand=nosplit                " live highlighting of :s results
