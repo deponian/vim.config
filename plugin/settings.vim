@@ -181,6 +181,10 @@ endif
 set formatoptions+=n                  " smart auto-indenting inside numbered lists
 set formatoptions+=cro                " smart auto-commenting
 
+if has('patch-7.4.314')
+  set shortmess+=c                    " completion messages
+endif
+
 if exists('&inccommand')
   set inccommand=nosplit                " live highlighting of :s results
 endif
