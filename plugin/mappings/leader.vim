@@ -34,4 +34,7 @@ vnoremap <Leader>p "+p
 nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
 
 " Disable highlighting of search results
-"nnoremap <Leader>n :noh<CR>
+nnoremap <Leader>n :noh<CR>
+
+" <Leader>zz -- Zap trailing whitespace in the current buffer.
+nnoremap <Leader>zz :call mappings#leader#zap()<CR>
