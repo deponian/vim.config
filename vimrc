@@ -57,6 +57,7 @@ if &loadplugins
 		packadd! toml				" https://github.com/cespare/vim-toml
 		packadd! windowswap			" https://github.com/wesQ3/vim-windowswap
 		packadd! yaml				" https://github.com/stephpy/vim-yaml
+		packadd! yaifa				" https://github.com/Raimondi/yaifa
 		packadd! zsh				" https://github.com/chrisbra/vim-zsh
 		if has('nvim')
 			packadd! semshi			" https://github.com/numirias/semshi

@@ -35,6 +35,7 @@ set noexpandtab
 set smartindent
 set autoindent
 set shiftround
+let g:python_recommended_style = 0
 
 " colorscheme
 if (has("autocmd") && !has("gui_running"))
