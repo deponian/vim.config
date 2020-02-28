@@ -56,8 +56,6 @@ function! detectindent#detect() abort
 
     endwhile
 
-    echo 'Is tabs: ' . l:has_leading_tabs . "\nIs spaces: " . l:has_leading_spaces . "\nShortest: " . l:shortest_leading_spaces_run . "\nLongest: " . l:longest_leading_spaces_run
-
     if l:has_leading_tabs && ! l:has_leading_spaces
         " tabs only, no spaces
         setl noexpandtab
