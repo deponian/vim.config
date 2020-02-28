@@ -41,4 +41,4 @@ nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
 nnoremap <silent> <Leader>n :noh<CR>
 
 " <Leader>zz -- Zap trailing whitespace in the current buffer.
-nnoremap <silent> <Leader>zz :call mappings#leader#zap()<CR>
+nnoremap <Leader>zz :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
