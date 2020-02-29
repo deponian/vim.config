@@ -1,8 +1,5 @@
 " Leader mappings.
 
-" Use <Leader>r (mnemonic: replace) instead of default <Leader>e:
-nmap <Leader>r <Plug>(Scalpel)
-
 " Use <Leader>q as exit
 nnoremap <Leader>q :quit<CR>
 
@@ -42,3 +39,8 @@ nnoremap <silent> <Leader>n :noh<CR>
 
 " <Leader>zz -- Zap trailing whitespace in the current buffer.
 nnoremap <Leader>zz :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
+
+" Use <Leader>r (mnemonic: replace) instead of default <Leader>e:
+nmap <Leader>r <Plug>(Scalpel)
+vmap <Leader>r <Plug>(ScalpelVisual)
+
