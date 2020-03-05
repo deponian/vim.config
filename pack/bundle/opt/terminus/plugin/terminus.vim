@@ -28,6 +28,69 @@ let s:screenish=&term =~# 'screen\|tmux'
 let s:tmux=exists('$TMUX')
 let s:xterm=&term =~# "xterm.*"
 
+" Change shape of cursor in insert and replace mode
+let s:shape=get(g:, 'TerminusCursorShape', 1)
+if s:shape
+  if has('nvim')
+    set guicursor=n-v-sm:block,i-c-ci-ve:ver25,r-cr-o:hor20
+    " Restore your cursor shape after exiting neovim
+    " if you don't use standard block shape cursor
+    augroup cursorshape
+      autocmd!
+      autocmd VimLeave * set guicursor=a:ver25-blinkon1000-blinkoff1000
+    augroup END
+  else
+    if s:iterm2 || s:iterm || s:konsole
+      let s:insert_shape=1
+      let s:replace_shape=2
+      let s:normal_shape=0
+      let s:leave_shape=1
+    else " i.e. VTE-based terminals
+      let s:insert_shape=6
+      let s:replace_shape=4
+      let s:normal_shape=2
+      let s:leave_shape=5
+    endif
+    if s:iterm2
+      let s:start_insert="\<Esc>]1337;CursorShape=" . s:insert_shape . "\x7"
+      let s:start_replace="\<Esc>]1337;CursorShape=" . s:replace_shape . "\x7"
+      let s:end_insert="\<Esc>]1337;CursorShape=" . s:normal_shape . "\x7"
+      let s:leave="\<Esc>]1337;CursorShape=" . s:leave_shape . "\x7"
+    elseif s:iterm || s:konsole
+      let s:start_insert="\<Esc>]50;CursorShape=" . s:insert_shape . "\x7"
+      let s:start_replace="\<Esc>]50;CursorShape=" . s:replace_shape . "\x7"
+      let s:end_insert="\<Esc>]50;CursorShape=" . s:normal_shape . "\x7"
+      let s:leave="\<Esc>]50;CursorShape=" . s:leave_shape . "\x7"
+    else
+      let s:start_insert="\<Esc>[" . s:insert_shape . ' q'
+      let s:start_replace="\<Esc>[" . s:replace_shape . ' q'
+      let s:end_insert="\<Esc>[" . s:normal_shape . ' q'
+      let s:leave="\<Esc>[" . s:leave_shape . ' q'
+    endif
+
+    if s:tmux
+      let s:start_insert=terminus#private#wrap(s:start_insert)
+      let s:start_replace=terminus#private#wrap(s:start_replace)
+      let s:end_insert=terminus#private#wrap(s:end_insert)
+      let s:leave=terminus#private#wrap(s:leave)
+    endif
+
+    let &t_SI=s:start_insert
+    if v:version > 704 || v:version == 704 && has('patch687')
+      let &t_SR=s:start_replace
+    end
+    let &t_EI=s:end_insert
+
+    " Restore your cursor shape after exiting neovim
+    " if you don't use standard block shape cursor
+    augroup cursorshape
+      autocmd!
+      autocmd VimLeave * let &t_me=s:leave
+    augroup END
+
+  endif
+endif
+
 let s:mouse=get(g:, 'TerminusMouse', 1)
 if s:mouse
   if has('mouse')
@@ -55,10 +118,10 @@ endif
 " let &t_EI .= "\<Esc>[?2004l"
 " inoremap <special> <expr> <Esc>[200~ XTermPasteBegin()
 
-" function! Paste(ret) abort    
-"   set paste    
-"   return a:ret    
-" endfunction  
+" function! Paste(ret) abort
+"   set paste
+"   return a:ret
+" endfunction
 
 " let s:paste=get(g:, 'TerminusBracketedPaste', 1)
 " if s:paste

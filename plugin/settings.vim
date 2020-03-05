@@ -17,7 +17,6 @@ set sidescrolloff=3                   " same as scrolloff, but for columns
 set smarttab                          " <tab>/<BS> indent/dedent in leading whitespace
 set updatecount=80                    " update swapfiles every 80 typed chars
 set updatetime=2000                   " CursorHold interval
-set guicursor=                        " vim don't touch cursor
 set visualbell t_vb=                  " stop annoying beeping for non-error errors
 set wildcharm=<C-z>                   " substitute for 'wildchar' (<Tab>) in macros
 set switchbuf=usetab                  " try to reuse windows/tabs when switching buffers
