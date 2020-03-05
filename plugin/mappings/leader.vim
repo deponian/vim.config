@@ -26,9 +26,9 @@ nnoremap <Leader>T :FZF
 
 " Copy to/paste from clipboard
 nnoremap <Leader>y "+y
-nnoremap <Leader>p "+p
+nnoremap <Leader>p "+]p
 vnoremap <Leader>y "+y
-vnoremap <Leader>p "+p
+vnoremap <Leader>p "+]p
 
 " <Leader>c -- Fix (most) syntax highlighting problems in current buffer
 " (mnemonic: coloring).
