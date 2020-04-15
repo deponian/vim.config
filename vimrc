@@ -43,6 +43,7 @@ if &loadplugins
 		packadd! loupe				" https://github.com/wincent/loupe
 		packadd! manpager			" https://github.com/lambdalisue/vim-manpager
 		packadd! neomake			" https://github.com/neomake/neomake
+		packadd! nftables			" https://github.com/nfnty/vim-nftables
 		packadd! nginx				" https://github.com/chr4/nginx.vim
 		packadd! onedark			" https://github.com/joshdick/onedark.vim
 		packadd! repeat				" https://github.com/tpope/vim-repeat
