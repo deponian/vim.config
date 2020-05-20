@@ -5,6 +5,8 @@
 call neomake#configure#automake('nrw', 1000)
 let g:neomake_virtualtext_prefix = '<<< '
 
+let g:neomake_yaml_ansible_enabled_makers = ['ansiblelint', 'yamllint']
+
 function! Selectpython()
 	let l:exename = "python"
 	if !empty(matchstr(getline(1), "^#!"))
