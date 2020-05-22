@@ -1,30 +1,26 @@
 " Leader mappings.
 
-" Use <Leader>q as exit
+" <Leader>q -- exit
 nnoremap <Leader>q :quit<CR>
 
-" Use <Leader>Q as exit withoout saving
+" <Leader>Q -- exit withoout saving
 nnoremap <Leader>Q :quit!<CR>
 
-" Save buffer
+" <Leader>w -- save buffer
 nnoremap <Leader>w :write<CR>
 
-" Save buffer with sudo
+" <Leader>W -- save buffer with sudo
 nnoremap <Leader>W :w suda://%<CR>
 
-" Cycle through buffers
+" <Leader>b/<Leader>B -- cycle through buffers
 nnoremap <silent> <Leader>b :bnext<CR>
 nnoremap <silent> <Leader>B :bprevious<CR>
 
-" Cycle through tabs
+" <Leader><Tab>/<Leader><Shift-Tab> -- cycle through tabs
 nnoremap <silent> <Leader><Tab> gt
 nnoremap <silent> <Leader><S-Tab> gT
 
-" FZF
-nnoremap <silent> <Leader>t :FZF<CR>
-nnoremap <Leader>T :FZF 
-
-" Copy to/paste from clipboard
+" <Leader>y/<Leader>p -- copy to and paste from clipboard
 nnoremap <Leader>y "+y
 nnoremap <Leader>p "+]p
 vnoremap <Leader>y "+y
@@ -34,13 +30,23 @@ vnoremap <Leader>p "+]p
 " (mnemonic: coloring).
 nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
 
-" Disable highlighting of search results
-nnoremap <silent> <Leader>n :noh<CR>
+" <Leader>h -- Disable highlighting of search results
+" (mnemonic: no [h]ighlighting)
+nnoremap <silent> <Leader>h :noh<CR>
 
-" <Leader>zz -- Zap trailing whitespace in the current buffer.
-nnoremap <Leader>zz :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
+" <Leader>z -- Zap trailing whitespace in the current buffer
+" (mnemonic: zap)
+nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
 
-" Use <Leader>r (mnemonic: replace) instead of default <Leader>e:
+" <Leader>r -- Replace word or selected sequence
+" (mnemonic: replace)
 nmap <Leader>r <Plug>(Scalpel)
 vmap <Leader>r <Plug>(ScalpelVisual)
 
+" <Leader>t -- FZF
+nnoremap <silent> <Leader>t :FZF<CR>
+nnoremap <Leader>T :FZF
+
+" <Leader>d -- Detect indentation in buffer and change expandtab/noexpandtab, tabstop and etc.
+" (mnemonic: detect)
+nnoremap <Leader>d :call detectindent#detect()<CR>:echo "Indentation detected"<CR>
