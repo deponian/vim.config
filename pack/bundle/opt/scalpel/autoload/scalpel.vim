@@ -1,33 +1,17 @@
 " Copyright 2016-present Greg Hurrell. All rights reserved.
 " Licensed under the terms of the MIT license.
 
-function! scalpel#cword(curpos) abort
-  " <cword> Doesn't work usefully in visual mode (always returns first word),
-  " so fake it.
-  let l:line=getline(a:curpos[1])
-  let l:col=a:curpos[2]
-  let l:chars=split(l:line, '\zs')
-  let l:word=[]
-
-  " Look for keyword characters rightwards.
-  for l:char in l:chars[(l:col):]
-    if match(l:char, '\k') != -1
-      call add(l:word, l:char)
-    else
-      break
-    endif
-  endfor
-
-  " Look for keyword characters leftwards.
-  for l:char in reverse(l:chars[:(l:col) - 1])
-    if match(l:char, '\k') != -1
-      call insert(l:word, l:char, 0)
-    else
-      break
-    endif
-  endfor
-
-  return join(l:word, '')
+" thanks to xolox
+" https://stackoverflow.com/questions/1533565/how-to-get-visually-selected-text-in-vimscript
+function! scalpel#get_oneline_selection() abort
+  let [l:line_start, l:column_start] = getpos("'<")[1:2]
+  let [l:line_end, l:column_end] = getpos("'>")[1:2]
+  if l:line_start != l:line_end
+      return ''
+  endif
+  let l:selection = getline(l:line_start)
+  let l:selection = l:selection[l:column_start - 1 : l:column_end - (&selection == 'inclusive' ? 1 : 2)]
+  return escape(l:selection, '\')
 endfunction
 
 function s:g()
@@ -53,17 +37,17 @@ function s:replacements(currentline, _lastline, patterns, g)
   endtry
 endfunction
 
-function! scalpel#substitute(patterns, line1, line2, count) abort
-  if a:count == -1
-    " No range supplied, operate on whole buffer.
-    let l:currentline=a:line1
-    let l:firstline=1
-    let l:lastline=line('$')
-  else
-    let l:firstline=a:line1 <= a:line2 ? a:line1 : a:line2
-    let l:lastline=a:line2 >= a:line2 ? a:line2 : a:line1
-    let l:currentline=l:firstline
+function! scalpel#substitute(patterns, line1, line2) abort
+  " accept only oneline patterns
+  if a:line1 != a:line2
+    echomsg 'Multiline selection is not allowed.'
+    return
   endif
+
+  " always operate on whole buffer
+  let l:currentline=a:line1
+  let l:firstline=1
+  let l:lastline=line('$')
 
   let l:g=s:g()
 

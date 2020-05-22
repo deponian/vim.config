@@ -267,57 +267,20 @@ let g:ScalpelLoaded = 1
 let s:cpoptions = &cpoptions
 set cpoptions&vim
 
-let s:command=get(g:, 'ScalpelCommand', 'Scalpel')
-if s:command ==# ''
-  finish
-elseif match(s:command, '\v\C^[A-Z][A-Za-z]*$') == -1
-  echoerr 'g:ScalpelCommand must contain only letters and start with a ' .
-        \ 'capital letter'
-  finish
-endif
+let s:command='Scalpel'
+
 execute 'command! -nargs=1 -range '
       \ . s:command
-      \ . ' call scalpel#substitute(<q-args>, <line1>, <line2>, <count>)'
+      \ . ' call scalpel#substitute(<q-args>, <line1>, <line2>)'
 
-function! s:GetCurposCompat()
-  if exists('*getcurpos')
-    return getcurpos()
-  else
-    return getpos('.')
-  endif
-endfunction
-
-" Need to remember last-seen cursor position because `getcurpos()` is not useful
-" in VISUAL modes.
-let s:curpos=s:GetCurposCompat()
-augroup Scalpel
-  autocmd!
-  autocmd CursorMoved * let s:curpos=s:GetCurposCompat()
-augroup END
-
-" Local accessor so that we can reference the script-local variable from inside
-" a mapping (as per http://superuser.com/questions/566720).
-function! s:GetCurpos()
-  return s:curpos
-endfunction
-
-" Change all instances of current word (mnemonic: edit).
+" normal mode: change all instances of current word.
+" visual mode: change all instances of selected sequence
 execute 'nnoremap <Plug>(Scalpel) :' .
       \ s:command .
       \ "/\\v<<C-R>=expand('<cword>')<CR>>//<Left>"
 execute 'vnoremap <Plug>(ScalpelVisual) :' .
       \ s:command .
-      \ "/\\v<<C-R>=scalpel#cword(<SID>GetCurpos())<CR>>//<Left>"
-
-let s:map=get(g:, 'ScalpelMap', 1)
-if s:map
-  if !hasmapto('<Plug>(Scalpel)') && maparg('<leader>e', 'n') ==# ''
-    nmap <unique> <Leader>e <Plug>(Scalpel)
-  endif
-  if !hasmapto('<Plug>(ScalpelVisual)') && maparg('<leader>e', 'v') ==# ''
-    vmap <unique> <Leader>e <Plug>(ScalpelVisual)
-  endif
-endif
+      \ "/\\V<C-R>=scalpel#get_oneline_selection()<CR>//<Left>"
 
 " Restore 'cpoptions' to its former value.
 let &cpoptions = s:cpoptions
