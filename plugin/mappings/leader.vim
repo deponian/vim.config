@@ -38,6 +38,11 @@ nnoremap <silent> <Leader>h :noh<CR>
 " (mnemonic: zap)
 nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
 
+" <Leader>x -- Replace tabs with spaces or vice versa according to current
+" tabstop, expandtab/noexpandtab and etc.
+" (mnemonic: it is close to 'z' where zap mapping lives :D)
+nnoremap <Leader>x :%retab!<CR>:echo "Retabed successfully"<CR>
+
 " <Leader>r -- Replace word or selected sequence
 " (mnemonic: replace)
 nmap <Leader>r <Plug>(Scalpel)
