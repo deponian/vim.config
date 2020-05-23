@@ -18,7 +18,6 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/CH-DanReif/haproxy.vim
 - https://github.com/MTDL9/vim-log-highlighting
 - https://github.com/Matt-Deacalion/vim-systemd-syntax
-- https://github.com/bling/vim-bufferline
 - https://github.com/cespare/vim-toml
 - https://github.com/chr4/nginx.vim
 - https://github.com/chrisbra/vim-zsh

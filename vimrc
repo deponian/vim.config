@@ -20,7 +20,6 @@ if &loadplugins
 	if has('packages')
 		packadd! airline			" https://github.com/vim-airline/vim-airline
 		packadd! ansible			" https://github.com/pearofducks/ansible-vim
-		packadd! bufferline			" https://github.com/bling/vim-bufferline
 		packadd! cmake				" https://github.com/pboettch/vim-cmake-syntax
 		packadd! commentary			" https://github.com/tpope/vim-commentary
 		packadd! detectindent 		" https://github.com/ciaranm/detectindent (base)

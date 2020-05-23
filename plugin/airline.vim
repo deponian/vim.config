@@ -2,19 +2,16 @@
 
 " load only necessary extensions
 if has('nvim')
-	let g:airline_extensions = ['bufferline', 'neomake', 'netrw', 'whitespace', 'wordcount']
+	let g:airline_extensions = ['neomake', 'netrw', 'whitespace', 'wordcount']
 else
-	let g:airline_extensions = ['bufferline', 'netrw', 'whitespace', 'wordcount']
+	let g:airline_extensions = ['netrw', 'whitespace', 'wordcount']
 endif
+
+" statusline setting
 let g:airline_highlighting_cache = 1
-
-" no duplicate bufferline output
-let g:bufferline_echo = 0
-
 if !exists('g:airline_symbols')
 	let g:airline_symbols = {}
 endif
-
 let g:airline_symbols.linenr = ''
 let g:airline_symbols.maxlinenr = ''
 let g:airline_symbols.crypt = ''
