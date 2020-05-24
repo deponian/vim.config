@@ -1,545 +1,1036 @@
-" vim:fdm=marker
 " Vim Color File
 " Name:       onedark.vim
-" Maintainer: https://github.com/joshdick/onedark.vim/
+" Maintainer: https://github.com/deponian/vim-onedark
 " License:    The MIT License (MIT)
-" Based On:   https://github.com/MaxSt/FlatColor/
-
-" A companion [vim-airline](https://github.com/bling/vim-airline) theme is available at: https://github.com/joshdick/airline-onedark.vim
-
-" Color Reference {{{
-
-" The following colors were measured inside Atom using its built-in inspector.
-
-" +---------------------------------------------+
-" |  Color Name  |         RGB        |   Hex   |
-" |--------------+--------------------+---------|
-" | Black        | rgb(40, 44, 52)    | #282c34 |
-" |--------------+--------------------+---------|
-" | White        | rgb(171, 178, 191) | #abb2bf |
-" |--------------+--------------------+---------|
-" | Light Red    | rgb(224, 108, 117) | #e06c75 |
-" |--------------+--------------------+---------|
-" | Dark Red     | rgb(190, 80, 70)   | #be5046 |
-" |--------------+--------------------+---------|
-" | Green        | rgb(152, 195, 121) | #98c379 |
-" |--------------+--------------------+---------|
-" | Light Yellow | rgb(229, 192, 123) | #e5c07b |
-" |--------------+--------------------+---------|
-" | Dark Yellow  | rgb(209, 154, 102) | #d19a66 |
-" |--------------+--------------------+---------|
-" | Blue         | rgb(97, 175, 239)  | #61afef |
-" |--------------+--------------------+---------|
-" | Magenta      | rgb(198, 120, 221) | #c678dd |
-" |--------------+--------------------+---------|
-" | Cyan         | rgb(86, 182, 194)  | #56b6c2 |
-" |--------------+--------------------+---------|
-" | Gutter Grey  | rgb(76, 82, 99)    | #4b5263 |
-" |--------------+--------------------+---------|
-" | Comment Grey | rgb(92, 99, 112)   | #5c6370 |
-" +---------------------------------------------+
-
-" }}}
-
-" Initialization {{{
+" Based On:   https://github.com/joshdick/onedark.vim
 
 highlight clear
 
 if exists("syntax_on")
-  syntax reset
+	syntax reset
 endif
-
-set t_Co=256
 
 let g:colors_name="onedark"
 
-" Set to "256" for 256-color terminals, or
-" set to "16" to use your terminal emulator's native colors
-" (a 16-color palette for this color scheme is available; see
-" < https://github.com/joshdick/onedark.vim/blob/master/README.md >
-" for more information.)
-if !exists("g:onedark_termcolors")
-  let g:onedark_termcolors = 256
+" set g:onedark_transparent = 0
+" if you don't use transparent background in your terminal
+if !exists("g:onedark_transparent")
+	let g:onedark_transparent = 1
 endif
 
-" Not all terminals support italics properly. If yours does, opt-in.
-if !exists("g:onedark_terminal_italics")
-  let g:onedark_terminal_italics = 0
-endif
+let s:red = { "gui": "#E06C75", "cterm": "204"}
+let s:dark_red = { "gui": "#BE5046", "cterm": "196"}
+let s:green = { "gui": "#98C379", "cterm": "114"}
+let s:yellow = { "gui": "#E5C07B", "cterm": "180"}
+let s:dark_yellow = { "gui": "#D19A66", "cterm": "173"}
+let s:blue = { "gui": "#61AFEF", "cterm": "39"}
+let s:purple = { "gui": "#C678DD", "cterm": "170"}
+let s:cyan = { "gui": "#56B6C2", "cterm": "38"}
+let s:white = { "gui": "#ABB2BF", "cterm": "145"}
+let s:black = { "gui": "#282C34", "cterm": "235"}
+let s:visual_black = { "gui": "NONE", "cterm": "NONE"}
+let s:comment_grey = { "gui": "#5C6370", "cterm": "59"}
+let s:gutter_fg_grey = { "gui": "#4B5263", "cterm": "238"}
+let s:cursor_grey = { "gui": "#2C323C", "cterm": "236"}
+let s:visual_grey = { "gui": "#3E4452", "cterm": "237"}
+let s:menu_grey = { "gui": "#3E4452", "cterm": "237"}
+let s:special_grey = { "gui": "#3B4048", "cterm": "238"}
+let s:vertsplit = { "gui": "#181A1F", "cterm": "59"}
+let s:orange = { "gui": "#FF8800", "cterm": "208"}
+let s:cursor_line_nr = { "gui": "#0087B4", "cterm": "39"}
 
-" This function is based on one from FlatColor: https://github.com/MaxSt/FlatColor/
-" Which in turn was based on one found in hemisu: https://github.com/noahfrederick/vim-hemisu/
-let s:group_colors = {} " Cache of default highlight group settings, for later reference via `onedark#extend_highlight`
-function! s:h(group, style, ...)
-  if (a:0 > 0) " Will be true if we got here from onedark#extend_highlight
-    let s:highlight = s:group_colors[a:group]
-    for style_type in ["fg", "bg", "sp"]
-      if (has_key(a:style, style_type))
-        let l:default_style = (has_key(s:highlight, style_type) ? s:highlight[style_type] : { "cterm16": "NONE", "cterm": "NONE", "gui": "NONE" })
-        let s:highlight[style_type] = extend(l:default_style, a:style[style_type])
-      endif
-    endfor
-    if (has_key(a:style, "gui"))
-      let s:highlight.gui = a:style.gui
-    endif
-  else
-    let s:highlight = a:style
-    let s:group_colors[a:group] = s:highlight " Cache default highlight group settings
-  endif
+" Syntax Groups (descriptions and ordering from `:h w18`)
+execute "hi Comment"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=italic"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=italic"
+execute "hi Constant"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi String"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Character"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Number"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Boolean"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Float"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Identifier"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Function"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Statement"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Conditional"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Repeat"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Label"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Operator"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Keyword"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Exception"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi PreProc"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Include"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Define"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Macro"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi PreCondit"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Type"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi StorageClass"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Structure"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Typedef"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Special"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SpecialChar"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi Tag"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi Delimiter"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi SpecialComment"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Debug"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi Underlined"
+		\ "guifg=NONE guibg=NONE gui=underline"
+		\ "ctermfg=NONE ctermbg=NONE cterm=underline"
+execute "hi Ignore"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi Error"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Todo"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 
-  if g:onedark_terminal_italics == 0
-    if has_key(s:highlight, "cterm") && s:highlight["cterm"] == "italic"
-      unlet s:highlight.cterm
-    endif
-    if has_key(s:highlight, "gui") && s:highlight["gui"] == "italic"
-      unlet s:highlight.gui
-    endif
-  endif
-
-  if g:onedark_termcolors == 16
-    let l:ctermfg = (has_key(s:highlight, "fg") ? s:highlight.fg.cterm16 : "NONE")
-    let l:ctermbg = (has_key(s:highlight, "bg") ? s:highlight.bg.cterm16 : "NONE")
-  else
-    let l:ctermfg = (has_key(s:highlight, "fg") ? s:highlight.fg.cterm : "NONE")
-    let l:ctermbg = (has_key(s:highlight, "bg") ? s:highlight.bg.cterm : "NONE")
-  endif
-
-  execute "highlight" a:group
-    \ "guifg="   (has_key(s:highlight, "fg")    ? s:highlight.fg.gui   : "NONE")
-    \ "guibg="   (has_key(s:highlight, "bg")    ? s:highlight.bg.gui   : "NONE")
-    \ "guisp="   (has_key(s:highlight, "sp")    ? s:highlight.sp.gui   : "NONE")
-    \ "gui="     (has_key(s:highlight, "gui")   ? s:highlight.gui      : "NONE")
-    \ "ctermfg=" . l:ctermfg
-    \ "ctermbg=" . l:ctermbg
-    \ "cterm="   (has_key(s:highlight, "cterm") ? s:highlight.cterm    : "NONE")
-endfunction
-
-" public {{{
-
-function! onedark#set_highlight(group, style)
-  call s:h(a:group, a:style)
-endfunction
-
-function! onedark#extend_highlight(group, style)
-  call s:h(a:group, a:style, 1)
-endfunction
-
-" }}}
-
-" }}}
-
-" Color Variables {{{
-
-let s:colors = onedark#GetColors()
-
-let s:red = s:colors.red
-let s:dark_red = s:colors.dark_red
-let s:green = s:colors.green
-let s:yellow = s:colors.yellow
-let s:dark_yellow = s:colors.dark_yellow
-let s:blue = s:colors.blue
-let s:purple = s:colors.purple
-let s:cyan = s:colors.cyan
-let s:white = s:colors.white
-let s:black = s:colors.black
-let s:visual_black = s:colors.visual_black " Black out selected text in 16-color visual mode
-let s:comment_grey = s:colors.comment_grey
-let s:gutter_fg_grey = s:colors.gutter_fg_grey
-let s:cursor_grey = s:colors.cursor_grey
-let s:visual_grey = s:colors.visual_grey
-let s:menu_grey = s:colors.menu_grey
-let s:special_grey = s:colors.special_grey
-let s:vertsplit = s:colors.vertsplit
-let s:orange = s:colors.orange
-
-" }}}
-
-" Terminal Colors {{{
-
-let g:terminal_ansi_colors = [
-  \ s:black.gui, s:red.gui, s:green.gui, s:yellow.gui,
-  \ s:blue.gui, s:purple.gui, s:cyan.gui, s:white.gui,
-  \ s:visual_grey.gui, s:dark_red.gui, s:green.gui, s:dark_yellow.gui,
-  \ s:blue.gui, s:purple.gui, s:cyan.gui, s:comment_grey.gui
-\]
-
-" }}}
-
-" Syntax Groups (descriptions and ordering from `:h w18`) {{{
-
-call s:h("Comment", { "fg": s:comment_grey, "gui": "italic", "cterm": "italic" }) " any comment
-call s:h("Constant", { "fg": s:cyan }) " any constant
-call s:h("String", { "fg": s:green }) " a string constant: "this is a string"
-call s:h("Character", { "fg": s:green }) " a character constant: 'c', '\n'
-call s:h("Number", { "fg": s:dark_yellow }) " a number constant: 234, 0xff
-call s:h("Boolean", { "fg": s:dark_yellow }) " a boolean constant: TRUE, false
-call s:h("Float", { "fg": s:dark_yellow }) " a floating point constant: 2.3e10
-call s:h("Identifier", { "fg": s:red }) " any variable name
-call s:h("Function", { "fg": s:blue }) " function name (also: methods for classes)
-call s:h("Statement", { "fg": s:purple }) " any statement
-call s:h("Conditional", { "fg": s:purple }) " if, then, else, endif, switch, etc.
-call s:h("Repeat", { "fg": s:purple }) " for, do, while, etc.
-call s:h("Label", { "fg": s:purple }) " case, default, etc.
-call s:h("Operator", { "fg": s:purple }) " sizeof", "+", "*", etc.
-call s:h("Keyword", { "fg": s:red }) " any other keyword
-call s:h("Exception", { "fg": s:purple }) " try, catch, throw
-call s:h("PreProc", { "fg": s:yellow }) " generic Preprocessor
-call s:h("Include", { "fg": s:blue }) " preprocessor #include
-call s:h("Define", { "fg": s:purple }) " preprocessor #define
-call s:h("Macro", { "fg": s:purple }) " same as Define
-call s:h("PreCondit", { "fg": s:yellow }) " preprocessor #if, #else, #endif, etc.
-call s:h("Type", { "fg": s:yellow }) " int, long, char, etc.
-call s:h("StorageClass", { "fg": s:yellow }) " static, register, volatile, etc.
-call s:h("Structure", { "fg": s:yellow }) " struct, union, enum, etc.
-call s:h("Typedef", { "fg": s:yellow }) " A typedef
-call s:h("Special", { "fg": s:blue }) " any special symbol
-call s:h("SpecialChar", {}) " special character in a constant
-call s:h("Tag", {}) " you can use CTRL-] on this
-call s:h("Delimiter", {}) " character that needs attention
-call s:h("SpecialComment", { "fg": s:comment_grey }) " special things inside a comment
-call s:h("Debug", {}) " debugging statements
-call s:h("Underlined", { "gui": "underline", "cterm": "underline" }) " text that stands out, HTML links
-call s:h("Ignore", {}) " left blank, hidden
-call s:h("Error", { "fg": s:red }) " any erroneous construct
-call s:h("Todo", { "fg": s:purple }) " anything that needs extra attention; mostly the keywords TODO FIXME and XXX
-
-" }}}
-
-" Highlighting Groups (descriptions and ordering from `:h highlight-groups`) {{{
-call s:h("ColorColumn", { "bg": s:cursor_grey }) " used for the columns set with 'colorcolumn'
-call s:h("Conceal", {}) " placeholder characters substituted for concealed text (see 'conceallevel')
-call s:h("Cursor", { "fg": s:black, "bg": s:blue }) " the character under the cursor
-call s:h("CursorIM", {}) " like Cursor, but used when in IME mode
-call s:h("CursorColumn", { "bg": s:cursor_grey }) " the screen column that the cursor is in when 'cursorcolumn' is set
+" Highlighting Groups (descriptions and ordering from `:h highlight-groups`)
+execute "hi ColorColumn"
+		\ "guifg=NONE guibg=" . s:cursor_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:cursor_grey.cterm "cterm=NONE"
+execute "hi Conceal"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi Cursor"
+		\ "guifg=" . s:black.gui "guibg=" . s:blue.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:blue.cterm "cterm=NONE"
+execute "hi CursorIM"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi CursorColumn"
+		\ "guifg=NONE guibg=" . s:cursor_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:cursor_grey.cterm "cterm=NONE"
 if &diff
-  " Don't change the background color in diff mode
-  call s:h("CursorLine", { "gui": "underline" }) " the screen line that the cursor is in when 'cursorline' is set
+	execute "hi CursorLine"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
 else
-  call s:h("CursorLine", { "bg": s:cursor_grey }) " the screen line that the cursor is in when 'cursorline' is set
+	execute "hi CursorLine"
+		\ "guifg=NONE guibg=" . s:cursor_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:cursor_grey.cterm "cterm=NONE"
 endif
-call s:h("Directory", { "fg": s:blue }) " directory names (and other special names in listings)
-call s:h("DiffAdd", { "bg": s:green, "fg": s:black }) " diff mode: Added line
-call s:h("DiffChange", { "fg": s:yellow }) " diff mode: Changed line
-call s:h("DiffDelete", { "bg": s:red, "fg": s:black }) " diff mode: Deleted line
-call s:h("DiffText", { "bg": s:orange, "fg": s:black }) " diff mode: Changed text within a changed line
-if get(g:, 'onedark_hide_endofbuffer', 0)
-    " If enabled, will style end-of-buffer filler lines (~) to appear to be hidden.
-    call s:h("EndOfBuffer", { "fg": s:black }) " filler lines (~) after the last line in the buffer
+execute "hi Directory"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi DiffAdd"
+		\ "guifg=" . s:black.gui "guibg=" . s:green.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:green.cterm "cterm=NONE"
+execute "hi DiffChange"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi DiffDelete"
+		\ "guifg=" . s:black.gui "guibg=" . s:red.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:red.cterm "cterm=NONE"
+execute "hi DiffText"
+		\ "guifg=" . s:black.gui "guibg=" . s:orange.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:orange.cterm "cterm=NONE"
+execute "hi ErrorMsg"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi VertSplit"
+		\ "guifg=" . s:vertsplit.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Folded"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi FoldColumn"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi SignColumn"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi IncSearch"
+		\ "guifg=" . s:yellow.gui "guibg=" . s:comment_grey.gui "gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=" . s:comment_grey.cterm "cterm=NONE"
+execute "hi LineNr"
+		\ "guifg=" . s:gutter_fg_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=2" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi CursorLineNr"
+		\ "guifg=" . s:cursor_line_nr.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cursor_line_nr.cterm "ctermbg=NONE cterm=NONE"
+execute "hi MatchParen"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi ModeMsg"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi MoreMsg"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi NonText"
+		\ "guifg=" . s:special_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=2" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+if g:onedark_transparent == 1
+	execute "hi Normal"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+else
+	execute "hi Normal"
+		\ "guifg=" . s:white.gui "guibg=" . s:black.gui "gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=" . s:black.cterm "cterm=NONE"
 endif
-call s:h("ErrorMsg", { "fg": s:red }) " error messages on the command line
-call s:h("VertSplit", { "fg": s:vertsplit }) " the column separating vertically split windows
-call s:h("Folded", { "fg": s:comment_grey }) " line used for closed folds
-call s:h("FoldColumn", {}) " 'foldcolumn'
-call s:h("SignColumn", {}) " column where signs are displayed
-call s:h("IncSearch", { "fg": s:yellow, "bg": s:comment_grey }) " 'incsearch' highlighting; also used for the text replaced with ":s///c"
-call s:h("LineNr", { "fg": s:gutter_fg_grey }) " Line number for ":number" and ":#" commands, and when 'number' or 'relativenumber' option is set.
-call s:h("CursorLineNr", {}) " Like LineNr when 'cursorline' or 'relativenumber' is set for the cursor line.
-call s:h("MatchParen", { "fg": s:red }) " The character under the cursor or just before it, if it is a paired bracket, and its match.
-call s:h("ModeMsg", {}) " 'showmode' message (e.g., "-- INSERT --")
-call s:h("MoreMsg", {}) " more-prompt
-call s:h("NonText", { "fg": s:special_grey }) " '~' and '@' at the end of the window, characters from 'showbreak' and other characters that do not really exist in the text (e.g., ">" displayed when a double-wide character doesn't fit at the end of the line).
-call s:h("Normal", { "fg": s:white, "bg": s:black }) " normal text
-call s:h("Pmenu", { "bg": s:menu_grey }) " Popup menu: normal item.
-call s:h("PmenuSel", { "fg": s:black, "bg": s:blue }) " Popup menu: selected item.
-call s:h("PmenuSbar", { "bg": s:special_grey }) " Popup menu: scrollbar.
-call s:h("PmenuThumb", { "bg": s:white }) " Popup menu: Thumb of the scrollbar.
-call s:h("Question", { "fg": s:purple }) " hit-enter prompt and yes/no questions
-call s:h("QuickFixLine", { "fg": s:black, "bg": s:yellow }) " Current quickfix item in the quickfix window.
-call s:h("Search", { "fg": s:black, "bg": s:yellow }) " Last search pattern highlighting (see 'hlsearch'). Also used for similar items that need to stand out.
-call s:h("SpecialKey", { "fg": s:special_grey }) " Meta and special keys listed with ":map", also for text used to show unprintable characters in the text, 'listchars'. Generally: text that is displayed differently from what it really is.
-call s:h("SpellBad", { "fg": s:red, "gui": "underline", "cterm": "underline" }) " Word that is not recognized by the spellchecker. This will be combined with the highlighting used otherwise.
-call s:h("SpellCap", { "fg": s:dark_yellow }) " Word that should start with a capital. This will be combined with the highlighting used otherwise.
-call s:h("SpellLocal", { "fg": s:dark_yellow }) " Word that is recognized by the spellchecker as one that is used in another region. This will be combined with the highlighting used otherwise.
-call s:h("SpellRare", { "fg": s:dark_yellow }) " Word that is recognized by the spellchecker as one that is hardly ever used. spell This will be combined with the highlighting used otherwise.
-call s:h("StatusLine", { "fg": s:white, "bg": s:cursor_grey }) " status line of current window
-call s:h("StatusLineNC", { "fg": s:comment_grey }) " status lines of not-current windows Note: if this is equal to "StatusLine" Vim will use "^^^" in the status line of the current window.
-call s:h("StatusLineTerm", { "fg": s:white, "bg": s:cursor_grey }) " status line of current :terminal window
-call s:h("StatusLineTermNC", { "fg": s:comment_grey }) " status line of non-current :terminal window
-call s:h("TabLine", { "fg": s:comment_grey }) " tab pages line, not active tab page label
-call s:h("TabLineFill", {}) " tab pages line, where there are no labels
-call s:h("TabLineSel", { "fg": s:white }) " tab pages line, active tab page label
-call s:h("Terminal", { "fg": s:white, "bg": s:black }) " terminal window (see terminal-size-color)
-call s:h("Title", { "fg": s:green }) " titles for output from ":set all", ":autocmd" etc.
-call s:h("Visual", { "fg": s:visual_black, "bg": s:visual_grey }) " Visual mode selection
-call s:h("VisualNOS", { "bg": s:visual_grey }) " Visual mode selection when vim is "Not Owning the Selection". Only X11 Gui's gui-x11 and xterm-clipboard supports this.
-call s:h("WarningMsg", { "fg": s:yellow }) " warning messages
-call s:h("WildMenu", { "fg": s:black, "bg": s:blue }) " current match in 'wildmenu' completion
+execute "hi Pmenu"
+		\ "guifg=NONE guibg=" . s:visual_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:visual_grey.cterm "cterm=NONE"
+execute "hi PmenuSel"
+		\ "guifg=" . s:black.gui "guibg=" . s:blue.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:blue.cterm "cterm=NONE"
+execute "hi PmenuSbar"
+		\ "guifg=NONE guibg=" . s:special_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=2" . s:cyan.cterm "cterm=NONE"
+execute "hi PmenuThumb"
+		\ "guifg=NONE guibg=" . s:white.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:white.cterm "cterm=NONE"
+execute "hi Question"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi QuickFixLine"
+		\ "guifg=" . s:black.gui "guibg=" . s:yellow.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:yellow.cterm "cterm=NONE"
+execute "hi Search"
+		\ "guifg=" . s:black.gui "guibg=" . s:yellow.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:yellow.cterm "cterm=NONE"
+execute "hi SpecialKey"
+		\ "guifg=" . s:special_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=2" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SpellBad"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=underline"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=underline"
+execute "hi SpellCap"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SpellLocal"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SpellRare"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi StatusLine"
+		\ "guifg=" . s:white.gui "guibg=" . s:cursor_grey.gui "gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=" . s:cursor_grey.cterm "cterm=NONE"
+execute "hi StatusLineNC"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi StatusLineTerm"
+		\ "guifg=" . s:white.gui "guibg=" . s:cursor_grey.gui "gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=" . s:cursor_grey.cterm "cterm=NONE"
+execute "hi StatusLineTermNC"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi TabLine"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi TabLineFill"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi TabLineSel"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Terminal"
+		\ "guifg=" . s:white.gui "guibg=" . s:black.gui "gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=" . s:black.cterm "cterm=NONE"
+execute "hi Title"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi Visual"
+		\ "guifg=NONE guibg=" . s:visual_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:visual_grey.cterm "cterm=NONE"
+execute "hi VisualNOS"
+		\ "guifg=NONE guibg=" . s:visual_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=" . s:visual_grey.cterm "cterm=NONE"
+execute "hi WarningMsg"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi WildMenu"
+		\ "guifg=" . s:black.gui "guibg=" . s:blue.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:blue.cterm "cterm=NONE"
 
-" }}}
-
-" Termdebug highlighting for Vim 8.1+ {{{
-
+" Termdebug highlighting for Vim 8.1+
 " See `:h hl-debugPC` and `:h hl-debugBreakpoint`.
-call s:h("debugPC", { "bg": s:special_grey }) " the current position
-call s:h("debugBreakpoint", { "fg": s:black, "bg": s:red }) " a breakpoint
+execute "hi debugPC"
+		\ "guifg=NONE guibg=" . s:special_grey.gui "gui=NONE"
+		\ "ctermfg=NONE ctermbg=2" . s:cyan.cterm "cterm=NONE"
+execute "hi debugBreakpoint"
+		\ "guifg=" . s:black.gui "guibg=" . s:red.gui "gui=NONE"
+		\ "ctermfg=" . s:black.cterm "ctermbg=" . s:red.cterm "cterm=NONE"
 
-" }}}
-
-" Language-Specific Highlighting {{{
+" Language-Specific Highlighting
 
 " CSS
-call s:h("cssAttrComma", { "fg": s:purple })
-call s:h("cssAttributeSelector", { "fg": s:green })
-call s:h("cssBraces", { "fg": s:white })
-call s:h("cssClassName", { "fg": s:dark_yellow })
-call s:h("cssClassNameDot", { "fg": s:dark_yellow })
-call s:h("cssDefinition", { "fg": s:purple })
-call s:h("cssFontAttr", { "fg": s:dark_yellow })
-call s:h("cssFontDescriptor", { "fg": s:purple })
-call s:h("cssFunctionName", { "fg": s:blue })
-call s:h("cssIdentifier", { "fg": s:blue })
-call s:h("cssImportant", { "fg": s:purple })
-call s:h("cssInclude", { "fg": s:white })
-call s:h("cssIncludeKeyword", { "fg": s:purple })
-call s:h("cssMediaType", { "fg": s:dark_yellow })
-call s:h("cssProp", { "fg": s:white })
-call s:h("cssPseudoClassId", { "fg": s:dark_yellow })
-call s:h("cssSelectorOp", { "fg": s:purple })
-call s:h("cssSelectorOp2", { "fg": s:purple })
-call s:h("cssTagName", { "fg": s:red })
+execute "hi cssAttrComma"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssAttributeSelector"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssBraces"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssClassName"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssClassNameDot"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssDefinition"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssFontAttr"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssFontDescriptor"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssFunctionName"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssIdentifier"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssImportant"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssInclude"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssIncludeKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssMediaType"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssProp"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssPseudoClassId"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssSelectorOp"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssSelectorOp2"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi cssTagName"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 
 " Fish Shell
-call s:h("fishKeyword", { "fg": s:purple })
-call s:h("fishConditional", { "fg": s:purple })
+execute "hi fishKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi fishConditional"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 
 " Go
-call s:h("goDeclaration", { "fg": s:purple })
-call s:h("goBuiltins", { "fg": s:cyan })
-call s:h("goFunctionCall", { "fg": s:blue })
-call s:h("goVarDefs", { "fg": s:red })
-call s:h("goVarAssign", { "fg": s:red })
-call s:h("goVar", { "fg": s:purple })
-call s:h("goConst", { "fg": s:purple })
-call s:h("goType", { "fg": s:yellow })
-call s:h("goTypeName", { "fg": s:yellow })
-call s:h("goDeclType", { "fg": s:cyan })
-call s:h("goTypeDecl", { "fg": s:purple })
+execute "hi goDeclaration"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goBuiltins"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goFunctionCall"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goVarDefs"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goVarAssign"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goVar"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goConst"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goType"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goTypeName"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goDeclType"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi goTypeDecl"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 
 " HTML (keep consistent with Markdown, below)
-call s:h("htmlArg", { "fg": s:dark_yellow })
-call s:h("htmlBold", { "fg": s:dark_yellow, "gui": "bold", "cterm": "bold" })
-call s:h("htmlEndTag", { "fg": s:white })
-call s:h("htmlH1", { "fg": s:red })
-call s:h("htmlH2", { "fg": s:red })
-call s:h("htmlH3", { "fg": s:red })
-call s:h("htmlH4", { "fg": s:red })
-call s:h("htmlH5", { "fg": s:red })
-call s:h("htmlH6", { "fg": s:red })
-call s:h("htmlItalic", { "fg": s:purple, "gui": "italic", "cterm": "italic" })
-call s:h("htmlLink", { "fg": s:cyan, "gui": "underline", "cterm": "underline" })
-call s:h("htmlSpecialChar", { "fg": s:dark_yellow })
-call s:h("htmlSpecialTagName", { "fg": s:red })
-call s:h("htmlTag", { "fg": s:white })
-call s:h("htmlTagN", { "fg": s:red })
-call s:h("htmlTagName", { "fg": s:red })
-call s:h("htmlTitle", { "fg": s:white })
+execute "hi htmlArg"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlBold"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=bold"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=bold"
+execute "hi htmlEndTag"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH1"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH2"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH3"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH4"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH5"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlH6"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlItalic"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=italic"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=italic"
+execute "hi htmlLink"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=underline"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=underline"
+execute "hi htmlSpecialChar"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlSpecialTagName"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlTag"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlTagN"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlTagName"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi htmlTitle"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
 
 " JavaScript
-call s:h("javaScriptBraces", { "fg": s:white })
-call s:h("javaScriptFunction", { "fg": s:purple })
-call s:h("javaScriptIdentifier", { "fg": s:purple })
-call s:h("javaScriptNull", { "fg": s:dark_yellow })
-call s:h("javaScriptNumber", { "fg": s:dark_yellow })
-call s:h("javaScriptRequire", { "fg": s:cyan })
-call s:h("javaScriptReserved", { "fg": s:purple })
+execute "hi javaScriptBraces"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptFunction"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptIdentifier"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptNull"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptNumber"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptRequire"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javaScriptReserved"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 " https://github.com/pangloss/vim-javascript
-call s:h("jsArrowFunction", { "fg": s:purple })
-call s:h("jsClassKeyword", { "fg": s:purple })
-call s:h("jsClassMethodType", { "fg": s:purple })
-call s:h("jsDocParam", { "fg": s:blue })
-call s:h("jsDocTags", { "fg": s:purple })
-call s:h("jsExport", { "fg": s:purple })
-call s:h("jsExportDefault", { "fg": s:purple })
-call s:h("jsExtendsKeyword", { "fg": s:purple })
-call s:h("jsFrom", { "fg": s:purple })
-call s:h("jsFuncCall", { "fg": s:blue })
-call s:h("jsFunction", { "fg": s:purple })
-call s:h("jsGenerator", { "fg": s:yellow })
-call s:h("jsGlobalObjects", { "fg": s:yellow })
-call s:h("jsImport", { "fg": s:purple })
-call s:h("jsModuleAs", { "fg": s:purple })
-call s:h("jsModuleWords", { "fg": s:purple })
-call s:h("jsModules", { "fg": s:purple })
-call s:h("jsNull", { "fg": s:dark_yellow })
-call s:h("jsOperator", { "fg": s:purple })
-call s:h("jsStorageClass", { "fg": s:purple })
-call s:h("jsSuper", { "fg": s:red })
-call s:h("jsTemplateBraces", { "fg": s:dark_red })
-call s:h("jsTemplateVar", { "fg": s:green })
-call s:h("jsThis", { "fg": s:red })
-call s:h("jsUndefined", { "fg": s:dark_yellow })
+execute "hi jsArrowFunction"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsClassKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsClassMethodType"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsDocParam"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsDocTags"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsExport"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsExportDefault"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsExtendsKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsFrom"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsFuncCall"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsFunction"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsGenerator"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsGlobalObjects"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsImport"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsModuleAs"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsModuleWords"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsModules"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsNull"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsOperator"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsStorageClass"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsSuper"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsTemplateBraces"
+		\ "guifg=" . s:dark_red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsTemplateVar"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsThis"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsUndefined"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
 " https://github.com/othree/yajs.vim
-call s:h("javascriptArrowFunc", { "fg": s:purple })
-call s:h("javascriptClassExtends", { "fg": s:purple })
-call s:h("javascriptClassKeyword", { "fg": s:purple })
-call s:h("javascriptDocNotation", { "fg": s:purple })
-call s:h("javascriptDocParamName", { "fg": s:blue })
-call s:h("javascriptDocTags", { "fg": s:purple })
-call s:h("javascriptEndColons", { "fg": s:white })
-call s:h("javascriptExport", { "fg": s:purple })
-call s:h("javascriptFuncArg", { "fg": s:white })
-call s:h("javascriptFuncKeyword", { "fg": s:purple })
-call s:h("javascriptIdentifier", { "fg": s:red })
-call s:h("javascriptImport", { "fg": s:purple })
-call s:h("javascriptMethodName", { "fg": s:white })
-call s:h("javascriptObjectLabel", { "fg": s:white })
-call s:h("javascriptOpSymbol", { "fg": s:cyan })
-call s:h("javascriptOpSymbols", { "fg": s:cyan })
-call s:h("javascriptPropertyName", { "fg": s:green })
-call s:h("javascriptTemplateSB", { "fg": s:dark_red })
-call s:h("javascriptVariable", { "fg": s:purple })
+execute "hi javascriptArrowFunc"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptClassExtends"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptClassKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptDocNotation"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptDocParamName"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptDocTags"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptEndColons"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptExport"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptFuncArg"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptFuncKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptIdentifier"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptImport"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptMethodName"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptObjectLabel"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptOpSymbol"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptOpSymbols"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptPropertyName"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptTemplateSB"
+		\ "guifg=" . s:dark_red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi javascriptVariable"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 
 " JSON
-call s:h("jsonCommentError", { "fg": s:white })
-call s:h("jsonKeyword", { "fg": s:red })
-call s:h("jsonBoolean", { "fg": s:dark_yellow })
-call s:h("jsonNumber", { "fg": s:dark_yellow })
-call s:h("jsonQuote", { "fg": s:white })
-call s:h("jsonMissingCommaError", { "fg": s:red, "gui": "reverse" })
-call s:h("jsonNoQuotesError", { "fg": s:red, "gui": "reverse" })
-call s:h("jsonNumError", { "fg": s:red, "gui": "reverse" })
-call s:h("jsonString", { "fg": s:green })
-call s:h("jsonStringSQError", { "fg": s:red, "gui": "reverse" })
-call s:h("jsonSemicolonError", { "fg": s:red, "gui": "reverse" })
+execute "hi jsonCommentError"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonKeyword"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonBoolean"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonNumber"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonQuote"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonMissingCommaError"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=reverse"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonNoQuotesError"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=reverse"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonNumError"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=reverse"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonString"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonStringSQError"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=reverse"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi jsonSemicolonError"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=reverse"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 
 " LESS
-call s:h("lessVariable", { "fg": s:purple })
-call s:h("lessAmpersandChar", { "fg": s:white })
-call s:h("lessClass", { "fg": s:dark_yellow })
+execute "hi lessVariable"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi lessAmpersandChar"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi lessClass"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
 
 " Markdown (keep consistent with HTML, above)
-call s:h("markdownBlockquote", { "fg": s:comment_grey })
-call s:h("markdownBold", { "fg": s:dark_yellow, "gui": "bold", "cterm": "bold" })
-call s:h("markdownCode", { "fg": s:green })
-call s:h("markdownCodeBlock", { "fg": s:green })
-call s:h("markdownCodeDelimiter", { "fg": s:green })
-call s:h("markdownH1", { "fg": s:red })
-call s:h("markdownH2", { "fg": s:red })
-call s:h("markdownH3", { "fg": s:red })
-call s:h("markdownH4", { "fg": s:red })
-call s:h("markdownH5", { "fg": s:red })
-call s:h("markdownH6", { "fg": s:red })
-call s:h("markdownHeadingDelimiter", { "fg": s:red })
-call s:h("markdownHeadingRule", { "fg": s:comment_grey })
-call s:h("markdownId", { "fg": s:purple })
-call s:h("markdownIdDeclaration", { "fg": s:blue })
-call s:h("markdownIdDelimiter", { "fg": s:purple })
-call s:h("markdownItalic", { "fg": s:purple, "gui": "italic", "cterm": "italic" })
-call s:h("markdownLinkDelimiter", { "fg": s:purple })
-call s:h("markdownLinkText", { "fg": s:blue })
-call s:h("markdownListMarker", { "fg": s:red })
-call s:h("markdownOrderedListMarker", { "fg": s:red })
-call s:h("markdownRule", { "fg": s:comment_grey })
-call s:h("markdownUrl", { "fg": s:cyan, "gui": "underline", "cterm": "underline" })
+execute "hi markdownBlockquote"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownBold"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=bold"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=bold"
+execute "hi markdownCode"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownCodeBlock"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownCodeDelimiter"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH1"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH2"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH3"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH4"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH5"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownH6"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownHeadingDelimiter"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownHeadingRule"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownId"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownIdDeclaration"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownIdDelimiter"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownItalic"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=italic"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=italic"
+execute "hi markdownLinkDelimiter"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownLinkText"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownListMarker"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownOrderedListMarker"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownRule"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi markdownUrl"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=underline"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=underline"
 
 " Perl
-call s:h("perlFiledescRead", { "fg": s:green })
-call s:h("perlFunction", { "fg": s:purple })
-call s:h("perlMatchStartEnd",{ "fg": s:blue })
-call s:h("perlMethod", { "fg": s:purple })
-call s:h("perlPOD", { "fg": s:comment_grey })
-call s:h("perlSharpBang", { "fg": s:comment_grey })
-call s:h("perlSpecialString",{ "fg": s:cyan })
-call s:h("perlStatementFiledesc", { "fg": s:red })
-call s:h("perlStatementFlow",{ "fg": s:red })
-call s:h("perlStatementInclude", { "fg": s:purple })
-call s:h("perlStatementScalar",{ "fg": s:purple })
-call s:h("perlStatementStorage", { "fg": s:purple })
-call s:h("perlSubName",{ "fg": s:yellow })
-call s:h("perlVarPlain",{ "fg": s:blue })
+execute "hi perlFiledescRead"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlFunction"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlMatchStartEnd"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlMethod"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlPOD"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlSharpBang"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlSpecialString"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlStatementFiledesc"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlStatementFlow"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlStatementInclude"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlStatementScalar"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlStatementStorage"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlSubName"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi perlVarPlain"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
 
 " PHP
-call s:h("phpVarSelector", { "fg": s:red })
-call s:h("phpOperator", { "fg": s:white })
-call s:h("phpParent", { "fg": s:white })
-call s:h("phpMemberSelector", { "fg": s:white })
-call s:h("phpType", { "fg": s:purple })
-call s:h("phpKeyword", { "fg": s:purple })
-call s:h("phpClass", { "fg": s:yellow })
-call s:h("phpUseClass", { "fg": s:white })
-call s:h("phpUseAlias", { "fg": s:white })
-call s:h("phpInclude", { "fg": s:purple })
-call s:h("phpClassExtends", { "fg": s:green })
-call s:h("phpDocTags", { "fg": s:white })
-call s:h("phpFunction", { "fg": s:blue })
-call s:h("phpFunctions", { "fg": s:cyan })
-call s:h("phpMethodsVar", { "fg": s:dark_yellow })
-call s:h("phpMagicConstants", { "fg": s:dark_yellow })
-call s:h("phpSuperglobals", { "fg": s:red })
-call s:h("phpConstants", { "fg": s:dark_yellow })
+execute "hi phpVarSelector"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpOperator"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpParent"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpMemberSelector"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpType"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpKeyword"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpClass"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpUseClass"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpUseAlias"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpInclude"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpClassExtends"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpDocTags"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpFunction"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpFunctions"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpMethodsVar"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpMagicConstants"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpSuperglobals"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi phpConstants"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
 
 " Ruby
-call s:h("rubyBlockParameter", { "fg": s:red})
-call s:h("rubyBlockParameterList", { "fg": s:red })
-call s:h("rubyClass", { "fg": s:purple})
-call s:h("rubyConstant", { "fg": s:yellow})
-call s:h("rubyControl", { "fg": s:purple })
-call s:h("rubyEscape", { "fg": s:red})
-call s:h("rubyFunction", { "fg": s:blue})
-call s:h("rubyGlobalVariable", { "fg": s:red})
-call s:h("rubyInclude", { "fg": s:blue})
-call s:h("rubyIncluderubyGlobalVariable", { "fg": s:red})
-call s:h("rubyInstanceVariable", { "fg": s:red})
-call s:h("rubyInterpolation", { "fg": s:cyan })
-call s:h("rubyInterpolationDelimiter", { "fg": s:red })
-call s:h("rubyInterpolationDelimiter", { "fg": s:red})
-call s:h("rubyRegexp", { "fg": s:cyan})
-call s:h("rubyRegexpDelimiter", { "fg": s:cyan})
-call s:h("rubyStringDelimiter", { "fg": s:green})
-call s:h("rubySymbol", { "fg": s:cyan})
+execute "hi rubyBlockParameter"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyBlockParameterList"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyClass"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyConstant"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyControl"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyEscape"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyFunction"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyGlobalVariable"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyInclude"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyIncluderubyGlobalVariable"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyInstanceVariable"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyInterpolation"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyInterpolationDelimiter"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyInterpolationDelimiter"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyRegexp"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyRegexpDelimiter"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubyStringDelimiter"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi rubySymbol"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
 
 " Sass
 " https://github.com/tpope/vim-haml
-call s:h("sassAmpersand", { "fg": s:red })
-call s:h("sassClass", { "fg": s:dark_yellow })
-call s:h("sassControl", { "fg": s:purple })
-call s:h("sassExtend", { "fg": s:purple })
-call s:h("sassFor", { "fg": s:white })
-call s:h("sassFunction", { "fg": s:cyan })
-call s:h("sassId", { "fg": s:blue })
-call s:h("sassInclude", { "fg": s:purple })
-call s:h("sassMedia", { "fg": s:purple })
-call s:h("sassMediaOperators", { "fg": s:white })
-call s:h("sassMixin", { "fg": s:purple })
-call s:h("sassMixinName", { "fg": s:blue })
-call s:h("sassMixing", { "fg": s:purple })
-call s:h("sassVariable", { "fg": s:purple })
+execute "hi sassAmpersand"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassClass"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassControl"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassExtend"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassFor"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassFunction"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassId"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassInclude"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassMedia"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassMediaOperators"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassMixin"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassMixinName"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassMixing"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi sassVariable"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 " https://github.com/cakebaker/scss-syntax.vim
-call s:h("scssExtend", { "fg": s:purple })
-call s:h("scssImport", { "fg": s:purple })
-call s:h("scssInclude", { "fg": s:purple })
-call s:h("scssMixin", { "fg": s:purple })
-call s:h("scssSelectorName", { "fg": s:dark_yellow })
-call s:h("scssVariable", { "fg": s:purple })
+execute "hi scssExtend"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi scssImport"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi scssInclude"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi scssMixin"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi scssSelectorName"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi scssVariable"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
 
 " TeX
-call s:h("texStatement", { "fg": s:purple })
-call s:h("texSubscripts", { "fg": s:dark_yellow })
-call s:h("texSuperscripts", { "fg": s:dark_yellow })
-call s:h("texTodo", { "fg": s:dark_red })
-call s:h("texBeginEnd", { "fg": s:purple })
-call s:h("texBeginEndName", { "fg": s:blue })
-call s:h("texMathMatcher", { "fg": s:blue })
-call s:h("texMathDelim", { "fg": s:blue })
-call s:h("texDelimiter", { "fg": s:dark_yellow })
-call s:h("texSpecialChar", { "fg": s:dark_yellow })
-call s:h("texCite", { "fg": s:blue })
-call s:h("texRefZone", { "fg": s:blue })
+execute "hi texStatement"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texSubscripts"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texSuperscripts"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texTodo"
+		\ "guifg=" . s:dark_red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texBeginEnd"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texBeginEndName"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texMathMatcher"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texMathDelim"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texDelimiter"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texSpecialChar"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texCite"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi texRefZone"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
 
 " TypeScript
-call s:h("typescriptReserved", { "fg": s:purple })
-call s:h("typescriptEndColons", { "fg": s:white })
-call s:h("typescriptBraces", { "fg": s:white })
+execute "hi typescriptReserved"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi typescriptEndColons"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi typescriptBraces"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
 
 " XML
-call s:h("xmlAttrib", { "fg": s:dark_yellow })
-call s:h("xmlEndTag", { "fg": s:red })
-call s:h("xmlTag", { "fg": s:red })
-call s:h("xmlTagName", { "fg": s:red })
+execute "hi xmlAttrib"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi xmlEndTag"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi xmlTag"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi xmlTagName"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 
-" }}}
-
-" Plugin Highlighting {{{
+" Plugin Highlighting
 
 " airblade/vim-gitgutter
 hi link GitGutterAdd    SignifySignAdd
@@ -547,49 +1038,107 @@ hi link GitGutterChange SignifySignChange
 hi link GitGutterDelete SignifySignDelete
 
 " easymotion/vim-easymotion
-call s:h("EasyMotionTarget", { "fg": s:red, "gui": "bold", "cterm": "bold" })
-call s:h("EasyMotionTarget2First", { "fg": s:yellow, "gui": "bold", "cterm": "bold" })
-call s:h("EasyMotionTarget2Second", { "fg": s:dark_yellow, "gui": "bold", "cterm": "bold" })
-call s:h("EasyMotionShade",  { "fg": s:comment_grey })
+execute "hi EasyMotionTarget"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=bold"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=bold"
+execute "hi EasyMotionTarget2First"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=bold"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=bold"
+execute "hi EasyMotionTarget2Second"
+		\ "guifg=" . s:dark_yellow.gui "guibg=NONE gui=bold"
+		\ "ctermfg=" . s:dark_yellow.cterm "ctermbg=NONE cterm=bold"
+execute "hi EasyMotionShade"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
 
 " mhinz/vim-signify
-call s:h("SignifySignAdd", { "fg": s:green })
-call s:h("SignifySignChange", { "fg": s:yellow })
-call s:h("SignifySignDelete", { "fg": s:red })
+execute "hi SignifySignAdd"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SignifySignChange"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi SignifySignDelete"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 
 " neomake/neomake
-call s:h("NeomakeWarningSign", { "fg": s:yellow })
-call s:h("NeomakeErrorSign", { "fg": s:red })
-call s:h("NeomakeInfoSign", { "fg": s:blue })
+execute "hi NeomakeWarningSign"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi NeomakeErrorSign"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi NeomakeInfoSign"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
 
 " plasticboy/vim-markdown (keep consistent with Markdown, above)
-call s:h("mkdDelimiter", { "fg": s:purple })
-call s:h("mkdHeading", { "fg": s:red })
-call s:h("mkdLink", { "fg": s:blue })
-call s:h("mkdUrl", { "fg": s:cyan, "gui": "underline", "cterm": "underline" })
+execute "hi mkdDelimiter"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi mkdHeading"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi mkdLink"
+		\ "guifg=" . s:blue.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:blue.cterm "ctermbg=NONE cterm=NONE"
+execute "hi mkdUrl"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=underline"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=underline"
 
 " tpope/vim-fugitive
-call s:h("diffAdded", { "fg": s:green })
-call s:h("diffRemoved", { "fg": s:red })
+execute "hi diffAdded"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi diffRemoved"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 
-" }}}
+" Git Highlighting
 
-" Git Highlighting {{{
-
-call s:h("gitcommitComment", { "fg": s:comment_grey })
-call s:h("gitcommitUnmerged", { "fg": s:green })
-call s:h("gitcommitOnBranch", {})
-call s:h("gitcommitBranch", { "fg": s:purple })
-call s:h("gitcommitDiscardedType", { "fg": s:red })
-call s:h("gitcommitSelectedType", { "fg": s:green })
-call s:h("gitcommitHeader", {})
-call s:h("gitcommitUntrackedFile", { "fg": s:cyan })
-call s:h("gitcommitDiscardedFile", { "fg": s:red })
-call s:h("gitcommitSelectedFile", { "fg": s:green })
-call s:h("gitcommitUnmergedFile", { "fg": s:yellow })
-call s:h("gitcommitFile", {})
-call s:h("gitcommitSummary", { "fg": s:white })
-call s:h("gitcommitOverflow", { "fg": s:red })
+execute "hi gitcommitComment"
+		\ "guifg=" . s:comment_grey.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:comment_grey.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitUnmerged"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitOnBranch"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi gitcommitBranch"
+		\ "guifg=" . s:purple.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:purple.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitDiscardedType"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitSelectedType"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitHeader"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi gitcommitUntrackedFile"
+		\ "guifg=" . s:cyan.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:cyan.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitDiscardedFile"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitSelectedFile"
+		\ "guifg=" . s:green.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:green.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitUnmergedFile"
+		\ "guifg=" . s:yellow.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:yellow.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitFile"
+		\ "guifg=NONE guibg=NONE gui=NONE"
+		\ "ctermfg=NONE ctermbg=NONE cterm=NONE"
+execute "hi gitcommitSummary"
+		\ "guifg=" . s:white.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:white.cterm "ctermbg=NONE cterm=NONE"
+execute "hi gitcommitOverflow"
+		\ "guifg=" . s:red.gui "guibg=NONE gui=NONE"
+		\ "ctermfg=" . s:red.cterm "ctermbg=NONE cterm=NONE"
 hi link gitcommitNoBranch gitcommitBranch
 hi link gitcommitUntracked gitcommitComment
 hi link gitcommitDiscarded gitcommitComment
@@ -598,32 +1147,29 @@ hi link gitcommitDiscardedArrow gitcommitDiscardedFile
 hi link gitcommitSelectedArrow gitcommitSelectedFile
 hi link gitcommitUnmergedArrow gitcommitUnmergedFile
 
-" }}}
 
-" Neovim terminal colors {{{
+" Neovim terminal colors
 
 if has("nvim")
-  let g:terminal_color_0 =  s:black.gui
-  let g:terminal_color_1 =  s:red.gui
-  let g:terminal_color_2 =  s:green.gui
-  let g:terminal_color_3 =  s:yellow.gui
-  let g:terminal_color_4 =  s:blue.gui
-  let g:terminal_color_5 =  s:purple.gui
-  let g:terminal_color_6 =  s:cyan.gui
-  let g:terminal_color_7 =  s:white.gui
-  let g:terminal_color_8 =  s:visual_grey.gui
-  let g:terminal_color_9 =  s:dark_red.gui
-  let g:terminal_color_10 = s:green.gui " No dark version
-  let g:terminal_color_11 = s:dark_yellow.gui
-  let g:terminal_color_12 = s:blue.gui " No dark version
-  let g:terminal_color_13 = s:purple.gui " No dark version
-  let g:terminal_color_14 = s:cyan.gui " No dark version
-  let g:terminal_color_15 = s:comment_grey.gui
-  let g:terminal_color_background = g:terminal_color_0
-  let g:terminal_color_foreground = g:terminal_color_7
+	let g:terminal_color_0 =  s:black.gui
+	let g:terminal_color_1 =  s:red.gui
+	let g:terminal_color_2 =  s:green.gui
+	let g:terminal_color_3 =  s:yellow.gui
+	let g:terminal_color_4 =  s:blue.gui
+	let g:terminal_color_5 =  s:purple.gui
+	let g:terminal_color_6 =  s:cyan.gui
+	let g:terminal_color_7 =  s:white.gui
+	let g:terminal_color_8 =  s:visual_grey.gui
+	let g:terminal_color_9 =  s:dark_red.gui
+	let g:terminal_color_10 = s:green.gui " No dark version
+	let g:terminal_color_11 = s:dark_yellow.gui
+	let g:terminal_color_12 = s:blue.gui " No dark version
+	let g:terminal_color_13 = s:purple.gui " No dark version
+	let g:terminal_color_14 = s:cyan.gui " No dark version
+	let g:terminal_color_15 = s:comment_grey.gui
+	let g:terminal_color_background = g:terminal_color_0
+	let g:terminal_color_foreground = g:terminal_color_7
 endif
-
-" }}}
 
 " Must appear at the end of the file to work around this oddity:
 " https://groups.google.com/forum/#!msg/vim_dev/afPqwAFNdrU/nqh6tOM87QUJ
