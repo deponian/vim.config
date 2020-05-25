@@ -27,6 +27,7 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/ericpruitt/tmux.vim
 - https://github.com/ervandew/supertab
 - https://github.com/fatih/vim-go
+- https://github.com/itchyny/lightline.vim
 - https://github.com/joshdick/onedark.vim
 - https://github.com/junegunn/fzf
 - https://github.com/lambdalisue/suda.vim
@@ -42,7 +43,6 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/tpope/vim-repeat
 - https://github.com/tpope/vim-speeddating
 - https://github.com/tpope/vim-surround
-- https://github.com/vim-airline/vim-airline
 - https://github.com/vim-python/python-syntax
 - https://github.com/wesQ3/vim-windowswap
 - https://github.com/wincent/loupe

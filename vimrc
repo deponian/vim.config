@@ -18,7 +18,6 @@ endif
 
 if &loadplugins
 	if has('packages')
-		packadd! airline			" https://github.com/vim-airline/vim-airline
 		packadd! ansible			" https://github.com/pearofducks/ansible-vim
 		packadd! cmake				" https://github.com/pboettch/vim-cmake-syntax
 		packadd! commentary			" https://github.com/tpope/vim-commentary
@@ -36,6 +35,7 @@ if &loadplugins
 		packadd! nftables			" https://github.com/nfnty/vim-nftables
 		packadd! nginx				" https://github.com/chr4/nginx.vim
 		packadd! onedark			" https://github.com/joshdick/onedark.vim
+		packadd! lightline			" https://github.com/itchyny/lightline.vim
 		packadd! repeat				" https://github.com/tpope/vim-repeat
 		packadd! replay				" https://github.com/wincent/replay
 		packadd! scalpel			" https://github.com/wincent/scalpel
