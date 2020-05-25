@@ -7,11 +7,14 @@ nnoremap <S-RightMouse> <Nop>
 nnoremap <S-Up> <Nop>
 nnoremap <S-Down> <Nop>
 
-" Move between splits
+" Move between windows (splits)
 nnoremap <C-Left> <C-w>h
 nnoremap <C-Down> <C-w>j
 nnoremap <C-Up> <C-w>k
 nnoremap <C-Right> <C-w>l
+
+" Cycle through windows (splits)
+nnoremap <S-Tab> <C-w>w
 
 " Disable vim command line window
 nnoremap q: <Nop>
