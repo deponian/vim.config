@@ -24,6 +24,7 @@ set whichwrap=b,s					" allow <BS>/h/l/<Left>/<Right>/<Space>, ~ to cross line	 
 set wildmode=longest:full,full		" shell-like autocomplete to unambiguous portion
 set autoread						" set to auto read when a file is changed from the outside
 set encoding=utf-8					" set default encoding
+set noshowmode						" don't show in statusline -- INSERT --, -- VISUAL -- ans etc.
 set listchars=eol:$,space:.,tab:>-,trail:~,extends:>,precedes:<
 
 " indentetion parametrs
