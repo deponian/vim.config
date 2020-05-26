@@ -7,7 +7,8 @@ let g:lightline.active = {
 	\           [ 'readonly' ],
 	\           [ 'modified' ],
 	\           [ 'filename' ] ],
-	\ 'right': [ [ 'percent_and_lineinfo' ],
+	\ 'right': [ [ 'whitespace' ],
+	\            [ 'percent_and_lineinfo' ],
 	\            [ 'file_encoding_and_format' ],
 	\            [ 'filetype' ] ] }
 let g:lightline.inactive = {
@@ -19,11 +20,15 @@ let g:lightline.tabline = {
 	\ 'right': [] }
 
 let g:lightline.tab = {
-	\ 'active': [ 'filename', 'modified' ],
-	\ 'inactive': [ 'filename', 'modified' ] }
+	\ 'active': [ 'filename' ],
+	\ 'inactive': [ 'filename' ] }
 
 let g:lightline.component = {
+	\ 'filename': '%F',
 	\ 'file_encoding_and_format': '%{&fenc!=#""?&fenc:&enc}[%{&ff}]',
 	\ 'percent_and_lineinfo': '%p%% %l/%L %-2v',
 	\ 'modified': '%{&modified?"+":""}',
 	\ 'readonly': '%{&readonly?"⊝":""}' }
+
+let g:lightline.component_expand = {
+	\ 'whitespace': 'whitespace#check' }

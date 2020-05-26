@@ -47,6 +47,7 @@ if &loadplugins
 		packadd! terminus			" https://github.com/wincent/terminus
 		packadd! tmux				" https://github.com/ericpruitt/tmux.vim
 		packadd! toml				" https://github.com/cespare/vim-toml
+		packadd! whitespace
 		packadd! windowswap			" https://github.com/wesQ3/vim-windowswap
 		packadd! yaml				" https://github.com/stephpy/vim-yaml
 		packadd! zsh				" https://github.com/chrisbra/vim-zsh
