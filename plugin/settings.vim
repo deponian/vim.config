@@ -155,7 +155,7 @@ if has('folding')
 	endif
 
 	if has('nvim-0.3.1')
-		set fillchars+=eob:\		" suppress ~ at EndOfBuffer
+		set fillchars+=eob:\ 		" suppress ~ at EndOfBuffer
 	endif
 
 	set foldmethod=indent			" not as cool as syntax, but faster
