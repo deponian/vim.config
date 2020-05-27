@@ -1,11 +1,7 @@
 " fzf configuration
 "
-if has('nvim') && !exists('g:fzf_layout')
-	autocmd! FileType fzf
-	autocmd FileType fzf set laststatus=0 noshowmode noruler
-		\| autocmd BufLeave <buffer> set laststatus=2 showmode ruler
-endif
 
+" ctrl-m is 'Enter' key
 let g:fzf_action = {
 	\ 'ctrl-m': 'tab split',
 	\ 'ctrl-s': 'split',
@@ -13,8 +9,8 @@ let g:fzf_action = {
 
 if has('nvim') && !exists('g:fzf_layout')
 	autocmd! FileType fzf
-	autocmd FileType fzf set laststatus=0 noshowmode noruler
-		\| autocmd BufLeave <buffer> set laststatus=2 showmode ruler
+	autocmd FileType fzf set laststatus=0 noruler
+		\| autocmd BufLeave <buffer> set laststatus=2 ruler
 endif
 
 " Customize fzf colors to match your color scheme
