@@ -48,6 +48,11 @@ nnoremap <Leader>x :%retab!<CR>:echo "Retabed successfully"<CR>
 nmap <Leader>r <Plug>(Scalpel)
 vmap <Leader>r <Plug>(ScalpelVisual)
 
+" <Leader>s -- Search selected sequence
+" (mnemonic: search)
+nnoremap <Leader>s g*
+vnoremap <Leader>s y/\V<C-R>=escape(@",'\')<CR><CR>
+
 " <Leader>t -- FZF
 nnoremap <silent> <Leader>t :FZF<CR>
 nnoremap <Leader>T :FZF
