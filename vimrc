@@ -21,7 +21,6 @@ if &loadplugins
 		" General plugins
 		packadd! commentary			" https://github.com/tpope/vim-commentary
 		packadd! detectindent 		" https://github.com/ciaranm/detectindent (base)
-		packadd! easydir			" https://github.com/duggiefresh/vim-easydir
 		packadd! fzf				" https://github.com/junegunn/fzf
 		packadd! lightline			" https://github.com/itchyny/lightline.vim
 		packadd! loupe				" https://github.com/wincent/loupe

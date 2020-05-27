@@ -22,7 +22,6 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/chr4/nginx.vim
 - https://github.com/chrisbra/vim-zsh
 - https://github.com/ciaranm/detectindent
-- https://github.com/duggiefresh/vim-easydir
 - https://github.com/ekalinin/Dockerfile.vim
 - https://github.com/ericpruitt/tmux.vim
 - https://github.com/ervandew/supertab
