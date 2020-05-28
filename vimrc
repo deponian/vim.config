@@ -22,7 +22,7 @@ if &loadplugins
 		packadd! commentary			" https://github.com/tpope/vim-commentary
 		packadd! detectindent 		" https://github.com/ciaranm/detectindent (base)
 		packadd! fzf				" https://github.com/junegunn/fzf
-		packadd! lightline			" https://github.com/itchyny/lightline.vim
+		packadd! lightline			" https://github.com/itchyny/lightline.vim [c172131]
 		packadd! loupe				" https://github.com/wincent/loupe
 		packadd! manpager			" https://github.com/lambdalisue/vim-manpager
 		packadd! neomake			" https://github.com/neomake/neomake [d10e5395]
