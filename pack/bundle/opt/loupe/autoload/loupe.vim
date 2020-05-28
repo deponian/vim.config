@@ -19,7 +19,7 @@ function! loupe#hlmatch() abort
   "
   " To prevent any special highlighting from being applied, set this option to
   " "" (ie. the empty string).
-  let l:highlight=get(g:, 'LoupeHighlightGroup', 'IncSearch')
+  let l:highlight=get(g:, 'LoupeHighlightGroup', 'PmenuSel')
   if empty(l:highlight)
     return
   endif

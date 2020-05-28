@@ -25,6 +25,10 @@ set wildmode=longest:full,full		" shell-like autocomplete to unambiguous portion
 set autoread						" set to auto read when a file is changed from the outside
 set encoding=utf-8					" set default encoding
 set noshowmode						" don't show in statusline -- INSERT --, -- VISUAL -- ans etc.
+set history=1000					" longer search and command history (default is 50).
+set hlsearch						" Highlight search strings.
+set incsearch						" Incremental search ("find as you type").
+set shortmess+=s					" Don't echo search wrap messages.
 set listchars=eol:$,space:.,tab:>-,trail:~,extends:>,precedes:<
 
 " indentetion parametrs

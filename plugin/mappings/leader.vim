@@ -30,10 +30,6 @@ vnoremap <Leader>p "+p
 " (mnemonic: coloring).
 nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
 
-" <Leader>h -- Disable highlighting of search results
-" (mnemonic: no [h]ighlighting)
-nnoremap <silent> <Leader>h :noh<CR>
-
 " <Leader>z -- Zap trailing whitespace in the current buffer
 " (mnemonic: zap)
 nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespaces were zapped"<CR>
@@ -43,16 +39,6 @@ nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespace
 " (mnemonic: it is close to 'z' where zap mapping lives :D)
 nnoremap <Leader>x :%retab!<CR>:echo "Retabed successfully"<CR>
 
-" <Leader>r -- Replace word or selected sequence
-" (mnemonic: replace)
-nmap <Leader>r <Plug>(Scalpel)
-vmap <Leader>r <Plug>(ScalpelVisual)
-
-" <Leader>s -- Search selected sequence
-" (mnemonic: search)
-nnoremap <Leader>s g*
-vnoremap <Leader>s y/\V<C-R>=escape(@",'\')<CR><CR>
-
 " <Leader>t -- FZF
 nnoremap <silent> <Leader>t :FZF<CR>
 nnoremap <Leader>T :FZF
@@ -60,3 +46,17 @@ nnoremap <Leader>T :FZF
 " <Leader>d -- Detect indentation in buffer and change expandtab/noexpandtab, tabstop and etc.
 " (mnemonic: detect)
 nnoremap <Leader>d :call detectindent#detect()<CR>:echo "Indentation detected"<CR>
+
+" <Leader>s -- Search selected sequence
+" (mnemonic: search)
+vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\')<CR><CR>
+
+" <Leader>h -- Disable highlighting of search results
+" (mnemonic: no [h]ighlighting)
+nmap <Leader>h <Plug>(LoupeClearHighlight)
+
+" <Leader>r -- Replace word or selected sequence
+" (mnemonic: replace)
+nmap <Leader>r <Plug>(Scalpel)
+vmap <Leader>r <Plug>(ScalpelVisual)
+
