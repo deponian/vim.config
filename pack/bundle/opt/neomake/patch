@@ -1,0 +1,12 @@
+diff --git a/autoload/neomake/makers/ft/ansible.vim b/autoload/neomake/makers/ft/ansible.vim
+index a1a001f8..9d9daba3 100644
+--- a/autoload/neomake/makers/ft/ansible.vim
++++ b/autoload/neomake/makers/ft/ansible.vim
+@@ -12,6 +12,6 @@ function! neomake#makers#ft#ansible#ansiblelint() abort
+     return {
+         \ 'exe': 'ansible-lint',
+         \ 'args': ['-p', '--nocolor'],
+-        \ 'errorformat': '%f:%l: [%tANSIBLE%n] %m',
++        \ 'errorformat': '%f:%l: [%t%n] %m',
+         \ }
+ endfunction
