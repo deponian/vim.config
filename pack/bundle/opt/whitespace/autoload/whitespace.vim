@@ -1,14 +1,14 @@
 " MIT License. Copyright (c) 2013-2019 Bailey Ling et al.
 " vim: et ts=2 sts=2 sw=2
-" Modified by: Rufus Deponian <deponian@pm.me>
+" Modified By: Rufus Deponian <deponian@pm.me>
 
 " http://got-ravings.blogspot.com/2008/10/vim-pr0n-statusline-whitespace-flags.html
 
 let s:max_lines = get(g:, 'whitespace#max_lines', 20000)
 let s:space = get(g:, 'whitespace#space', ' ')
-let s:trailing_fmt = get(g:, 'whitespace#trailing_format', '[%s]t')
-let s:mixed_fmt = get(g:, 'whitespace#mixed_format', '[%s]m')
-let s:inconsistent_fmt = get(g:, 'whitespace#inconsistent_format', '[%s]i')
+let s:trailing_fmt = get(g:, 'whitespace#trailing_format', '[%s] trail')
+let s:mixed_fmt = get(g:, 'whitespace#mixed_format', '[%s] mixed')
+let s:inconsistent_fmt = get(g:, 'whitespace#inconsistent_format', '[%s] inconsistent')
 let s:skip_check_ft = get(g:, 'whitespace#skip_check_ft', {})
 let s:c_like_langs = get(g:, 'whitespace#c_like_langs', [])
 let s:indentation_algorithm = get(g:, 'whitespace#indentation_algorithm', 0)
