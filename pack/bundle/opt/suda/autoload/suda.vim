@@ -37,7 +37,7 @@ function! suda#system(cmd, ...) abort
   endif
   try
     call inputsave()
-    redraw | let password = inputsecret('Password: ')
+    redraw | let password = inputsecret(g:suda#prompt)
   finally
     call inputrestore()
   endtry
@@ -267,7 +267,7 @@ function! s:prefix_searchpattern() abort
 endfunction
 
 function! s:totable(expr) abort
-  return type(a:expr) == type([]) ? a:expr : [a:expr]
+  return type(a:expr) == v:t_list ? a:expr : [a:expr]
 endfunction
 
 function! s:doautocmd(name) abort
@@ -281,3 +281,4 @@ endfunction
 
 " Configure
 let g:suda#prefix = get(g:, 'suda#prefix', 'suda://')
+let g:suda#prompt = get(g:, 'suda#prompt', 'Password: ')

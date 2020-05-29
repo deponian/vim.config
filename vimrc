@@ -30,10 +30,10 @@ if &loadplugins
 		packadd! repeat				" https://github.com/tpope/vim-repeat
 		packadd! replay				" https://github.com/wincent/replay
 		packadd! scalpel			" https://github.com/wincent/scalpel
-		packadd! speeddating		" https://github.com/tpope/vim-surround
+		packadd! speeddating		" https://github.com/tpope/vim-speeddating
 		packadd! suda				" https://github.com/lambdalisue/suda.vim
 		packadd! supertab			" https://github.com/ervandew/supertab
-		packadd! surround			" https://github.com/tpope/vim-speeddating
+		packadd! surround			" https://github.com/tpope/vim-surround
 		packadd! terminus			" https://github.com/wincent/terminus
 		packadd! whitespace
 		packadd! windowswap			" https://github.com/wesQ3/vim-windowswap
