@@ -34,7 +34,7 @@ if &loadplugins
 		packadd! suda				" https://github.com/lambdalisue/suda.vim
 		packadd! supertab			" https://github.com/ervandew/supertab
 		packadd! surround			" https://github.com/tpope/vim-surround
-		packadd! terminus			" https://github.com/wincent/terminus
+		packadd! terminus			" https://github.com/deponian/vim-terminus
 		packadd! whitespace
 		packadd! windowswap			" https://github.com/wesQ3/vim-windowswap
 
