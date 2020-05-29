@@ -2,7 +2,7 @@
 " Language:             Zsh shell script
 " Maintainer:           Christian Brabandt <cb@256bit.org>
 " Previous Maintainer:  Nikolai Weibull <now@bitwi.se>
-" Latest Revision:      2012-01-06
+" Latest Revision:      2020-01-10
 " License:              Vim (see :h license)
 " Repository:           https://github.com/chrisbra/vim-zsh
 
@@ -32,7 +32,7 @@ if executable('zsh')
   let b:undo_ftplugin .= 'keywordprg< errorformat< makeprg<'
 endif
 
-let b:match_words = ',\<if\>:\<elif\>:\<else\>:\<fi\>'
+let b:match_words = '\<if\>:\<elif\>:\<else\>:\<fi\>'
       \ . ',\<case\>:^\s*([^)]*):\<esac\>'
       \ . ',\<\%(select\|while\|until\|repeat\|for\%(each\)\=\)\>:\<done\>'
 let b:match_skip = 's:comment\|string\|heredoc\|subst'
