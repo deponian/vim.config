@@ -29,7 +29,7 @@ if &loadplugins
 		packadd! onedark			" https://github.com/deponian/vim-onedark
 		packadd! repeat				" https://github.com/tpope/vim-repeat
 		packadd! replay				" https://github.com/wincent/replay
-		packadd! scalpel			" https://github.com/wincent/scalpel
+		packadd! scalpel			" https://github.com/deponian/vim-scalpel
 		packadd! speeddating		" https://github.com/tpope/vim-speeddating
 		packadd! suda				" https://github.com/lambdalisue/suda.vim
 		packadd! supertab			" https://github.com/ervandew/supertab

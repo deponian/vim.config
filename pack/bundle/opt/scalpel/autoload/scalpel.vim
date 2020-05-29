@@ -1,5 +1,6 @@
 " Copyright 2016-present Greg Hurrell. All rights reserved.
 " Licensed under the terms of the MIT license.
+" Modified By: Rufus Deponian <deponian@pm.me>
 
 " thanks to xolox
 " https://stackoverflow.com/questions/1533565/how-to-get-visually-selected-text-in-vimscript
