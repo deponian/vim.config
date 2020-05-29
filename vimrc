@@ -26,7 +26,7 @@ if &loadplugins
 		packadd! loupe				" https://github.com/wincent/loupe
 		packadd! manpager			" https://github.com/lambdalisue/vim-manpager
 		packadd! neomake			" https://github.com/neomake/neomake [d10e5395]
-		packadd! onedark			" https://github.com/joshdick/onedark.vim
+		packadd! onedark			" https://github.com/deponian/vim-onedark
 		packadd! repeat				" https://github.com/tpope/vim-repeat
 		packadd! replay				" https://github.com/wincent/replay
 		packadd! scalpel			" https://github.com/wincent/scalpel

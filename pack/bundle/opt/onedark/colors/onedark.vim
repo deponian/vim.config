@@ -1,5 +1,4 @@
 " Vim Color File
-" Name:       onedark.vim
 " Maintainer: https://github.com/deponian/vim-onedark
 " License:    The MIT License (MIT)
 " Based On:   https://github.com/joshdick/onedark.vim
@@ -12,7 +11,7 @@ endif
 
 let g:colors_name="onedark"
 
-" set g:onedark_transparent = 0
+" let g:onedark_transparent = 0
 " if you don't use transparent background in your terminal
 if !exists("g:onedark_transparent")
 	let g:onedark_transparent = 1
