@@ -56,7 +56,7 @@ function! s:check_inconsistent_indentation()
   endif
 endfunction
 
-function! whitespace#check()
+function! lightline#whitespace#check()
   if &readonly || !&modifiable || line('$') > s:max_lines
     return ''
   endif

@@ -31,4 +31,4 @@ let g:lightline.component = {
 	\ 'readonly': '%{&readonly?"⊝":""}' }
 
 let g:lightline.component_expand = {
-	\ 'whitespace': 'whitespace#check' }
+	\ 'whitespace': 'lightline#whitespace#check' }

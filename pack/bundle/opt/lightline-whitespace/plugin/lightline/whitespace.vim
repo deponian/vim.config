@@ -7,7 +7,7 @@ function! s:whitespace_refresh()
   let b:whitespace_changedtick = b:changedtick
 endfunction
 
-augroup whitespace
+augroup lightline#whitespace
   autocmd!
   autocmd CursorHold,BufWritePost * call s:whitespace_refresh()
 augroup END
