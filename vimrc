@@ -20,7 +20,6 @@ if &loadplugins
 	if has('packages')
 		" General plugins
 		packadd! commentary			" https://github.com/tpope/vim-commentary
-		packadd! detectindent 		" https://github.com/ciaranm/detectindent (base)
 		packadd! fzf				" https://github.com/junegunn/fzf
 		packadd! lightline			" https://github.com/itchyny/lightline.vim [c172131]
 		packadd! loupe				" https://github.com/deponian/vim-loupe

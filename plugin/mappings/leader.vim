@@ -43,9 +43,9 @@ nnoremap <Leader>x :%retab!<CR>:echo "Retabed successfully"<CR>
 nnoremap <silent> <Leader>t :FZF<CR>
 nnoremap <Leader>T :FZF
 
-" <Leader>d -- Detect indentation in buffer and change expandtab/noexpandtab, tabstop and etc.
-" (mnemonic: detect)
-nnoremap <Leader>d :call detectindent#detect()<CR>:echo "Indentation detected"<CR>
+" <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
+" (mnemonic: in[d]ent)
+nnoremap <Leader>d :call mappings#leader#setindent()<CR>
 
 " <Leader>s -- Search selected sequence
 " (mnemonic: search)
