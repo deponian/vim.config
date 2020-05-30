@@ -7,7 +7,7 @@ let g:lightline.active = {
 	\           [ 'readonly' ],
 	\           [ 'modified' ],
 	\           [ 'filename' ] ],
-	\ 'right': [ [ 'whitespace', 'neomake_error', 'neomake_warning', 'neomake_info' ],
+	\ 'right': [ [ 'whitespace', 'neomake_info', 'neomake_warning', 'neomake_error' ],
 	\            [ 'percent_and_lineinfo' ],
 	\            [ 'file_encoding_and_format' ],
 	\            [ 'filetype' ] ] }
@@ -37,6 +37,7 @@ let g:lightline.component_expand = {
 	\ 'neomake_info': 'lightline#neomake#info' }
 
 let g:lightline.component_type = {
+	\ 'whitespace': 'warning',
 	\ 'neomake_error': 'error',
 	\ 'neomake_warning': 'warning',
-	\ 'neomake_info': 'warning' }
+	\ 'neomake_info': 'info' }

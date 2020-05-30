@@ -25,8 +25,9 @@ let s:p = {'normal': {}, 'inactive': {}, 'insert': {}, 'replace': {}, 'visual': 
 let s:p.inactive.left   = [ [ s:gray1,  s:bg ], [ s:gray1, s:bg ] ]
 let s:p.inactive.middle = [ [ s:gray1, s:gray2 ] ]
 let s:p.inactive.right  = [ [ s:gray1, s:bg ] ]
-let s:p.normal.error    = [ [ s:red2, s:bg ] ]
-let s:p.normal.warning  = [ [ s:yellow, s:bg ] ]
+let s:p.normal.error    = [ [ s:bg, s:red2 ] ]
+let s:p.normal.warning  = [ [ s:bg, s:yellow ] ]
+let s:p.normal.info     = [ [ s:bg, s:blue ] ]
 let s:p.normal.middle   = [ [ s:fg, s:gray2 ] ]
 let s:p.normal.right    = [ [ s:bg, s:yellow ],
 						\   [ s:bg, s:green, 'bold' ],
