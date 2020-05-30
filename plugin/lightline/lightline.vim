@@ -7,7 +7,7 @@ let g:lightline.active = {
 	\           [ 'readonly' ],
 	\           [ 'modified' ],
 	\           [ 'filename' ] ],
-	\ 'right': [ [ 'whitespace' ],
+	\ 'right': [ [ 'whitespace', 'neomake_error', 'neomake_warning', 'neomake_info' ],
 	\            [ 'percent_and_lineinfo' ],
 	\            [ 'file_encoding_and_format' ],
 	\            [ 'filetype' ] ] }
@@ -31,4 +31,12 @@ let g:lightline.component = {
 	\ 'readonly': '%{&readonly?"⊝":""}' }
 
 let g:lightline.component_expand = {
-	\ 'whitespace': 'lightline#whitespace#check' }
+	\ 'whitespace': 'lightline#whitespace#check',
+	\ 'neomake_error': 'lightline#neomake#error',
+	\ 'neomake_warning': 'lightline#neomake#warning',
+	\ 'neomake_info': 'lightline#neomake#info' }
+
+let g:lightline.component_type = {
+	\ 'neomake_error': 'error',
+	\ 'neomake_warning': 'warning',
+	\ 'neomake_info': 'warning' }
