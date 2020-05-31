@@ -60,3 +60,6 @@ nmap <Leader>h <Plug>(LoupeClearHighlight)
 nmap <Leader>r <Plug>(Scalpel)
 vmap <Leader>r <Plug>(ScalpelVisual)
 
+" <Leader>f -- Open file under cursor in new tab
+" (mnemonic: file)
+nmap <Leader>f <C-W>gf
