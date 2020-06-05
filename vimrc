@@ -21,17 +21,17 @@ if &loadplugins
 		" General plugins
 		packadd! base64					" https://github.com/christianrondeau/vim-base64
 		packadd! commentary				" https://github.com/tpope/vim-commentary
-		packadd! fzf					" https://github.com/junegunn/fzf
-		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
-		packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
-		packadd! indentline				" https://github.com/Yggdroot/indentLine
-		packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
-		packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
-		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
+		" packadd! fzf					" https://github.com/junegunn/fzf
+		" packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
+		" packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
+		" packadd! indentline				" https://github.com/Yggdroot/indentLine
+		" packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
+		" packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
+		" packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! loupe					" https://github.com/deponian/vim-loupe
 		packadd! manpager				" https://github.com/lambdalisue/vim-manpager
-		packadd! neomake				" https://github.com/neomake/neomake [d10e5395]
-		packadd! nerdtree				" https://github.com/preservim/nerdtree
+		" packadd! neomake				" https://github.com/neomake/neomake [d10e5395]
+		" packadd! nerdtree				" https://github.com/preservim/nerdtree
 		packadd! onedark				" https://github.com/deponian/vim-onedark
 		packadd! repeat					" https://github.com/tpope/vim-repeat
 		packadd! replay					" https://github.com/wincent/replay
@@ -63,7 +63,7 @@ if &loadplugins
 
 		" Vim/Neovim specific plugins
 		if has('nvim')
-			packadd! semshi				" https://github.com/numirias/semshi
+			" packadd! semshi				" https://github.com/numirias/semshi
 		else
 			packadd! python				" https://github.com/vim-python/python-syntax
 			packadd! matchit			" ships with vim and built-in into neovim
