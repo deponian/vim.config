@@ -63,3 +63,7 @@ vmap <Leader>r <Plug>(ScalpelVisual)
 " <Leader>f -- Open file under cursor in new tab
 " (mnemonic: file)
 nmap <Leader>f <C-W>gf
+
+" <Leader>` -- Open Nerdtree file explorer
+" (mnemonic: Win-` is hot key for Double Commander)
+nnoremap <silent> <Leader>` :NERDTreeToggle<CR>:silent NERDTreeMirror<CR>

@@ -1,5 +1,8 @@
 scriptencoding utf-8
 
+colorscheme onedark
+
+" general
 set ignorecase						" ignore case when search
 set smartcase						" enable case sensitive search only if there is uppercase letter in search pattern
 set hidden							" allows you to hide buffers with unsaved changes without being prompted
@@ -39,9 +42,6 @@ set noexpandtab
 set smartindent
 set autoindent
 set shiftround
-let g:python_recommended_style = 0
-
-colorscheme onedark
 
 if has('syntax')
 	set spellcapcheck=	" don't check for capital letters at start of sentence
