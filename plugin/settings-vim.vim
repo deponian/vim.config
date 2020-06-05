@@ -1,6 +1,6 @@
 scriptencoding utf-8
 
-colorscheme onedark
+colorscheme molokai
 
 " general
 set ignorecase						" ignore case when search
