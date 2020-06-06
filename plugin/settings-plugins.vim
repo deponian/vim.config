@@ -14,9 +14,9 @@ let NERDTreeWinSize = 32
 let NERDTreeStatusline = -1
 let NERDTreeCustomOpenArgs = {
 			\ 'file': { 'reuse': 'all',
-					\   'where': 't',
-					\   'keepopen': 0,
-					\   'stay': 0 },
+					\   'where': 'p',
+					\   'keepopen': 1,
+					\   'stay': 1 },
 			\ 'dir': {} }
 
 " Supertab
