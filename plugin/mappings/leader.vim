@@ -28,7 +28,7 @@ vnoremap <Leader>p "+p
 
 " <Leader>c -- Fix (most) syntax highlighting problems in current buffer
 " (mnemonic: coloring).
-nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
+" nnoremap <silent> <Leader>c :syntax sync fromstart<CR>
 
 " <Leader>z -- Zap trailing whitespace in the current buffer
 " (mnemonic: zap)
@@ -67,3 +67,7 @@ nmap <Leader>f <C-W>gf
 " <Leader>` -- Open Nerdtree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
 nnoremap <silent> <Leader>` :NERDTreeToggle<CR>:silent NERDTreeMirror<CR>
+
+" <Leader>c -- Fold all #-comments in buffer
+" (mnemonic: comment)
+nnoremap <Leader>c :setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM
