@@ -66,7 +66,7 @@ nmap <Leader>f <C-W>gf
 
 " <Leader>` -- Open Nerdtree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
-nnoremap <silent> <Leader>` :NERDTreeToggle<CR>:silent NERDTreeMirror<CR>
+nnoremap <silent> <Leader>` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
 
 " <Leader>c -- Fold all #-comments in buffer
 " (mnemonic: comment)
