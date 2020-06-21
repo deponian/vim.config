@@ -37,7 +37,7 @@ nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespace
 " <Leader>x -- Replace tabs with spaces or vice versa according to current
 " tabstop, expandtab/noexpandtab and etc.
 " (mnemonic: it is close to 'z' where zap mapping lives :D)
-nnoremap <Leader>x :%retab!<CR>:echo "Retabed successfully"<CR>
+nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"<CR>
 
 " <Leader>t -- FZF
 nnoremap <silent> <Leader>t :FZF<CR>

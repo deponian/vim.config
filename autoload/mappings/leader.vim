@@ -44,3 +44,16 @@ function! mappings#leader#setindent() abort
 		echom('expandtab ts=' . width . ' sts=' . width . ' sw=' . width)
 	endif
 endfunction
+
+" Retab spaced file, but only indentation
+" thanks to DrAI: https://stackoverflow.com/questions/5144284/force-vi-vim-to-use-leading-tabs-only-on-retab/5144480#5144480
+function! mappings#leader#retab()
+	let saved_view = winsaveview()
+	let l:spaces = repeat(' ', &tabstop)
+	if &expandtab
+		silent! execute '%substitute#^\%(\t\)\+#\=repeat("' . l:spaces . '", len(submatch(0)))#'
+	else
+		silent! execute '%substitute#^\%(' . l:spaces . '\)\+#\=repeat("\t", len(submatch(0)) / &tabstop)#'
+	endif
+	call winrestview(saved_view)
+endfunction
