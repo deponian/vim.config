@@ -60,7 +60,7 @@ if exists('&swapsync')
 endif
 
 if has('syntax')
-	set synmaxcol=200	" don't bother syntax highlighting long lines
+	set synmaxcol=500	" don't bother syntax highlighting long lines
 endif
 
 if has('termguicolors')
