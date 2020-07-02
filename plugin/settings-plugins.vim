@@ -21,3 +21,6 @@ let NERDTreeCustomOpenArgs = {
 
 " Supertab
 let g:SuperTabDefaultCompletionType = "context"
+
+" Semshi
+let g:semshi#error_sign = v:false
