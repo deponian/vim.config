@@ -33,3 +33,6 @@ noremap <F3> :set invnumber<CR>
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
 
+" Now Ctrl-C is not useless
+noremap <C-c> <Esc>
+
