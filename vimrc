@@ -21,6 +21,7 @@ if &loadplugins
 		" General plugins
 		packadd! commentary				" https://github.com/tpope/vim-commentary
 		packadd! fzf					" https://github.com/junegunn/fzf
+		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 		packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
 		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake

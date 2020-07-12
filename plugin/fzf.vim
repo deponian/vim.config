@@ -1,6 +1,12 @@
 " fzf configuration
 "
 
+" [Buffers] Jump to the existing window if possible
+let g:fzf_buffers_jump = 1
+
+" [[B]Commits] Customize the options used by 'git log':
+let g:fzf_commits_log_options = '--color=always --pretty=format:"%C(#5398dd)%h %C(#00d7af)%cd%C(reset) %C(#969696)::%C(reset)%C(#f2684b)%d %C(#d9d9d9)%s" --date=format:"%F %R"'
+
 " ctrl-m is 'Enter' key
 let g:fzf_action = {
 	\ 'ctrl-m': 'tab split',

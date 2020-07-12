@@ -15,21 +15,22 @@ Many thanks to Greg Hurrell for his amazing [repository](https://github.com/winc
 
 And, of course, many thanks to the authors of the plugins that make Vim so convenient and powerful:
 
-- https://github.com/CH-DanReif/haproxy.vim
-- https://github.com/MTDL9/vim-log-highlighting
-- https://github.com/Matt-Deacalion/vim-systemd-syntax
 - https://github.com/cespare/vim-toml
+- https://github.com/ch-danreif/haproxy.vim
 - https://github.com/chr4/nginx.vim
 - https://github.com/chrisbra/vim-zsh
-- https://github.com/ekalinin/Dockerfile.vim
+- https://github.com/ekalinin/dockerfile.vim
 - https://github.com/ericpruitt/tmux.vim
 - https://github.com/ervandew/supertab
 - https://github.com/fatih/vim-go
 - https://github.com/itchyny/lightline.vim
 - https://github.com/joshdick/onedark.vim
 - https://github.com/junegunn/fzf
+- https://github.com/junegunn/fzf.vim
 - https://github.com/lambdalisue/suda.vim
 - https://github.com/lambdalisue/vim-manpager
+- https://github.com/matt-deacalion/vim-systemd-syntax
+- https://github.com/mtdl9/vim-log-highlighting
 - https://github.com/neomake/neomake
 - https://github.com/nfnty/vim-nftables
 - https://github.com/numirias/semshi
@@ -44,7 +45,7 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/tpope/vim-speeddating
 - https://github.com/tpope/vim-surround
 - https://github.com/vim-python/python-syntax
-- https://github.com/wesQ3/vim-windowswap
+- https://github.com/wesq3/vim-windowswap
 - https://github.com/wincent/loupe
 - https://github.com/wincent/replay
 - https://github.com/wincent/scalpel

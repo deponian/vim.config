@@ -40,8 +40,8 @@ nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespace
 nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"<CR>
 
 " <Leader>t -- FZF
-nnoremap <silent> <Leader>t :FZF<CR>
-nnoremap <Leader>T :FZF
+nnoremap <silent> <Leader>t :Files<CR>
+nnoremap <Leader>T :Files
 
 " <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
 " (mnemonic: in[d]ent)
