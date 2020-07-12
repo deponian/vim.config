@@ -49,7 +49,7 @@ nnoremap <Leader>d :call mappings#leader#setindent()<CR>
 
 " <Leader>s -- Search selected sequence
 " (mnemonic: search)
-vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\')<CR><CR>
+vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\/')<CR><CR>
 
 " <Leader>h -- Disable highlighting of search results
 " (mnemonic: no [h]ighlighting)
