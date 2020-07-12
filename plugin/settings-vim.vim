@@ -162,7 +162,7 @@ if has('folding')
 		set fillchars+=eob:\ 		" suppress ~ at EndOfBuffer
 	endif
 
-	set foldmethod=syntax			" use 'indent' method if you need faster folding
+	set foldmethod=indent			" use 'indent' method if you need faster folding
 	set foldlevelstart=99			" start unfolded
 endif
 
