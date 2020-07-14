@@ -39,7 +39,6 @@ if &loadplugins
 		packadd! supertab				" https://github.com/ervandew/supertab
 		packadd! surround				" https://github.com/tpope/vim-surround
 		packadd! terminus				" https://github.com/deponian/vim-terminus
-		packadd! windowswap				" https://github.com/wesQ3/vim-windowswap
 
 		" language/syntax/filetype plugins
 		packadd! ansible				" https://github.com/pearofducks/ansible-vim

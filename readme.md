@@ -45,7 +45,6 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/tpope/vim-speeddating
 - https://github.com/tpope/vim-surround
 - https://github.com/vim-python/python-syntax
-- https://github.com/wesq3/vim-windowswap
 - https://github.com/wincent/loupe
 - https://github.com/wincent/replay
 - https://github.com/wincent/scalpel
