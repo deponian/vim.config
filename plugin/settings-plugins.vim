@@ -24,3 +24,16 @@ let g:SuperTabDefaultCompletionType = "context"
 
 " Semshi
 let g:semshi#error_sign = v:false
+
+" IndentLine
+" Disable by default. Enabled only for some filetypes
+let g:indentLine_char = '┊'
+let g:indentLine_color_term = 237
+let g:indentLine_color_gui = '#2c3036'
+
+let g:indentLine_enabled = 0
+augroup IndenLineFiletypes
+	autocmd!
+	autocmd BufReadPre *.yml let b:indentLine_enabled = 1
+augroup END
+

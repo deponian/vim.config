@@ -50,3 +50,4 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/wincent/replay
 - https://github.com/wincent/scalpel
 - https://github.com/wincent/terminus
+- https://github.com/yggdroot/indentline
