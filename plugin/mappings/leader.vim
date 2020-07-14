@@ -39,30 +39,36 @@ nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespace
 " (mnemonic: it is close to 'z' where zap mapping lives :D)
 nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"<CR>
 
-" <Leader>t -- FZF
+" <Leader>t -- Find and open file
 nnoremap <silent> <Leader>t :Files<CR>
-nnoremap <Leader>T :Files
+nnoremap <Leader>T :Files 
 
 " <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
 " (mnemonic: in[d]ent)
 nnoremap <Leader>d :call mappings#leader#setindent()<CR>
 
-" <Leader>s -- Search selected sequence
+" <Leader>s -- Search WORD under cursor or selected sequence within page
 " (mnemonic: search)
+nmap <Leader>s g*
 vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\/')<CR><CR>
 
-" <Leader>h -- Disable highlighting of search results
-" (mnemonic: no [h]ighlighting)
-nmap <Leader>h <Plug>(LoupeClearHighlight)
+" <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
+" (mnemonic: find)
+nmap <Leader>f :RG! <C-R>=expand('<cWORD>')<CR><CR>
+vmap <Leader>f y:RG! <C-R>"<CR>
 
-" <Leader>r -- Replace word or selected sequence
+" <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)
 nmap <Leader>r <Plug>(Scalpel)
 vmap <Leader>r <Plug>(ScalpelVisual)
 
-" <Leader>f -- Open file under cursor in new tab
+" <Leader>F -- Open file under cursor in new tab
 " (mnemonic: file)
-nmap <Leader>f <C-W>gf
+nmap <Leader>F <C-W>gf
+
+" <Leader>h -- Disable highlighting of search results
+" (mnemonic: no [h]ighlighting)
+nmap <Leader>h <Plug>(LoupeClearHighlight)
 
 " <Leader>` -- Open Nerdtree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
