@@ -54,7 +54,7 @@ FIRST=$(($FIRST < 1 ? 1 : $FIRST))
 LAST=$((${FIRST}+${LINES}-1))
 
 if [ -z "$FZF_PREVIEW_COMMAND" ] && command -v bat > /dev/null; then
-  bat --style="${BAT_STYLE:-numbers}" --color=always --pager=never \
+  bat --style=header,numbers --color=always --pager=never --theme="OneHalfDark" \
       --line-range=$FIRST:$LAST --highlight-line=$CENTER "$FILE"
   exit $?
 fi
