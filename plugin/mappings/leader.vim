@@ -58,8 +58,8 @@ vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\/')<CR><CR>
 
 " <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
 " (mnemonic: find)
-nmap <Leader>f :RG! <C-R>=expand('<cWORD>')<CR><CR>
-vmap <Leader>f y:RG! <C-R>"<CR>
+nnoremap <Leader>f :RG! <C-R>=expand('<cWORD>')<CR><CR>
+vnoremap <Leader>f y:RG! <C-R>"<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)
@@ -68,11 +68,11 @@ vmap <Leader>r <Plug>(ScalpelVisual)
 
 " <Leader>F -- Open file under cursor in new tab
 " (mnemonic: file)
-nmap <Leader>F <C-W>gf
+nnoremap <Leader>F <C-W>gf
 
-" <Leader>h -- Disable highlighting of search results
-" (mnemonic: no [h]ighlighting)
-nmap <Leader>h <Plug>(LoupeClearHighlight)
+" <Leader>n -- Disable highlighting of search results
+" (mnemonic: [n]o highlighting)
+nmap <Leader>n <Plug>(LoupeClearHighlight)
 
 " <Leader>` -- Open Nerdtree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
@@ -81,3 +81,23 @@ nnoremap <silent> <Leader>` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
 " <Leader>c -- Fold all #-comments in buffer
 " (mnemonic: comment)
 nnoremap <Leader>c :setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM
+
+" <Leader>hp -- Preview the hunk
+" (mnemonic: hunk preview)
+nmap <silent> <Leader>hp <Plug>(GitGutterPreviewHunk)
+
+" <Leader>hu -- Undo the hunk
+" (mnemonic: hunk undo)
+nmap <silent> <Leader>hu <Plug>(GitGutterStageHunk)
+
+" <Leader>hs -- Stage the hunk
+" (mnemonic: hunk stage)
+nmap <silent> <Leader>hs <Plug>(GitGutterStageHunk)
+
+" <Leader>hf -- Fold/unfold all unchanged lines
+" (mnemonic: hunk fold)
+nnoremap <silent> <Leader>hf :GitGutterFold<CR>
+
+" <Leader>hh -- Highlight all hunks
+" (mnemonic: hunk highlight)
+nnoremap <silent> <Leader>hh :GitGutterLineHighlightsToggle<CR>

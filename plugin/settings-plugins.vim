@@ -37,3 +37,5 @@ augroup IndenLineFiletypes
 	autocmd BufReadPre *.yml let b:indentLine_enabled = 1
 augroup END
 
+" GitGutter
+let g:gitgutter_map_keys = 0

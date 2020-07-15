@@ -22,10 +22,11 @@ if &loadplugins
 		packadd! commentary				" https://github.com/tpope/vim-commentary
 		packadd! fzf					" https://github.com/junegunn/fzf
 		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
+		packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
 		packadd! indentline				" https://github.com/Yggdroot/indentLine
 		packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
-		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
+		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! loupe					" https://github.com/deponian/vim-loupe
 		packadd! manpager				" https://github.com/lambdalisue/vim-manpager
 		packadd! neomake				" https://github.com/neomake/neomake [d10e5395]

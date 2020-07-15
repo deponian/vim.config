@@ -15,6 +15,7 @@ Many thanks to Greg Hurrell for his amazing [repository](https://github.com/winc
 
 And, of course, many thanks to the authors of the plugins that make Vim so convenient and powerful:
 
+- https://github.com/airblade/vim-gitgutter
 - https://github.com/cespare/vim-toml
 - https://github.com/ch-danreif/haproxy.vim
 - https://github.com/chr4/nginx.vim
