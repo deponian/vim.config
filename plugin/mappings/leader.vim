@@ -43,9 +43,13 @@ nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"
 nnoremap <silent> <Leader>t :Files<CR>
 nnoremap <Leader>T :Files 
 
-" <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
+" <Leader>d -- delete buffer
+" (mnemonic: delete)
+nnoremap <silent> <Leader>d :bdelete<CR>
+
+" <Leader>D -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
 " (mnemonic: in[d]ent)
-nnoremap <Leader>d :call mappings#leader#setindent()<CR>
+nnoremap <Leader>D :call mappings#leader#setindent()<CR>
 
 " <Leader>s -- Search WORD under cursor or selected sequence within page
 " (mnemonic: search)
