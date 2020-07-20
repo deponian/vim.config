@@ -36,12 +36,19 @@ let g:fzf_colors =
 	\ 'spinner': ['fg', 'Label'],
 	\ 'header':  ['fg', 'Comment'] }
 
-function! RipgrepFzf(query, fullscreen)
-	let command_fmt = 'rg --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+function! RipgrepFzf(query, fullscreen, fixed)
+	if a:fixed
+		let command_fmt = 'rg --fixed-strings --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+	else
+		let command_fmt = 'rg --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+	endif
 	let initial_command = printf(command_fmt, shellescape(a:query))
 	let reload_command = printf(command_fmt, '{q}')
 	let spec = {'options': ['--phony', '--query', a:query, '--bind', 'change:reload:'.reload_command]}
 	call fzf#vim#grep(initial_command, 1, fzf#vim#with_preview(spec, 'right:70%'), a:fullscreen)
 endfunction
 
-command! -nargs=* -bang RG call RipgrepFzf(<q-args>, <bang>0)
+" [R]ip[G]rep
+command! -nargs=* -bang RG call RipgrepFzf(<q-args>, <bang>0, v:true)
+" [R]ip[G]rep[R]egex
+command! -nargs=* -bang RGR call RipgrepFzf(<q-args>, <bang>0, v:false)
