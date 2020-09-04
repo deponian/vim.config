@@ -36,3 +36,6 @@ noremap Q <Nop>
 " Now Ctrl-C is not useless
 noremap <C-c> <Esc>
 
+" Replay plugin
+nmap <unique> <F12> <Plug>(Replay)
+
