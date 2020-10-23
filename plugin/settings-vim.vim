@@ -153,9 +153,9 @@ endif
 
 if has('folding')
 	if has('windows')
-		set fillchars=diff:-		" BULLET OPERATOR (U+2219, UTF-8: E2 88 99)
-		set fillchars+=fold:·		" MIDDLE DOT (U+00B7, UTF-8: C2 B7)
-		set fillchars+=vert:┃		" BOX DRAWINGS HEAVY VERTICAL (U+2503, UTF-8: E2 94 83)
+		set fillchars=diff:-		" BULLET OPERATOR (U+2219)
+		set fillchars+=fold:·		" MIDDLE DOT (U+00B7)
+		set fillchars+=vert:│		" BOX DRAWINGS LIGHT VERTICAL (U+2502)
 	endif
 
 	if has('nvim-0.3.1')
