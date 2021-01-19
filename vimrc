@@ -53,6 +53,7 @@ if &loadplugins
 		packadd! nginx					" https://github.com/chr4/nginx.vim
 		packadd! systemd				" https://github.com/Matt-Deacalion/vim-systemd-syntax
 		packadd! tmux					" https://github.com/ericpruitt/tmux.vim
+		packadd! terraform				" https://github.com/hashivim/vim-terraform
 		packadd! toml					" https://github.com/cespare/vim-toml
 		packadd! yaml					" https://github.com/stephpy/vim-yaml
 		packadd! zsh					" https://github.com/chrisbra/vim-zsh
