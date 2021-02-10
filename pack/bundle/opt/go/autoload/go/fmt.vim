@@ -20,10 +20,24 @@ set cpo&vim
 function! go#fmt#Format(withGoimport) abort
   let l:bin_name = go#config#FmtCommand()
   if a:withGoimport == 1
-    let l:bin_name = "goimports"
+    let l:mode = go#config#ImportsMode()
+    if l:mode == 'gopls'
+      if !go#config#GoplsEnabled()
+        call go#util#EchoError("go_imports_mode is 'gopls', but gopls is disabled")
+        return
+      endif
+      call go#lsp#Imports()
+      return
+    endif
+
+    let l:bin_name = 'goimports'
   endif
 
   if l:bin_name == 'gopls'
+    if !go#config#GoplsEnabled()
+      call go#util#EchoError("go_fmt_command is 'gopls', but gopls is disabled")
+      return
+    endif
     call go#lsp#Format()
     return
   endif
@@ -64,7 +78,8 @@ function! go#fmt#Format(withGoimport) abort
 
   let current_col = col('.')
   let [l:out, l:err] = go#fmt#run(l:bin_name, l:tmpname, expand('%'))
-  let diff_offset = len(readfile(l:tmpname)) - line('$')
+  let line_offset = len(readfile(l:tmpname)) - line('$')
+  let l:orig_line = getline('.')
 
   if l:err == 0
     call go#fmt#update_file(l:tmpname, expand('%'))
@@ -92,8 +107,10 @@ function! go#fmt#Format(withGoimport) abort
     call winrestview(l:curw)
   endif
 
-  " be smart and jump to the line the new statement was added/removed
-  call cursor(line('.') + diff_offset, current_col)
+  " be smart and jump to the line the new statement was added/removed and
+  " adjust the column within the line
+  let l:lineno = line('.') + line_offset
+  call cursor(l:lineno, current_col + (len(getline(l:lineno)) - len(l:orig_line)))
 
   " Syntax highlighting breaks less often.
   syntax sync fromstart
@@ -120,21 +137,12 @@ function! go#fmt#update_file(source, target)
   " reload buffer to reflect latest changes
   silent edit!
 
+  call go#lsp#DidChange(expand(a:target, ':p'))
+
   let &fileformat = old_fileformat
   let &syntax = &syntax
 
-  let l:listtype = go#list#Type("GoFmt")
-
-  " clean up previous list
-  if l:listtype == "quickfix"
-    let l:list_title = getqflist({'title': 1})
-  else
-    let l:list_title = getloclist(0, {'title': 1})
-  endif
-
-  if has_key(l:list_title, "title") && l:list_title['title'] == "Format"
-    call go#list#Clean(l:listtype)
-  endif
+  call go#fmt#CleanErrors()
 endfunction
 
 " run runs the gofmt/goimport command for the given source file and returns
@@ -176,13 +184,28 @@ function! s:replace_filename(filename, content) abort
   return join(l:errors, "\n")
 endfunction
 
+function! go#fmt#CleanErrors() abort
+  let l:listtype = go#list#Type("GoFmt")
+
+  " clean up previous list
+  if l:listtype == "quickfix"
+    let l:list_title = getqflist({'title': 1})
+  else
+    let l:list_title = getloclist(0, {'title': 1})
+  endif
+
+  if has_key(l:list_title, 'title') && (l:list_title['title'] == 'Format' || l:list_title['title'] == 'GoMetaLinterAutoSave')
+    call go#list#Clean(l:listtype)
+  endif
+endfunction
+
 " show_errors opens a location list and shows the given errors. If errors is
 " empty, it closes the the location list.
 function! go#fmt#ShowErrors(errors) abort
   let l:errorformat = '%f:%l:%c:\ %m'
   let l:listtype = go#list#Type("GoFmt")
 
-  call go#list#ParseFormat(l:listtype, l:errorformat, a:errors, 'Format')
+  call go#list#ParseFormat(l:listtype, l:errorformat, a:errors, 'Format', 0)
   let l:errors = go#list#Get(l:listtype)
 
   " this closes the window if there are no errors or it opens
