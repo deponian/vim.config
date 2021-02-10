@@ -1,4 +1,1 @@
-augroup haproxy
-  autocmd!
-  autocmd BufRead,BufNewFile haproxy.cfg set filetype=haproxy
-augroup END
+au BufRead,BufNewFile haproxy*.c* set ft=haproxy
