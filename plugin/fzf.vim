@@ -1,6 +1,9 @@
 " fzf configuration
 "
 
+" Default fzf layout
+let g:fzf_layout = { 'window': { 'width': 1.0, 'height': 0.8 } }
+
 " [Buffers] Jump to the existing window if possible
 let g:fzf_buffers_jump = 1
 
