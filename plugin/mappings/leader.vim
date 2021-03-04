@@ -88,7 +88,7 @@ nmap <silent> <Leader>hp <Plug>(GitGutterPreviewHunk)
 
 " <Leader>hu -- Undo the hunk
 " (mnemonic: hunk undo)
-nmap <silent> <Leader>hu <Plug>(GitGutterStageHunk)
+nmap <silent> <Leader>hu <Plug>(GitGutterUndoHunk)
 
 " <Leader>hs -- Stage the hunk
 " (mnemonic: hunk stage)
