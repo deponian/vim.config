@@ -48,13 +48,14 @@ if &loadplugins
 		packadd! git					" https://github.com/tpope/vim-git
 		packadd! go						" https://github.com/fatih/vim-go
 		packadd! haproxy				" https://github.com/CH-DanReif/haproxy.vim
+		packadd! helm					" https://github.com/towolf/vim-helm.git
 		packadd! log					" https://github.com/MTDL9/vim-log-highlighting
 		packadd! mustache				" https://github.com/mustache/vim-mustache-handlebars
 		packadd! nftables				" https://github.com/nfnty/vim-nftables
 		packadd! nginx					" https://github.com/chr4/nginx.vim
 		packadd! systemd				" https://github.com/Matt-Deacalion/vim-systemd-syntax
-		packadd! tmux					" https://github.com/ericpruitt/tmux.vim
 		packadd! terraform				" https://github.com/hashivim/vim-terraform
+		packadd! tmux					" https://github.com/ericpruitt/tmux.vim
 		packadd! toml					" https://github.com/cespare/vim-toml
 		packadd! yaml					" https://github.com/stephpy/vim-yaml
 		packadd! zsh					" https://github.com/chrisbra/vim-zsh

@@ -34,7 +34,7 @@ let g:indentLine_color_gui = '#2c3036'
 let g:indentLine_enabled = 0
 augroup IndenLineFiletypes
 	autocmd!
-	autocmd BufReadPre *.yml let b:indentLine_enabled = 1
+	autocmd BufReadPre *.yml,*.yaml let b:indentLine_enabled = 1
 augroup END
 
 " GitGutter
