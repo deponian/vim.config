@@ -45,6 +45,7 @@ set shiftround
 
 if has('syntax')
 	set spellcapcheck=	" don't check for capital letters at start of sentence
+	set spellfile=~/.vim/spell/en.utf-8.add
 endif
 
 if has('windows')

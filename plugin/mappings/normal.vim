@@ -30,6 +30,9 @@ noremap <F2> :set list!<CR>
 " Toggle between number and nonumber
 noremap <F3> :set invnumber<CR>
 
+" Toggle between spell and nospell
+noremap <F4> :set spell!<CR>
+
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
 
