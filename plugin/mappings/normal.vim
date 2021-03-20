@@ -33,6 +33,9 @@ noremap <F3> :set invnumber<CR>
 " Toggle between spell and nospell
 noremap <F4> :set spell!<CR>
 
+" Reload file from disk
+noremap <silent> <F5> :edit!<CR>
+
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
 
