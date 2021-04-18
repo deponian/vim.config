@@ -19,6 +19,7 @@ endif
 if &loadplugins
 	if has('packages')
 		" General plugins
+		packadd! base64					" https://github.com/christianrondeau/vim-base64
 		packadd! commentary				" https://github.com/tpope/vim-commentary
 		packadd! fzf					" https://github.com/junegunn/fzf
 		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim

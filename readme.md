@@ -20,6 +20,7 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/ch-danreif/haproxy.vim
 - https://github.com/chr4/nginx.vim
 - https://github.com/chrisbra/vim-zsh
+- https://github.com/christianrondeau/vim-base64
 - https://github.com/ekalinin/dockerfile.vim
 - https://github.com/ericpruitt/tmux.vim
 - https://github.com/ervandew/supertab
