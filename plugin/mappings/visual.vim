@@ -14,5 +14,5 @@ xnoremap <S-Up> <Nop>
 xnoremap <S-Down> <Nop>
 
 " Move VISUAL LINE selection within buffer.
-xnoremap <silent> K :call mappings#visual#move_up()<CR>
-xnoremap <silent> J :call mappings#visual#move_down()<CR>
+xnoremap <silent> K <Nop>
+xnoremap <silent> J <Nop>
