@@ -1,0 +1,9 @@
+:Terraform	terraform.txt	/*:Terraform*
+:TerraformFmt	terraform.txt	/*:TerraformFmt*
+g:terraform_align	terraform.txt	/*g:terraform_align*
+g:terraform_binary_path	terraform.txt	/*g:terraform_binary_path*
+g:terraform_fmt_on_save	terraform.txt	/*g:terraform_fmt_on_save*
+g:terraform_fold_sections	terraform.txt	/*g:terraform_fold_sections*
+terraform-commands	terraform.txt	/*terraform-commands*
+terraform-settings	terraform.txt	/*terraform-settings*
+terraform.txt	terraform.txt	/*terraform.txt*
