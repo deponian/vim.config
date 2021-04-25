@@ -63,7 +63,9 @@ if &loadplugins
 
 		" Vim/Neovim specific plugins
 		if has('nvim')
-			packadd! semshi				" https://github.com/numirias/semshi
+			" packadd! semshi				" https://github.com/numirias/semshi
+			packadd! treesitter			" https://github.com/nvim-treesitter/nvim-treesitter
+			lua require('treesitter')
 		else
 			packadd! python				" https://github.com/vim-python/python-syntax
 			packadd! matchit			" ships with vim and built-in into neovim
@@ -90,4 +92,3 @@ syntax on
 " To see all leader mappings, including those from plugins:
 "
 "	vim -c 'set t_te=' -c 'set t_ti=' -c 'map <space>' -c q | sort
-
