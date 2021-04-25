@@ -8,10 +8,10 @@ nnoremap <S-Up> <Nop>
 nnoremap <S-Down> <Nop>
 
 " Move between windows (splits)
-nnoremap <C-Left> <C-w>h
-nnoremap <C-Down> <C-w>j
-nnoremap <C-Up> <C-w>k
-nnoremap <C-Right> <C-w>l
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
 
 " Cycle through windows (splits)
 nnoremap <S-Tab> <C-w>w
