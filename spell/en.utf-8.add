@@ -228,3 +228,6 @@ EC2
 prescan
 Dropbox
 HFS
+Opsgenie
+prometheus
+Kubernetes
