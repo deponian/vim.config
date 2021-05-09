@@ -10,7 +10,7 @@ let g:python_recommended_style = 0
 " NERDTree
 let NERDTreeMinimalUI = 1
 let NERDTreeQuitOnOpen = 1
-let NERDTreeWinSize = 32
+let NERDTreeWinSize = 48
 let NERDTreeStatusline = -1
 let NERDTreeCustomOpenArgs = {
 			\ 'file': { 'reuse': 'all',
