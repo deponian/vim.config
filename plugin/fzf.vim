@@ -41,9 +41,9 @@ let g:fzf_colors =
 
 function! RipgrepFzf(query, fullscreen, fixed)
 	if a:fixed
-		let command_fmt = 'rg --fixed-strings --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings  -- %s || true'
 	else
-		let command_fmt = 'rg --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
 	endif
 	let initial_command = printf(command_fmt, shellescape(a:query))
 	let reload_command = printf(command_fmt, '{q}')
