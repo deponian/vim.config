@@ -56,6 +56,10 @@ nnoremap <Leader>D :call mappings#leader#setindent()<CR>
 nmap <Leader>s g*
 vmap <Leader>s y/<BS><BS>\V<C-R>=escape(@",'\/')<CR><CR>
 
+" <Leader>S -- Substitution alias
+" (mnemonic: substitute)
+nmap <Leader>S :%s/
+
 " <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
 " (mnemonic: find)
 nnoremap <Leader>f :RG! <C-R>=expand('<cWORD>')<CR><CR>
