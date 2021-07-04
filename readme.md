@@ -36,6 +36,7 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/neomake/neomake
 - https://github.com/nfnty/vim-nftables
 - https://github.com/numirias/semshi
+- https://github.com/nvim-treesitter/nvim-treesitter
 - https://github.com/pboettch/vim-cmake-syntax
 - https://github.com/pearofducks/ansible-vim
 - https://github.com/preservim/nerdtree
