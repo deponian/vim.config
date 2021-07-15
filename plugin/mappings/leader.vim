@@ -78,10 +78,6 @@ nnoremap <Leader>F <C-W>gf
 " (mnemonic: [n]o highlighting)
 nmap <Leader>n <Plug>(LoupeClearHighlight)
 
-" <Leader>` -- Open Nerdtree file explorer
-" (mnemonic: Win-` is hot key for Double Commander)
-nnoremap <silent> <Leader>` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
-
 " <Leader>c -- Fold all #-comments in buffer
 " (mnemonic: comment)
 nnoremap <Leader>c :setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM

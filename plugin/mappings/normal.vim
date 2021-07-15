@@ -45,3 +45,7 @@ noremap <C-c> <Esc>
 " Replay plugin
 nmap <unique> <F12> <Plug>(Replay)
 
+" Open Nerdtree file explorer
+" (mnemonic: Win-` is hot key for Double Commander)
+nnoremap <silent> ` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
+
