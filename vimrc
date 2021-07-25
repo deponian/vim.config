@@ -30,7 +30,7 @@ if &loadplugins
 		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! loupe					" https://github.com/deponian/vim-loupe
 		packadd! manpager				" https://github.com/lambdalisue/vim-manpager
-		packadd! neomake				" https://github.com/neomake/neomake [d10e5395]
+		packadd! neomake				" https://github.com/neomake/neomake
 		packadd! nerdtree				" https://github.com/preservim/nerdtree
 		packadd! onedark				" https://github.com/deponian/vim-onedark
 		packadd! repeat					" https://github.com/tpope/vim-repeat
