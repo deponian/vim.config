@@ -8,6 +8,9 @@ let g:neomake_virtualtext_prefix = '<<< '
 let g:neomake_yaml_ansible_enabled_makers = ['ansiblelint', 'yamllint']
 let g:neomake_ansible_ansiblelint_errorformat = '%f:%l: %m'
 
+" Helm
+let g:neomake_yaml_helm_enabled_makers = ['makeprg']
+
 " Python
 " Change python interpreter to match what is in shebang
 call neomake#config#set('b:python.InitForJob', function('settings#neomake#set_argv_from_shebang'))
