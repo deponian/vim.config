@@ -21,6 +21,7 @@ if &loadplugins
 		" General plugins
 		packadd! base64					" https://github.com/christianrondeau/vim-base64
 		packadd! commentary				" https://github.com/tpope/vim-commentary
+		packadd! fugitive				" https://github.com/tpope/vim-fugitive
 		packadd! fzf					" https://github.com/junegunn/fzf
 		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 		packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
@@ -41,6 +42,7 @@ if &loadplugins
 		packadd! supertab				" https://github.com/ervandew/supertab
 		packadd! surround				" https://github.com/tpope/vim-surround
 		packadd! terminus				" https://github.com/deponian/vim-terminus
+		packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
 
 		" language/syntax/filetype plugins
 		packadd! ansible				" https://github.com/pearofducks/ansible-vim

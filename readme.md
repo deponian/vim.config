@@ -44,8 +44,10 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/stephpy/vim-yaml
 - https://github.com/towolf/vim-helm.git
 - https://github.com/tpope/vim-commentary
+- https://github.com/tpope/vim-fugitive
 - https://github.com/tpope/vim-git
 - https://github.com/tpope/vim-repeat
+- https://github.com/tpope/vim-rhubarb
 - https://github.com/tpope/vim-speeddating
 - https://github.com/tpope/vim-surround
 - https://github.com/vim-python/python-syntax
