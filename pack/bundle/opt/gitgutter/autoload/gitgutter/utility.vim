@@ -30,7 +30,7 @@ endfunction
 
 function! gitgutter#utility#warn(message) abort
   echohl WarningMsg
-  echo 'vim-gitgutter: ' . a:message
+  echo a:message
   echohl None
   let v:warningmsg = a:message
 endfunction
@@ -39,7 +39,7 @@ function! gitgutter#utility#warn_once(bufnr, message, key) abort
   if empty(gitgutter#utility#getbufvar(a:bufnr, a:key))
     call gitgutter#utility#setbufvar(a:bufnr, a:key, '1')
     echohl WarningMsg
-    redraw | echom 'vim-gitgutter: ' . a:message
+    redraw | echom a:message
     echohl None
     let v:warningmsg = a:message
   endif
@@ -180,7 +180,7 @@ function! s:use_known_shell() abort
     let &shell = 'sh'
     set shellcmdflag=-c shellredir=>%s\ 2>&1
   endif
-  if has('win32') && (&shell ==# 'pwsh' || &shell ==# 'powershell')
+  if has('win32') && (&shell =~# 'pwsh' || &shell =~# 'powershell')
     let [s:shell, s:shellcmdflag, s:shellredir, s:shellpipe, s:shellquote, s:shellxquote] = [&shell, &shellcmdflag, &shellredir, &shellpipe, &shellquote, &shellxquote]
     let &shell = 'cmd.exe'
     set shellcmdflag=/s\ /c shellredir=>%s\ 2>&1 shellpipe=>%s\ 2>&1 shellquote= shellxquote="
