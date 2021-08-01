@@ -19,7 +19,7 @@ set sidescroll=0					" sidescroll in jumps because terminals are slow
 set sidescrolloff=3					" same as scrolloff, but for columns
 set smarttab						" <tab>/<BS> indent/dedent in leading whitespace
 set updatecount=80					" update swapfiles every 80 typed chars
-set updatetime=1000					" CursorHold interval
+set updatetime=250					" CursorHold interval
 set visualbell t_vb=				" stop annoying beeping for non-error errors
 set wildcharm=<C-z>					" substitute for 'wildchar' (<Tab>) in macros
 set switchbuf=usetab				" try to reuse windows/tabs when switching buffers
