@@ -25,8 +25,8 @@ hl-TSConstMacro	nvim-treesitter.txt	/*hl-TSConstMacro*
 hl-TSConstant	nvim-treesitter.txt	/*hl-TSConstant*
 hl-TSConstructor	nvim-treesitter.txt	/*hl-TSConstructor*
 hl-TSEmphasis	nvim-treesitter.txt	/*hl-TSEmphasis*
-hl-TSEnviroment	nvim-treesitter.txt	/*hl-TSEnviroment*
-hl-TSEnviromentName	nvim-treesitter.txt	/*hl-TSEnviromentName*
+hl-TSEnvironment	nvim-treesitter.txt	/*hl-TSEnvironment*
+hl-TSEnvironmentName	nvim-treesitter.txt	/*hl-TSEnvironmentName*
 hl-TSError	nvim-treesitter.txt	/*hl-TSError*
 hl-TSException	nvim-treesitter.txt	/*hl-TSException*
 hl-TSField	nvim-treesitter.txt	/*hl-TSField*
