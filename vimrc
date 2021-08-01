@@ -27,6 +27,7 @@ if &loadplugins
 		packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
 		packadd! indentline				" https://github.com/Yggdroot/indentLine
 		packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
+		packadd! lightline-gitbranch	" https://github.com/itchyny/vim-gitbranch
 		packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 		packadd! loupe					" https://github.com/deponian/vim-loupe
@@ -36,13 +37,13 @@ if &loadplugins
 		packadd! onedark				" https://github.com/deponian/vim-onedark
 		packadd! repeat					" https://github.com/tpope/vim-repeat
 		packadd! replay					" https://github.com/wincent/replay
+		packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
 		packadd! scalpel				" https://github.com/deponian/vim-scalpel
 		packadd! speeddating			" https://github.com/tpope/vim-speeddating
 		packadd! suda					" https://github.com/lambdalisue/suda.vim
 		packadd! supertab				" https://github.com/ervandew/supertab
 		packadd! surround				" https://github.com/tpope/vim-surround
 		packadd! terminus				" https://github.com/deponian/vim-terminus
-		packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
 
 		" language/syntax/filetype plugins
 		packadd! ansible				" https://github.com/pearofducks/ansible-vim

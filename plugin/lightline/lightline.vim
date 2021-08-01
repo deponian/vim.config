@@ -9,7 +9,7 @@ let g:lightline.active = {
 	\           [ 'filename' ] ],
 	\ 'right': [ [ 'whitespace', 'neomake_info', 'neomake_warning', 'neomake_error' ],
 	\            [ 'percent_and_lineinfo' ],
-	\            [ 'file_enc_and_format' ],
+	\            [ 'gitbranch' ],
 	\            [ 'filetype' ] ] }
 
 let g:lightline.inactive = {
@@ -49,7 +49,8 @@ let g:lightline.component_function = {
 	\ 'mode': 'LightlineMode',
 	\ 'filename': 'LightlineFilename',
 	\ 'filetype': 'LightlineFiletype',
-	\ 'file_enc_and_format': 'LightlineFileEncAndFormat' }
+	\ 'file_enc_and_format': 'LightlineFileEncAndFormat',
+	\ 'gitbranch': 'gitbranch#name' }
 
 function! LightlineMode()
 	let fname = expand('%:t')
