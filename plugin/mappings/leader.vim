@@ -41,7 +41,7 @@ nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"
 
 " <Leader>t -- Find and open file
 nnoremap <silent> <Leader>t :Files<CR>
-nnoremap <Leader>T :Files 
+nnoremap <Leader>T :Files
 
 " <Leader>d -- delete buffer
 " (mnemonic: delete)

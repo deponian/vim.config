@@ -36,6 +36,12 @@ noremap <F4> :set spell!<CR>
 " Reload file from disk
 noremap <silent> <F5> :edit!<CR>
 
+" Show different version of current file
+noremap <silent> <F6> :call mappings#normal#git_show_file_versions()<CR>
+
+" Toggle diff mode for all windows
+noremap <silent> <F7> :call mappings#normal#toggle_diff()<CR>
+
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
 
@@ -49,3 +55,8 @@ nmap <unique> <F12> <Plug>(Replay)
 " (mnemonic: Win-` is hot key for Double Commander)
 nnoremap <silent> ` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
 
+" Next item in quickfix list
+noremap <M-.> :cnext<CR>
+
+" Previous item in quickfix list
+noremap <M-,> :cprevious<CR>
