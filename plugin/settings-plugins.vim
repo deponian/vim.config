@@ -9,7 +9,7 @@ let g:python_recommended_style = 0
 
 " NERDTree
 let NERDTreeMinimalUI = 1
-let NERDTreeQuitOnOpen = 1
+let NERDTreeQuitOnOpen = 0
 let NERDTreeWinSize = 48
 let NERDTreeStatusline = -1
 let NERDTreeCustomOpenArgs = {
@@ -26,7 +26,7 @@ let g:SuperTabDefaultCompletionType = "context"
 let g:semshi#error_sign = v:false
 
 " IndentLine
-" Disable by default. Enabled only for some filetypes
+" Disabled by default. Enabled only for some filetypes
 let g:indentLine_char = '¦'
 let g:indentLine_color_term = 237
 let g:indentLine_color_gui = '#2c3036'

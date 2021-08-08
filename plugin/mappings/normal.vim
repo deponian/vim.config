@@ -53,7 +53,7 @@ nmap <unique> <F12> <Plug>(Replay)
 
 " Open Nerdtree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
-nnoremap <silent> ` :NERDTreeToggle %:p:h<CR>:silent NERDTreeMirror<CR>
+nnoremap <silent> ` :call mappings#normal#nerdtree_open_or_focus()<CR>
 
 " Next item in quickfix list
 noremap <M-.> :cnext<CR>

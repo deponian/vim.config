@@ -24,3 +24,18 @@ function! mappings#normal#toggle_diff() abort
 		windo diffthis
 	endif
 endfunction
+
+" Toggle diff mode for all windows
+function! mappings#normal#nerdtree_open_or_focus() abort
+	if g:NERDTree.IsOpen()
+		let ftype = &filetype
+		if ftype ==# 'nerdtree'
+			execute 'NERDTreeToggle'
+		else
+			execute 'NERDTreeFocus'
+		endif
+	else
+		execute 'NERDTreeToggle'
+		execute 'silent NERDTreeMirror'
+	endif
+endfunction
