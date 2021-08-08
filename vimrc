@@ -26,7 +26,7 @@ if &loadplugins
 		packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 		packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
 		packadd! indentline				" https://github.com/Yggdroot/indentLine
-		packadd! lightline				" https://github.com/itchyny/lightline.vim [c172131]
+		packadd! lightline				" https://github.com/itchyny/lightline.vim
 		packadd! lightline-gitbranch	" https://github.com/itchyny/vim-gitbranch
 		packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 		packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
