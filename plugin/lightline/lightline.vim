@@ -51,7 +51,7 @@ let g:lightline.component_function = {
 	\ 'filename': 'LightlineFilename',
 	\ 'filetype': 'LightlineFiletype',
 	\ 'file_enc_and_format': 'LightlineFileEncAndFormat',
-	\ 'gitbranch': 'gitbranch#name' }
+	\ 'gitbranch': 'FugitiveHead' }
 
 function! LightlineMode()
 	let fname = expand('%:t')
