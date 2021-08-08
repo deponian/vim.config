@@ -6,10 +6,11 @@ let g:lightline.active = {
 	\ 'left': [ [ 'mode', 'paste' ],
 	\           [ 'readonly' ],
 	\           [ 'modified' ],
+	\           [ 'gitbranch' ],
 	\           [ 'filename' ] ],
 	\ 'right': [ [ 'whitespace', 'neomake_info', 'neomake_warning', 'neomake_error' ],
 	\            [ 'percent_and_lineinfo' ],
-	\            [ 'gitbranch' ],
+	\            [ 'file_enc_and_format' ],
 	\            [ 'filetype' ] ] }
 
 let g:lightline.inactive = {
