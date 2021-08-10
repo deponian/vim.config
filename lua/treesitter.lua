@@ -4,5 +4,11 @@ require'nvim-treesitter.configs'.setup {
   ignore_install = {'jsonc'}, -- List of parsers to ignore installing
   highlight = {
     enable = true,              -- false will disable the whole extension
+    -- disable = {'yaml'},  -- list of language that will be disabled
+    custom_captures = {
+      ["yaml.field"] = "Keyword",
+      ["yaml.boolean"] = "TSAttribute",
+      ["yaml.number"] = "Label",
+    },
   },
 }
