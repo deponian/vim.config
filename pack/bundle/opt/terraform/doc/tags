@@ -1,9 +1,13 @@
 :Terraform	terraform.txt	/*:Terraform*
 :TerraformFmt	terraform.txt	/*:TerraformFmt*
+g:hcl_align	hcl.txt	/*g:hcl_align*
+g:hcl_fold_sections	hcl.txt	/*g:hcl_fold_sections*
 g:terraform_align	terraform.txt	/*g:terraform_align*
 g:terraform_binary_path	terraform.txt	/*g:terraform_binary_path*
 g:terraform_fmt_on_save	terraform.txt	/*g:terraform_fmt_on_save*
 g:terraform_fold_sections	terraform.txt	/*g:terraform_fold_sections*
+hcl-settings	hcl.txt	/*hcl-settings*
+hcl.txt	hcl.txt	/*hcl.txt*
 terraform-commands	terraform.txt	/*terraform-commands*
 terraform-settings	terraform.txt	/*terraform-settings*
 terraform.txt	terraform.txt	/*terraform.txt*
