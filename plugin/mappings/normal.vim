@@ -31,7 +31,7 @@ noremap <F2> :set list!<CR>
 noremap <F3> :set invnumber<CR>
 
 " Toggle between spell and nospell
-noremap <F4> :set spell!<CR>
+noremap <F4> :setlocal spell! spelllang=ru,en<CR>
 
 " Reload file from disk
 noremap <silent> <F5> :edit!<CR>
