@@ -65,7 +65,6 @@ if &loadplugins
 
 		" Vim/Neovim specific plugins
 		if has('nvim')
-			" packadd! semshi				" https://github.com/numirias/semshi
 			packadd! treesitter			" https://github.com/nvim-treesitter/nvim-treesitter
 			lua require('treesitter')
 		else

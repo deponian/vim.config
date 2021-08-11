@@ -8,11 +8,11 @@ let g:ansible_extra_keywords_highlight = 1
 let g:python_recommended_style = 0
 
 " NERDTree
-let NERDTreeMinimalUI = 1
-let NERDTreeQuitOnOpen = 0
-let NERDTreeWinSize = 48
-let NERDTreeStatusline = -1
-let NERDTreeCustomOpenArgs = {
+let g:NERDTreeMinimalUI = 1
+let g:NERDTreeQuitOnOpen = 0
+let g:NERDTreeWinSize = 48
+let g:NERDTreeStatusline = -1
+let g:NERDTreeCustomOpenArgs = {
 			\ 'file': { 'reuse': 'all',
 					\   'where': 'p',
 					\   'keepopen': 1,
@@ -21,9 +21,6 @@ let NERDTreeCustomOpenArgs = {
 
 " Supertab
 let g:SuperTabDefaultCompletionType = "context"
-
-" Semshi
-let g:semshi#error_sign = v:false
 
 " IndentLine
 " Disabled by default. Enabled only for some filetypes
