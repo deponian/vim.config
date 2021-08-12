@@ -62,8 +62,8 @@ nmap <Leader>S :%s/
 
 " <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
 " (mnemonic: find)
-nnoremap <Leader>f :RG! <C-R>=expand('<cWORD>')<CR><CR>
-vnoremap <Leader>f y:RG! <C-R>"<CR>
+nnoremap <Leader>f :RG<CR>
+vnoremap <Leader>f y:RG . <C-R>"<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)

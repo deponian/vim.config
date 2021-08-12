@@ -55,8 +55,8 @@ let g:lightline.component_function = {
 	\ 'gitbranch': 'LightlineGitBranch' }
 
 function! LightlineMode()
-	let fname = expand('%:t')
-	return fname =~ 'NERD_tree' ? 'NERDTree':
+	let ftype = &filetype
+	return ftype ==# 'NvimTree' ? 'nvimtree':
 		\ winwidth(0) > 70 ? lightline#mode() : ''
 endfunction
 
@@ -68,7 +68,7 @@ function! LightlineFilename()
 		let fugitive_name = FugitiveReal(bufname('%'))
 	endif
 
-	if ftype ==# 'nerdtree'
+	if ftype ==# 'NvimTree'
 		return ''
 	elseif ftype ==# 'qf'
 		return ''
@@ -83,7 +83,7 @@ endfunction
 
 function! LightlineFiletype()
 	let ftype = &filetype
-	return ftype ==# 'nerdtree' ? '' : ftype
+	return ftype ==# 'NvimTree' ? '' : ftype
 endfunction
 
 function! LightlineFileEncAndFormat()
@@ -94,11 +94,14 @@ endfunction
 function! LightlineTabname(n) abort
 	let bufnr = tabpagebuflist(a:n)[tabpagewinnr(a:n) - 1]
 	let fname = expand('#' . bufnr . ':t')
-	return fname =~ 'NERD_tree' ? 'NERDTree' : lightline#tab#filename(a:n)
+	return fname =~ 'NvimTree' ? 'nvimtree' : lightline#tab#filename(a:n)
 endfunction
 
 function! LightlineGitBranch() abort
-	if bufname('%') =~? '^fugitive:' && exists('*FugitiveReal')
+	let ftype = &filetype
+	if ftype ==# 'NvimTree'
+		return ''
+	elseif bufname('%') =~? '^fugitive:' && exists('*FugitiveReal')
 		return FugitiveParse(bufname('%'))[0][0:6]
 	else
 		return FugitiveHead()

@@ -27,7 +27,6 @@ packadd! loupe					" https://github.com/deponian/vim-loupe
 packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
 packadd! manpager				" https://github.com/lambdalisue/vim-manpager
 packadd! neomake				" https://github.com/neomake/neomake
-packadd! nerdtree				" https://github.com/preservim/nerdtree
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer
 packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc
@@ -38,6 +37,8 @@ packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg
 packadd! nvim-cmp-spell			" https://github.com/f3fora/cmp-spell
 packadd! nvim-colorizer			" https://github.com/norcalli/nvim-colorizer.lua
 packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig
+packadd! nvim-web-devicons		" https://github.com/kyazdani42/nvim-web-devicons
+packadd! nvimtree				" https://github.com/kyazdani42/nvim-tree.lua
 packadd! onedark				" https://github.com/navarasu/onedark.nvim
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! replay					" https://github.com/wincent/replay

@@ -1,7 +1,7 @@
 " fzf configuration
 
 " Default fzf layout
-let g:fzf_layout = { 'window': { 'width': 1.0, 'height': 0.8 } }
+let g:fzf_layout = { 'window': { 'width': 1.0, 'height': 0.9 } }
 
 " [Buffers] Jump to the existing window if possible
 let g:fzf_buffers_jump = 1
@@ -11,7 +11,7 @@ let g:fzf_commits_log_options = '--color=always --pretty=format:"%C(#5398dd)%h %
 
 " ctrl-m is 'Enter' key
 let g:fzf_action = {
-	\ 'ctrl-m': 'tab split',
+	\ 'ctrl-m': 'vsplit',
 	\ 'ctrl-s': 'split',
 	\ 'ctrl-v': 'vsplit' }
 
@@ -38,19 +38,19 @@ let g:fzf_colors =
 	\ 'spinner': ['fg', 'Label'],
 	\ 'header':  ['fg', 'Comment'] }
 
-function! RipgrepFzf(query, fullscreen, fixed)
+function! RipgrepFzf(fullscreen, fixed, path = ".", query = "")
 	if a:fixed
-		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings  -- %s || true'
+		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings -- %s %s || true'
 	else
-		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s || true'
+		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s %s || true'
 	endif
-	let initial_command = printf(command_fmt, shellescape(a:query))
-	let reload_command = printf(command_fmt, '{q}')
+	let initial_command = printf(command_fmt, shellescape(a:query), shellescape(a:path))
+	let reload_command = printf(command_fmt, '{q}', shellescape(a:path))
 	let spec = {'options': ['--phony', '--query', a:query, '--bind', 'change:reload:'.reload_command]}
 	call fzf#vim#grep(initial_command, 1, fzf#vim#with_preview(spec, 'right:70%'), a:fullscreen)
 endfunction
 
 " [R]ip[G]rep
-command! -nargs=* -bang RG call RipgrepFzf(<q-args>, <bang>0, v:true)
+command! -nargs=* -bang RG call RipgrepFzf(<bang>0, v:true, <f-args>)
 " [R]ip[G]rep[R]egex
-command! -nargs=* -bang RGR call RipgrepFzf(<q-args>, <bang>0, v:false)
+command! -nargs=* -bang RGR call RipgrepFzf(<bang>0, v:false, <f-args>)
