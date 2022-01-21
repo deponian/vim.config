@@ -24,24 +24,49 @@ function! s:shellesc(arg) abort
 endfunction
 
 function! rhubarb#HomepageForUrl(url) abort
-  let domains = get(g:, 'github_enterprise_urls', get(g:, 'fugitive_github_domains', []))
-  if a:url =~# '://'
-    let match = matchlist(a:url, '^\(https\=://\%([^@/:]*@\)\=\|git://\|ssh://git@\|ssh://org-\d\+@\)\([^/]\+\)/\(.\{-\}\)\%(\.git\)\=/\=$')
+  let dict_or_list = get(g:, 'github_enterprise_urls', get(g:, 'fugitive_github_domains', {}))
+  if type(dict_or_list) ==# type({})
+    let domains = dict_or_list
+  elseif type(dict_or_list) == type([])
+    let domains = {}
+    for domain in dict_or_list
+      let domains[substitute(domain, '^.\{-\}://', '', '')] = domain
+    endfor
   else
-    let match = matchlist(a:url, '^\(git@\|org-\d\+@\)\([^:/]\+\):\(.\{-\}\)\%(\.git\)\=/\=$')
+    let domains = {}
+  endif
+  " [full_url, scheme, host_with_port, host, path]
+  if a:url =~# '://'
+    let match = matchlist(a:url, '^\(https\=://\|git://\|ssh://\)\%([^@/]\+@\)\=\(\([^/:]\+\)\%(:\d\+\)\=\)/\(.\{-\}\)\%(\.git\)\=/\=$')
+  else
+    let match = matchlist(a:url, '^\([^@/]\+@\)\=\(\([^:/]\+\)\):\(.\{-\}\)\%(\.git\)\=/\=$')
+    if !empty(match)
+      let match[1] = 'ssh://'
+    endif
   endif
   if empty(match)
     return ''
-  elseif match[2] ==# 'github.com' || match[2] =~# '^ssh\.github\.com\%(:443\)\=$'
-    let root = 'https://github.com'
-  elseif index(domains, 'http://' . match[2]) >= 0 || index(domains, match[2]) >= 0 && match[1] =~# '^http://'
-    let root = 'http://' . match[2]
-  elseif index(domains, 'https://' . match[2]) >= 0 || index(domains, match[2]) >= 0
-    let root = 'https://' . match[2]
+  elseif match[3] ==# 'github.com' || match[3] ==# 'ssh.github.com'
+    return 'https://github.com/' . match[4]
+  elseif has_key(domains, match[1] . match[2])
+    let key = match[1] . match[2]
+  elseif has_key(domains, match[2])
+    let key = match[2]
+  elseif has_key(domains, match[3])
+    let key = match[3]
   else
     return ''
   endif
-  return root . '/' . match[3]
+  let root = domains[key]
+  if type(root) !=# type('') && root
+    let root = key
+  endif
+  if empty(root)
+    return ''
+  elseif root !~# '://'
+    let root = (match[1] =~# '^http://' ? 'http://' : 'https://') . root
+  endif
+  return substitute(root, '/$', '', '') . '/' . match[4]
 endfunction
 
 function! rhubarb#homepage_for_url(url) abort
@@ -118,7 +143,7 @@ endfunction
 
 function! s:curl_arguments(path, ...) abort
   let options = a:0 ? a:1 : {}
-  let args = ['-q', '--silent']
+  let args = ['curl', '-q', '--silent']
   call extend(args, ['-H', 'Accept: application/json'])
   call extend(args, ['-H', 'Content-Type: application/json'])
   call extend(args, ['-A', 'rhubarb.vim'])
@@ -169,7 +194,23 @@ function! rhubarb#Request(path, ...) abort
   endif
   let options = a:0 ? a:1 : {}
   let args = s:curl_arguments(path, options)
-  let raw = system('curl '.join(map(copy(args), 's:shellesc(v:val)'), ' '))
+  if exists('*FugitiveExecute') && v:version >= 800
+    try
+      if has_key(options, 'callback')
+        return FugitiveExecute({'argv': args}, { r -> r.exit_status || r.stdout ==# [''] ? '' : options.callback(json_decode(join(r.stdout, ' '))) })
+      endif
+      let raw = join(FugitiveExecute({'argv': args}).stdout, ' ')
+      return empty(raw) ? raw : json_decode(raw)
+    catch /^fugitive:/
+    endtry
+  endif
+  let raw = system(join(map(copy(args), 's:shellesc(v:val)'), ' '))
+  if has_key(options, 'callback')
+    if !v:shell_error && !empty(raw)
+      call options.callback(rhubarb#JsonDecode(raw))
+    endif
+    return {}
+  endif
   if raw ==# ''
     return raw
   else
@@ -193,8 +234,8 @@ function! s:url_encode(str) abort
   return substitute(a:str, '[?@=&<>%#/:+[:space:]]', '\=submatch(0)==" "?"+":printf("%%%02X", char2nr(submatch(0)))', 'g')
 endfunction
 
-function! rhubarb#RepoSearch(type, q) abort
-  return rhubarb#Request('search/'.a:type.'?per_page=100&q=repo:%s'.s:url_encode(' '.a:q))
+function! rhubarb#RepoSearch(type, q, ...) abort
+  return call('rhubarb#Request', ['search/'.a:type.'?per_page=100&q=repo:%s'.s:url_encode(' '.a:q)] + a:000)
 endfunction
 
 function! rhubarb#repo_search(...) abort
@@ -265,11 +306,7 @@ function! rhubarb#FugitiveUrl(...) abort
   elseif path =~# '^\.git\>'
     return root
   endif
-  if opts.commit =~# '^\d\=$'
-    return ''
-  else
-    let commit = opts.commit
-  endif
+  let commit = opts.commit
   if get(opts, 'type', '') ==# 'tree' || opts.path =~# '/$'
     let url = substitute(root . '/tree/' . commit . '/' . path, '/$', '', 'g')
   elseif get(opts, 'type', '') ==# 'blob' || opts.path =~# '[^/]$'
