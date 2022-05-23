@@ -76,10 +76,11 @@
 
 [
  "in"
- "return"
  (break)
  (continue)
 ] @keyword
+
+"return" @keyword.return
 
 ;; Punctuation
 
@@ -101,6 +102,8 @@
              (word) @parameter (#match? @parameter "^-")
             ]
 )
+
+(command_substitution_dollar "$" @punctuation.bracket)
 
 ; non-bultin command names
 (command name: (word) @function)

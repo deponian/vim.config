@@ -6,7 +6,7 @@
 (block_comment) @comment
 
 ; Argument definition
-(argument name: (identifier) @parameter) 
+(argument name: (identifier) @parameter)
 
 ; Variables
 (local_var name: (identifier) @variable)
@@ -20,11 +20,11 @@
   name: (variable) @function)
 
 ; For function calls
-(named_argument 
-  name: (identifier) @property) 
+(named_argument
+  name: (identifier) @property)
 
 ; Methods
-(method_call 
+(method_call
         name: (method_name) @method)
 
 ; Classes
@@ -32,7 +32,6 @@
 
 ; Literals
 (number) @number
-(pi_statement) @constant.builtin
 (float) @float
 
 (string) @string
@@ -61,12 +60,11 @@
 "="
 ] @operator
 
-
 ; Keywords
 [
 "arg"
 "classvar"
-; "const"
+"const"
 ; "super"
 ; "this"
 "var"
@@ -83,7 +81,7 @@
   "|"
 ] @punctuation.bracket
 
-; Delimeters
+; Delimiters
 [
   ";"
   "."
@@ -93,7 +91,7 @@
 ; control structure
 (control_structure) @conditional
 
-(escape_sequence) @string.special
+(escape_sequence) @string.escape
 
 ; SinOsc.ar()!2
 (duplicated_statement) @repeat

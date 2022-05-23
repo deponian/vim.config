@@ -1,189 +1,225 @@
-(identifier) @variable
-
-; _unused variables
-(unused_identifier) @comment
-
-; __MODULE__ and friends
-(special_identifier) @constant.builtin
-
-(module) @type
-
-[(atom) (keyword)] @symbol
-
-(integer) @number
-(float) @float
-
-[(true) (false)] @boolean
-
-(nil) @constant.builtin
-
-(comment) @comment
-
+; Punctuation
 [
   ","
-  "."
+  ";"
 ] @punctuation.delimiter
 
 [
   "("
   ")"
+  "<<"
+  ">>"
   "["
   "]"
   "{"
   "}"
-  "<<"
-  ">>"
 ] @punctuation.bracket
 
-(interpolation
- "#{" @punctuation.special
- "}" @punctuation.special) @none
-
 [
-  (heredoc_content)
-  (sigil_content)
-  (string_content)
-  (string_end)
-  (string_start)
-] @string
+  "%"
+] @punctuation.special
 
+; Parser Errors
+(ERROR) @error
+
+; Identifiers
+(identifier) @variable
+
+; Unused Identifiers
+((identifier) @comment (#match? @comment "^_"))
+
+; Comments
+(comment) @comment
+
+; Strings
+(string) @string
+
+; Modules
+(alias) @type
+
+; Atoms & Keywords
 [
-  (heredoc_end)
-  (heredoc_start)
-  (sigil_end)
-  (sigil_start)
-] @string.special
+  (atom)
+  (quoted_atom)
+  (keyword)
+  (quoted_keyword)
+] @symbol
 
+; Interpolation
+(interpolation "#{" @string.escape "}" @string.escape)
+
+; Escape sequences
 (escape_sequence) @string.escape
 
+; Integers
+(integer) @number
+
+; Floats
+(float) @float
+
+; Characters
+[
+  (char)
+  (charlist)
+] @character
+
+; Booleans
+(boolean) @boolean
+
+; Nil
+(nil) @constant.builtin
+
+; Operators
+(operator_identifier) @operator
+
+(unary_operator operator: _ @operator)
+
+(binary_operator operator: _ @operator)
+
+; Pipe Operator
+(binary_operator operator: "|>" right: (identifier) @function)
+
+(dot operator: _ @operator)
+
+(stab_clause operator: _ @operator)
+
+; Local Function Calls
+(call target: (identifier) @function)
+
+; Remote Function Calls
+(call target: (dot left: [
+  (atom) @type
+  (_)
+] right: (identifier) @function) (arguments))
+
+; Definition Function Calls
+(call target: ((identifier) @keyword.function (#any-of? @keyword.function
+  "def"
+  "defdelegate"
+  "defexception"
+  "defguard"
+  "defguardp"
+  "defimpl"
+  "defmacro"
+  "defmacrop"
+  "defmodule"
+  "defn"
+  "defnp"
+  "defoverridable"
+  "defp"
+  "defprotocol"
+  "defstruct"
+)) (arguments [
+  (identifier) @function
+  (binary_operator left: (identifier) @function operator: "when")])?)
+
+; Kernel Keywords & Special Forms
+(call target: ((identifier) @keyword (#any-of? @keyword
+  "alias"
+  "case"
+  "catch"
+  "cond"
+  "else"
+  "for"
+  "if"
+  "import"
+  "quote"
+  "raise"
+  "receive"
+  "require"
+  "reraise"
+  "super"
+  "throw"
+  "try"
+  "unless"
+  "unquote"
+  "unquote_splicing"
+  "use"
+  "with"
+)))
+
+; Special Constants
+((identifier) @constant.builtin (#any-of? @constant.builtin
+  "__CALLER__"
+  "__DIR__"
+  "__ENV__"
+  "__MODULE__"
+  "__STACKTRACE__"
+))
+
+; Reserved Keywords
 [
   "after"
+  "catch"
   "do"
   "end"
+  "fn"
+  "rescue"
+  "when"
+  "else"
 ] @keyword
 
+; Operator Keywords
 [
   "and"
   "in"
-  "not"
   "not in"
+  "not"
   "or"
 ] @keyword.operator
 
-; Call to a local function
-(call (function_identifier) @method)
+; Capture Operator
+(unary_operator
+  operator: "&"
+  operand: [
+    (integer) @operator
+    (binary_operator
+      left: [
+        (call target: (dot left: (_) right: (identifier) @function))
+        (identifier) @function
+      ] operator: "/" right: (integer) @operator)
+  ])
 
-; Call to a remote (or external) function
-(dot_call
- remote: [(atom) (module)] @type
- function: (function_identifier) @method)
-
-"fn" @keyword.function
-
-; def, defp, defguard, ... everything that starts with def
-(call (function_identifier) @keyword.function
- (#lua-match? @keyword.function "^def%a*$"))
-
-(call (function_identifier) @keyword.function
- (#any-of? @keyword.function "describe" "doctest" "on_exit" "setup" "setup_all" "test"))
-
-"else" @conditional
-
-(call (function_identifier) @conditional
- (#any-of? @conditional "case" "cond" "if" "unless" "with"))
-
-(call (function_identifier) @repeat
- (#eq? @repeat "for"))
-
-(call (function_identifier) @include
- (#any-of? @include "alias" "import" "require" "use"))
-
-[
-  "catch"
-  "rescue"
-] @exception
-
-(call (function_identifier) @exception
- (#any-of? @exception "raise" "try"))
-
-; Regex sigil
+; Non-String Sigils
 (sigil
- (sigil_start) @_sigil-type
- [(sigil_content) (escape_sequence)] @string.regex
- (sigil_end)
- (#lua-match? @_sigil-type "^~r"))
+  "~" @string.special
+  ((sigil_name) @string.special) @_sigil_name
+  quoted_start: _ @string.special
+  quoted_end: _ @string.special
+  ((sigil_modifiers) @string.special)?
+  (#not-any-of? @_sigil_name "s" "S"))
 
-"->" @operator
+; String Sigils
+(sigil
+  "~" @string
+  ((sigil_name) @string) @_sigil_name
+  quoted_start: _ @string
+  (quoted_content) @string
+  quoted_end: _ @string
+  ((sigil_modifiers) @string)?
+  (#any-of? @_sigil_name "s" "S"))
 
-(unary_op
- operator: _ @operator)
+; Module attributes
+(unary_operator
+  operator: "@"
+  operand: [
+    (identifier)
+    (call target: (identifier))
+  ] @constant) @constant
 
-(binary_op
- operator: _ @operator)
-
-(unary_op
- operator: "@" @attribute
- [(call
-   function: (function_identifier) @attribute)
-  (identifier) @attribute])
-
-(unary_op
- operator: "@"
- (call (function_identifier) @attribute
-       (heredoc
-        [(heredoc_start)
-         (heredoc_content)
-         (heredoc_end)] @string))
- (#any-of? @attribute "doc" "moduledoc"))
-
-(unary_op
- operator: "@"
- (call (function_identifier) @attribute
-       (binary_op
-        left: (identifier) @method))
- (#eq? @attribute "spec"))
-
-; Definition without arguments
-(call (function_identifier) @keyword.function
- (identifier) @function 
- (#lua-match? @keyword.function "^def%a*$"))
-
-; Definition with (some) arguments and (optional) defaults
-(call (function_identifier) @keyword.function
- (call
-  function: (function_identifier) @function
-  (arguments
-   [(identifier) @parameter
-    (tuple (identifier) @parameter)
-    (list (identifier) @parameter)
-    (_
-     (keyword_list (identifier) @parameter))
-    (binary_op
-     left: (identifier) @parameter
-     operator: "\\\\")]))
- (#lua-match? @keyword.function "^def%a*$"))
-
-; Definition with (some) arguments and guard(s)
-(call (function_identifier) @keyword.function
- (binary_op
-  left:
-   (call
-    function: (function_identifier) @function
-    (arguments
-     [(identifier) @parameter
-      (tuple (identifier) @parameter)
-      (list (identifier) @parameter)
-      (_
-       (keyword_list (identifier) @parameter))]))
-  operator: "when")
- (#lua-match? @keyword.function "^def%a*$"))
-
-; Definition of custom binary operator(s)
-(call (function_identifier) @keyword.function
- (binary_op
-  left: (identifier) @parameter
-  operator: _ @function
-  right: (identifier) @parameter)
- (#any-of? @keyword.function "def" "defp"))
-
-(ERROR) @error
+; Documentation
+(unary_operator
+  operator: "@"
+  operand: (call
+    target: ((identifier) @_identifier (#any-of? @_identifier "moduledoc" "typedoc" "shortdoc" "doc")) @comment
+    (arguments [
+      (string)
+      (boolean)
+      (charlist)
+      (sigil
+        "~" @comment
+        ((sigil_name) @comment)
+        quoted_start: _ @comment
+        (quoted_content) @comment
+        quoted_end: _ @comment)
+    ] @comment))) @comment

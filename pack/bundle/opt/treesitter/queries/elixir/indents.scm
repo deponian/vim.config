@@ -1,28 +1,23 @@
 [
-  (arguments)
-  (call)
+  (block)
   (do_block)
   (list)
   (map)
-  (stab_expression)
+  (stab_clause)
+  (tuple)
+  (arguments)
 ] @indent
 
-(stab_expression
- right: (_) @indent)
-
 [
-  "("
   ")"
-  "{"
-  "}"
-  "["
   "]"
-  (after_block)
-  (catch_block)
-  (else_block)
-  (rescue_block)
-  "do"
+  "after"
+  "catch"
+  "else"
+  "rescue"
+  "}"
   "end"
-] @branch
+] @indent_end @branch
 
-(comment) @ignore
+; Elixir pipelines are not indented, but other binary operator chains are
+((binary_operator operator: _ @_operator) @indent (#not-eq? @_operator "|>"))

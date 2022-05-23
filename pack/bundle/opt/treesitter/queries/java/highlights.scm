@@ -90,15 +90,21 @@
 (constructor_declaration
   name: (identifier) @type)
 (type_identifier) @type
+((method_invocation
+  object: (identifier) @type)
+ (#lua-match? @type "^[A-Z]"))
+((method_reference
+  . (identifier) @type)
+ (#lua-match? @type "^[A-Z]"))
 
 
 
 ((field_access
   object: (identifier) @type)
-  (#match? @type "^[A-Z]"))
+  (#lua-match? @type "^[A-Z]"))
 ((scoped_identifier
   scope: (identifier) @type)
-  (#match? @type "^[A-Z]"))
+  (#lua-match? @type "^[A-Z]"))
 
 ; Fields
 
@@ -118,7 +124,7 @@
 ; Variables
 
 ((identifier) @constant
-  (#match? @constant "^[A-Z_][A-Z\d_]+$"))
+  (#lua-match? @constant "^[A-Z_][A-Z%d_]+$"))
 
 (this) @variable.builtin
 
@@ -137,10 +143,13 @@
 ] @float
 
 (character_literal) @character
-(string_literal) @string
+[(string_literal) (text_block)] @string
 (null_literal) @constant.builtin
 
-(comment) @comment
+[
+  (line_comment)
+  (block_comment)
+] @comment
 
 [
 (true)
@@ -174,8 +183,6 @@
 "provides"
 "public"
 "requires"
-"return"
-"yield"
 "static"
 "strictfp"
 "synchronized"
@@ -186,6 +193,11 @@
 "volatile"
 "with"
 ] @keyword
+
+[
+"return"
+"yield"
+] @keyword.return
 
 [
  "new"

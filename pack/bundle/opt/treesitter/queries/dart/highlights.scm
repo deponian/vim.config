@@ -182,10 +182,14 @@
     "in"
     "is"
     "new"
-    "return"
     "super"
     "with"
 ] @keyword
+
+[
+  "return"
+  "yield"
+] @keyword.return
 
 
 ; Built in identifiers:
@@ -195,7 +199,6 @@
     "as"
     "async"
     "async*"
-    "yield"
     "sync*"
     "await"
     "covariant"

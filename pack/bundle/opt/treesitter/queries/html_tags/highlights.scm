@@ -1,10 +1,10 @@
 (tag_name) @tag
 (erroneous_end_tag_name) @error
 (comment) @comment
-(attribute_name) @property
-(attribute_value) @string
-(quoted_attribute_value) @string
-(text) @none
+(attribute_name) @tag.attribute
+(attribute
+  (quoted_attribute_value) @string)
+(text) @text
 
 ((element (start_tag (tag_name) @_tag) (text) @text.title)
  (#match? @_tag "^(h[0-9]|title)$"))

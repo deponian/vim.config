@@ -71,7 +71,10 @@
 ; Constants
 ;----------
 
-[(boolean) (unit)] @constant
+; Don't let normal parens take priority over this
+((unit) @constant.builtin (#set! "priority" 105))
+
+(boolean) @boolean
 
 [(number) (signed_number)] @number
 
@@ -86,18 +89,20 @@
 [
   (conversion_specification)
   (pretty_printing_indication)
-] @punctuation.special
+] @string.special
 
 ; Keywords
 ;---------
 
 [
   "and" "as" "assert" "begin" "class" "constraint"
-  "end" "external" "fun" "function" "functor" "in"
+  "end" "external" "in"
   "inherit" "initializer" "lazy" "let" "match" "method" "module"
   "mutable" "new" "nonrec" "object" "of" "private" "rec" "sig" "struct"
   "type" "val" "virtual" "when" "with"
 ] @keyword
+
+["fun" "function" "functor"] @keyword.function
 
 ["if" "then" "else"] @conditional
 

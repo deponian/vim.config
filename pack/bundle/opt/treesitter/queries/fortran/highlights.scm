@@ -70,13 +70,14 @@
   "print"
   "program"
   "read"
-  "return"
   "stop"
   "use"
   "write"
   (default)
   (procedure_qualifier)
 ] @keyword
+
+"return" @keyword.return
 
 [
   "else"

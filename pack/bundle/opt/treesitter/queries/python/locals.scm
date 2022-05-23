@@ -1,4 +1,4 @@
-;;; Programm structure
+;;; Program structure
 (module) @scope
 
 (class_definition
@@ -33,11 +33,6 @@
 
 (typed_default_parameter
   (identifier) @definition.parameter)
-
-(with_statement
- (with_clause
-  (with_item
-   alias: (identifier) @definition.var)))
 
 ; *args parameter
 (parameters
@@ -113,6 +108,8 @@
 (named_expression
   (identifier) @definition.var)
 
+(as_pattern 
+  alias: (as_pattern_target) @definition.var)
 
 ;;; REFERENCES
 (identifier) @reference
