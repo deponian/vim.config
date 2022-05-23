@@ -1,5 +1,4 @@
 " fzf configuration
-"
 
 " Default fzf layout
 let g:fzf_layout = { 'window': { 'width': 1.0, 'height': 0.8 } }
