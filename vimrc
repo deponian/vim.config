@@ -31,8 +31,10 @@ packadd! nerdtree				" https://github.com/preservim/nerdtree
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp.git
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer.git
 packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
+packadd! nvim-cmp-lsp			" https://github.com/hrsh7th/cmp-nvim-lsp.git
 packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
 packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
+packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig.git
 packadd! onedark				" https://github.com/deponian/vim-onedark
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! replay					" https://github.com/wincent/replay
