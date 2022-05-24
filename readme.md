@@ -31,6 +31,7 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/junegunn/fzf.vim
 - https://github.com/lambdalisue/suda.vim
 - https://github.com/lambdalisue/vim-manpager
+- https://github.com/lukas-reineke/indent-blankline.nvim
 - https://github.com/matt-deacalion/vim-systemd-syntax
 - https://github.com/mtdl9/vim-log-highlighting
 - https://github.com/neomake/neomake
@@ -55,4 +56,3 @@ And, of course, many thanks to the authors of the plugins that make Vim so conve
 - https://github.com/wincent/replay
 - https://github.com/wincent/scalpel
 - https://github.com/wincent/terminus
-- https://github.com/yggdroot/indentline

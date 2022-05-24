@@ -14,6 +14,7 @@
 'g:go_debug_log_output'	vim-go.txt	/*'g:go_debug_log_output'*
 'g:go_debug_mappings'	vim-go.txt	/*'g:go_debug_mappings'*
 'g:go_debug_preserve_layout'	vim-go.txt	/*'g:go_debug_preserve_layout'*
+'g:go_debug_substitute_paths'	vim-go.txt	/*'g:go_debug_substitute_paths'*
 'g:go_debug_windows'	vim-go.txt	/*'g:go_debug_windows'*
 'g:go_decls_includes'	vim-go.txt	/*'g:go_decls_includes'*
 'g:go_decls_mode'	vim-go.txt	/*'g:go_decls_mode'*
@@ -22,6 +23,7 @@
 'g:go_def_reuse_buffer'	vim-go.txt	/*'g:go_def_reuse_buffer'*
 'g:go_diagnostics_enabled'	vim-go.txt	/*'g:go_diagnostics_enabled'*
 'g:go_diagnostics_level'	vim-go.txt	/*'g:go_diagnostics_level'*
+'g:go_doc_balloon'	vim-go.txt	/*'g:go_doc_balloon'*
 'g:go_doc_height'	vim-go.txt	/*'g:go_doc_height'*
 'g:go_doc_keywordprg_enabled'	vim-go.txt	/*'g:go_doc_keywordprg_enabled'*
 'g:go_doc_popup_window'	vim-go.txt	/*'g:go_doc_popup_window'*
@@ -149,6 +151,7 @@
 (go-doc-tab)	vim-go.txt	/*(go-doc-tab)*
 (go-doc-vertical)	vim-go.txt	/*(go-doc-vertical)*
 (go-files)	vim-go.txt	/*(go-files)*
+(go-fmt)	vim-go.txt	/*(go-fmt)*
 (go-freevars)	vim-go.txt	/*(go-freevars)*
 (go-generate)	vim-go.txt	/*(go-generate)*
 (go-iferr)	vim-go.txt	/*(go-iferr)*

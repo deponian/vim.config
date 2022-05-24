@@ -19,7 +19,7 @@ packadd! fugitive				" https://github.com/tpope/vim-fugitive
 packadd! fzf					" https://github.com/junegunn/fzf
 packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
-packadd! indentline				" https://github.com/Yggdroot/indentLine
+packadd! indent-blankline		" https://github.com/lukas-reineke/indent-blankline.nvim.git
 packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
@@ -41,6 +41,7 @@ packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
 
 " setup for lua plugins
 lua require('treesitter')
+lua require('indent-blankline')
 
 " language/syntax/filetype plugins
 packadd! ansible				" https://github.com/pearofducks/ansible-vim
