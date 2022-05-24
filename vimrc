@@ -24,9 +24,15 @@ packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 packadd! loupe					" https://github.com/deponian/vim-loupe
+packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip.git
 packadd! manpager				" https://github.com/lambdalisue/vim-manpager
 packadd! neomake				" https://github.com/neomake/neomake
 packadd! nerdtree				" https://github.com/preservim/nerdtree
+packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp.git
+packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer.git
+packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
+packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
+packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
 packadd! onedark				" https://github.com/deponian/vim-onedark
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! replay					" https://github.com/wincent/replay
@@ -37,12 +43,6 @@ packadd! suda					" https://github.com/lambdalisue/suda.vim
 packadd! surround				" https://github.com/tpope/vim-surround
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
-packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp.git
-packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer.git
-packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip.git
-packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
-packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
-packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
 
 " language/syntax/filetype plugins
 packadd! ansible				" https://github.com/pearofducks/ansible-vim

@@ -22,9 +22,3 @@ let g:NERDTreeCustomOpenArgs = {
 " GitGutter
 let g:gitgutter_map_keys = 0
 let g:gitgutter_diff_base = '@'
-
-" Git commit
-augroup GitCommitSpell
-    autocmd!
-    autocmd FileType gitcommit setlocal spell
-augroup END
