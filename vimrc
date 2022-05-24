@@ -34,6 +34,7 @@ packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
 packadd! nvim-cmp-lsp			" https://github.com/hrsh7th/cmp-nvim-lsp.git
 packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
 packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
+packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg.git
 packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig.git
 packadd! onedark				" https://github.com/deponian/vim-onedark
 packadd! repeat					" https://github.com/tpope/vim-repeat

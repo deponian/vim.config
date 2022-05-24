@@ -136,6 +136,7 @@ cmp.setup {
     { name = 'buffer' },
     { name = 'calc' },
     { name = 'path' },
+    { name = 'rg' },
   }),
 
   window = {
