@@ -15,3 +15,6 @@ let g:neomake_yaml_helm_enabled_makers = ['makeprg']
 " Change python interpreter to match what is in shebang
 call neomake#config#set('b:python.InitForJob', function('settings#neomake#set_argv_from_shebang'))
 
+" Shell
+" Disable neomake for sh files
+let g:neomake_sh_enabled_makers = []
