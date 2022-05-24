@@ -47,6 +47,7 @@ packadd! suda					" https://github.com/lambdalisue/suda.vim
 packadd! surround				" https://github.com/tpope/vim-surround
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
+packadd! nvim-colorizer			" https://github.com/norcalli/nvim-colorizer.lua.git
 
 " language/syntax/filetype plugins
 packadd! ansible				" https://github.com/pearofducks/ansible-vim
