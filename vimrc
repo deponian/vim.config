@@ -34,14 +34,15 @@ packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
 packadd! scalpel				" https://github.com/deponian/vim-scalpel
 packadd! speeddating			" https://github.com/tpope/vim-speeddating
 packadd! suda					" https://github.com/lambdalisue/suda.vim
-packadd! supertab				" https://github.com/ervandew/supertab
 packadd! surround				" https://github.com/tpope/vim-surround
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
-
-" setup for lua plugins
-lua require('treesitter')
-lua require('indent-blankline')
+packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp.git
+packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer.git
+packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip.git
+packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
+packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
+packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
 
 " language/syntax/filetype plugins
 packadd! ansible				" https://github.com/pearofducks/ansible-vim
@@ -69,6 +70,18 @@ packadd! zsh					" https://github.com/chrisbra/vim-zsh
 " package "ftdetect" directories won't be evaluated.
 filetype indent plugin on
 syntax on
+
+lua << EOF
+local has_luasnip, luasnip = pcall(require, 'luasnip')
+if has_luasnip then
+  -- LuaSnip sets up its autocmds in "plugin/luasnip.vim", too early
+  -- for us to influence them from "plugins/snippets.lua" (Lua files load
+  -- last), so we have to do this even earlier, here.
+  luasnip.config.set_config({
+    updateevents = "TextChanged,TextChangedI", -- default is InsertLeave
+  })
+end
+EOF
 
 " After this file is sourced, plugin code will be evaluated.
 " See ~/.vim/after for files evaluated after that.

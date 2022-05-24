@@ -7,6 +7,9 @@ set autoread						" set to auto read when a file is changed from the outside
 set backspace=indent,start,eol		" allow unrestricted backspacing in insert mode
 set backupskip+=*.re,*.rei			" prevent bsb's watch mode from getting confused
 set belloff=all						" never ring the bell for any reason
+set completeopt=menu				" show completion menu (for nvim-cmp)
+set completeopt+=menuone			" show menu even if there is only one candidate (for nvim-cmp)
+set completeopt+=noselect			" don't automatically select canditate (for nvim-cmp)
 set cursorline						" highlight current line
 set encoding=utf-8					" set default encoding
 set fillchars=diff:-				" BULLET OPERATOR (U+2219)
