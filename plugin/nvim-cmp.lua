@@ -137,6 +137,7 @@ cmp.setup {
     { name = 'calc' },
     { name = 'path' },
     { name = 'rg' },
+    { name = 'spell' },
   }),
 
   window = {
