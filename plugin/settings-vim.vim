@@ -28,10 +28,12 @@ set laststatus=2					" always show status line
 set lazyredraw						" don't bother updating screen during macro playback
 set linebreak						" wrap long lines at characters in 'breakat'
 set modelines=5						" scan this many lines looking for modeline
+set noemoji                         " don't assume all emoji are double width
 set nojoinspaces					" don't autoinsert two spaces after '.', '?', '!' for join command
 set noshowcmd						" don't show extra info at end of command line
 set noshowmode						" don't show in statusline -- INSERT --, -- VISUAL -- ans etc.
 set number							" show line numbers in gutter
+set pumblend=10                     " pseudo-transparency for popup-menu
 set scrolloff=5						" start scrolling 5 lines before edge of viewport
 set shell=sh						" shell to use for `!`, `:!`, `system()` etc.
 set shortmess+=c					" completion messages
