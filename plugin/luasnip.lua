@@ -28,8 +28,6 @@ if has_luasnip then
     update_events="InsertLeave,TextChangedI",
   })
 
-  local date = function() return {os.date('%Y-%m-%d')} end
-
   luasnip.add_snippets(nil, {
     all = {
       s(

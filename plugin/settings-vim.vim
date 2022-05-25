@@ -32,7 +32,7 @@ set nojoinspaces					" don't autoinsert two spaces after '.', '?', '!' for join 
 set noshowcmd						" don't show extra info at end of command line
 set noshowmode						" don't show in statusline -- INSERT --, -- VISUAL -- ans etc.
 set number							" show line numbers in gutter
-set pumblend=10                     " pseudo-transparency for popup-menu
+set pumblend=0                     " pseudo-transparency for popup-menu
 set scrolloff=5						" start scrolling 5 lines before edge of viewport
 set shell=sh						" shell to use for `!`, `:!`, `system()` etc.
 set shortmess+=c					" completion messages
@@ -144,6 +144,8 @@ require('onedark').setup  {
   colors = {}, -- Override default colors
   highlights = {
     VertSplit = {fg = '$bg1'},
+	FloatBorder = {fg = '$bg1', bg = 'none'},
+	NormalFloat = {fg = '$fg', bg = 'none'},
   },
 
   -- Plugins Config --
