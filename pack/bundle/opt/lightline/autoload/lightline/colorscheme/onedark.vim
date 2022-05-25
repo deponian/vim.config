@@ -7,17 +7,17 @@
 " =============================================================================
 
 " Colors
-let s:blue   = [ '#61afef', 75 ]
-let s:green  = [ '#98c379', 76 ]
-let s:purple = [ '#c678dd', 176 ]
-let s:red1   = [ '#e06c75', 168 ]
-let s:red2   = [ '#be5046', 168 ]
-let s:yellow = [ '#e5c07b', 180 ]
-let s:gray1  = [ '#5c6370', 241 ]
-let s:gray2  = [ '#282c34', 235 ]
-let s:gray3  = [ '#3e4452', 240 ]
-let s:fg     = [ '#abb2bf', 145 ]
-let s:bg     = [ '#282c34', 235 ]
+let s:blue   = [ '#54b0fd', 75 ]
+let s:green  = [ '#8bcd5b', 76 ]
+let s:purple = [ '#c75ae8', 176 ]
+let s:red1   = [ '#f65866', 168 ]
+let s:red2   = [ '#992525', 168 ]
+let s:yellow = [ '#efbd5d', 180 ]
+let s:gray1  = [ '#6c7d9c', 241 ]
+let s:gray2  = [ '#1a212e', 235 ]
+let s:gray3  = [ '#283347', 240 ]
+let s:fg     = [ '#93a4c3', 145 ]
+let s:bg     = [ '#1a212e', 235 ]
 let s:none   = ['NONE', 'NONE']
 
 let s:p = {'normal': {}, 'inactive': {}, 'insert': {}, 'replace': {}, 'visual': {}, 'tabline': {}}

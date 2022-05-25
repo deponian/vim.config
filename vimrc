@@ -19,25 +19,26 @@ packadd! fugitive				" https://github.com/tpope/vim-fugitive
 packadd! fzf					" https://github.com/junegunn/fzf
 packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
-packadd! indent-blankline		" https://github.com/lukas-reineke/indent-blankline.nvim.git
+packadd! indent-blankline		" https://github.com/lukas-reineke/indent-blankline.nvim
 packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 packadd! loupe					" https://github.com/deponian/vim-loupe
-packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip.git
+packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
 packadd! manpager				" https://github.com/lambdalisue/vim-manpager
 packadd! neomake				" https://github.com/neomake/neomake
 packadd! nerdtree				" https://github.com/preservim/nerdtree
-packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp.git
-packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer.git
-packadd! nvim-cmp-spell			" https://github.com/f3fora/cmp-spell.git
-packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc.git
-packadd! nvim-cmp-lsp			" https://github.com/hrsh7th/cmp-nvim-lsp.git
-packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip.git
-packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path.git
-packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg.git
-packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig.git
-packadd! onedark				" https://github.com/deponian/vim-onedark
+packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
+packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer
+packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc
+packadd! nvim-cmp-lsp			" https://github.com/hrsh7th/cmp-nvim-lsp
+packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip
+packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path
+packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg
+packadd! nvim-cmp-spell			" https://github.com/f3fora/cmp-spell
+packadd! nvim-colorizer			" https://github.com/norcalli/nvim-colorizer.lua
+packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig
+packadd! onedark				" https://github.com/navarasu/onedark.nvim
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! replay					" https://github.com/wincent/replay
 packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
@@ -47,7 +48,6 @@ packadd! suda					" https://github.com/lambdalisue/suda.vim
 packadd! surround				" https://github.com/tpope/vim-surround
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
-packadd! nvim-colorizer			" https://github.com/norcalli/nvim-colorizer.lua.git
 
 " language/syntax/filetype plugins
 packadd! ansible				" https://github.com/pearofducks/ansible-vim
@@ -56,7 +56,7 @@ packadd! dockerfile				" https://github.com/ekalinin/Dockerfile.vim
 packadd! git					" https://github.com/tpope/vim-git
 packadd! go						" https://github.com/fatih/vim-go
 packadd! haproxy				" https://github.com/CH-DanReif/haproxy.vim
-packadd! helm					" https://github.com/towolf/vim-helm.git
+packadd! helm					" https://github.com/towolf/vim-helm
 packadd! log					" https://github.com/MTDL9/vim-log-highlighting
 packadd! mustache				" https://github.com/mustache/vim-mustache-handlebars
 packadd! nftables				" https://github.com/nfnty/vim-nftables
