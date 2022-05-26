@@ -42,6 +42,9 @@ noremap <silent> <F6> :call mappings#normal#git_show_file_versions()<CR>
 " Toggle diff mode for all windows
 noremap <silent> <F7> :call mappings#normal#toggle_diff()<CR>
 
+" Hide all diagnostic messages
+noremap <silent> <F8> <CMD>lua vim.diagnostic.hide()<CR>
+
 " Avoid unintentional switches to Ex mode.
 noremap Q <Nop>
 
