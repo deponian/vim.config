@@ -106,8 +106,8 @@ require('lspconfig').terraformls.setup{
   on_attach = on_attach,
 }
 
-require('lspconfig').yamlls.setup{
-  capabilities = capabilities,
-  handlers = handlers,
-  on_attach = on_attach,
-}
+-- require('lspconfig').yamlls.setup{
+--   capabilities = capabilities,
+--   handlers = handlers,
+--   on_attach = on_attach,
+-- }
