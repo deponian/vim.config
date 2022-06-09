@@ -6,12 +6,12 @@ vim.cmd [[highlight IndentBlanklineContextChar guifg=#c75ae8]]
 vim.cmd [[highlight IndentBlanklineContextStart gui=underline]]
 
 -- rainbow
-vim.cmd [[highlight IndentBlanklineIndent1 guifg=#803d43 gui=nocombine]]
-vim.cmd [[highlight IndentBlanklineIndent2 guifg=#b39660 gui=nocombine]]
-vim.cmd [[highlight IndentBlanklineIndent3 guifg=#7b9e62 gui=nocombine]]
-vim.cmd [[highlight IndentBlanklineIndent4 guifg=#387780 gui=nocombine]]
-vim.cmd [[highlight IndentBlanklineIndent5 guifg=#3f7099 gui=nocombine]]
-vim.cmd [[highlight IndentBlanklineIndent6 guifg=#7d4c8c gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent1 guifg=#56292d gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent2 guifg=#564629 gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent3 guifg=#3d4f30 gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent4 guifg=#275259 gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent5 guifg=#26425a gui=nocombine]]
+vim.cmd [[highlight IndentBlanklineIndent6 guifg=#4a2d52 gui=nocombine]]
 
 require("indent_blankline").setup {
   char = "¦",
