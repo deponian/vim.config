@@ -1,4 +1,4 @@
-## Vim and Neovim configuration
+## Neovim configuration
 
 ### Vim
 Copy the contents of this repository to your user's home directory:
