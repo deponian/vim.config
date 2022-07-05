@@ -63,3 +63,4 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/tpope/vim-speeddating                   
 - https://github.com/tpope/vim-surround                      
 - https://github.com/wincent/replay                          
+- https://github.com/yasuhiroki/github-actions-yaml.vim.git

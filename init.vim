@@ -55,6 +55,7 @@ packadd! ansible				" https://github.com/pearofducks/ansible-vim
 packadd! cmake					" https://github.com/pboettch/vim-cmake-syntax
 packadd! dockerfile				" https://github.com/ekalinin/Dockerfile.vim
 packadd! git					" https://github.com/tpope/vim-git
+packadd! github-actions			" https://github.com/yasuhiroki/github-actions-yaml.vim.git
 packadd! go						" https://github.com/fatih/vim-go
 packadd! haproxy				" https://github.com/CH-DanReif/haproxy.vim
 packadd! helm					" https://github.com/towolf/vim-helm
