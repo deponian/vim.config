@@ -167,9 +167,13 @@ cmp.setup {
     { name = 'nvim_lsp' },
     { name = 'buffer' },
     { name = 'calc' },
-    { name = 'path' },
     { name = 'rg' },
     { name = 'spell' },
+    { name = 'path',
+      option = {
+        get_cwd = function () return vim.fn.getcwd() end
+      },
+    },
   }),
 
   window = {
