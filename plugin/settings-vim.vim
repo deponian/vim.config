@@ -144,8 +144,9 @@ require('onedark').setup  {
   colors = {}, -- Override default colors
   highlights = {
     VertSplit = {fg = '$bg1'},
-	FloatBorder = {fg = '$bg1', bg = 'none'},
-	NormalFloat = {fg = '$fg', bg = 'none'},
+    FloatBorder = {fg = '$bg1', bg = 'none'},
+    NormalFloat = {fg = '$fg', bg = 'none'},
+    DiffText = {fg = 'none', bg = '#1d5c8c'},
   },
 
   -- Plugins Config --
