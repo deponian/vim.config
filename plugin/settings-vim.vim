@@ -8,7 +8,7 @@ set completeopt+=menuone			" show menu even if there is only one candidate (for 
 set completeopt+=noselect			" don't automatically select canditate (for nvim-cmp)
 set cursorline						" highlight current line
 set encoding=utf-8					" set default encoding
-set fillchars=diff:-				" BULLET OPERATOR (U+2219)
+set fillchars=diff:⁚				" TWO DOT PUNCTUATION (U+205A)
 set fillchars+=eob:\ 				" suppress ~ at EndOfBuffer
 set fillchars+=fold:·				" MIDDLE DOT (U+00B7)
 set fillchars+=vert:│				" BOX DRAWINGS LIGHT VERTICAL (U+2502)
@@ -144,9 +144,13 @@ require('onedark').setup  {
   colors = {}, -- Override default colors
   highlights = {
     VertSplit = {fg = '$bg1'},
+
     FloatBorder = {fg = '$bg1', bg = 'none'},
     NormalFloat = {fg = '$fg', bg = 'none'},
+
     DiffText = {fg = 'none', bg = '#1d5c8c'},
+    DiffAdd = {fg = 'none', bg = '#013325'},
+    DiffDelete = {fg = '#8f8f8f', bg = '#331c1e'},
   },
 
   -- Plugins Config --
