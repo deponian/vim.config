@@ -8,6 +8,16 @@ local ripgrep = function (node)
   vim.cmd('RG ' .. dir)
 end
 
+local ripgrepnohidden = function (node)
+  local dir = ""
+  if node.fs_stat.type == "directory" then
+    dir = vim.fn.fnamemodify(node.absolute_path, ":.")
+  else
+    dir = vim.fn.fnamemodify(node.absolute_path, ":.:h")
+  end
+  vim.cmd('RGNH ' .. dir)
+end
+
 require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
   create_in_closed_folder = false,
   disable_netrw = false,
@@ -73,7 +83,7 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
         { key = ";",                              action = "preview" },
         { key = "S",                              action = "system_open" },
         { key = "f",                              action = "ripgrep", action_cb = ripgrep },
-        { key = "F",                              action = "live_filter" },
+        { key = "F",                              action = "ripgrepnohidden", action_cb = ripgrepnohidden },
         { key = "q",                              action = "close" },
         { key = "W",                              action = "collapse_all" },
         { key = "E",                              action = "expand_all" },

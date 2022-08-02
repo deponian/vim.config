@@ -38,9 +38,13 @@ let g:fzf_colors =
 	\ 'spinner': ['fg', 'Label'],
 	\ 'header':  ['fg', 'Comment'] }
 
-function! RipgrepFzf(fullscreen, fixed, path = ".", query = "")
+function! RipgrepFzf(fullscreen, fixed, hidden, path = ".", query = "")
 	if a:fixed
-		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings -- %s %s || true'
+		if a:hidden
+			let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings -- %s %s || true'
+		else
+			let command_fmt = 'rg --glob "!.git/" --no-ignore --column --line-number --no-heading --color=always --smart-case --fixed-strings -- %s %s || true'
+		endif
 	else
 		let command_fmt = 'rg --glob "!.git/" --hidden --no-ignore --column --line-number --no-heading --color=always --smart-case -- %s %s || true'
 	endif
@@ -51,6 +55,8 @@ function! RipgrepFzf(fullscreen, fixed, path = ".", query = "")
 endfunction
 
 " [R]ip[G]rep
-command! -nargs=* -bang RG call RipgrepFzf(<bang>0, v:true, <f-args>)
+command! -nargs=* -bang RG call RipgrepFzf(<bang>0, v:true, v:true, <f-args>)
 " [R]ip[G]rep[R]egex
-command! -nargs=* -bang RGR call RipgrepFzf(<bang>0, v:false, <f-args>)
+command! -nargs=* -bang RGR call RipgrepFzf(<bang>0, v:false, v:true, <f-args>)
+" [R]ip[G]rep[N]o[H]idden
+command! -nargs=* -bang RGNH call RipgrepFzf(<bang>0, v:true, v:false, <f-args>)
