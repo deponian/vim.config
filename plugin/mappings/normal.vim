@@ -15,6 +15,7 @@ nnoremap <C-l> <C-w>l
 
 " Cycle through windows (splits)
 nnoremap <Tab> <C-w>w
+nnoremap ; <C-w>w
 
 " Disable vim command line window
 nnoremap q: <Nop>
