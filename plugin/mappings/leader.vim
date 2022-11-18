@@ -102,10 +102,10 @@ nnoremap <silent> <Leader>hf :GitGutterFold<CR>
 " (mnemonic: hunk highlight)
 nnoremap <silent> <Leader>hh :GitGutterLineHighlightsToggle<CR>
 
-" <Leader>b -- Encode selected sequence to base64
-" (mnemonic: base64)
-vnoremap <Leader>b :ToBase64<CR>
-
 " <Leader>B -- Decode selected sequence from base64
 " (mnemonic: base64)
-vnoremap <Leader>B :FromBase64<CR>
+vnoremap <Leader>b :FromBase64<CR>
+
+" <Leader>b -- Encode selected sequence to base64
+" (mnemonic: base64)
+vnoremap <Leader>B :ToBase64<CR>
