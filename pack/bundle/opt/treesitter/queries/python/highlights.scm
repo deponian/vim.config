@@ -56,11 +56,11 @@
  (#match? @function "^([A-Z])@!.*$"))
 
 (call
-  function: (identifier) @function)
+  function: (identifier) @function.call)
 
 (call
   function: (attribute
-              attribute: (identifier) @method))
+              attribute: (identifier) @method.call))
 
 ((call
    function: (identifier) @constructor)
@@ -134,17 +134,26 @@
 [(true) (false)] @boolean
 ((identifier) @variable.builtin
  (#eq? @variable.builtin "self"))
+((identifier) @variable.builtin
+ (#eq? @variable.builtin "cls"))
 
 (integer) @number
 (float) @float
 
-(comment) @comment
+(comment) @comment @spell
+
+((module . (comment) @preproc)
+  (#match? @preproc "^#!/"))
+
 (string) @string
 [
   (escape_sequence)
   "{{"
   "}}"
 ] @string.escape
+
+; doc-strings
+(expression_statement (string) @spell)
 
 ; Tokens
 
@@ -237,6 +246,7 @@
 [
   "try"
   "except"
+  "except*"
   "raise"
   "finally"
 ] @exception
@@ -287,16 +297,6 @@
     (function_definition
       name: (identifier) @constructor)))
  (#any-of? @constructor "__new__" "__init__"))
-
-; First parameter of a classmethod is cls.
-((class_definition
-  body: (block
-          (decorated_definition
-            (decorator (identifier) @_decorator)
-            definition: (function_definition
-              parameters: (parameters . (identifier) @variable.builtin)))))
- (#eq? @variable.builtin "cls")
- (#eq? @_decorator "classmethod"))
 
 ;; Error
 (ERROR) @error

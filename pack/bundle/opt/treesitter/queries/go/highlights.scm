@@ -5,6 +5,7 @@
 ; Identifiers
 
 (type_identifier) @type
+(type_spec name: (type_identifier) @type.definition)
 (field_identifier) @property
 (identifier) @variable
 (package_identifier) @namespace
@@ -15,20 +16,17 @@
 ((identifier) @constant
  (#eq? @constant "_"))
 
-((identifier) @constant
- (#vim-match? @constant "^[A-Z][A-Z\\d_]+$"))
-
 (const_spec
   name: (identifier) @constant)
 
 ; Function calls
 
 (call_expression
-  function: (identifier) @function)
+  function: (identifier) @function.call)
 
 (call_expression
   function: (selector_expression
-    field: (field_identifier) @method))
+    field: (field_identifier) @method.call))
 
 ; Function definitions
 
@@ -37,6 +35,9 @@
 
 (method_declaration
   name: (field_identifier) @method)
+
+(method_spec 
+  name: (field_identifier) @method) 
 
 ; Operators
 
@@ -123,6 +124,7 @@
 
 ((type_identifier) @type.builtin
  (#any-of? @type.builtin
+           "any"
            "bool"
            "byte"
            "complex128"
@@ -184,7 +186,7 @@
 ; Literals
 
 (interpreted_string_literal) @string
-(raw_string_literal) @string
+(raw_string_literal) @string @spell
 (rune_literal) @string
 (escape_sequence) @string.escape
 
@@ -196,6 +198,16 @@
 (false) @boolean
 (nil) @constant.builtin
 
-(comment) @comment
+(keyed_element
+  . (literal_element (identifier) @field))
+(field_declaration name: (field_identifier) @field)
+
+(comment) @comment @spell
 
 (ERROR) @error
+
+((interpreted_string_literal) @spell
+	(#not-has-parent? @spell
+		import_spec
+	)
+)
