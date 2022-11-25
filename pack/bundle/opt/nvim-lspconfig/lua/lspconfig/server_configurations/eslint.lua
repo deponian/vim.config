@@ -1,20 +1,11 @@
 local util = require 'lspconfig.util'
 local lsp = vim.lsp
-
-local get_eslint_client = function()
-  local active_clients = lsp.get_active_clients()
-  for _, client in ipairs(active_clients) do
-    if client.name == 'eslint' then
-      return client
-    end
-  end
-  return nil
-end
+local is_windows = vim.fn.has 'win32' == 1
 
 local function fix_all(opts)
   opts = opts or {}
 
-  local eslint_lsp_client = get_eslint_client()
+  local eslint_lsp_client = util.get_active_client_by_name(opts.bufnr, 'eslint')
   if eslint_lsp_client == nil then
     return
   end
@@ -45,8 +36,31 @@ end
 local bin_name = 'vscode-eslint-language-server'
 local cmd = { bin_name, '--stdio' }
 
-if vim.fn.has 'win32' == 1 then
+if is_windows then
   cmd = { 'cmd.exe', '/C', bin_name, '--stdio' }
+end
+
+local root_file = {
+  '.eslintrc',
+  '.eslintrc.js',
+  '.eslintrc.cjs',
+  '.eslintrc.yaml',
+  '.eslintrc.yml',
+  '.eslintrc.json',
+  'eslint.config.js',
+}
+
+local root_with_package = util.find_package_json_ancestor(vim.fn.expand '%:p:h')
+
+if root_with_package then
+  -- only add package.json if it contains eslintConfig field
+  local path_sep = is_windows and '\\' or '/'
+  for line in io.lines(root_with_package .. path_sep .. 'package.json') do
+    if line:find 'eslintConfig' then
+      table.insert(root_file, 'package.json')
+      break
+    end
+  end
 end
 
 return {
@@ -60,22 +74,19 @@ return {
       'typescriptreact',
       'typescript.tsx',
       'vue',
+      'svelte',
+      'astro',
     },
     -- https://eslint.org/docs/user-guide/configuring/configuration-files#configuration-file-formats
-    root_dir = util.root_pattern(
-      '.eslintrc',
-      '.eslintrc.js',
-      '.eslintrc.cjs',
-      '.eslintrc.yaml',
-      '.eslintrc.yml',
-      '.eslintrc.json',
-      'package.json'
-    ),
+    root_dir = util.root_pattern(unpack(root_file)),
     -- Refer to https://github.com/Microsoft/vscode-eslint#settings-options for documentation.
     settings = {
       validate = 'on',
       packageManager = 'npm',
       useESLintClass = false,
+      experimental = {
+        useFlatConfig = false,
+      },
       codeActionOnSave = {
         enable = false,
         mode = 'all',
@@ -85,6 +96,9 @@ return {
       onIgnoredFiles = 'off',
       rulesCustomizations = {},
       run = 'onType',
+      problems = {
+        shortenToSingleLine = false,
+      },
       -- nodePath configures the directory in which the eslint server should start its node_modules resolution.
       -- This path is relative to the workspace folder (root dir) of the server instance.
       nodePath = '',
@@ -108,6 +122,13 @@ return {
         uri = new_root_dir,
         name = vim.fn.fnamemodify(new_root_dir, ':t'),
       }
+
+      -- Support Yarn2 (PnP) projects
+      local pnp_cjs = util.path.join(new_root_dir, '.pnp.cjs')
+      local pnp_js = util.path.join(new_root_dir, '.pnp.js')
+      if util.path.exists(pnp_cjs) or util.path.exists(pnp_js) then
+        config.cmd = vim.list_extend({ 'yarn', 'exec' }, cmd)
+      end
     end,
     handlers = {
       ['eslint/openDoc'] = function(_, result)
@@ -152,22 +173,23 @@ return {
     description = [[
 https://github.com/hrsh7th/vscode-langservers-extracted
 
-vscode-eslint-language-server: A linting engine for JavaScript / Typescript
+`vscode-eslint-language-server` is a linting engine for JavaScript / Typescript.
+It can be installed via `npm`:
 
-`vscode-eslint-language-server` can be installed via `npm`:
 ```sh
 npm i -g vscode-langservers-extracted
 ```
 
-vscode-eslint-language-server provides an EslintFixAll command that can be used to format document on save
+`vscode-eslint-language-server` provides an `EslintFixAll` command that can be used to format a document on save:
 ```vim
 autocmd BufWritePre *.tsx,*.ts,*.jsx,*.js EslintFixAll
 ```
 
 See [vscode-eslint](https://github.com/microsoft/vscode-eslint/blob/55871979d7af184bf09af491b6ea35ebd56822cf/server/src/eslintServer.ts#L216-L229) for configuration options.
 
-Additional messages you can handle: eslint/noConfig
-Messages already handled in lspconfig: eslint/openDoc, eslint/confirmESLintExecution, eslint/probeFailed, eslint/noLibrary
+Messages handled in lspconfig: `eslint/openDoc`, `eslint/confirmESLintExecution`, `eslint/probeFailed`, `eslint/noLibrary`
+
+Additional messages you can handle: `eslint/noConfig`
 ]],
   },
 }

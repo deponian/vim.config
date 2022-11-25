@@ -66,7 +66,7 @@ end
 return {
   default_config = {
     cmd = { 'texlab' },
-    filetypes = { 'tex', 'bib' },
+    filetypes = { 'tex', 'plaintex', 'bib' },
     root_dir = function(fname)
       return util.root_pattern '.latexmkrc'(fname) or util.find_git_ancestor(fname)
     end,
@@ -120,7 +120,7 @@ https://github.com/latex-lsp/texlab
 
 A completion engine built from scratch for (La)TeX.
 
-See https://github.com/latex-lsp/texlab/blob/master/docs/options.md for configuration options.
+See https://github.com/latex-lsp/texlab/wiki/Configuration for configuration options.
 ]],
   },
 }

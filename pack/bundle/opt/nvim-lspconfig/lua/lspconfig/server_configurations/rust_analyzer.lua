@@ -40,7 +40,10 @@ return {
       end
       local cargo_workspace_dir = nil
       if cm == 0 then
-        cargo_workspace_dir = vim.fn.json_decode(cargo_metadata)['workspace_root']
+        cargo_workspace_dir = vim.json.decode(cargo_metadata)['workspace_root']
+        if cargo_workspace_dir ~= nil then
+          cargo_workspace_dir = util.path.sanitize(cargo_workspace_dir)
+        end
       else
         vim.notify(
           string.format('[lspconfig] cmd (%q) failed:\n%s', table.concat(cmd, ' '), cargo_metadata_err),
