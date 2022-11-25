@@ -10,6 +10,7 @@ g:indent_blankline_char_blankline	indent_blankline.txt	/*g:indent_blankline_char
 g:indent_blankline_char_highlight_list	indent_blankline.txt	/*g:indent_blankline_char_highlight_list*
 g:indent_blankline_char_list	indent_blankline.txt	/*g:indent_blankline_char_list*
 g:indent_blankline_char_list_blankline	indent_blankline.txt	/*g:indent_blankline_char_list_blankline*
+g:indent_blankline_char_priority	indent_blankline.txt	/*g:indent_blankline_char_priority*
 g:indent_blankline_context_char	indent_blankline.txt	/*g:indent_blankline_context_char*
 g:indent_blankline_context_char_blankline	indent_blankline.txt	/*g:indent_blankline_context_char_blankline*
 g:indent_blankline_context_char_list	indent_blankline.txt	/*g:indent_blankline_context_char_list*
@@ -17,7 +18,7 @@ g:indent_blankline_context_char_list_blankline	indent_blankline.txt	/*g:indent_b
 g:indent_blankline_context_highlight_list	indent_blankline.txt	/*g:indent_blankline_context_highlight_list*
 g:indent_blankline_context_pattern_highlight	indent_blankline.txt	/*g:indent_blankline_context_pattern_highlight*
 g:indent_blankline_context_patterns	indent_blankline.txt	/*g:indent_blankline_context_patterns*
-g:indent_blankline_debug	indent_blankline.txt	/*g:indent_blankline_debug*
+g:indent_blankline_context_start_priority	indent_blankline.txt	/*g:indent_blankline_context_start_priority*
 g:indent_blankline_disable_warning_message	indent_blankline.txt	/*g:indent_blankline_disable_warning_message*
 g:indent_blankline_disable_with_nolist	indent_blankline.txt	/*g:indent_blankline_disable_with_nolist*
 g:indent_blankline_enabled	indent_blankline.txt	/*g:indent_blankline_enabled*
@@ -41,12 +42,11 @@ g:indent_blankline_use_treesitter_scope	indent_blankline.txt	/*g:indent_blanklin
 g:indent_blankline_viewport_buffer	indent_blankline.txt	/*g:indent_blankline_viewport_buffer*
 hl-IndentBlanklineChar	indent_blankline.txt	/*hl-IndentBlanklineChar*
 hl-IndentBlanklineContextChar	indent_blankline.txt	/*hl-IndentBlanklineContextChar*
+hl-IndentBlanklineContextSpaceChar	indent_blankline.txt	/*hl-IndentBlanklineContextSpaceChar*
 hl-IndentBlanklineContextStart	indent_blankline.txt	/*hl-IndentBlanklineContextStart*
 hl-IndentBlanklineSpaceChar	indent_blankline.txt	/*hl-IndentBlanklineSpaceChar*
 hl-IndentBlanklineSpaceCharBlankline	indent_blankline.txt	/*hl-IndentBlanklineSpaceCharBlankline*
-if	indent_blankline.txt	/*if*
 indent-blankline	indent_blankline.txt	/*indent-blankline*
-indent-blankline-changelog	indent_blankline.txt	/*indent-blankline-changelog*
 indent-blankline-commands	indent_blankline.txt	/*indent-blankline-commands*
 indent-blankline-highlights	indent_blankline.txt	/*indent-blankline-highlights*
 indent-blankline-introduction	indent_blankline.txt	/*indent-blankline-introduction*
