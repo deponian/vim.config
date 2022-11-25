@@ -96,7 +96,12 @@ function! fzf#shellescape(arg, ...)
   if shell =~# 'cmd.exe$'
     return s:shellesc_cmd(a:arg)
   endif
-  return s:fzf_call('shellescape', a:arg)
+  try
+    let [shell, &shell] = [&shell, shell]
+    return s:fzf_call('shellescape', a:arg)
+  finally
+    let [shell, &shell] = [&shell, shell]
+  endtry
 endfunction
 
 function! s:fzf_getcwd()
@@ -138,7 +143,7 @@ function! fzf#install()
     if !filereadable(script)
       throw script.' not found'
     endif
-    let script = 'powershell -ExecutionPolicy Bypass -file ' . script
+    let script = 'powershell -ExecutionPolicy Bypass -file ' . shellescape(script)
   else
     let script = s:base_dir.'/install'
     if !executable(script)
@@ -159,7 +164,7 @@ function s:get_version(bin)
   if has_key(s:versions, a:bin)
     return s:versions[a:bin]
   end
-  let command = a:bin . ' --version --no-height'
+  let command = (&shell =~ 'powershell' ? '&' : '') . s:fzf_call('shellescape', a:bin) . ' --version --no-height'
   let output = systemlist(command)
   if v:shell_error || empty(output)
     return ''
@@ -337,7 +342,8 @@ function! s:common_sink(action, lines) abort
 endfunction
 
 function! s:get_color(attr, ...)
-  let gui = !s:is_win && !has('win32unix') && has('termguicolors') && &termguicolors
+  " Force 24 bit colors: g:fzf_force_termguicolors (temporary workaround for https://github.com/junegunn/fzf.vim/issues/1152)
+  let gui = get(g:, 'fzf_force_termguicolors', 0) || (!s:is_win && !has('win32unix') && has('termguicolors') && &termguicolors)
   let fam = gui ? 'gui' : 'cterm'
   let pat = gui ? '^#[a-f0-9]\+' : '^[0-9]\+$'
   for group in a:000
@@ -458,7 +464,7 @@ try
   let temps  = { 'result': s:fzf_tempname() }
   let optstr = s:evaluate_opts(get(dict, 'options', ''))
   try
-    let fzf_exec = fzf#shellescape(fzf#exec())
+    let fzf_exec = shellescape(fzf#exec())
   catch
     throw v:exception
   endtry
@@ -967,16 +973,16 @@ function! s:callback(dict, lines) abort
 endfunction
 
 if has('nvim')
-  function s:create_popup(hl, opts) abort
+  function s:create_popup(opts) abort
     let buf = nvim_create_buf(v:false, v:true)
     let opts = extend({'relative': 'editor', 'style': 'minimal'}, a:opts)
     let win = nvim_open_win(buf, v:true, opts)
-    call setwinvar(win, '&winhighlight', 'NormalFloat:'..a:hl)
+    silent! call setwinvar(win, '&winhighlight', 'Pmenu:,Normal:Normal')
     call setwinvar(win, '&colorcolumn', '')
     return buf
   endfunction
 else
-  function! s:create_popup(hl, opts) abort
+  function! s:create_popup(opts) abort
     let s:popup_create = {buf -> popup_create(buf, #{
       \ line: a:opts.row,
       \ col: a:opts.col,
@@ -1011,7 +1017,7 @@ function! s:popup(opts) abort
   let row += !has('nvim')
   let col += !has('nvim')
 
-  call s:create_popup('Normal', {
+  call s:create_popup({
     \ 'row': row, 'col': col, 'width': width, 'height': height
   \ })
 endfunction
