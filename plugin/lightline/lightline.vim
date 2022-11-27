@@ -4,14 +4,14 @@ let g:lightline.subseparator = { 'left': '', 'right': '' }
 
 let g:lightline.active = {
 	\ 'left': [ [ 'mode', 'paste' ],
-	\           [ 'readonly' ],
-	\           [ 'modified' ],
 	\           [ 'gitbranch' ],
 	\           [ 'filename' ] ],
 	\ 'right': [ [ 'whitespace' ],
 	\            [ 'percent_and_lineinfo' ],
 	\            [ 'file_enc_and_format' ],
-	\            [ 'filetype' ] ] }
+	\            [ 'filetype' ],
+	\            [ 'readonly' ],
+	\            [ 'modified' ] ] }
 
 let g:lightline.inactive = {
 	\ 'left': [ [ 'gitbranch' ],
