@@ -1,36 +1,36 @@
-local a = vim.api
-local uv = vim.loop
-
 local utils = require "nvim-tree.utils"
 local events = require "nvim-tree.events"
 local lib = require "nvim-tree.lib"
 local core = require "nvim-tree.core"
+local notify = require "nvim-tree.notify"
+
+local find_file = require("nvim-tree.actions.finders.find-file").fn
 
 local M = {}
 
-local function focus_file(file)
-  local _, i = utils.find_node(core.get_explorer().nodes, function(node)
-    return node.absolute_path == file
-  end)
-  require("nvim-tree.view").set_cursor { i + 1, 1 }
+local function create_and_notify(file)
+  local ok, fd = pcall(vim.loop.fs_open, file, "w", 420)
+  if not ok then
+    notify.error("Couldn't create file " .. file)
+    return
+  end
+  vim.loop.fs_close(fd)
+  events._dispatch_file_created(file)
 end
 
 local function create_file(file)
   if utils.file_exists(file) then
-    print(file .. " already exists. Overwrite? y/n")
-    local ans = utils.get_user_input_char()
-    utils.clear_prompt()
-    if ans ~= "y" then
-      return
-    end
+    local prompt_select = "Overwrite " .. file .. " ?"
+    local prompt_input = prompt_select .. " y/n: "
+    lib.prompt(prompt_input, prompt_select, { "y", "n" }, { "Yes", "No" }, function(item_short)
+      utils.clear_prompt()
+      if item_short == "y" then
+        create_and_notify(file)
+      end
+    end)
+  else
+    create_and_notify(file)
   end
-  local ok, fd = pcall(uv.fs_open, file, "w", 420)
-  if not ok then
-    a.nvim_err_writeln("Couldn't create file " .. file)
-    return
-  end
-  uv.fs_close(fd)
-  events._dispatch_file_created(file)
 end
 
 local function get_num_nodes(iter)
@@ -51,8 +51,8 @@ local function get_containing_folder(node)
 end
 
 function M.fn(node)
-  node = lib.get_last_group_node(node)
-  if node.name == ".." then
+  node = node and lib.get_last_group_node(node)
+  if not node or node.name == ".." then
     node = {
       absolute_path = core.get_cwd(),
       nodes = core.get_explorer().nodes,
@@ -65,14 +65,13 @@ function M.fn(node)
   local input_opts = { prompt = "Create file ", default = containing_folder, completion = "file" }
 
   vim.ui.input(input_opts, function(new_file_path)
+    utils.clear_prompt()
     if not new_file_path or new_file_path == containing_folder then
       return
     end
 
-    utils.clear_prompt()
-
     if utils.file_exists(new_file_path) then
-      utils.warn "Cannot create: file already exists"
+      notify.warn "Cannot create: file already exists"
       return
     end
 
@@ -95,25 +94,21 @@ function M.fn(node)
       if is_last_path_file and idx == num_nodes then
         create_file(path_to_create)
       elseif not utils.file_exists(path_to_create) then
-        local success = uv.fs_mkdir(path_to_create, 493)
+        local success = vim.loop.fs_mkdir(path_to_create, 493)
         if not success then
-          a.nvim_err_writeln("Could not create folder " .. path_to_create)
+          notify.error("Could not create folder " .. path_to_create)
           is_error = true
           break
         end
+        events._dispatch_folder_created(new_file_path)
       end
     end
     if not is_error then
-      a.nvim_out_write(new_file_path .. " was properly created\n")
+      notify.info(new_file_path .. " was properly created")
     end
-    events._dispatch_folder_created(new_file_path)
-    if M.enable_reload then
-      require("nvim-tree.actions.reloaders").reload_explorer()
-    end
-    -- INFO: defer needed when reload is automatic (watchers)
-    vim.defer_fn(function()
-      focus_file(new_file_path)
-    end, 50)
+
+    -- synchronously refreshes as we can't wait for the watchers
+    find_file(utils.path_remove_trailing(new_file_path))
   end)
 end
 

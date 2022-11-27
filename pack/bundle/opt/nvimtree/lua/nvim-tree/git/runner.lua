@@ -1,4 +1,3 @@
-local uv = vim.loop
 local log = require "nvim-tree.log"
 local utils = require "nvim-tree.utils"
 
@@ -45,7 +44,7 @@ function Runner:_getopts(stdout_handle, stderr_handle)
   local untracked = self.list_untracked and "-u" or nil
   local ignored = (self.list_untracked and self.list_ignored) and "--ignored=matching" or "--ignored=no"
   return {
-    args = { "--no-optional-locks", "status", "--porcelain=v1", ignored, untracked },
+    args = { "--no-optional-locks", "status", "--porcelain=v1", ignored, untracked, self.path },
     cwd = self.project_root,
     stdio = { nil, stdout_handle, stderr_handle },
   }
@@ -60,9 +59,9 @@ end
 
 function Runner:_run_git_job()
   local handle, pid
-  local stdout = uv.new_pipe(false)
-  local stderr = uv.new_pipe(false)
-  local timer = uv.new_timer()
+  local stdout = vim.loop.new_pipe(false)
+  local stderr = vim.loop.new_pipe(false)
+  local timer = vim.loop.new_timer()
 
   local function on_finish(rc)
     self.rc = rc or 0
@@ -79,14 +78,14 @@ function Runner:_run_git_job()
       handle:close()
     end
 
-    pcall(uv.kill, pid)
+    pcall(vim.loop.kill, pid)
   end
 
   local opts = self:_getopts(stdout, stderr)
   log.line("git", "running job with timeout %dms", self.timeout)
-  log.line("git", "git %s", table.concat(opts.args, " "))
+  log.line("git", "git %s", table.concat(utils.array_remove_nils(opts.args), " "))
 
-  handle, pid = uv.spawn(
+  handle, pid = vim.loop.spawn(
     "git",
     opts,
     vim.schedule_wrap(function(rc)
@@ -115,8 +114,8 @@ function Runner:_run_git_job()
     self:_log_raw_output(data)
   end
 
-  uv.read_start(stdout, vim.schedule_wrap(manage_stdout))
-  uv.read_start(stderr, vim.schedule_wrap(manage_stderr))
+  vim.loop.read_start(stdout, vim.schedule_wrap(manage_stdout))
+  vim.loop.read_start(stderr, vim.schedule_wrap(manage_stderr))
 end
 
 function Runner:_wait()
@@ -129,10 +128,11 @@ end
 
 -- This module runs a git process, which will be killed if it takes more than timeout which defaults to 400ms
 function Runner.run(opts)
-  local ps = log.profile_start("git job %s", opts.project_root)
+  local ps = log.profile_start("git job %s %s", opts.project_root, opts.path)
 
   local self = setmetatable({
     project_root = opts.project_root,
+    path = opts.path,
     list_untracked = opts.list_untracked,
     list_ignored = opts.list_ignored,
     timeout = opts.timeout or 400,
@@ -143,14 +143,14 @@ function Runner.run(opts)
   self:_run_git_job()
   self:_wait()
 
-  log.profile_end(ps, "git job %s", opts.project_root)
+  log.profile_end(ps, "git job %s %s", opts.project_root, opts.path)
 
   if self.rc == -1 then
-    log.line("git", "job timed out")
+    log.line("git", "job timed out  %s %s", opts.project_root, opts.path)
   elseif self.rc ~= 0 then
-    log.line("git", "job failed with return code %d", self.rc)
+    log.line("git", "job fail rc %d %s %s", self.rc, opts.project_root, opts.path)
   else
-    log.line("git", "job success")
+    log.line("git", "job success    %s %s", opts.project_root, opts.path)
   end
 
   return self.output

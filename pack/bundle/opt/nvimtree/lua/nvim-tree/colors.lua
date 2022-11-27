@@ -1,5 +1,3 @@
-local api = vim.api
-
 local M = {}
 
 local function get_color_from_hl(hl_name, fallback)
@@ -53,6 +51,8 @@ local function get_hl_groups()
     WindowPicker = { gui = "bold", fg = "#ededed", bg = "#4493c8" },
     LiveFilterPrefix = { gui = "bold", fg = colors.purple },
     LiveFilterValue = { gui = "bold", fg = "#fff" },
+
+    Bookmark = { fg = colors.green },
   }
 end
 
@@ -64,6 +64,8 @@ local function get_links()
     Normal = "Normal",
     NormalNC = "NvimTreeNormal",
     EndOfBuffer = "EndOfBuffer",
+    CursorLineNr = "CursorLineNr",
+    LineNr = "LineNr",
     CursorLine = "CursorLine",
     VertSplit = "VertSplit",
     WinSeparator = "NvimTreeVertSplit",
@@ -89,12 +91,12 @@ function M.setup()
     local gui = d.gui and " gui=" .. d.gui or ""
     local fg = d.fg and " guifg=" .. d.fg or ""
     local bg = d.bg and " guibg=" .. d.bg or ""
-    api.nvim_command("hi def NvimTree" .. k .. gui .. fg .. bg)
+    vim.api.nvim_command("hi def NvimTree" .. k .. gui .. fg .. bg)
   end
 
   local links = get_links()
   for k, d in pairs(links) do
-    api.nvim_command("hi def link NvimTree" .. k .. " " .. d)
+    vim.api.nvim_command("hi def link NvimTree" .. k .. " " .. d)
   end
 end
 

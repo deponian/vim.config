@@ -1,4 +1,5 @@
 local utils = require "nvim-tree.utils"
+local core = require "nvim-tree.core"
 
 local git = require "nvim-tree.renderer.components.git"
 local pad = require "nvim-tree.renderer.components.padding"
@@ -7,10 +8,12 @@ local icons = require "nvim-tree.renderer.components.icons"
 local Builder = {}
 Builder.__index = Builder
 
+local DEFAULT_ROOT_FOLDER_LABEL = ":~:s?$?/..?"
+
 function Builder.new(root_cwd)
   return setmetatable({
     index = 0,
-    depth = nil,
+    depth = 0,
     highlights = {},
     lines = {},
     markers = {},
@@ -19,13 +22,8 @@ function Builder.new(root_cwd)
   }, Builder)
 end
 
-function Builder:configure_initial_depth(show_arrows)
-  self.depth = show_arrows and 2 or 0
-  return self
-end
-
-function Builder:configure_root_modifier(root_folder_modifier)
-  self.root_folder_modifier = root_folder_modifier or ":~"
+function Builder:configure_root_label(root_folder_label)
+  self.root_folder_label = root_folder_label or DEFAULT_ROOT_FOLDER_LABEL
   return self
 end
 
@@ -67,6 +65,11 @@ function Builder:configure_git_icons_placement(where)
     self.is_git_sign = true
   end
   self.is_git_after = where == "after" and not self.is_git_sign
+  return self
+end
+
+function Builder:configure_symlink_destination(show)
+  self.symlink_destination = show
   return self
 end
 
@@ -112,6 +115,12 @@ function Builder:_build_folder(node, padding, git_hl, git_icons_tbl)
   local icon = icons.get_folder_icon(node.open, node.link_to ~= nil, has_children)
 
   local foldername = name .. self.trailing_slash
+  if node.link_to and self.symlink_destination then
+    local arrow = icons.i.symlink_arrow
+    local link_to = utils.path_relative(node.link_to, core.get_cwd())
+    foldername = foldername .. arrow .. link_to
+  end
+
   local git_icons = self:_unwrap_git_data(git_icons_tbl, offset + #icon + (self.is_git_after and #foldername + 1 or 0))
   local fname_starts_at = offset + #icon + (self.is_git_after and 0 or #git_icons)
   local line = self:_format_line(padding .. icon, foldername, git_icons)
@@ -153,7 +162,11 @@ function Builder:_build_symlink(node, padding, git_highlight, git_icons_tbl)
 
   local icon = icons.i.symlink
   local arrow = icons.i.symlink_arrow
-  local symlink_formatted = node.name .. arrow .. node.link_to
+  local symlink_formatted = node.name
+  if self.symlink_destination then
+    local link_to = utils.path_relative(node.link_to, core.get_cwd())
+    symlink_formatted = symlink_formatted .. arrow .. link_to
+  end
 
   local link_highlight = git_highlight or "NvimTreeSymlink"
 
@@ -224,7 +237,7 @@ end
 function Builder:_build_line(node, idx, num_children)
   local padding = pad.get_padding(self.depth, idx, num_children, node, self.markers)
 
-  if self.depth > 0 then
+  if string.len(padding) > 0 then
     self:_insert_highlight("NvimTreeIndentMarker", 0, string.len(padding))
   end
 
@@ -250,9 +263,9 @@ function Builder:_build_line(node, idx, num_children)
   self.index = self.index + 1
 
   if node.open then
-    self.depth = self.depth + 2
+    self.depth = self.depth + 1
     self:build(node)
-    self.depth = self.depth - 2
+    self.depth = self.depth - 1
   end
 end
 
@@ -283,14 +296,21 @@ function Builder:build(tree)
   return self
 end
 
-local function format_root_name(root_cwd, modifier)
-  local base_root = utils.path_remove_trailing(vim.fn.fnamemodify(root_cwd, modifier))
-  return utils.path_join { base_root, ".." }
+local function format_root_name(root_cwd, root_label)
+  if type(root_label) == "function" then
+    local label = root_label(root_cwd)
+    if type(label) == "string" then
+      return label
+    else
+      root_label = DEFAULT_ROOT_FOLDER_LABEL
+    end
+  end
+  return utils.path_remove_trailing(vim.fn.fnamemodify(root_cwd, root_label))
 end
 
 function Builder:build_header(show_header)
   if show_header then
-    local root_name = format_root_name(self.root_cwd, self.root_folder_modifier)
+    local root_name = format_root_name(self.root_cwd, self.root_folder_label)
     self:_insert_line(root_name)
     self:_insert_highlight("NvimTreeRootFolder", 0, string.len(root_name))
     self.index = 1

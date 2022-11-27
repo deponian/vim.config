@@ -1,4 +1,5 @@
-local a = vim.api
+local lib = require "nvim-tree.lib"
+local notify = require "nvim-tree.notify"
 
 local M = {
   config = {
@@ -16,10 +17,10 @@ local function clear_buffer(absolute_path)
   for _, buf in pairs(bufs) do
     if buf.name == absolute_path then
       if buf.hidden == 0 and #bufs > 1 then
-        local winnr = a.nvim_get_current_win()
-        a.nvim_set_current_win(buf.windows[1])
+        local winnr = vim.api.nvim_get_current_win()
+        vim.api.nvim_set_current_win(buf.windows[1])
         vim.cmd ":bn"
-        a.nvim_set_current_win(winnr)
+        vim.api.nvim_set_current_win(winnr)
       end
       vim.api.nvim_buf_delete(buf.bufnr, {})
       return
@@ -41,8 +42,19 @@ function M.fn(node)
       M.config.trash.require_confirm = true
     end
   else
-    utils.warn "Trash is currently a UNIX only feature!"
+    notify.warn "Trash is currently a UNIX only feature!"
     return
+  end
+
+  local binary = M.config.trash.cmd:gsub(" .*$", "")
+  if vim.fn.executable(binary) == 0 then
+    notify.warn(binary .. " is not executable.")
+    return
+  end
+
+  local err_msg = ""
+  local function on_stderr(_, data)
+    err_msg = err_msg .. (data and table.concat(data, " "))
   end
 
   -- trashes a path (file or folder)
@@ -50,40 +62,48 @@ function M.fn(node)
     vim.fn.jobstart(M.config.trash.cmd .. ' "' .. node.absolute_path .. '"', {
       detach = true,
       on_exit = on_exit,
+      on_stderr = on_stderr,
     })
   end
 
-  local is_confirmed = true
-
-  -- confirmation prompt
-  if M.config.trash.require_confirm then
-    is_confirmed = false
-    print("Trash " .. node.name .. " ? y/n")
-    local ans = utils.get_user_input_char()
-    if ans:match "^y" then
-      is_confirmed = true
-    end
-    utils.clear_prompt()
-  end
-
-  -- trashing
-  if is_confirmed then
+  local function do_trash()
     if node.nodes ~= nil and not node.link_to then
-      trash_path(function()
+      trash_path(function(_, rc)
+        if rc ~= 0 then
+          notify.warn("trash failed: " .. err_msg .. "; please see :help nvim-tree.trash")
+          return
+        end
         events._dispatch_folder_removed(node.absolute_path)
         if M.enable_reload then
-          require("nvim-tree.actions.reloaders").reload_explorer()
+          require("nvim-tree.actions.reloaders.reloaders").reload_explorer()
         end
       end)
     else
-      trash_path(function()
+      trash_path(function(_, rc)
+        if rc ~= 0 then
+          notify.warn("trash failed: " .. err_msg .. "; please see :help nvim-tree.trash")
+          return
+        end
         events._dispatch_file_removed(node.absolute_path)
         clear_buffer(node.absolute_path)
         if M.enable_reload then
-          require("nvim-tree.actions.reloaders").reload_explorer()
+          require("nvim-tree.actions.reloaders.reloaders").reload_explorer()
         end
       end)
     end
+  end
+
+  if M.config.trash.require_confirm then
+    local prompt_select = "Trash " .. node.name .. " ?"
+    local prompt_input = prompt_select .. " y/n: "
+    lib.prompt(prompt_input, prompt_select, { "y", "n" }, { "Yes", "No" }, function(item_short)
+      utils.clear_prompt()
+      if item_short == "y" then
+        do_trash()
+      end
+    end)
+  else
+    do_trash()
   end
 end
 

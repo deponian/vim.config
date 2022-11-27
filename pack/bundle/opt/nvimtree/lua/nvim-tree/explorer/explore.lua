@@ -1,28 +1,26 @@
-local api = vim.api
-local uv = vim.loop
-
 local utils = require "nvim-tree.utils"
 local builders = require "nvim-tree.explorer.node-builders"
 local common = require "nvim-tree.explorer.common"
 local sorters = require "nvim-tree.explorer.sorters"
 local filters = require "nvim-tree.explorer.filters"
 local live_filter = require "nvim-tree.live-filter"
+local notify = require "nvim-tree.notify"
 
 local M = {}
 
 local function get_type_from(type_, cwd)
-  return type_ or (uv.fs_stat(cwd) or {}).type
+  return type_ or (vim.loop.fs_stat(cwd) or {}).type
 end
 
 local function populate_children(handle, cwd, node, status)
   local node_ignored = node.git_status == "!!"
+  local nodes_by_path = utils.bool_record(node.nodes, "absolute_path")
   while true do
-    local name, t = uv.fs_scandir_next(handle)
+    local name, t = vim.loop.fs_scandir_next(handle)
     if not name then
       break
     end
 
-    local nodes_by_path = utils.key_by(node.nodes, "absolute_path")
     local abs = utils.path_join { cwd, name }
     t = get_type_from(t, abs)
     if
@@ -31,7 +29,7 @@ local function populate_children(handle, cwd, node, status)
       and not nodes_by_path[abs]
     then
       local child = nil
-      if t == "directory" and uv.fs_access(abs, "R") then
+      if t == "directory" and vim.loop.fs_access(abs, "R") then
         child = builders.folder(node, abs, name)
       elseif t == "file" then
         child = builders.file(node, abs, name)
@@ -43,6 +41,7 @@ local function populate_children(handle, cwd, node, status)
       end
       if child then
         table.insert(node.nodes, child)
+        nodes_by_path[child.absolute_path] = true
         common.update_git_status(child, node_ignored, status)
       end
     end
@@ -50,9 +49,9 @@ local function populate_children(handle, cwd, node, status)
 end
 
 local function get_dir_handle(cwd)
-  local handle = uv.fs_scandir(cwd)
+  local handle = vim.loop.fs_scandir(cwd)
   if type(handle) == "string" then
-    api.nvim_err_writeln(handle)
+    notify.error(handle)
     return
   end
   return handle

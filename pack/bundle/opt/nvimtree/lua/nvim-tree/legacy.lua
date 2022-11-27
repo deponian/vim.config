@@ -1,4 +1,5 @@
 local utils = require "nvim-tree.utils"
+local notify = require "nvim-tree.notify"
 
 local M = {}
 
@@ -285,32 +286,28 @@ local function refactored(opts)
     end
   end
 
-  -- update_to_buf_dir -> hijack_directories
-  if opts.update_to_buf_dir ~= nil then
-    utils.table_create_missing(opts, "hijack_directories")
-    if opts.hijack_directories.enable == nil then
-      opts.hijack_directories.enable = opts.update_to_buf_dir.enable
-    end
-    if opts.hijack_directories.auto_open == nil then
-      opts.hijack_directories.auto_open = opts.update_to_buf_dir.auto_open
-    end
-    opts.update_to_buf_dir = nil
-  end
+  -- 2022/06/20
+  utils.move_missing_val(opts, "update_focused_file", "update_cwd", opts, "update_focused_file", "update_root")
+  utils.move_missing_val(opts, "", "update_cwd", opts, "", "sync_root_with_cwd")
 
-  -- view.auto_resize -> actions.open_file.resize_window
-  if opts.view and opts.view.auto_resize ~= nil then
-    utils.table_create_missing(opts, "actions.open_file")
-    if opts.actions.open_file.resize_window == nil then
-      opts.actions.open_file.resize_window = opts.view.auto_resize
-    end
-    opts.view.auto_resize = nil
-  end
+  -- 2022/11/07
+  utils.move_missing_val(opts, "", "open_on_tab", opts, "tab.sync", "open", false)
+  utils.move_missing_val(opts, "", "open_on_tab", opts, "tab.sync", "close")
+  utils.move_missing_val(opts, "", "ignore_buf_on_tab_change", opts, "tab.sync", "ignore")
+
+  -- 2022/11/22
+  utils.move_missing_val(opts, "renderer", "root_folder_modifier", opts, "renderer", "root_folder_label")
 end
 
 local function removed(opts)
   if opts.auto_close then
-    utils.warn "auto close feature has been removed, see note in the README (tips & reminder section)"
+    notify.warn "auto close feature has been removed, see note in the README (tips & reminder section)"
     opts.auto_close = nil
+  end
+
+  if opts.focus_empty_on_setup then
+    notify.warn "focus_empty_on_setup has been removed and will be replaced by a new startup configuration. Please remove this option. See https://bit.ly/3yJch2T"
+    opts.focus_empty_on_setup = nil
   end
 end
 
@@ -324,7 +321,7 @@ function M.migrate_legacy_options(opts)
     end
   end
   if msg then
-    utils.warn(msg)
+    notify.warn(msg)
   end
 
   -- silently move

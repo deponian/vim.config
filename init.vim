@@ -1,6 +1,10 @@
 let mapleader="\<Space>"
 let maplocalleader="\\"
 
+" Disable netrw
+let g:loaded_netrw = 1
+let g:loaded_netrwPlugin = 1
+
 " Return to last edit position when opening files
 autocmd BufReadPost *
 			\ if line("'\"") >= 1 && line("'\"") <= line("$") |
