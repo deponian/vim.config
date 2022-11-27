@@ -1,0 +1,12 @@
+cmp-rg	cmp-rg.txt	/*cmp-rg*
+cmp-rg-additional_arguments	cmp-rg.txt	/*cmp-rg-additional_arguments*
+cmp-rg-context_after	cmp-rg.txt	/*cmp-rg-context_after*
+cmp-rg-context_before	cmp-rg.txt	/*cmp-rg-context_before*
+cmp-rg-cwd	cmp-rg.txt	/*cmp-rg-cwd*
+cmp-rg-debounce	cmp-rg.txt	/*cmp-rg-debounce*
+cmp-rg-debug	cmp-rg.txt	/*cmp-rg-debug*
+cmp-rg-license	cmp-rg.txt	/*cmp-rg-license*
+cmp-rg-options	cmp-rg.txt	/*cmp-rg-options*
+cmp-rg-pattern	cmp-rg.txt	/*cmp-rg-pattern*
+cmp-rg-setup	cmp-rg.txt	/*cmp-rg-setup*
+cmp-rg.txt	cmp-rg.txt	/*cmp-rg.txt*
