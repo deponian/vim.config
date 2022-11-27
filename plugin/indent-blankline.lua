@@ -17,7 +17,7 @@ require("indent_blankline").setup {
   char = "¦",
   space_char_blankline = " ",
   show_current_context = true,
-  filetype = {"yaml", "yaml.helm", "yaml.gha"},
+  filetype = {"yaml", "helm", "yaml.gha"},
   char_highlight_list = {
     "IndentBlanklineIndent1",
     "IndentBlanklineIndent2",
