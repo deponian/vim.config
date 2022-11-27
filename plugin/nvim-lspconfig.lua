@@ -106,8 +106,10 @@ require('lspconfig').terraformls.setup{
   on_attach = on_attach,
 }
 
--- require('lspconfig').yamlls.setup{
---   capabilities = capabilities,
---   handlers = handlers,
---   on_attach = on_attach,
--- }
+local null_ls = require("null-ls")
+null_ls.setup({
+  sources = {
+    null_ls.builtins.diagnostics.hadolint,
+    null_ls.builtins.diagnostics.yamllint,
+  },
+})

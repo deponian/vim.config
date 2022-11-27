@@ -8,7 +8,7 @@ let g:lightline.active = {
 	\           [ 'modified' ],
 	\           [ 'gitbranch' ],
 	\           [ 'filename' ] ],
-	\ 'right': [ [ 'whitespace', 'neomake_info', 'neomake_warning', 'neomake_error' ],
+	\ 'right': [ [ 'whitespace' ],
 	\            [ 'percent_and_lineinfo' ],
 	\            [ 'file_enc_and_format' ],
 	\            [ 'filetype' ] ] }
@@ -36,16 +36,10 @@ let g:lightline.component = {
 	\ 'readonly': '%{&readonly?"⊝":""}' }
 
 let g:lightline.component_expand = {
-	\ 'whitespace': 'lightline#whitespace#check',
-	\ 'neomake_error': 'lightline#neomake#error',
-	\ 'neomake_warning': 'lightline#neomake#warning',
-	\ 'neomake_info': 'lightline#neomake#info' }
+	\ 'whitespace': 'lightline#whitespace#check' }
 
 let g:lightline.component_type = {
-	\ 'whitespace': 'warning',
-	\ 'neomake_error': 'error',
-	\ 'neomake_warning': 'warning',
-	\ 'neomake_info': 'info' }
+	\ 'whitespace': 'warning' }
 
 let g:lightline.component_function = {
 	\ 'mode': 'LightlineMode',

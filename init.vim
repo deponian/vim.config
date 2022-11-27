@@ -21,12 +21,11 @@ packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
 packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
 packadd! indent-blankline		" https://github.com/lukas-reineke/indent-blankline.nvim
 packadd! lightline				" https://github.com/itchyny/lightline.vim
-packadd! lightline-neomake		" https://github.com/sinetoami/lightline-neomake
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 packadd! loupe					" https://github.com/deponian/vim-loupe
 packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
 packadd! manpager				" https://github.com/lambdalisue/vim-manpager
-packadd! neomake				" https://github.com/neomake/neomake
+packadd! null-ls				" https://github.com/jose-elias-alvarez/null-ls.nvim.git
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer
 packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc
@@ -40,6 +39,7 @@ packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig
 packadd! nvim-web-devicons		" https://github.com/kyazdani42/nvim-web-devicons
 packadd! nvimtree				" https://github.com/kyazdani42/nvim-tree.lua
 packadd! onedark				" https://github.com/navarasu/onedark.nvim
+packadd! plenary				" https://github.com/nvim-lua/plenary.nvim.git
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! replay					" https://github.com/wincent/replay
 packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
