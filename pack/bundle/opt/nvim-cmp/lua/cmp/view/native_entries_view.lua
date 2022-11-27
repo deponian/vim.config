@@ -7,10 +7,10 @@ local config = require('cmp.config')
 local api = require('cmp.utils.api')
 
 ---@class cmp.NativeEntriesView
----@field private offset number
+---@field private offset integer
 ---@field private items vim.CompletedItem
 ---@field private entries cmp.Entry[]
----@field private preselect_index number
+---@field private preselect_index integer
 ---@field public event cmp.Event
 local native_entries_view = {}
 
@@ -101,10 +101,10 @@ native_entries_view.info = function(self)
   if self:visible() then
     local info = vim.fn.pum_getpos()
     return {
-      width = info.width + (info.scrollable and 1 or 0),
+      width = info.width + (info.scrollbar and 1 or 0) + (info.col == 0 and 0 or 1),
       height = info.height,
       row = info.row,
-      col = info.col,
+      col = info.col == 0 and 0 or info.col - 1,
     }
   end
 end

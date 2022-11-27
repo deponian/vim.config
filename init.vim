@@ -24,7 +24,7 @@ packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 packadd! loupe					" https://github.com/deponian/vim-loupe
 packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
-packadd! manpager				" https://github.com/lambdalisue/vim-manpager
+packadd! manpager				" https://github.com/lambdalisue/vim-manpager [don't update]
 packadd! null-ls				" https://github.com/jose-elias-alvarez/null-ls.nvim.git
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer

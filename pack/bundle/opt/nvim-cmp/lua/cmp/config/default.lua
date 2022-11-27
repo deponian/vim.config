@@ -14,6 +14,12 @@ return function()
       return not disabled
     end,
 
+    performance = {
+      debounce = 60,
+      throttle = 30,
+      fetching_timeout = 200,
+    },
+
     preselect = types.cmp.PreselectMode.Item,
 
     mapping = {},
@@ -85,6 +91,8 @@ return function()
       completion = {
         border = { '', '', '', '', '', '', '', '' },
         winhighlight = 'Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None',
+        col_offset = 0,
+        side_padding = 1,
       },
       documentation = {
         max_height = math.floor(WIDE_HEIGHT * (WIDE_HEIGHT / vim.o.lines)),
