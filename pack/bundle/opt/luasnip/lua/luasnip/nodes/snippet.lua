@@ -12,6 +12,7 @@ local session = require("luasnip.session")
 local pattern_tokenizer = require("luasnip.util.pattern_tokenizer")
 local dict = require("luasnip.util.dict")
 local snippet_collection = require("luasnip.session.snippet_collection")
+local extend_decorator = require("luasnip.util.extend_decorator")
 
 local true_func = function()
 	return true
@@ -126,9 +127,8 @@ local function init_snippetNode_opts(opts)
 
 	opts = opts or {}
 
-	in_node.child_ext_opts = ext_util.child_complete(
-		vim.deepcopy(opts.child_ext_opts or {})
-	)
+	in_node.child_ext_opts =
+		ext_util.child_complete(vim.deepcopy(opts.child_ext_opts or {}))
 
 	if opts.merge_child_ext_opts == nil then
 		in_node.merge_child_ext_opts = true
@@ -181,13 +181,24 @@ local function init_snippet_context(context)
 	context.name = context.name or context.trigger
 
 	-- context.dscr could be nil, string or table.
-	context.dscr = util.to_line_table(
-		util.wrap_value(context.dscr or context.trigger)
-	)
+	context.dscr = util.to_line_table(context.dscr or context.trigger)
 
-	-- -1 for no prio, we cannot use nil because accessing a nil-value in a
-	-- snippetProxy will cause instantiation.
-	context.priority = context.priority or -1
+	-- might be nil, but whitelisted in snippetProxy.
+	context.priority = context.priority
+
+	-- might be nil, but whitelisted in snippetProxy.
+	-- shall be a string, allowed values: "snippet", "autosnippet"
+	assert(
+		not context.snippetType
+			or context.snippetType == "snippet"
+			or context.snippetType == "autosnippet",
+		"snippetType has to be either 'snippet' or 'autosnippet' (or unset)"
+	)
+	-- switch to plural forms so that we can use this for indexing
+	context.snippetType = context.snippetType == "autosnippet"
+			and "autosnippets"
+		or context.snippetType == "snippet" and "snippets"
+		or nil
 
 	-- maybe do this in a better way when we have more parameters, but this is
 	-- fine for now.
@@ -263,6 +274,11 @@ local function S(context, nodes, opts)
 
 	return _S(snip, nodes, opts)
 end
+extend_decorator.register(
+	S,
+	{ arg_indx = 1, extend = node_util.snippet_extend_context },
+	{ arg_indx = 3 }
+)
 
 function SN(pos, nodes, opts)
 	local snip = Snippet:new(
@@ -282,6 +298,7 @@ function SN(pos, nodes, opts)
 
 	return snip
 end
+extend_decorator.register(SN, { arg_indx = 3 })
 
 local function ISN(pos, nodes, indent_text, opts)
 	local snip = SN(pos, nodes, opts)
@@ -325,6 +342,7 @@ local function ISN(pos, nodes, indent_text, opts)
 
 	return snip
 end
+extend_decorator.register(ISN, { arg_indx = 4 })
 
 function Snippet:remove_from_jumplist()
 	-- prev is i(-1)(startNode), prev of that is the outer/previous snippet.
@@ -415,9 +433,12 @@ end
 
 function Snippet:trigger_expand(current_node, pos_id, env)
 	local pos = vim.api.nvim_buf_get_extmark_by_id(0, session.ns_id, pos_id, {})
-	self:event(events.pre_expand, { expand_pos = pos })
+	local pre_expand_res = self:event(events.pre_expand, { expand_pos = pos })
+		or {}
 	-- update pos, event-callback might have moved the extmark.
 	pos = vim.api.nvim_buf_get_extmark_by_id(0, session.ns_id, pos_id, {})
+
+	Environ:override(env, pre_expand_res.env_override or {})
 
 	local indentstring = util.line_chars_before(pos):match("^%s*")
 	-- expand tabs before indenting to keep indentstring unmodified
@@ -477,7 +498,7 @@ function Snippet:trigger_expand(current_node, pos_id, env)
 	local mark_opts = vim.tbl_extend("keep", {
 		right_gravity = false,
 		end_right_gravity = true,
-	}, self.ext_opts.passive)
+	}, self:get_passive_ext_opts())
 	self.mark = mark(old_pos, pos, mark_opts)
 
 	self:update()
@@ -633,18 +654,11 @@ function Snippet:del_marks()
 	end
 end
 
-function Snippet:is_interactive()
+function Snippet:is_interactive(info)
 	for _, node in ipairs(self.nodes) do
 		-- return true if any node depends on another node or is an insertNode.
-		if
-			node.type == types.insertNode
-			or ((node.type == types.functionNode or node.type == types.dynamicNode) and #node.args ~= 0)
-			or node.type == types.choiceNode
-		then
+		if node:is_interactive(info) then
 			return true
-			-- node is snippet, recurse.
-		elseif node.type == types.snippetNode then
-			return node:is_interactive()
 		end
 	end
 	return false
@@ -671,7 +685,7 @@ function Snippet:put_initial(pos)
 		local mark_opts = vim.tbl_extend("keep", {
 			right_gravity = false,
 			end_right_gravity = false,
-		}, node.ext_opts.passive)
+		}, node:get_passive_ext_opts())
 		node.mark = mark(old_pos, pos, mark_opts)
 	end
 	self.visible = true
@@ -688,12 +702,7 @@ function Snippet:fake_expand(opts)
 	if opts.env then
 		self.env = opts.env
 	else
-		self.env = {}
-		setmetatable(self.env, {
-			__index = function(_, key)
-				return Environ.is_table(key) and { "$" .. key } or "$" .. key
-			end,
-		})
+		self.env = Environ.fake()
 	end
 
 	self.captures = {}
@@ -858,10 +867,11 @@ function Snippet:make_args_absolute()
 end
 
 function Snippet:input_enter()
+	self.visited = true
 	self.active = true
 
 	if self.type == types.snippet then
-		-- set snippet-passive -> passive for all children.
+		-- set snippet-passive -> visited/unvisited for all children.
 		self:set_ext_opts("passive")
 	end
 	self.mark:update_opts(self.ext_opts.active)
@@ -1018,8 +1028,9 @@ end
 
 function Snippet:event(event, event_args)
 	local callback = self.callbacks[-1][event]
+	local cb_res
 	if callback then
-		callback(self, event_args)
+		cb_res = callback(self, event_args)
 	end
 	if self.type == types.snippetNode and self.pos then
 		-- if snippetNode, also do callback for position in parent.
@@ -1031,7 +1042,12 @@ function Snippet:event(event, event_args)
 
 	session.event_node = self
 	session.event_args = event_args
-	vim.cmd("doautocmd User Luasnip" .. events.to_string(self.type, event))
+	vim.cmd(
+		"doautocmd <nomodeline> User Luasnip"
+			.. events.to_string(self.type, event)
+	)
+
+	return cb_res
 end
 
 local function nodes_from_pattern(pattern)

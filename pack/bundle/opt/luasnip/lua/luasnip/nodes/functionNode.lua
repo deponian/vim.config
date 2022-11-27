@@ -5,6 +5,7 @@ local node_util = require("luasnip.nodes.util")
 local types = require("luasnip.util.types")
 local events = require("luasnip.util.events")
 local tNode = require("luasnip.nodes.textNode").textNode
+local extend_decorator = require("luasnip.util.extend_decorator")
 
 local function F(fn, args, opts)
 	opts = opts or {}
@@ -17,6 +18,7 @@ local function F(fn, args, opts)
 		user_args = opts.user_args or {},
 	}, opts)
 end
+extend_decorator.register(F, { arg_indx = 3 })
 
 FunctionNode.input_enter = tNode.input_enter
 
@@ -41,9 +43,8 @@ function FunctionNode:update()
 		return
 	end
 	self.last_args = args
-	local text = util.wrap_value(
-		self.fn(args, self.parent, unpack(self.user_args))
-	)
+	local text =
+		util.to_string_table(self.fn(args, self.parent, unpack(self.user_args)))
 	if vim.bo.expandtab then
 		util.expand_tabs(text, util.tab_width(), #self.parent.indentstr)
 	end
@@ -68,12 +69,8 @@ function FunctionNode:update_static()
 	-- updates will fail aswell, if not the `fn` also doesn't always work
 	-- correctly in normal expansion.
 	self.last_args = args
-	local ok, static_text = pcall(
-		self.fn,
-		args,
-		self.parent,
-		unpack(self.user_args)
-	)
+	local ok, static_text =
+		pcall(self.fn, args, self.parent, unpack(self.user_args))
 	if not ok then
 		print(
 			update_errorstring:format(
@@ -84,7 +81,8 @@ function FunctionNode:update_static()
 		)
 		static_text = { "" }
 	end
-	self.static_text = util.wrap_value(static_text)
+	self.static_text =
+		util.indent(util.to_string_table(static_text), self.parent.indentstr)
 end
 
 function FunctionNode:update_restore()
@@ -112,16 +110,34 @@ end
 
 function FunctionNode:set_dependents()
 	local dict = self.parent.snippet.dependents_dict
-	local append_list = vim.list_extend(
-		{ "dependents" },
-		self.absolute_position
-	)
+	local append_list =
+		vim.list_extend({ "dependents" }, self.absolute_position)
 	append_list[#append_list + 1] = "dependent"
 
 	for _, arg in ipairs(self.args_absolute) do
-		-- mutates arg! Contains key for dict and this node, from now on.
-		dict:set(vim.list_extend(vim.deepcopy(arg), append_list), self)
+		-- if arg is a luasnip-node, just insert it as the key.
+		-- important!! rawget, because indexing absolute_indexer with some key
+		-- appends the key.
+		-- Maybe this is stupid??
+		if rawget(arg, "type") ~= nil then
+			dict:set(vim.list_extend({ arg }, append_list), self)
+		elseif arg.absolute_insert_position then
+			-- copy, list_extend mutates.
+			dict:set(
+				vim.list_extend(
+					vim.deepcopy(arg.absolute_insert_position),
+					append_list
+				),
+				self
+			)
+		end
 	end
+end
+
+function FunctionNode:is_interactive()
+	-- the function node is only evaluated once if it has no argnodes -> it's
+	-- not interactive then.
+	return #self.args ~= 0
 end
 
 return {

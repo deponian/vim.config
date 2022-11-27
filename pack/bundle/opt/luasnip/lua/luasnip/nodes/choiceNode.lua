@@ -7,6 +7,7 @@ local events = require("luasnip.util.events")
 local mark = require("luasnip.util.mark").mark
 local session = require("luasnip.session")
 local sNode = require("luasnip.nodes.snippet").SN
+local extend_decorator = require("luasnip.util.extend_decorator")
 
 function ChoiceNode:init_nodes()
 	for i, choice in ipairs(self.choices) do
@@ -73,6 +74,7 @@ local function C(pos, choices, opts)
 	c:init_nodes()
 	return c
 end
+extend_decorator.register(C, { arg_indx = 3 })
 
 function ChoiceNode:subsnip_init()
 	node_util.subsnip_init_children(self.parent, self.choices)
@@ -112,7 +114,7 @@ function ChoiceNode:put_initial(pos)
 	local mark_opts = vim.tbl_extend("keep", {
 		right_gravity = false,
 		end_right_gravity = false,
-	}, self.active_choice.ext_opts.passive)
+	}, self.active_choice:get_passive_ext_opts())
 
 	self.active_choice.mark = mark(old_pos, pos, mark_opts)
 	self.visible = true
@@ -136,6 +138,7 @@ function ChoiceNode:input_enter()
 
 	self.prev_choice_node = session.active_choice_node
 	session.active_choice_node = self
+	self.visited = true
 	self.active = true
 
 	self:event(events.enter)
@@ -144,7 +147,7 @@ end
 function ChoiceNode:input_leave()
 	self:event(events.leave)
 
-	self.mark:update_opts(self.ext_opts.passive)
+	self.mark:update_opts(self:get_passive_ext_opts())
 	self:update_dependents()
 	session.active_choice_node = self.prev_choice_node
 	self.active = false
@@ -216,10 +219,8 @@ function ChoiceNode:set_choice(choice, current_node)
 
 	local insert_pre_cc = vim.fn.mode() == "i"
 	-- is byte-indexed! Doesn't matter here, but important to be aware of.
-	local cursor_pos_pre_relative = util.pos_sub(
-		util.get_cursor_0ind(),
-		current_node.mark:pos_begin_raw()
-	)
+	local cursor_pos_pre_relative =
+		util.pos_sub(util.get_cursor_0ind(), current_node.mark:pos_begin_raw())
 
 	self.active_choice:store()
 
@@ -240,8 +241,14 @@ function ChoiceNode:set_choice(choice, current_node)
 	self.active_choice = choice
 
 	self.active_choice.mark = self.mark:copy_pos_gravs(
-		vim.deepcopy(self.active_choice.ext_opts.passive)
+		vim.deepcopy(self.active_choice:get_passive_ext_opts())
 	)
+
+	-- re-init positions for child-restoreNodes (they will update their
+	-- children in put_initial, but their own position has to be changed here).
+	self:init_positions(self.absolute_position)
+	self:init_insert_positions(self.absolute_insert_position)
+
 	self.active_choice:put_initial(self.mark:pos_begin_raw())
 
 	self.active_choice:update_restore()
@@ -322,7 +329,8 @@ function ChoiceNode:set_mark_rgrav(rgrav_beg, rgrav_end)
 end
 
 function ChoiceNode:set_ext_opts(name)
-	self.mark:update_opts(self.ext_opts[name])
+	Node.set_ext_opts(self, name)
+
 	self.active_choice:set_ext_opts(name)
 end
 

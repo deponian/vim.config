@@ -37,12 +37,13 @@ local function make_args_absolute(args, parent_insert_position, target)
 		if type(arg) == "number" then
 			-- the arg is a number, should be interpreted relative to direct
 			-- parent.
-			target[i] = vim.deepcopy(parent_insert_position)
-			target[i][#target[i] + 1] = arg
+			local t = vim.deepcopy(parent_insert_position)
+			table.insert(t, arg)
+			target[i] = { absolute_insert_position = t }
 		else
-			-- arg-position is absolute.
-			-- copy because arg could be a node (whose absolute_insert_position _may_ change).
-			target[i] = vim.deepcopy(arg.absolute_insert_position)
+			-- insert node or absolute_indexer itself, node's absolute_insert_position may be nil, check for that during
+			-- usage.
+			target[i] = arg
 		end
 	end
 end
@@ -112,9 +113,8 @@ local function init_node_opts(opts)
 	end
 
 	-- copy once here, the opts might be reused.
-	in_node.node_ext_opts = ext_util.complete(
-		vim.deepcopy(opts.node_ext_opts or {})
-	)
+	in_node.node_ext_opts =
+		ext_util.complete(vim.deepcopy(opts.node_ext_opts or {}))
 
 	if opts.merge_node_ext_opts == nil then
 		in_node.merge_node_ext_opts = true
@@ -123,6 +123,15 @@ local function init_node_opts(opts)
 	end
 
 	return in_node
+end
+
+local function snippet_extend_context(arg, extend)
+	if type(arg) == "string" then
+		arg = { trig = arg }
+	end
+
+	-- both are table or nil now.
+	return vim.tbl_extend("keep", arg or {}, extend or {})
 end
 
 return {
@@ -136,4 +145,5 @@ return {
 	select_node = select_node,
 	print_dict = print_dict,
 	init_node_opts = init_node_opts,
+	snippet_extend_context = snippet_extend_context,
 }

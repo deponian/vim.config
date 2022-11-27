@@ -6,6 +6,7 @@ local types = require("luasnip.util.types")
 local events = require("luasnip.util.events")
 local FunctionNode = require("luasnip.nodes.functionNode").FunctionNode
 local SnippetNode = require("luasnip.nodes.snippet").SN
+local extend_decorator = require("luasnip.util.extend_decorator")
 
 local function D(pos, fn, args, opts)
 	opts = opts or {}
@@ -21,8 +22,10 @@ local function D(pos, fn, args, opts)
 		active = false,
 	}, opts)
 end
+extend_decorator.register(D, { arg_indx = 4 })
 
 function DynamicNode:input_enter()
+	self.visited = true
 	self.active = true
 	self.mark:update_opts(self.ext_opts.active)
 
@@ -34,18 +37,20 @@ function DynamicNode:input_leave()
 
 	self:update_dependents()
 	self.active = false
-	self.mark:update_opts(self.ext_opts.passive)
+	self.mark:update_opts(self:get_passive_ext_opts())
 end
 
 function DynamicNode:get_static_text()
-	if not self.static_text then
+	if self.snip then
+		return self.snip:get_static_text()
+	else
+		self:update_static()
 		if self.snip then
-			self.static_text = self.snip:get_static_text()
+			return self.snip:get_static_text()
 		else
-			self.static_text = { "" }
+			return { "" }
 		end
 	end
-	return self.static_text
 end
 
 function DynamicNode:get_docstring()
@@ -144,7 +149,8 @@ function DynamicNode:update()
 	tmp:resolve_node_ext_opts()
 	tmp:subsnip_init()
 
-	tmp.mark = self.mark:copy_pos_gravs(vim.deepcopy(tmp.ext_opts.passive))
+	tmp.mark =
+		self.mark:copy_pos_gravs(vim.deepcopy(tmp:get_passive_ext_opts()))
 	tmp.dynamicNode = self
 	tmp.update_dependents = function(node)
 		node:_update_dependents()
@@ -168,7 +174,7 @@ function DynamicNode:update()
 	tmp:put_initial(self.mark:pos_begin_raw())
 
 	-- Update, tbh no idea how that could come in handy, but should be done.
-	-- Both are needed, becaus
+	-- Both are needed, because
 	-- - a node could only depend on nodes outside of tmp
 	-- - a node outside of tmp could depend on one inside of tmp
 	tmp:update()
@@ -211,13 +217,8 @@ function DynamicNode:update_static()
 			tmp = SnippetNode(nil, {})
 		else
 			-- also enter node here.
-			ok, tmp = pcall(
-				self.fn,
-				args,
-				self.parent,
-				nil,
-				unpack(self.user_args)
-			)
+			ok, tmp =
+				pcall(self.fn, args, self.parent, nil, unpack(self.user_args))
 		end
 	end
 	if not ok then
@@ -259,6 +260,14 @@ function DynamicNode:update_static()
 	tmp:set_dependents()
 	tmp:set_argnodes(self.parent.snippet.dependents_dict)
 
+	-- do not expand tabs!! This is only necessary if the snippet is inserted
+	-- in a buffer, some information is lost if tabs (indent) is replaced with
+	-- whitespace.
+	-- This might make a difference when another f/dynamicNode depends on this
+	-- one, and the function expects expanded tabs... imo the function should
+	-- be adjusted to accept any whitespace.
+	tmp:indent(self.parent.indentstr)
+
 	tmp:static_init()
 
 	tmp:update_static()
@@ -291,7 +300,8 @@ function DynamicNode:exit()
 end
 
 function DynamicNode:set_ext_opts(name)
-	self.mark:update_opts(self.ext_opts[name])
+	Node.set_ext_opts(self, name)
+
 	-- might not have been generated (missing nodes).
 	if self.snip then
 		self.snip:set_ext_opts(name)
@@ -310,7 +320,19 @@ function DynamicNode:update_restore()
 		-- prevent entering the uninitialized snip in enter_node in a few lines.
 		local tmp = self.stored_snip
 
-		tmp.mark = self.mark:copy_pos_gravs(vim.deepcopy(tmp.ext_opts.passive))
+		tmp.mark =
+			self.mark:copy_pos_gravs(vim.deepcopy(tmp:get_passive_ext_opts()))
+
+		-- position might (will probably!!) still have changed, so update it
+		-- here too (as opposed to only in update).
+		tmp:init_positions(self.snip_absolute_position)
+		tmp:init_insert_positions(self.snip_absolute_insert_position)
+
+		tmp:make_args_absolute()
+
+		tmp:set_dependents()
+		tmp:set_argnodes(self.parent.snippet.dependents_dict)
+
 		self.parent:enter_node(self.indx)
 		tmp:put_initial(self.mark:pos_begin_raw())
 		tmp:update_restore()
@@ -341,9 +363,8 @@ end
 
 function DynamicNode:init_insert_positions(position_so_far)
 	Node.init_insert_positions(self, position_so_far)
-	self.snip_absolute_insert_position = vim.deepcopy(
-		self.absolute_insert_position
-	)
+	self.snip_absolute_insert_position =
+		vim.deepcopy(self.absolute_insert_position)
 	-- nodes of current snippet should have a 0 before.
 	self.snip_absolute_insert_position[#self.snip_absolute_insert_position + 1] =
 		0
