@@ -26,7 +26,7 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
   hijack_netrw = true,
   hijack_unnamed_buffer_when_opening = false,
   ignore_buffer_on_setup = false,
-  open_on_setup = false,
+  open_on_setup = true,
   open_on_setup_file = false,
   sort_by = "name",
   root_dirs = {},
@@ -112,17 +112,17 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
     add_trailing = false,
     group_empty = false,
     highlight_git = false,
-    full_name = false,
+    full_name = true,
     highlight_opened_files = "none",
     root_folder_label = ":~:s?$?/..?",
     indent_width = 2,
     indent_markers = {
-      enable = false,
+      enable = true,
       inline_arrows = true,
       icons = {
         corner = "└",
-        edge = "│",
-        item = "│",
+        edge = "¦",
+        item = "¦",
         bottom = "─",
         none = " ",
       },
@@ -282,3 +282,4 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
 } -- END_DEFAULT_OPTS
 
 vim.cmd [[highlight NvimTreeSpecialFile guifg=#efbd5d gui=none]]
+vim.cmd [[highlight NvimTreeIndentMarker guifg=#696969 gui=none]]
