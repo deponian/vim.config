@@ -37,6 +37,7 @@ set scrolloff=5						" start scrolling 5 lines before edge of viewport
 set shell=sh						" shell to use for `!`, `:!`, `system()` etc.
 set shortmess+=c					" completion messages
 set shortmess+=s					" Don't echo search wrap messages.
+set shortmess+=I					" Don't neovim start screen
 set sidescroll=0					" sidescroll in jumps because terminals are slow
 set sidescrolloff=3					" same as scrolloff, but for columns
 set smartcase						" enable case sensitive search only if there is uppercase letter in search pattern
