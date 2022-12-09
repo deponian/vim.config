@@ -167,7 +167,12 @@ cmp.setup {
     { name = 'nvim_lsp' },
     { name = 'buffer' },
     { name = 'calc' },
-    { name = 'rg' },
+    { name = 'rg',
+      keyword_length = 3,
+      option = {
+        additional_arguments = "--one-file-system --ignore-file ~/.vim/.ignore.rg",
+      },
+    },
     { name = 'spell' },
     { name = 'path',
       option = {
