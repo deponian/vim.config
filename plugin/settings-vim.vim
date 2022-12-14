@@ -164,3 +164,6 @@ require('onedark').setup  {
 EOF
 
 colorscheme onedark
+
+" https://github.com/neovim/neovim/issues/9800
+highlight CursorLine ctermfg=white guibg=#21283b
