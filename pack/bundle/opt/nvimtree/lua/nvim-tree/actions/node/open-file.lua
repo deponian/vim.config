@@ -175,7 +175,11 @@ local function get_target_winid(mode, win_ids)
     end
   else
     -- pick a window
-    target_winid = pick_win_id()
+    if type(M.window_picker.picker) == "function" then
+      target_winid = M.window_picker.picker()
+    else
+      target_winid = pick_win_id()
+    end
     if target_winid == nil then
       -- pick failed/cancelled
       return
@@ -226,7 +230,9 @@ local function open_in_new_window(filename, mode, win_ids)
     -- modified, and create new split if it is.
     local target_bufid = vim.api.nvim_win_get_buf(target_winid)
     if vim.api.nvim_buf_get_option(target_bufid, "modified") then
-      mode = "vsplit"
+      if not mode:match "split$" then
+        mode = "vsplit"
+      end
     end
   end
 
@@ -265,7 +271,7 @@ end
 
 local function edit_in_current_buf(filename)
   require("nvim-tree.view").abandon_current_window()
-  vim.cmd("edit " .. vim.fn.fnameescape(filename))
+  vim.cmd("keepjumps edit " .. vim.fn.fnameescape(filename))
 end
 
 function M.fn(mode, filename)
@@ -287,8 +293,7 @@ function M.fn(mode, filename)
 
   local found_win = utils.get_win_buf_from_path(filename)
   if found_win and mode == "preview" then
-    open_in_new_window(filename, mode, win_ids)
-	return
+    return
   end
 
   if not found_win then

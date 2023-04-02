@@ -2,6 +2,7 @@ local lib = require "nvim-tree.lib"
 local log = require "nvim-tree.log"
 local utils = require "nvim-tree.utils"
 local core = require "nvim-tree.core"
+local events = require "nvim-tree.events"
 local notify = require "nvim-tree.notify"
 
 local M = {}
@@ -121,7 +122,7 @@ local function add_to_clipboard(node, clip)
   for idx, _node in ipairs(clip) do
     if _node.absolute_path == node.absolute_path then
       table.remove(clip, idx)
-      return notify.info(node.absolute_path .. " removed to clipboard.")
+      return notify.info(node.absolute_path .. " removed from clipboard.")
     end
   end
   table.insert(clip, node)
@@ -131,7 +132,7 @@ end
 function M.clear_clipboard()
   clipboard.move = {}
   clipboard.copy = {}
-  utils.notify.info "Clipboard has been emptied."
+  notify.info "Clipboard has been emptied."
 end
 
 function M.copy(node)
@@ -160,11 +161,8 @@ local function do_paste(node, action_type, action_fn)
     return
   end
   local is_dir = stats and stats.type == "directory"
-
   if not is_dir then
     destination = vim.fn.fnamemodify(destination, ":p:h")
-  elseif not node.open then
-    destination = vim.fn.fnamemodify(destination, ":p:h:h")
   end
 
   for _, _node in ipairs(clip) do
@@ -186,12 +184,14 @@ local function do_cut(source, destination)
     return true
   end
 
+  events._dispatch_will_rename_node(source, destination)
   local success, errmsg = vim.loop.fs_rename(source, destination)
   if not success then
     log.line("copy_paste", "do_cut fs_rename failed '%s'", errmsg)
     return false, errmsg
   end
   utils.rename_loaded_buffers(source, destination)
+  events._dispatch_node_renamed(source, destination)
   return true
 end
 
