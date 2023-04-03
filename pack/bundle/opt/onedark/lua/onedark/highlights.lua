@@ -58,6 +58,7 @@ hl.common = {
     ErrorMsg = {fg = c.red, fmt = "bold"},
     WarningMsg = {fg = c.yellow, fmt = "bold"},
     MoreMsg = {fg = c.blue, fmt = "bold"},
+    CurSearch = {fg = c.bg0, bg = c.orange},
     IncSearch = {fg = c.bg0, bg = c.orange},
     Search = {fg = c.bg0, bg = c.bg_yellow},
     Substitute = {fg = c.bg0, bg = c.green},
@@ -170,8 +171,9 @@ if vim.api.nvim_call_function("has", { "nvim-0.8" }) == 1 then
         ["@string.regex"] = {fg = c.orange, fmt = cfg.code_style.strings},
         ["@string.escape"] = {fg = c.red, fmt = cfg.code_style.strings},
         ["@symbol"] = colors.Cyan,
-        ["@tag"] = colors.Red,
-        ["@tag.delimiter"] = colors.Red,
+        ["@tag"] = colors.Purple,
+        ["@tag.attribute"] = colors.Yellow,
+        ["@tag.delimiter"] = colors.Purple,
         ["@text"] = colors.Fg,
         ["@text.strong"] = {fg = c.fg, fmt = 'bold'},
         ["@text.emphasis"] = {fg = c.fg, fmt = 'italic'},
@@ -180,10 +182,13 @@ if vim.api.nvim_call_function("has", { "nvim-0.8" }) == 1 then
         ["@text.title"] = {fg = c.orange, fmt = 'bold'},
         ["@text.literal"] = colors.Green,
         ["@text.uri"] = {fg = c.cyan, fmt = 'underline'},
+        ["@text.todo"] = {fg = c.red, fmt = cfg.code_style.comments},
         ["@text.math"] = colors.Fg,
         ["@text.reference"] = colors.Blue,
-        ["@text.enviroment"] = colors.Fg,
-        ["@text.enviroment.name"] = colors.Fg,
+        ["@text.environment"] = colors.Fg,
+        ["@text.environment.name"] = colors.Fg,
+        ["@text.diff.add"] = colors.Green,
+        ["@text.diff.delete"] = colors.Red,
         ["@note"] = colors.Fg,
         ["@warning"] = colors.Fg,
         ["@danger"] = colors.Fg,
@@ -232,8 +237,8 @@ else
         TSStringRegex = {fg = c.orange, fmt = cfg.code_style.strings},
         TSStringEscape = {fg = c.red, fmt = cfg.code_style.strings},
         TSSymbol = colors.Cyan,
-        TSTag = colors.Red,
-        TSTagDelimiter = colors.Red,
+        TSTag = colors.Purple,
+        TSTagDelimiter = colors.Purple,
         TSText = colors.Fg,
         TSStrong = {fg = c.fg, fmt = 'bold'},
         TSEmphasis = {fg = c.fg, fmt = 'italic'},
@@ -244,8 +249,8 @@ else
         TSURI = {fg = c.cyan, fmt = 'underline'},
         TSMath = colors.Fg,
         TSTextReference = colors.Blue,
-        TSEnviroment = colors.Fg,
-        TSEnviromentName = colors.Fg,
+        TSEnvironment = colors.Fg,
+        TSEnvironmentName = colors.Fg,
         TSNote = colors.Fg,
         TSWarning = colors.Fg,
         TSDanger = colors.Fg,
@@ -345,7 +350,7 @@ hl.plugins.whichkey = {
     WhichKey = colors.Red,
     WhichKeyDesc = colors.Blue,
     WhichKeyGroup = colors.Orange,
-    WhichKeySeperator = colors.Green
+    WhichKeySeparator = colors.Green
 }
 
 hl.plugins.gitgutter = {
@@ -489,13 +494,17 @@ hl.plugins.ts_rainbow = {
 }
 
 hl.plugins.indent_blankline = {
-    IndentBlankLineIndent1 = colors.Blue,
-    IndentBlankLineIndent2 = colors.Green,
-    IndentBlankLineIndent3 = colors.Cyan,
-    IndentBlankLineIndent4 = colors.LightGrey,
-    IndentBlankLineIndent5 = colors.Purple,
-    IndentBlankLineIndent6 = colors.Red,
-    IndentBlankLineContext = { fg = c.orange, bg = c.bg3, bold = true },
+    IndentBlanklineIndent1 = colors.Blue,
+    IndentBlanklineIndent2 = colors.Green,
+    IndentBlanklineIndent3 = colors.Cyan,
+    IndentBlanklineIndent4 = colors.LightGrey,
+    IndentBlanklineIndent5 = colors.Purple,
+    IndentBlanklineIndent6 = colors.Red,
+    IndentBlanklineChar = { fg = c.bg1, gui = "nocombine" },
+    IndentBlanklineContext = { fg = c.orange, bg = c.grey, bold = true },
+    IndentBlanklineContextChar = { fg = c.grey, gui = "nocombine" },
+    IndentBlanklineContextStart = { sp = c.grey, gui = "underline" },
+    IndentBlanklineContextSpaceChar = { gui = "nocombine" },
 }
 
 hl.plugins.mini = {
@@ -504,7 +513,7 @@ hl.plugins.mini = {
     MiniCursorword = { fmt = "underline" },
     MiniCursorwordCurrent = { fmt = "underline" },
 
-    MiniIndentscopeSymbol = { fg = c.light_grey },
+    MiniIndentscopeSymbol = { fg = c.grey },
     MiniIndentscopePrefix = { fmt = "nocombine" }, -- Make it invisible
 
     MiniJump = { fg = c.purple, fmt = "underline", sp = c.purple },
@@ -528,7 +537,7 @@ hl.plugins.mini = {
     MiniStatuslineModeCommand = { fg = c.bg0, bg = c.yellow, fmt = "bold" },
     MiniStatuslineModeInsert = { fg = c.bg0, bg = c.blue, fmt = "bold" },
     MiniStatuslineModeNormal = { fg = c.bg0, bg = c.green, fmt = "bold" },
-    MiniStatuslineModeOther = { fg = c.bg0, bg = c.cyen, fmt = "bold" },
+    MiniStatuslineModeOther = { fg = c.bg0, bg = c.cyan, fmt = "bold" },
     MiniStatuslineModeReplace = { fg = c.bg0, bg = c.red, fmt = "bold" },
     MiniStatuslineModeVisual = { fg = c.bg0, bg = c.purple, fmt = "bold" },
 

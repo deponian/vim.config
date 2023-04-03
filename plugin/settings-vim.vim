@@ -59,6 +59,7 @@ set wildcharm=<C-z>					" substitute for 'wildchar' (<Tab>) in macros
 set wildignore+=*.o,*.rej			" patterns to ignore during file-navigation
 set wildmenu						" show options as list when switching buffers etc
 set wildmode=longest:full,full		" shell-like autocomplete to unambiguous portion
+set mousemodel=extend				" disable right click popup-menu
 set listchars=eol:$,space:.,tab:>-,trail:~,extends:>,precedes:<
 set spellfile=~/.vim/spell/en.utf-8.add
 
@@ -127,7 +128,7 @@ require('onedark').setup  {
   ending_tildes = false, -- Show the end-of-buffer tildes. By default they are hidden
   cmp_itemkind_reverse = false, -- reverse item kind highlights in cmp menu
   -- toggle theme style ---
-  toggle_style_key = '<leader>ts', -- Default keybinding to toggle
+  toggle_style_key = nil, -- Default keybinding to toggle
   toggle_style_list = {'dark', 'darker', 'cool', 'deep', 'warm', 'warmer', 'light'}, -- List of styles to toggle between
 
   -- Change code style ---

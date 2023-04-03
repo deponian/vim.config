@@ -1,5 +1,6 @@
 local function on_attach(bufnr)
   local api = require('nvim-tree.api')
+  local utils = require('nvim-tree.utils')
 
   local function opts(desc)
     return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
@@ -71,11 +72,12 @@ local function on_attach(bufnr)
   vim.keymap.set('n', 'H', api.tree.toggle_gitignore_filter, opts('Toggle Git Ignore'))
   vim.keymap.set('n', 'gs', api.tree.search_node, opts('Search'))
   vim.keymap.set('n', 'S', api.node.run.system, opts('Run System'))
+  vim.keymap.set('n', 'u', api.tree.change_root_to_parent, opts('Up'))
+  vim.keymap.set('n', 'U', api.tree.change_root_to_node, opts('CD'))
   vim.keymap.set('n', ';', function()
     local node = api.tree.get_node_under_cursor()
-    local utils = require "nvim-tree.utils"
     local found_win = utils.get_win_buf_from_path(node.absolute_path)
-    if found_win or node.nodes then
+    if found_win then
       api.node.open.edit()
     else
       api.node.open.preview()
