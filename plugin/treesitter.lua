@@ -4,6 +4,11 @@ require'nvim-treesitter.configs'.setup {
   ignore_install = {'norg'}, -- List of parsers to ignore installing
   highlight = {
     enable = true, -- false will disable the whole extension
-    disable = {'yaml'}, -- list of language that will be disabled
+    disable = {''}, -- list of language that will be disabled
   },
 }
+
+-- custom highlighting for yaml files
+vim.api.nvim_set_hl(0, "@field.yaml", { link = "Identifier" })
+vim.api.nvim_set_hl(0, "@number.yaml", { link = "Function" })
+vim.api.nvim_set_hl(0, "@boolean.yaml", { link = "Conditional" })

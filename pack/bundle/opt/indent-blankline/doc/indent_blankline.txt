@@ -2,7 +2,7 @@
 
 
 Author: Lukas Reineke <lukas.reineke@protonmail.com>
-Version: 2.20.2
+Version: 2.20.4
 
 ==============================================================================
 CONTENTS                                                    *indent-blankline*
@@ -19,7 +19,7 @@ CONTENTS                                                    *indent-blankline*
 
 This plugin adds indentation guides to all lines (including empty lines).
 
-It uses Neovims virtual text feature and **no conceal**
+It uses Neovim's virtual text feature and **no conceal**
 
 This plugin requires Neovim 0.5 or higher. It makes use of Neovim only
 features so it will not work in Vim.
@@ -105,6 +105,8 @@ IndentBlanklineContextStart                     *hl-IndentBlanklineContextStart*
 
 ------------------------------------------------------------------------------
 
+Note: Define your highlight group after setting colorscheme or your colorscheme will clear your highlight group
+
 When defining the highlight group, it is important to set |nocombine| as a
 gui option. This is to make sure the character does not inherit gui options
 from the underlying text, like italic or bold.
@@ -137,7 +139,7 @@ Example: >
 ==============================================================================
  4. VARIABLES                                     *indent-blankline-variables*
 
-All variables can be set gobally |g:var|, per tab |t:var|, or per buffer |b:var|
+All variables can be set globally |g:var|, per tab |t:var|, or per buffer |b:var|
 
 ------------------------------------------------------------------------------
 g:indent_blankline_char                              *g:indent_blankline_char*
@@ -758,7 +760,7 @@ g:indent_blankline_disable_warning_message *g:indent_blankline_disable_warning_m
 The MIT Licence
 http://www.opensource.org/licenses/mit-license.php
 
-Copyright (c) 2022 Lukas Reineke
+Copyright (c) 2023 Lukas Reineke
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
