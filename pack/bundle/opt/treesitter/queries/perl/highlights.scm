@@ -13,6 +13,10 @@
 
 ; Keywords that mark conditional statements
 [ "if" "elsif" "unless" "else" ] @conditional
+(ternary_expression
+  ["?" ":"] @conditional.ternary)
+(ternary_expression_in_hash
+  ["?" ":"] @conditional.ternary)
 
 ; Keywords that mark repeating loops
 [ "while" "until" "for" "foreach" ] @repeat
@@ -142,8 +146,6 @@
 (to_reference)
 (type_glob)
 (hash_access_variable)
-(ternary_expression)
-(ternary_expression_in_hash)
 ] @operator
 
 [
@@ -166,7 +168,8 @@
 ] @string
 
 [
-(regex_pattern_qr) 
+(pattern_matcher)
+(regex_pattern_qr)
 (patter_matcher_m)
 (substitution_pattern_s)
 ] @string.regex

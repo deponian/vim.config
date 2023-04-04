@@ -148,6 +148,18 @@
   (block_comment)
 ] @comment @spell
 
+((line_comment) @comment.documentation
+  (#lua-match? @comment.documentation "^///[^/]"))
+((line_comment) @comment.documentation
+  (#lua-match? @comment.documentation "^///$"))
+((line_comment) @comment.documentation
+  (#lua-match? @comment.documentation "^//!"))
+
+((block_comment) @comment.documentation
+  (#lua-match? @comment.documentation "^/[*][*][^*].*[*]/$"))
+((block_comment) @comment.documentation
+  (#lua-match? @comment.documentation "^/[*][!]"))
+
 (boolean_literal) @boolean
 (integer_literal) @number
 (float_literal) @float
@@ -169,8 +181,6 @@
 (use_as_clause "as" @include)
 
 [
-  "async"
-  "await"
   "default"
   "dyn"
   "enum"
@@ -187,6 +197,11 @@
   "unsafe"
   "where"
 ] @keyword
+
+[
+  "async"
+  "await"
+] @keyword.coroutine
 
 [
  "ref"
@@ -209,10 +224,10 @@
 (type_cast_expression "as" @keyword.operator)
 (qualified_type "as" @keyword.operator)
 
-(use_list (self) @keyword)
-(scoped_use_list (self) @keyword)
-(scoped_identifier [(crate) (super) (self)] @keyword)
-(visibility_modifier [(crate) (super) (self)] @keyword)
+(use_list (self) @namespace)
+(scoped_use_list (self) @namespace)
+(scoped_identifier [(crate) (super) (self)] @namespace)
+(visibility_modifier [(crate) (super) (self)] @namespace)
 
 [
   "else"

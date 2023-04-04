@@ -13,14 +13,15 @@ function M.statusline(opts)
     return
   end
   local options = opts or {}
-  -- if type(opts) == "number" then
-  --   options = { indicator_size = opts }
-  -- end
+  if type(opts) == "number" then
+    options = { indicator_size = opts }
+  end
   local bufnr = options.bufnr or 0
   local indicator_size = options.indicator_size or 100
   local type_patterns = options.type_patterns or { "class", "function", "method" }
   local transform_fn = options.transform_fn or transform_line
   local separator = options.separator or " -> "
+  local allow_duplicates = options.allow_duplicates or false
 
   local current_node = ts_utils.get_node_at_cursor()
   if not current_node then
@@ -32,8 +33,10 @@ function M.statusline(opts)
 
   while expr do
     local line = ts_utils._get_line_for_node(expr, type_patterns, transform_fn, bufnr)
-    if line ~= "" and not vim.tbl_contains(lines, line) then
-      table.insert(lines, 1, line)
+    if line ~= "" then
+      if allow_duplicates or not vim.tbl_contains(lines, line) then
+        table.insert(lines, 1, line)
+      end
     end
     expr = expr:parent()
   end

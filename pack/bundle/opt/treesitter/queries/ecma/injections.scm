@@ -1,12 +1,29 @@
 (((comment) @_jsdoc_comment
-  (#match? @_jsdoc_comment "^/\\*\\*[^\\*].*\\*/")) @jsdoc)
+  (#lua-match? @_jsdoc_comment "^/[*][*][^*].*[*]/$")) @jsdoc)
 
 (comment) @comment
 
+; html(`...`), html`...`, sql(...) etc
 (call_expression
  function: ((identifier) @language)
- arguments: ((template_string) @content
-   (#offset! @content 0 1 0 -1)))
+ arguments: [
+             (arguments
+              (template_string) @content)
+             (template_string) @content
+            ]
+     (#offset! @content 0 1 0 -1)
+     (#not-eq? @content "svg"))
+
+; svg`...` or svg(`...`), which uses the html parser, so is not included in the previous query
+(call_expression
+ function: ((identifier) @_name (#eq? @_name "svg"))
+ arguments: [
+             (arguments
+              (template_string) @html)
+             (template_string) @html
+            ]
+     (#offset! @html 0 1 0 -1))
+
 
 (call_expression
  function: ((identifier) @_name
@@ -67,3 +84,19 @@
 
 (((template_string) @_template_string
  (#match? @_template_string "^`#graphql")) @graphql)
+
+; el.innerHTML = `<html>`
+(assignment_expression
+  left: (member_expression
+          property: (property_identifier) @_prop
+          (#match? @_prop "(out|inn)erHTML"))
+  right: (template_string) @html
+    (#offset! @html 0 1 0 -1))
+
+; el.innerHTML = '<html>'
+(assignment_expression
+   left: (member_expression
+           property: (property_identifier) @_prop
+           (#match? @_prop "(out|inn)erHTML"))
+   right: (string) @html
+            (#offset! @html 0 1 0 -1))

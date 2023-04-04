@@ -104,13 +104,13 @@
 
 (type_identifier) @type
 
+(type_alias
+  (type_identifier) @type.definition)
+
 ; Variables
 ; --------------------
 ; var keyword
 (inferred_type) @keyword
-
-(const_builtin) @constant.builtin
-(final_builtin) @constant.builtin
 
 ((identifier) @type
  (#match? @type "^_?[A-Z].*[a-z]")) ; catch Classes or IClasses not CLASSES
@@ -144,7 +144,7 @@
     (hex_integer_literal)
     (decimal_integer_literal)
     (decimal_floating_point_literal)
-    ; TODO: inaccessbile nodes
+    ; TODO: inaccessible nodes
     ; (octal_integer_literal)
     ; (hex_floating_point_literal)
 ] @number
@@ -155,12 +155,19 @@
 (false) @boolean
 (null_literal) @constant.builtin
 
-(documentation_comment) @comment
-(comment) @comment
+(comment) @comment @spell
+(documentation_comment) @comment.documentation @spell
 
 ; Keywords
 ; --------------------
-["import" "library" "export"] @include
+[
+  "import"
+  "library"
+  "export"
+  "as"
+  "show"
+  "hide"
+] @include
 
 ; Reserved words (cannot be used as identifiers)
 [
@@ -188,23 +195,13 @@
 
 [
   "return"
-  "yield"
 ] @keyword.return
 
 
 ; Built in identifiers:
 ; alone these are marked as keywords
 [
-    "abstract"
-    "as"
-    "async"
-    "async*"
-    "sync*"
-    "await"
-    "covariant"
     "deferred"
-    "dynamic"
-    "external"
     "factory"
     "get"
     "implements"
@@ -214,10 +211,26 @@
     "mixin"
     "part"
     "set"
-    "show"
-    "static"
     "typedef"
 ] @keyword
+
+[
+  "async"
+  "async*"
+  "sync*"
+  "await"
+  "yield"
+] @keyword.coroutine
+
+[
+    (const_builtin)
+    (final_builtin)
+    "abstract"
+    "covariant"
+    "dynamic"
+    "external"
+    "static"
+] @type.qualifier
 
 ; when used as an identifier:
 ((identifier) @variable.builtin

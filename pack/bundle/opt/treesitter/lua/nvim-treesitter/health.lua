@@ -6,6 +6,7 @@ local info = require "nvim-treesitter.info"
 local shell = require "nvim-treesitter.shell_command_selectors"
 local install = require "nvim-treesitter.install"
 local utils = require "nvim-treesitter.utils"
+local ts = require "nvim-treesitter.compat"
 
 local health = vim.health or require "health"
 
@@ -16,8 +17,8 @@ local NVIM_TREESITTER_MINIMUM_ABI = 13
 local function install_health()
   health.report_start "Installation"
 
-  if fn.has "nvim-0.7" == 0 then
-    health.report_error "Nvim-treesitter requires Neovim 0.7.0+"
+  if fn.has "nvim-0.8.3" ~= 1 then
+    health.report_error "Nvim-treesitter requires Neovim 0.8.3+"
   end
 
   if fn.executable "tree-sitter" == 0 then
@@ -94,6 +95,8 @@ local function install_health()
       )
     end
   end
+
+  health.report_start("OS Info:\n" .. vim.inspect(vim.loop.os_uname()))
 end
 
 local function query_status(lang, query_group)
@@ -113,14 +116,14 @@ function M.check()
   install_health()
   queries.invalidate_query_cache()
   -- Parser installation checks
-  local parser_installation = { "Parser/Features H L F I J" }
+  local parser_installation = { "Parser/Features" .. string.rep(" ", 9) .. "H L F I J" }
   for _, parser_name in pairs(info.installed_parsers()) do
     local installed = #api.nvim_get_runtime_file("parser/" .. parser_name .. ".so", false)
 
     -- Only append information about installed parsers
     if installed >= 1 then
       local multiple_parsers = installed > 1 and "+" or ""
-      local out = "  - " .. parser_name .. multiple_parsers .. string.rep(" ", 15 - (#parser_name + #multiple_parsers))
+      local out = "  - " .. parser_name .. multiple_parsers .. string.rep(" ", 20 - (#parser_name + #multiple_parsers))
       for _, query_group in pairs(queries.built_in_query_groups) do
         local status, err = query_status(parser_name, query_group)
         out = out .. status .. " "
@@ -145,13 +148,13 @@ function M.check()
       local lang, type, err = unpack(p)
       local lines = {}
       table.insert(lines, lang .. "(" .. type .. "): " .. err)
-      local files = vim.treesitter.query.get_query_files(lang, type)
+      local files = ts.get_query_files(lang, type)
       if #files > 0 then
         table.insert(lines, lang .. "(" .. type .. ") is concatenated from the following files:")
         for _, file in ipairs(files) do
           local fd = io.open(file, "r")
           if fd then
-            local ok, file_err = pcall(vim.treesitter.query.parse_query, lang, fd:read "*a")
+            local ok, file_err = pcall(ts.parse_query, lang, fd:read "*a")
             if ok then
               table.insert(lines, '|    [OK]:"' .. file .. '"')
             else

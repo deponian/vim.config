@@ -1,7 +1,9 @@
 ; highlights.scm
 
-; higlight comments and symbols
-(comment) @comment
+; highlight comments and symbols
+(comment) @comment @spell
+((comment) @comment.documentation
+  (#lua-match? @comment.documentation "^/[*][*][^*].*[*]/$"))
 (symbol) @symbol
 (member_access_expression (_) (identifier) @symbol)
 
@@ -51,7 +53,7 @@
 ; highlight macros
 (
  (method_call_expression (member_access_expression (identifier) @function.macro))
- (#match? @function.macro "^assert[A-Za-z_0-9]*$" "error" "info" "debug" "print" "warning" "warning_once")
+ (#match? @function.macro "^assert[A-Za-z_0-9]*|error|info|debug|print|warning|warning_once$")
 )
 (lambda_expression (identifier) @parameter)
 (parameter (identifier) @parameter)
@@ -64,7 +66,7 @@
 ] @constant.builtin
 (boolean) @boolean
 (character) @character
-(escape_sequence) @character.special
+(escape_sequence) @string.escape
 (integer) @number
 (null) @constant.builtin
 (real) @float
@@ -90,7 +92,6 @@
 
 [
  "abstract"
- "async"
  "class"
  "construct"
  "continue"
@@ -113,6 +114,11 @@
  "virtual"
  "with"
 ] @keyword
+
+[
+  "async"
+  "yield"
+] @keyword.coroutine
 
 [
  "const"
@@ -183,7 +189,6 @@
 
 [
   "return"
-  "yield"
 ] @keyword.return
 
 [
