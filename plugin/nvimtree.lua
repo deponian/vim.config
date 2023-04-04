@@ -350,20 +350,17 @@ local function open_nvim_tree(data)
   -- buffer is a directory
   local directory = vim.fn.isdirectory(data.file) == 1
 
-  -- buffer is a real file on the disk
-  local real_file = vim.fn.filereadable(data.file) == 1
+  if not no_name and not directory then
+    return
+  end
 
-  local focus_on_nvimtree = true
-
+  -- change to the directory
   if directory then
     vim.cmd.cd(data.file)
   end
 
-  if real_file then
-    focus_on_nvimtree = false
-  end
-
-  require("nvim-tree.api").tree.toggle({ focus = focus_on_nvimtree })
+  -- open the tree
+  require("nvim-tree.api").tree.open()
 end
 
 vim.api.nvim_create_autocmd({ "VimEnter" }, { callback = open_nvim_tree })
