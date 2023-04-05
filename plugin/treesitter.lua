@@ -8,7 +8,10 @@ require'nvim-treesitter.configs'.setup {
   },
 }
 
--- custom highlighting for yaml files
+-- custom highlighting for yaml filetype
 vim.api.nvim_set_hl(0, "@field.yaml", { link = "Identifier" })
 vim.api.nvim_set_hl(0, "@number.yaml", { link = "Function" })
 vim.api.nvim_set_hl(0, "@boolean.yaml", { link = "Conditional" })
+
+-- custom highlighting for gitcommit filetype
+vim.api.nvim_set_hl(0, "@text.uri.gitcommit", { link = "Constant" })
