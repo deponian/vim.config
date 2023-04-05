@@ -102,10 +102,14 @@ nmap <silent> <Leader>hd :Gitsigns toggle_deleted<CR>
 " (mnemonic: hunk undo)
 nmap <silent> <Leader>hu :Gitsigns reset_hunk<CR>
 
-" <Leader>B -- Decode selected sequence from base64
+" <Leader>b -- Decode selected sequence from base64
 " (mnemonic: base64)
 vnoremap <Leader>b :FromBase64<CR>
 
-" <Leader>b -- Encode selected sequence to base64
+" <Leader>B -- Encode selected sequence to base64
 " (mnemonic: base64)
 vnoremap <Leader>B :ToBase64<CR>
+
+" <Leader>m -- Toggle minimap
+" (mnemonic: minimap)
+nnoremap <Leader>m <cmd>lua MiniMap.toggle()<CR>
