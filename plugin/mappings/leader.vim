@@ -16,6 +16,10 @@ nnoremap <Leader>W :w suda://%<CR>
 nnoremap <silent> <Leader>b :bnext<CR>
 nnoremap <silent> <Leader>B :bprevious<CR>
 
+" <Leader>D -- delete buffer
+" (mnemonic: delete)
+nnoremap <silent> <Leader>D :bdelete<CR>
+
 " <Leader><Tab>/<Leader><Shift-Tab> -- cycle through tabs
 nnoremap <silent> <Leader><Tab> gt
 nnoremap <silent> <Leader><S-Tab> gT
@@ -43,13 +47,9 @@ nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"
 nnoremap <silent> <Leader>t :Files<CR>
 nnoremap <Leader>T :Files
 
-" <Leader>d -- delete buffer
-" (mnemonic: delete)
-nnoremap <silent> <Leader>d :bdelete<CR>
-
-" <Leader>D -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
+" <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
 " (mnemonic: in[d]ent)
-nnoremap <Leader>D :call mappings#leader#setindent()<CR>
+nnoremap <Leader>d :call mappings#leader#setindent()<CR>
 
 " <Leader>s -- Search WORD under cursor or selected sequence within page
 " (mnemonic: search)
