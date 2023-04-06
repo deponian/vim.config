@@ -82,25 +82,25 @@ nmap <Leader>n <Plug>(LoupeClearHighlight)
 " (mnemonic: comment)
 nnoremap <Leader>c :setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM
 
-" <Leader>hp -- Preview the hunk
+" <Leader>hP -- Preview the hunk in the floating window
 " (mnemonic: hunk preview)
-nmap <silent> <Leader>hp <Plug>(GitGutterPreviewHunk)
+nmap <silent> <Leader>hp :Gitsigns preview_hunk<CR>
+
+" <Leader>hp -- Preview the hunk inline
+" (mnemonic: hunk preview)
+nmap <silent> <Leader>hP :Gitsigns preview_hunk_inline<CR>
+
+" <Leader>hw -- Toggle word diff for hunks
+" (mnemonic: hunk word diff)
+nmap <silent> <Leader>hw :Gitsigns toggle_word_diff<CR>
+
+" <Leader>hd -- Toggle deleted hunks
+" (mnemonic: hunk deleted)
+nmap <silent> <Leader>hd :Gitsigns toggle_deleted<CR>
 
 " <Leader>hu -- Undo the hunk
 " (mnemonic: hunk undo)
-nmap <silent> <Leader>hu <Plug>(GitGutterUndoHunk)
-
-" <Leader>hs -- Stage the hunk
-" (mnemonic: hunk stage)
-nmap <silent> <Leader>hs <Plug>(GitGutterStageHunk)
-
-" <Leader>hf -- Fold/unfold all unchanged lines
-" (mnemonic: hunk fold)
-nnoremap <silent> <Leader>hf :GitGutterFold<CR>
-
-" <Leader>hh -- Highlight all hunks
-" (mnemonic: hunk highlight)
-nnoremap <silent> <Leader>hh :GitGutterLineHighlightsToggle<CR>
+nmap <silent> <Leader>hu :Gitsigns reset_hunk<CR>
 
 " <Leader>B -- Decode selected sequence from base64
 " (mnemonic: base64)

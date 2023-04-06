@@ -22,7 +22,7 @@ packadd! commentary				" https://github.com/tpope/vim-commentary
 packadd! fugitive				" https://github.com/tpope/vim-fugitive
 packadd! fzf					" https://github.com/junegunn/fzf
 packadd! fzf-vim				" https://github.com/junegunn/fzf.vim
-packadd! gitgutter				" https://github.com/airblade/vim-gitgutter
+packadd! gitsigns				" https://github.com/lewis6991/gitsigns.nvim.git
 packadd! indent-blankline		" https://github.com/lukas-reineke/indent-blankline.nvim
 packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
