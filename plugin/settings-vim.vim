@@ -7,6 +7,7 @@ set completeopt=menu				" show completion menu (for nvim-cmp)
 set completeopt+=menuone			" show menu even if there is only one candidate (for nvim-cmp)
 set completeopt+=noselect			" don't automatically select canditate (for nvim-cmp)
 set cursorline						" highlight current line
+set diffopt+=linematch:100			" enable more accurate diff
 set encoding=utf-8					" set default encoding
 set fillchars=diff:⁚				" TWO DOT PUNCTUATION (U+205A)
 set fillchars+=eob:\ 				" suppress ~ at EndOfBuffer
