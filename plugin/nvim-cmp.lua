@@ -163,9 +163,8 @@ cmp.setup {
   },
 
   sources = cmp.config.sources({
-    { name = 'luasnip' },
     { name = 'nvim_lsp' },
-    { name = 'buffer' },
+    { name = 'luasnip' },
     { name = 'calc' },
     { name = 'rg',
       keyword_length = 3,
@@ -179,6 +178,8 @@ cmp.setup {
         get_cwd = function () return vim.fn.getcwd() end
       },
     },
+  }, {
+    { name = 'buffer' },
   }),
 
   window = {
@@ -208,3 +209,13 @@ cmp.setup {
     end
   },
 }
+
+-- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
+cmp.setup.cmdline(':', {
+  mapping = cmp.mapping.preset.cmdline(),
+  sources = cmp.config.sources({
+    { name = 'path' }
+  }, {
+    { name = 'cmdline' }
+  })
+})

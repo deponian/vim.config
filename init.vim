@@ -34,6 +34,7 @@ packadd! null-ls				" https://github.com/jose-elias-alvarez/null-ls.nvim
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer
 packadd! nvim-cmp-calc			" https://github.com/hrsh7th/cmp-calc
+packadd! nvim-cmp-cmdline		" https://github.com/hrsh7th/cmp-cmdline.git
 packadd! nvim-cmp-lsp			" https://github.com/hrsh7th/cmp-nvim-lsp
 packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip
 packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path
