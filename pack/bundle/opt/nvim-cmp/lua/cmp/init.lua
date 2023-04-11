@@ -108,7 +108,6 @@ cmp.close = cmp.sync(function()
   if cmp.core.view:visible() then
     local release = cmp.core:suspend()
     cmp.core.view:close()
-    cmp.core:reset()
     vim.schedule(release)
     return true
   else
@@ -131,6 +130,8 @@ end)
 ---Select next item if possible
 cmp.select_next_item = cmp.sync(function(option)
   option = option or {}
+  option.behavior = option.behavior or cmp.SelectBehavior.Insert
+  option.count = option.count or 1
 
   if cmp.core.view:visible() then
     local release = cmp.core:suspend()
@@ -138,11 +139,10 @@ cmp.select_next_item = cmp.sync(function(option)
     vim.schedule(release)
     return true
   elseif vim.fn.pumvisible() == 1 then
-    -- Special handling for native pum. Required to facilitate key mapping processing.
-    if (option.behavior or cmp.SelectBehavior.Insert) == cmp.SelectBehavior.Insert then
-      feedkeys.call(keymap.t('<C-n>'), 'in')
+    if option.behavior == cmp.SelectBehavior.Insert then
+      feedkeys.call(keymap.t(string.rep('<C-n>', option.count)), 'in')
     else
-      feedkeys.call(keymap.t('<Down>'), 'in')
+      feedkeys.call(keymap.t(string.rep('<Down>', option.count)), 'in')
     end
     return true
   end
@@ -152,6 +152,8 @@ end)
 ---Select prev item if possible
 cmp.select_prev_item = cmp.sync(function(option)
   option = option or {}
+  option.behavior = option.behavior or cmp.SelectBehavior.Insert
+  option.count = option.count or 1
 
   if cmp.core.view:visible() then
     local release = cmp.core:suspend()
@@ -159,11 +161,10 @@ cmp.select_prev_item = cmp.sync(function(option)
     vim.schedule(release)
     return true
   elseif vim.fn.pumvisible() == 1 then
-    -- Special handling for native pum. Required to facilitate key mapping processing.
-    if (option.behavior or cmp.SelectBehavior.Insert) == cmp.SelectBehavior.Insert then
-      feedkeys.call(keymap.t('<C-p>'), 'in')
+    if option.behavior == cmp.SelectBehavior.Insert then
+      feedkeys.call(keymap.t(string.rep('<C-p>', option.count)), 'in')
     else
-      feedkeys.call(keymap.t('<Up>'), 'in')
+      feedkeys.call(keymap.t(string.rep('<Up>', option.count)), 'in')
     end
     return true
   end
@@ -183,25 +184,35 @@ end)
 ---Confirm completion
 cmp.confirm = cmp.sync(function(option, callback)
   option = option or {}
+  option.select = option.select or false
+  option.behavior = option.behavior or cmp.get_config().confirmation.default_behavior or cmp.ConfirmBehavior.Insert
   callback = callback or function() end
 
-  local e = cmp.core.view:get_selected_entry() or (option.select and cmp.core.view:get_first_entry() or nil)
-  if e then
-    cmp.core:confirm(e, {
-      behavior = option.behavior,
-    }, function()
-      callback()
-      cmp.core:complete(cmp.core:get_context({ reason = cmp.ContextReason.TriggerOnly }))
-    end)
-    return true
-  else
-    -- Special handling for native puma. Required to facilitate key mapping processing.
-    if vim.fn.complete_info({ 'selected' }).selected ~= -1 then
-      feedkeys.call(keymap.t('<C-y>'), 'in')
+  if cmp.core.view:visible() then
+    local e = cmp.core.view:get_selected_entry()
+    if not e and option.select then
+      e = cmp.core.view:get_first_entry()
+    end
+    if e then
+      cmp.core:confirm(e, {
+        behavior = option.behavior,
+      }, function()
+        callback()
+        cmp.core:complete(cmp.core:get_context({ reason = cmp.ContextReason.TriggerOnly }))
+      end)
       return true
     end
-    return false
+  elseif vim.fn.pumvisible() == 1 then
+    local index = vim.fn.complete_info({ 'selected' }).selected
+    if index == -1 and option.select then
+      index = 0
+    end
+    if index ~= -1 then
+      vim.api.nvim_select_popupmenu_item(index, true, true, {})
+      return true
+    end
   end
+  return false
 end)
 
 ---Show status
@@ -293,7 +304,8 @@ local on_insert_enter = function()
     cmp.core:on_change('InsertEnter')
   end
 end
-autocmd.subscribe({ 'InsertEnter', 'CmdlineEnter' }, async.debounce_next_tick(on_insert_enter))
+autocmd.subscribe({ 'CmdlineEnter' }, async.debounce_next_tick(on_insert_enter))
+autocmd.subscribe({ 'InsertEnter' }, async.debounce_next_tick_by_keymap(on_insert_enter))
 
 -- async.throttle is needed for performance. The mapping `:<C-u>...<CR>` will fire `CmdlineChanged` for each character.
 local on_text_changed = function()

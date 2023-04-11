@@ -5,7 +5,8 @@ local WIDE_HEIGHT = 40
 
 ---@return cmp.ConfigSchema
 return function()
-  return {
+  ---@type cmp.ConfigSchema
+  local config = {
     enabled = function()
       local disabled = false
       disabled = disabled or (vim.api.nvim_buf_get_option(0, 'buftype') == 'prompt')
@@ -17,7 +18,7 @@ return function()
     performance = {
       debounce = 60,
       throttle = 30,
-      fetching_timeout = 200,
+      fetching_timeout = 500,
     },
 
     preselect = types.cmp.PreselectMode.Item,
@@ -25,7 +26,7 @@ return function()
     mapping = {},
 
     snippet = {
-      expand = function()
+      expand = function(_)
         error('snippet engine is not configured.')
       end,
     },
@@ -40,6 +41,7 @@ return function()
     },
 
     formatting = {
+      expandable_indicator = true,
       fields = { 'abbr', 'kind', 'menu' },
       format = function(_, vim_item)
         return vim_item
@@ -48,6 +50,8 @@ return function()
 
     matching = {
       disallow_fuzzy_matching = false,
+      disallow_fullfuzzy_matching = false,
+      disallow_partial_fuzzy_matching = true,
       disallow_partial_matching = false,
       disallow_prefix_unmatching = false,
     },
@@ -62,7 +66,7 @@ return function()
         compare.recently_used,
         compare.locality,
         compare.kind,
-        compare.sort_text,
+        -- compare.sort_text,
         compare.length,
         compare.order,
       },
@@ -91,8 +95,10 @@ return function()
       completion = {
         border = { '', '', '', '', '', '', '', '' },
         winhighlight = 'Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None',
+        scrolloff = 0,
         col_offset = 0,
         side_padding = 1,
+        scrollbar = true,
       },
       documentation = {
         max_height = math.floor(WIDE_HEIGHT * (WIDE_HEIGHT / vim.o.lines)),
@@ -102,4 +108,5 @@ return function()
       },
     },
   }
+  return config
 end

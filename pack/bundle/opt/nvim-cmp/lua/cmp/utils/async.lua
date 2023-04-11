@@ -1,3 +1,5 @@
+local feedkeys = require('cmp.utils.feedkeys')
+
 local async = {}
 
 ---@class cmp.AsyncThrottle
@@ -7,12 +9,26 @@ local async = {}
 ---@field public stop function
 ---@field public __call function
 
+local timers = {}
+
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    for _, timer in pairs(timers) do
+      if timer and not timer:is_closing() then
+        timer:stop()
+        timer:close()
+      end
+    end
+  end,
+})
+
 ---@param fn function
 ---@param timeout integer
 ---@return cmp.AsyncThrottle
 async.throttle = function(fn, timeout)
   local time = nil
   local timer = vim.loop.new_timer()
+  timers[#timers + 1] = timer
   return setmetatable({
     running = false,
     timeout = timeout,
@@ -121,6 +137,13 @@ async.debounce_next_tick = function(callback)
       running = false
       callback()
     end)
+  end
+end
+
+---Wait and callback for consuming next keymap.
+async.debounce_next_tick_by_keymap = function(callback)
+  return function()
+    feedkeys.call('', '', callback)
   end
 end
 

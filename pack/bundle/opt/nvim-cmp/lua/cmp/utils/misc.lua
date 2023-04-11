@@ -123,23 +123,12 @@ misc.id = setmetatable({
   end,
 })
 
----Check the value is nil or not.
----@generic T|nil|vim.NIL
----@param v T
----@return T|nil
-misc.safe = function(v)
-  if v == nil or v == vim.NIL then
-    return nil
-  end
-  return v
-end
-
 ---Treat 1/0 as bool value
 ---@param v boolean|1|0
 ---@param def boolean
 ---@return boolean
 misc.bool = function(v, def)
-  if misc.safe(v) == nil then
+  if v == nil then
     return def
   end
   return v == true or v == 1
@@ -153,7 +142,7 @@ misc.set = function(t, keys, v)
   local c = t
   for i = 1, #keys - 1 do
     local key = keys[i]
-    c[key] = misc.safe(c[key]) or {}
+    c[key] = c[key] or {}
     c = c[key]
   end
   c[keys[#keys]] = v
@@ -225,12 +214,14 @@ end
 misc.redraw = setmetatable({
   doing = false,
   force = false,
-  termcode = vim.api.nvim_replace_termcodes('<C-r><Esc>', true, true, true),
+  -- We use `<Up><Down>` to redraw the screen. (Previously, We use <C-r><ESC>. it will remove the unmatches search history.)
+  incsearch_redraw_keys = ' <BS>',
 }, {
   __call = function(self, force)
+    local termcode = vim.api.nvim_replace_termcodes(self.incsearch_redraw_keys, true, true, true)
     if vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype()) then
       if vim.o.incsearch then
-        return vim.api.nvim_feedkeys(self.termcode, 'in', true)
+        return vim.api.nvim_feedkeys(termcode, 'ni', true)
       end
     end
 

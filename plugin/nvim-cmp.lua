@@ -199,7 +199,6 @@ cmp.setup {
         buffer = "[Buffer]",
         nvim_lsp = "[LSP]",
         luasnip = "[LuaSnip]",
-        nvim_lua = "[Lua]",
         rg = "[Files]",
         spell = "[Dictionary]",
         calc = "[Calc]",

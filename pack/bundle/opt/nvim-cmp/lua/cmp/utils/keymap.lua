@@ -26,6 +26,7 @@ keymap.normalize = function(keys)
     end
   end
   vim.api.nvim_buf_del_keymap(normalize_buf, 't', keys)
+  vim.api.nvim_buf_delete(normalize_buf, {})
   return keys
 end
 
@@ -82,6 +83,21 @@ keymap.backspace = function(count)
   return table.concat(keys, '')
 end
 
+---Create delete keys.
+---@param count string|integer
+---@return string
+keymap.delete = function(count)
+  if type(count) == 'string' then
+    count = vim.fn.strchars(count, true)
+  end
+  if count <= 0 then
+    return ''
+  end
+  local keys = {}
+  table.insert(keys, keymap.t(string.rep('<Del>', count)))
+  return table.concat(keys, '')
+end
+
 ---Update indentkeys.
 ---@param expr? string
 ---@return string
@@ -102,8 +118,7 @@ keymap.listen = function(mode, lhs, callback)
   lhs = keymap.normalize(keymap.to_keymap(lhs))
 
   local existing = keymap.get_map(mode, lhs)
-  local id = string.match(existing.rhs, 'v:lua%.cmp%.utils%.keymap%.set_map%((%d+)%)')
-  if id and keymap.set_map.callbacks[tonumber(id, 10)] then
+  if existing.desc == 'cmp.utils.keymap.set_map' then
     return
   end
 
@@ -128,8 +143,8 @@ end
 keymap.fallback = function(bufnr, mode, map)
   return function()
     if map.expr then
-      local fallback_expr = string.format('<Plug>(cmp.u.k.fallback_expr:%s)', map.lhs)
-      keymap.set_map(bufnr, mode, fallback_expr, function()
+      local fallback_lhs = string.format('<Plug>(cmp.u.k.fallback_expr:%s)', map.lhs)
+      keymap.set_map(bufnr, mode, fallback_lhs, function()
         return keymap.solve(bufnr, mode, map).keys
       end, {
         expr = true,
@@ -137,13 +152,14 @@ keymap.fallback = function(bufnr, mode, map)
         script = map.script,
         nowait = map.nowait,
         silent = map.silent and mode ~= 'c',
+        replace_keycodes = map.replace_keycodes,
       })
-      vim.api.nvim_feedkeys(keymap.t(fallback_expr), 'im', true)
-    elseif not map.callback then
+      vim.api.nvim_feedkeys(keymap.t(fallback_lhs), 'im', true)
+    elseif map.callback then
+      map.callback()
+    else
       local solved = keymap.solve(bufnr, mode, map)
       vim.api.nvim_feedkeys(solved.keys, solved.mode, true)
-    else
-      map.callback()
     end
   end
 end
@@ -151,7 +167,14 @@ end
 ---Solve
 keymap.solve = function(bufnr, mode, map)
   local lhs = keymap.t(map.lhs)
-  local rhs = map.expr and (map.callback and map.callback() or vim.api.nvim_eval(keymap.t(map.rhs))) or keymap.t(map.rhs)
+  local rhs = keymap.t(map.rhs)
+  if map.expr then
+    if map.callback then
+      rhs = map.callback()
+    else
+      rhs = vim.api.nvim_eval(keymap.t(map.rhs))
+    end
+  end
 
   if map.noremap then
     return { keys = rhs, mode = 'in' }
@@ -161,9 +184,10 @@ keymap.solve = function(bufnr, mode, map)
     local recursive = string.format('<SNR>0_(cmp.u.k.recursive:%s)', lhs)
     keymap.set_map(bufnr, mode, recursive, lhs, {
       noremap = true,
-      script = map.script,
+      script = true,
       nowait = map.nowait,
       silent = map.silent and mode ~= 'c',
+      replace_keycodes = map.replace_keycodes,
     })
     return { keys = keymap.t(recursive) .. string.gsub(rhs, '^' .. vim.pesc(lhs), ''), mode = 'im' }
   end
@@ -184,11 +208,13 @@ keymap.get_map = function(mode, lhs)
         rhs = map.rhs or '',
         expr = map.expr == 1,
         callback = map.callback,
+        desc = map.desc,
         noremap = map.noremap == 1,
         script = map.script == 1,
         silent = map.silent == 1,
         nowait = map.nowait == 1,
         buffer = true,
+        replace_keycodes = map.replace_keycodes == 1,
       }
     end
   end
@@ -200,11 +226,13 @@ keymap.get_map = function(mode, lhs)
         rhs = map.rhs or '',
         expr = map.expr == 1,
         callback = map.callback,
+        desc = map.desc,
         noremap = map.noremap == 1,
         script = map.script == 1,
         silent = map.silent == 1,
         nowait = map.nowait == 1,
         buffer = false,
+        replace_keycodes = map.replace_keycodes == 1,
       }
     end
   end
@@ -219,33 +247,27 @@ keymap.get_map = function(mode, lhs)
     silent = true,
     nowait = false,
     buffer = false,
+    replace_keycodes = true,
   }
 end
 
 ---Set keymapping
-keymap.set_map = setmetatable({
-  callbacks = {},
-}, {
-  __call = function(self, bufnr, mode, lhs, rhs, opts)
-    if type(rhs) == 'function' then
-      local id = misc.id('cmp.utils.keymap.set_map')
-      self.callbacks[id] = rhs
-      if opts.expr then
-        rhs = ('v:lua.cmp.utils.keymap.set_map(%s)'):format(id)
-      else
-        rhs = ('<Cmd>call v:lua.cmp.utils.keymap.set_map(%s)<CR>'):format(id)
-      end
-    end
+keymap.set_map = function(bufnr, mode, lhs, rhs, opts)
+  if type(rhs) == 'function' then
+    opts.callback = rhs
+    rhs = ''
+  end
+  opts.desc = 'cmp.utils.keymap.set_map'
 
-    if bufnr == -1 then
-      vim.api.nvim_set_keymap(mode, lhs, rhs, opts)
-    else
-      vim.api.nvim_buf_set_keymap(bufnr, mode, lhs, rhs, opts)
-    end
-  end,
-})
-misc.set(_G, { 'cmp', 'utils', 'keymap', 'set_map' }, function(id)
-  return keymap.set_map.callbacks[id]() or ''
-end)
+  if vim.fn.has('nvim-0.8') == 0 then
+    opts.replace_keycodes = nil
+  end
+
+  if bufnr == -1 then
+    vim.api.nvim_set_keymap(mode, lhs, rhs, opts)
+  else
+    vim.api.nvim_buf_set_keymap(bufnr, mode, lhs, rhs, opts)
+  end
+end
 
 return keymap

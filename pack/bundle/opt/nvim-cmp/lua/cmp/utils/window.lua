@@ -1,14 +1,15 @@
-local cache = require('cmp.utils.cache')
 local misc = require('cmp.utils.misc')
+local opt = require('cmp.utils.options')
 local buffer = require('cmp.utils.buffer')
 local api = require('cmp.utils.api')
+local config = require('cmp.config')
 
 ---@class cmp.WindowStyle
 ---@field public relative string
 ---@field public row integer
 ---@field public col integer
----@field public width integer
----@field public height integer
+---@field public width integer|float
+---@field public height integer|float
 ---@field public border string|string[]|nil
 ---@field public zindex integer|nil
 
@@ -20,7 +21,6 @@ local api = require('cmp.utils.api')
 ---@field public style cmp.WindowStyle
 ---@field public opt table<string, any>
 ---@field public buffer_opt table<string, any>
----@field public cache cmp.Cache
 local window = {}
 
 ---new
@@ -32,7 +32,6 @@ window.new = function()
   self.sbar_win = nil
   self.thumb_win = nil
   self.style = {}
-  self.cache = cache.new()
   self.opt = {}
   self.buffer_opt = {}
   return self
@@ -53,7 +52,7 @@ window.option = function(self, key, value)
 
   self.opt[key] = value
   if self:visible() then
-    vim.api.nvim_win_set_option(self.win, key, value)
+    opt.win_set_option(self.win, key, value)
   end
 end
 
@@ -73,7 +72,7 @@ window.buffer_option = function(self, key, value)
   self.buffer_opt[key] = value
   local existing_buf = buffer.get(self.name)
   if existing_buf then
-    vim.api.nvim_buf_set_option(existing_buf, key, value)
+    opt.buf_set_option(existing_buf, key, value)
   end
 end
 
@@ -88,6 +87,11 @@ window.set_style = function(self, style)
   end
 
   self.style.zindex = self.style.zindex or 1
+
+  --- GUI clients are allowed to return fractional bounds, but we need integer
+  --- bounds to open the window
+  self.style.width = math.ceil(self.style.width)
+  self.style.height = math.ceil(self.style.height)
 end
 
 ---Return buffer id.
@@ -96,7 +100,7 @@ window.get_buffer = function(self)
   local buf, created_new = buffer.ensure(self.name)
   if created_new then
     for k, v in pairs(self.buffer_opt) do
-      vim.api.nvim_buf_set_option(buf, k, v)
+      opt.buf_set_option(buf, k, v)
     end
   end
   return buf
@@ -120,7 +124,7 @@ window.open = function(self, style)
     s.noautocmd = true
     self.win = vim.api.nvim_open_win(self:get_buffer(), false, s)
     for k, v in pairs(self.opt) do
-      vim.api.nvim_win_set_option(self.win, k, v)
+      opt.win_set_option(self.win, k, v)
     end
   end
   self:update()
@@ -147,7 +151,7 @@ window.update = function(self)
       else
         style.noautocmd = true
         self.sbar_win = vim.api.nvim_open_win(buffer.ensure(self.name .. 'sbar_buf'), false, style)
-        vim.api.nvim_win_set_option(self.sbar_win, 'winhighlight', 'EndOfBuffer:PmenuSbar,NormalFloat:PmenuSbar')
+        opt.win_set_option(self.sbar_win, 'winhighlight', 'EndOfBuffer:PmenuSbar,NormalFloat:PmenuSbar')
       end
     end
 
@@ -169,7 +173,7 @@ window.update = function(self)
     else
       style.noautocmd = true
       self.thumb_win = vim.api.nvim_open_win(buffer.ensure(self.name .. 'thumb_buf'), false, style)
-      vim.api.nvim_win_set_option(self.thumb_win, 'winhighlight', 'EndOfBuffer:PmenuThumb,NormalFloat:PmenuThumb')
+      opt.win_set_option(self.thumb_win, 'winhighlight', 'EndOfBuffer:PmenuThumb,NormalFloat:PmenuThumb')
     end
   else
     if self.sbar_win and vim.api.nvim_win_is_valid(self.sbar_win) then
@@ -216,6 +220,7 @@ end
 ---Return win info.
 window.info = function(self)
   local border_info = self:get_border_info()
+  local scrollbar = config.get().window.completion.scrollbar
   local info = {
     row = self.style.row,
     col = self.style.col,
@@ -228,7 +233,7 @@ window.info = function(self)
     scrollbar_offset = 0,
   }
 
-  if self:get_content_height() > info.inner_height then
+  if self:get_content_height() > info.inner_height and scrollbar then
     info.scrollable = true
     if not border_info.visible then
       info.scrollbar_offset = 1

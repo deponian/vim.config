@@ -21,10 +21,13 @@ cmp-config.completion.keyword_pattern	cmp.txt	/*cmp-config.completion.keyword_pa
 cmp-config.confirmation.get_commit_characters	cmp.txt	/*cmp-config.confirmation.get_commit_characters*
 cmp-config.enabled	cmp.txt	/*cmp-config.enabled*
 cmp-config.experimental.ghost_text	cmp.txt	/*cmp-config.experimental.ghost_text*
+cmp-config.formatting.expandable_indicator	cmp.txt	/*cmp-config.formatting.expandable_indicator*
 cmp-config.formatting.fields	cmp.txt	/*cmp-config.formatting.fields*
 cmp-config.formatting.format	cmp.txt	/*cmp-config.formatting.format*
 cmp-config.mapping	cmp.txt	/*cmp-config.mapping*
+cmp-config.matching.disallow_fullfuzzy_matching	cmp.txt	/*cmp-config.matching.disallow_fullfuzzy_matching*
 cmp-config.matching.disallow_fuzzy_matching	cmp.txt	/*cmp-config.matching.disallow_fuzzy_matching*
+cmp-config.matching.disallow_partial_fuzzy_matching	cmp.txt	/*cmp-config.matching.disallow_partial_fuzzy_matching*
 cmp-config.matching.disallow_partial_matching	cmp.txt	/*cmp-config.matching.disallow_partial_matching*
 cmp-config.matching.disallow_prefix_unmatching	cmp.txt	/*cmp-config.matching.disallow_prefix_unmatching*
 cmp-config.performance.debounce	cmp.txt	/*cmp-config.performance.debounce*
@@ -35,6 +38,7 @@ cmp-config.snippet.expand	cmp.txt	/*cmp-config.snippet.expand*
 cmp-config.sorting.comparators	cmp.txt	/*cmp-config.sorting.comparators*
 cmp-config.sorting.priority_weight	cmp.txt	/*cmp-config.sorting.priority_weight*
 cmp-config.sources	cmp.txt	/*cmp-config.sources*
+cmp-config.sources[n].entry_filter	cmp.txt	/*cmp-config.sources[n].entry_filter*
 cmp-config.sources[n].group_index	cmp.txt	/*cmp-config.sources[n].group_index*
 cmp-config.sources[n].keyword_length	cmp.txt	/*cmp-config.sources[n].keyword_length*
 cmp-config.sources[n].keyword_pattern	cmp.txt	/*cmp-config.sources[n].keyword_pattern*
@@ -45,15 +49,18 @@ cmp-config.sources[n].priority	cmp.txt	/*cmp-config.sources[n].priority*
 cmp-config.sources[n].trigger_characters	cmp.txt	/*cmp-config.sources[n].trigger_characters*
 cmp-config.view	cmp.txt	/*cmp-config.view*
 cmp-config.window.completion.col_offset	cmp.txt	/*cmp-config.window.completion.col_offset*
+cmp-config.window.completion.scrollbar	cmp.txt	/*cmp-config.window.completion.scrollbar*
 cmp-config.window.completion.side_padding	cmp.txt	/*cmp-config.window.completion.side_padding*
 cmp-config.window.documentation.max_height	cmp.txt	/*cmp-config.window.documentation.max_height*
 cmp-config.window.documentation.max_width	cmp.txt	/*cmp-config.window.documentation.max_width*
 cmp-config.window.{completion,documentation}.border	cmp.txt	/*cmp-config.window.{completion,documentation}.border*
+cmp-config.window.{completion,documentation}.scrolloff	cmp.txt	/*cmp-config.window.{completion,documentation}.scrolloff*
 cmp-config.window.{completion,documentation}.winhighlight	cmp.txt	/*cmp-config.window.{completion,documentation}.winhighlight*
 cmp-config.window.{completion,documentation}.zindex	cmp.txt	/*cmp-config.window.{completion,documentation}.zindex*
 cmp-contents	cmp.txt	/*cmp-contents*
 cmp-develop	cmp.txt	/*cmp-develop*
 cmp-faq	cmp.txt	/*cmp-faq*
+cmp-filetype	cmp.txt	/*cmp-filetype*
 cmp-function	cmp.txt	/*cmp-function*
 cmp-highlight	cmp.txt	/*cmp-highlight*
 cmp-mapping	cmp.txt	/*cmp-mapping*
@@ -87,4 +94,6 @@ cmp.setup.buffer	cmp.txt	/*cmp.setup.buffer*
 cmp.setup.cmdline	cmp.txt	/*cmp.setup.cmdline*
 cmp.setup.filetype	cmp.txt	/*cmp.setup.filetype*
 cmp.visible	cmp.txt	/*cmp.visible*
+cmp_docs	cmp.txt	/*cmp_docs*
+cmp_menu	cmp.txt	/*cmp_menu*
 nvim-cmp	cmp.txt	/*nvim-cmp*
