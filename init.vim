@@ -18,6 +18,7 @@ endif
 
 " General plugins
 packadd! base64					" https://github.com/christianrondeau/vim-base64
+packadd! chatgpt				" https://github.com/jackMort/ChatGPT.nvim.git
 packadd! commentary				" https://github.com/tpope/vim-commentary
 packadd! fugitive				" https://github.com/tpope/vim-fugitive
 packadd! fzf					" https://github.com/junegunn/fzf
@@ -30,6 +31,7 @@ packadd! loupe					" https://github.com/deponian/vim-loupe
 packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
 packadd! manpager				" https://github.com/lambdalisue/vim-manpager [don't update]
 packadd! minimap				" https://github.com/echasnovski/mini.map
+packadd! nui					" https://github.com/MunifTanjim/nui.nvim.git
 packadd! null-ls				" https://github.com/jose-elias-alvarez/null-ls.nvim
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
 packadd! nvim-cmp-buffer		" https://github.com/hrsh7th/cmp-buffer
@@ -53,6 +55,7 @@ packadd! scalpel				" https://github.com/deponian/vim-scalpel
 packadd! speeddating			" https://github.com/tpope/vim-speeddating
 packadd! suda					" https://github.com/lambdalisue/suda.vim
 packadd! surround				" https://github.com/tpope/vim-surround
+packadd! telescope				" https://github.com/nvim-telescope/telescope.nvim.git
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
 
