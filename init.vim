@@ -18,7 +18,7 @@ endif
 
 " General plugins
 packadd! base64					" https://github.com/christianrondeau/vim-base64
-packadd! chatgpt				" https://github.com/jackMort/ChatGPT.nvim.git
+packadd! chatgpt				" https://github.com/jackMort/ChatGPT.nvim
 packadd! commentary				" https://github.com/tpope/vim-commentary
 packadd! fugitive				" https://github.com/tpope/vim-fugitive
 packadd! fzf					" https://github.com/junegunn/fzf
@@ -29,7 +29,7 @@ packadd! lightline				" https://github.com/itchyny/lightline.vim
 packadd! lightline-whitespace	" https://github.com/deponian/vim-lightline-whitespace
 packadd! loupe					" https://github.com/deponian/vim-loupe
 packadd! luasnip				" https://github.com/L3MON4D3/LuaSnip
-packadd! minimap				" https://github.com/echasnovski/mini.map
+packadd! minimap				" https://github.com/deponian/mini.map
 packadd! nui					" https://github.com/MunifTanjim/nui.nvim.git
 packadd! null-ls				" https://github.com/jose-elias-alvarez/null-ls.nvim
 packadd! nvim-cmp				" https://github.com/hrsh7th/nvim-cmp
@@ -49,11 +49,11 @@ packadd! onedark				" https://github.com/navarasu/onedark.nvim
 packadd! plenary				" https://github.com/nvim-lua/plenary.nvim
 packadd! repeat					" https://github.com/tpope/vim-repeat
 packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
-packadd! scalpel				" https://github.com/deponian/vim-scalpel
+packadd! scalpelua              " https://github.com/deponian/nvim-scalpelua
 packadd! speeddating			" https://github.com/tpope/vim-speeddating
 packadd! suda					" https://github.com/lambdalisue/suda.vim
 packadd! surround				" https://github.com/tpope/vim-surround
-packadd! telescope				" https://github.com/nvim-telescope/telescope.nvim.git
+packadd! telescope				" https://github.com/nvim-telescope/telescope.nvim
 packadd! terminus				" https://github.com/deponian/vim-terminus
 packadd! treesitter				" https://github.com/nvim-treesitter/nvim-treesitter
 

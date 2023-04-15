@@ -67,8 +67,8 @@ vnoremap <Leader>f y:RG . <C-R>"<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)
-nmap <Leader>r <Plug>(Scalpel)
-vmap <Leader>r <Plug>(ScalpelVisual)
+vmap <Leader>r <Plug>(Scalpel)
+vmap <Leader>R <Plug>(ScalpelMultiline)
 
 " <Leader>F -- Open file under cursor in new tab
 " (mnemonic: file)
@@ -76,7 +76,7 @@ nnoremap <Leader>F <C-W>gf
 
 " <Leader>n -- Disable highlighting of search results
 " (mnemonic: [n]o highlighting)
-nmap <Leader>n <Plug>(LoupeClearHighlight)
+nmap <Leader>n <Plug>(LoupeClearHighlight)<cmd>lua require('scalpelua').clear_highlight()<CR>
 
 " <Leader>c -- Fold all #-comments in buffer
 " (mnemonic: comment)
