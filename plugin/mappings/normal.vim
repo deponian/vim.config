@@ -22,8 +22,11 @@ nnoremap q: <Nop>
 nnoremap q/ <Nop>
 nnoremap q? <Nop>
 
-" Multi-mode mappings (Normal, Visual, Operating-pending modes).
+" Just like D
 noremap Y y$
+
+" Delete without changing any registers
+nnoremap D "_D
 
 " Toggle list (display unprintable characters)
 noremap <F2> :set list!<CR>

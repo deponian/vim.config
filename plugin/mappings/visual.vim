@@ -16,3 +16,6 @@ xnoremap <S-Down> <Nop>
 " Move VISUAL LINE selection within buffer.
 xnoremap <silent> K <Nop>
 xnoremap <silent> J <Nop>
+
+" Delete without changing any registers
+xnoremap d "_d
