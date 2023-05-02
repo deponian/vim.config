@@ -39,7 +39,6 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/junegunn/fzf
 - https://github.com/junegunn/fzf.vim
 - https://github.com/lambdalisue/suda.vim
-- https://github.com/lambdalisue/vim-manpager
 - https://github.com/lukas-reineke/cmp-rg
 - https://github.com/lukas-reineke/indent-blankline.nvim
 - https://github.com/mustache/vim-mustache-handlebars
