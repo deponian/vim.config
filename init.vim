@@ -42,7 +42,7 @@ packadd! nvim-cmp-luasnip		" https://github.com/saadparwaiz1/cmp_luasnip
 packadd! nvim-cmp-path			" https://github.com/hrsh7th/cmp-path
 packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg
 packadd! nvim-cmp-spell			" https://github.com/f3fora/cmp-spell
-packadd! nvim-colorizer			" https://github.com/norcalli/nvim-colorizer.lua
+packadd! nvim-colorizer			" https://github.com/NvChad/nvim-colorizer.lua
 packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig
 packadd! nvim-web-devicons		" https://github.com/kyazdani42/nvim-web-devicons
 packadd! nvimtree				" https://github.com/kyazdani42/nvim-tree.lua
