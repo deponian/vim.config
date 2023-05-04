@@ -137,6 +137,15 @@ local null_ls = require("null-ls")
 null_ls.setup({
   sources = {
     null_ls.builtins.diagnostics.hadolint,
-    null_ls.builtins.diagnostics.yamllint,
+
+    null_ls.builtins.diagnostics.yamllint.with({
+      extra_args = function(params)
+        if params.ft == "yaml.gha" then
+          return {"-c", os.getenv("HOME") .. "/.config/yamllint/config.gha"}
+        else
+          return {"-c", os.getenv("HOME") .. "/.config/yamllint/config"}
+        end
+      end
+    }),
   },
 })
