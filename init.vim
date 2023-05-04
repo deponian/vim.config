@@ -77,14 +77,6 @@ packadd! toml					" https://github.com/cespare/vim-toml
 packadd! yaml					" https://github.com/stephpy/vim-yaml
 packadd! zsh					" https://github.com/chrisbra/vim-zsh
 
-" Automatic, language-dependent indentation, syntax coloring and other
-" functionality.
-"
-" Must come *after* the `:packadd!` calls above otherwise the contents of
-" package "ftdetect" directories won't be evaluated.
-filetype indent plugin on
-syntax on
-
 lua << EOF
 local has_luasnip, luasnip = pcall(require, 'luasnip')
 if has_luasnip then

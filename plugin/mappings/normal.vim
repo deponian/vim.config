@@ -22,9 +22,6 @@ nnoremap q: <Nop>
 nnoremap q/ <Nop>
 nnoremap q? <Nop>
 
-" Just like D
-noremap Y y$
-
 " Delete without changing any registers
 nnoremap D "_D
 
