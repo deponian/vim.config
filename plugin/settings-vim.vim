@@ -55,31 +55,31 @@ set noexpandtab
 set smartindent
 set shiftround
 
-if exists('$SUDO_USER')
-	" Don't create root-owned files.
-	execute 'set shada='
-else
-	" Defaults:
-	"	Neovim: !,'100,<50,s10,h
-	"	Vim:	'100,<50,s10,h
-	"
-	" - ! save/restore global variables (only all-uppercase variables)
-	" - '100 save/restore marks from last 100 files
-	" - <50 save/restore 50 lines from each register
-	" - s10 max item size 10KB
-	" - h do not save/restore 'hlsearch' setting
-	"
-	" Our overrides:
-	" - n: store in ~/.vim/tmp
-	"
-	execute "set shada=!,'100,<50,s10,h,n~/.vim/tmp/shada"
+"if exists('$SUDO_USER')
+"	" Don't create root-owned files.
+"	execute 'set shada='
+"else
+"	" Defaults:
+"	"	Neovim: !,'100,<50,s10,h
+"	"	Vim:	'100,<50,s10,h
+"	"
+"	" - ! save/restore global variables (only all-uppercase variables)
+"	" - '100 save/restore marks from last 100 files
+"	" - <50 save/restore 50 lines from each register
+"	" - s10 max item size 10KB
+"	" - h do not save/restore 'hlsearch' setting
+"	"
+"	" Our overrides:
+"	" - n: store in ~/.vim/tmp
+"	"
+"	execute "set shada=!,'100,<50,s10,h,n~/.vim/tmp/shada"
 
-	if !empty(glob('~/.vim/tmp/shada'))
-		if !filereadable(expand('~/.vim/tmp/shada'))
-		echoerr 'warning: ~/.vim/tmp/shada exists but is not readable'
-		endif
-	endif
-endif
+"	if !empty(glob('~/.vim/tmp/shada'))
+"		if !filereadable(expand('~/.vim/tmp/shada'))
+"		echoerr 'warning: ~/.vim/tmp/shada exists but is not readable'
+"		endif
+"	endif
+"endif
 
 " colorscheme
 " these settings has to be placed AFTER set termguicolors 
