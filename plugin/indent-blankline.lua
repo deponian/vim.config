@@ -28,7 +28,7 @@ require("indent_blankline").setup {
   show_current_context = true,
   use_treesitter_scope = false,
   viewport_buffer = 100,
-  filetype = {"yaml", "helm", "yaml.gha", "lua"},
+  filetype = {"yaml", "helm", "yaml.gha", "lua", "yaml.ansible"},
   char_highlight_list = {
     "IndentBlanklineIndent1",
     "IndentBlanklineIndent2",
