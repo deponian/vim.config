@@ -49,9 +49,6 @@ noremap <silent> <F7> :call mappings#normal#toggle_diff()<CR>
 " Hide all diagnostic messages
 noremap <silent> <F8> <CMD>lua vim.diagnostic.hide()<CR>
 
-" Avoid unintentional switches to Ex mode.
-noremap Q <Nop>
-
 " Now Ctrl-C is not useless
 noremap <C-c> <Esc>
 

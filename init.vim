@@ -48,7 +48,6 @@ packadd! nvimtree				" https://github.com/kyazdani42/nvim-tree.lua
 packadd! onedark				" https://github.com/navarasu/onedark.nvim
 packadd! plenary				" https://github.com/nvim-lua/plenary.nvim
 packadd! repeat					" https://github.com/tpope/vim-repeat
-packadd! replay					" https://github.com/wincent/replay
 packadd! rhubarb				" https://github.com/tpope/vim-rhubarb
 packadd! scalpel				" https://github.com/deponian/vim-scalpel
 packadd! speeddating			" https://github.com/tpope/vim-speeddating
