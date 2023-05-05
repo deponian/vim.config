@@ -150,10 +150,6 @@ cmp.setup {
     end, { 'i', 's' }),
   },
 
-  completion = {
-    completeopt = 'menu,menuone,noinsert',
-  },
-
   snippet = {
     expand = function(args)
       if has_luasnip then
