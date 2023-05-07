@@ -109,7 +109,7 @@ local function on_attach(bufnr)
   end, opts('ripgrepnohidden'))
 end
 
-require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
+require("nvim-tree").setup {
   auto_reload_on_write = true,
   disable_netrw = false,
   hijack_cursor = true,
@@ -184,19 +184,19 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
         modified = true,
       },
       glyphs = {
-        default = "",
-        symlink = "",
-        bookmark = "",
+        default = "󰧮",
+        symlink = "󱀮",
+        bookmark = "󰃀",
         modified = "●",
         folder = {
           arrow_closed = "",
           arrow_open = "",
-          default = "",
-          open = "",
-          empty = "",
-          empty_open = "",
-          symlink = "",
-          symlink_open = "",
+          default = "󰉋",
+          open = "󰝰",
+          empty = "󰉖",
+          empty_open = "󰷏",
+          symlink = "󰉒",
+          symlink_open = "󰉒",
         },
         git = {
           unstaged = "~",
@@ -221,7 +221,6 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
     update_root = false,
     ignore_list = {},
   },
-  ignore_ft_on_setup = {},
   system_open = {
     cmd = "",
     args = {},
@@ -340,7 +339,16 @@ require("nvim-tree").setup { -- BEGIN_DEFAULT_OPTS
       watcher = false,
     },
   },
-} -- END_DEFAULT_OPTS
+}
+
+require("nvim-web-devicons").set_icon {
+  log = {
+    icon = "󰮗",
+    color = "#ffffff",
+    cterm_color = "231",
+    name = "Log"
+  }
+}
 
 vim.cmd [[highlight NvimTreeSpecialFile guifg=#efbd5d gui=none]]
 vim.cmd [[highlight NvimTreeIndentMarker guifg=#696969 gui=none]]
