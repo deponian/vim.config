@@ -11,17 +11,11 @@ MiniMap.gen_integration	mini-map.txt	/*MiniMap.gen_integration*
 MiniMap.gen_integration.builtin_search()	mini-map.txt	/*MiniMap.gen_integration.builtin_search()*
 MiniMap.gen_integration.diagnostic()	mini-map.txt	/*MiniMap.gen_integration.diagnostic()*
 MiniMap.gen_integration.gitsigns()	mini-map.txt	/*MiniMap.gen_integration.gitsigns()*
-MiniMap.on_content_change	mini-map.txt	/*MiniMap.on_content_change*
-MiniMap.on_integration_update	mini-map.txt	/*MiniMap.on_integration_update*
-MiniMap.on_map_enter()	mini-map.txt	/*MiniMap.on_map_enter()*
-MiniMap.on_view_change	mini-map.txt	/*MiniMap.on_view_change*
-MiniMap.on_winleave()	mini-map.txt	/*MiniMap.on_winleave()*
 MiniMap.open()	mini-map.txt	/*MiniMap.open()*
 MiniMap.refresh()	mini-map.txt	/*MiniMap.refresh()*
 MiniMap.setup()	mini-map.txt	/*MiniMap.setup()*
 MiniMap.toggle()	mini-map.txt	/*MiniMap.toggle()*
 MiniMap.toggle_focus()	mini-map.txt	/*MiniMap.toggle_focus()*
 MiniMap.toggle_side()	mini-map.txt	/*MiniMap.toggle_side()*
-MiniMap.track_map_cursor()	mini-map.txt	/*MiniMap.track_map_cursor()*
 mini.map	mini-map.txt	/*mini.map*
 mini.map-usage	mini-map.txt	/*mini.map-usage*

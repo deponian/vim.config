@@ -25,9 +25,9 @@ map.setup({
   },
 })
 
-vim.cmd [[highlight link MiniMapNormal LineNr]]
-vim.cmd [[highlight link MiniMapSymbolLine Normal]]
-vim.cmd [[highlight link MiniMapSymbolView LineNr]]
+vim.api.nvim_set_hl(0, "MiniMapNormal", { link = "LineNr" })
+vim.api.nvim_set_hl(0, "MiniMapSymbolLine", { link = "Normal" })
+vim.api.nvim_set_hl(0, "MiniMapSymbolView", { link = "LineNr" })
 
 for _, key in ipairs({ 'n', 'N', '*', '#' }) do
   vim.keymap.set(
