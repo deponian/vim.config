@@ -1422,6 +1422,8 @@ H.update_map_lines = function()
   H.cache.scrollbar_data.view, H.cache.scrollbar_data.line = {}, nil
 end
 
+MiniMap.update_map_lines = H.update_map_lines
+
 H.update_map_scrollbar = function()
   if not H.is_window_open() then return end
 
@@ -1469,6 +1471,8 @@ H.update_map_scrollbar = function()
   end
 end
 
+MiniMap.update_map_scrollbar = H.update_map_scrollbar
+
 H.update_map_integrations = function()
   if not H.is_window_open() then return end
 
@@ -1514,6 +1518,8 @@ H.update_map_integrations = function()
     end
   end
 end
+
+MiniMap.update_map_integrations = H.update_map_integrations
 
 H.sourceline_to_mapline = function(source_line)
   local data = H.cache.encode_data
