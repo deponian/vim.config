@@ -12,6 +12,3 @@ xnoremap <S-RightMouse> <Nop>
 " Disable Shift + Up and Shift + Down
 xnoremap <S-Up> <Nop>
 xnoremap <S-Down> <Nop>
-
-" Delete without changing any registers
-xnoremap d "_d
