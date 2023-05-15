@@ -75,12 +75,6 @@ require('lspconfig').bashls.setup{
   on_attach = on_attach,
 }
 
-require('lspconfig').dockerls.setup{
-  capabilities = capabilities,
-  handlers = handlers,
-  on_attach = on_attach,
-}
-
 require('lspconfig').gopls.setup{
   capabilities = capabilities,
   handlers = handlers,
