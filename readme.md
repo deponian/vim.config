@@ -16,6 +16,7 @@ Many thanks to Greg Hurrell for his amazing [repository](https://github.com/winc
 And, of course, many thanks to the authors of the plugins that make Vim and Neovim so convenient and powerful:
 
 - https://github.com/CH-DanReif/haproxy.vim
+- https://github.com/HiPhish/nvim-ts-rainbow2
 - https://github.com/L3MON4D3/LuaSnip
 - https://github.com/MTDL9/vim-log-highlighting
 - https://github.com/Matt-Deacalion/vim-systemd-syntax

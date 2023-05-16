@@ -43,6 +43,7 @@ packadd! nvim-cmp-rg			" https://github.com/lukas-reineke/cmp-rg
 packadd! nvim-cmp-spell			" https://github.com/f3fora/cmp-spell
 packadd! nvim-colorizer			" https://github.com/NvChad/nvim-colorizer.lua
 packadd! nvim-lspconfig			" https://github.com/neovim/nvim-lspconfig
+packadd! nvim-ts-rainbow		" https://github.com/HiPhish/nvim-ts-rainbow2.git
 packadd! nvim-web-devicons		" https://github.com/kyazdani42/nvim-web-devicons
 packadd! nvimtree				" https://github.com/kyazdani42/nvim-tree.lua
 packadd! onedark				" https://github.com/navarasu/onedark.nvim
