@@ -67,8 +67,8 @@ vnoremap <Leader>f y:RG . <C-R>"<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)
-vmap <Leader>r <Plug>(Scalpel)
-vmap <Leader>R <Plug>(ScalpelMultiline)
+vmap <Leader>r <Plug>(Scalpelua)
+vmap <Leader>R <Plug>(ScalpeluaMultiline)
 
 " <Leader>F -- Open file under cursor in new tab
 " (mnemonic: file)
