@@ -27,6 +27,7 @@ vim.opt.shell = 'bash'                              -- shell to use for `!`, `:!
 vim.opt.shortmess:append({I = true})                -- Don't neovim start screen
 vim.opt.shortmess:append({c = true})                -- completion messages
 vim.opt.shortmess:append({s = true})                -- Don't echo search wrap messages.
+vim.opt.shortmess:append({S = true})                -- do not show search count message when searching, e.g. "[1/5]"
 vim.opt.showcmd = false                             -- don't show extra info at end of command line
 vim.opt.showmode = false                            -- don't show in statusline -- INSERT --, -- VISUAL -- and etc.
 vim.opt.sidescrolloff = 3                           -- same as scrolloff, but for columns
