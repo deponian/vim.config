@@ -23,9 +23,9 @@ vim.cmd('packadd! fzf')                   -- https://github.com/junegunn/fzf
 vim.cmd('packadd! fzf-vim')               -- https://github.com/junegunn/fzf.vim
 vim.cmd('packadd! gitsigns')              -- https://github.com/lewis6991/gitsigns.nvim.git
 vim.cmd('packadd! indent-blankline')      -- https://github.com/lukas-reineke/indent-blankline.nvim
-vim.cmd('packadd! lightline')             -- https://github.com/itchyny/lightline.vim
-vim.cmd('packadd! lightline-whitespace')  -- https://github.com/deponian/vim-lightline-whitespace
 vim.cmd('packadd! loupe')                 -- https://github.com/deponian/vim-loupe
+vim.cmd('packadd! lualine')               -- https://github.com/nvim-lualine/lualine.nvim
+vim.cmd('packadd! lualine-whitespace')    -- https://github.com/deponian/nvim-lualine-whitespace
 vim.cmd('packadd! luasnip')               -- https://github.com/L3MON4D3/LuaSnip
 vim.cmd('packadd! minimap')               -- https://github.com/deponian/mini.map
 vim.cmd('packadd! nui')                   -- https://github.com/MunifTanjim/nui.nvim.git

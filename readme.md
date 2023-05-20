@@ -35,7 +35,6 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/hrsh7th/cmp-nvim-lsp
 - https://github.com/hrsh7th/cmp-path
 - https://github.com/hrsh7th/nvim-cmp
-- https://github.com/itchyny/lightline.vim
 - https://github.com/jose-elias-alvarez/null-ls.nvim.git
 - https://github.com/junegunn/fzf
 - https://github.com/junegunn/fzf.vim
@@ -48,6 +47,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/nfnty/vim-nftables
 - https://github.com/norcalli/nvim-colorizer.lua
 - https://github.com/nvim-lua/plenary.nvim.git
+- https://github.com/nvim-lualine/lualine.nvim
 - https://github.com/nvim-treesitter/nvim-treesitter
 - https://github.com/pboettch/vim-cmake-syntax
 - https://github.com/pearofducks/ansible-vim
