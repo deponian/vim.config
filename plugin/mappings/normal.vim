@@ -14,7 +14,7 @@ nnoremap <C-k> <C-w>k
 nnoremap <C-l> <C-w>l
 
 " Cycle through windows (splits)
-nnoremap <Tab> <cmd>lua require("mappings.normal").cycle_through_windows()<CR>
+nnoremap <Tab> <cmd>lua require("deponian.mappings.normal").cycle_through_windows()<CR>
 nnoremap ; <cmd>NvimTreeFocus<CR>
 
 " Disable vim command line window
