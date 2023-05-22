@@ -16,7 +16,6 @@ vim.cmd([[
 
 -- Load general plugins
 vim.cmd('packadd! base64')                -- https://github.com/christianrondeau/vim-base64
-vim.cmd('packadd! chatgpt')               -- https://github.com/jackMort/ChatGPT.nvim
 vim.cmd('packadd! commentary')            -- https://github.com/tpope/vim-commentary
 vim.cmd('packadd! fugitive')              -- https://github.com/tpope/vim-fugitive
 vim.cmd('packadd! fzf')                   -- https://github.com/junegunn/fzf
@@ -28,7 +27,6 @@ vim.cmd('packadd! lualine')               -- https://github.com/nvim-lualine/lua
 vim.cmd('packadd! lualine-whitespace')    -- https://github.com/deponian/nvim-lualine-whitespace
 vim.cmd('packadd! luasnip')               -- https://github.com/L3MON4D3/LuaSnip
 vim.cmd('packadd! minimap')               -- https://github.com/deponian/mini.map
-vim.cmd('packadd! nui')                   -- https://github.com/MunifTanjim/nui.nvim.git
 vim.cmd('packadd! null-ls')               -- https://github.com/jose-elias-alvarez/null-ls.nvim
 vim.cmd('packadd! nvim-cmp')              -- https://github.com/hrsh7th/nvim-cmp
 vim.cmd('packadd! nvim-cmp-buffer')       -- https://github.com/hrsh7th/cmp-buffer
@@ -52,9 +50,9 @@ vim.cmd('packadd! scalpelua')             -- https://github.com/deponian/nvim-sc
 vim.cmd('packadd! speeddating')           -- https://github.com/tpope/vim-speeddating
 vim.cmd('packadd! suda')                  -- https://github.com/lambdalisue/suda.vim
 vim.cmd('packadd! surround')              -- https://github.com/tpope/vim-surround
-vim.cmd('packadd! telescope')             -- https://github.com/nvim-telescope/telescope.nvim
 vim.cmd('packadd! terminus')              -- https://github.com/deponian/vim-terminus
 vim.cmd('packadd! treesitter')            -- https://github.com/nvim-treesitter/nvim-treesitter
+vim.cmd('packadd! vim-ai')                -- https://github.com/madox2/vim-ai.git
 
 -- Load language/syntax/filetype plugins
 vim.cmd('packadd! ansible')               -- https://github.com/pearofducks/ansible-vim
