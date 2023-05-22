@@ -58,7 +58,8 @@ nmap <unique> <F12> <Plug>(Replay)
 
 " Open NvimTree file explorer
 " (mnemonic: Win-` is hot key for Double Commander)
-nnoremap <silent> ` :NvimTreeToggle<CR>
+nnoremap <silent> ` <Cmd>NvimTreeToggle<CR>
+nnoremap <silent> ~ <Cmd>NvimTreeToggle %:p:h<CR>
 
 " Next item in quickfix list
 noremap <M-.> :cnext<CR>
