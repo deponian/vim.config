@@ -49,6 +49,10 @@ noremap <silent> <F8> <CMD>lua vim.diagnostic.hide()<CR>
 " Now Ctrl-C is not useless
 noremap <C-c> <Esc>
 
+" Move J command away
+noremap J <Nop>
+noremap <Leader>j J
+
 " Replay plugin
 nmap <unique> <F12> <Plug>(Replay)
 
