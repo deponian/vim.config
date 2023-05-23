@@ -29,6 +29,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/ericpruitt/tmux.vim
 - https://github.com/f3fora/cmp-spell
 - https://github.com/fatih/vim-go
+- https://github.com/folke/trouble.nvim
 - https://github.com/hashivim/vim-terraform
 - https://github.com/hrsh7th/cmp-buffer
 - https://github.com/hrsh7th/cmp-calc

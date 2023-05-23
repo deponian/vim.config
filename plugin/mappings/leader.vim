@@ -113,3 +113,7 @@ vnoremap <Leader>B :ToBase64<CR>
 " <Leader>m -- Toggle minimap
 " (mnemonic: minimap)
 nnoremap <Leader>m <cmd>lua MiniMap.toggle()<CR>
+
+" <Leader>u -- Toggle Trouble plugin
+" (mnemonic: tro[u]ble)
+nnoremap <Leader>u <cmd>TroubleToggle<CR>

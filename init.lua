@@ -52,6 +52,7 @@ vim.cmd('packadd! suda')                  -- https://github.com/lambdalisue/suda
 vim.cmd('packadd! surround')              -- https://github.com/tpope/vim-surround
 vim.cmd('packadd! terminus')              -- https://github.com/deponian/vim-terminus
 vim.cmd('packadd! treesitter')            -- https://github.com/nvim-treesitter/nvim-treesitter
+vim.cmd('packadd! trouble')               -- https://github.com/folke/trouble.nvim.git
 vim.cmd('packadd! vim-ai')                -- https://github.com/madox2/vim-ai.git
 
 -- Load language/syntax/filetype plugins
