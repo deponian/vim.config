@@ -20,14 +20,6 @@ require'nvim-treesitter.configs'.setup {
     query = 'rainbow-parens',
     -- Highlight the entire buffer all at once
     strategy = require('ts-rainbow').strategy.global,
-    hlgroups = {
-      'IndentBlanklineIndentContext4',
-      'IndentBlanklineIndentContext2',
-      'IndentBlanklineIndentContext5',
-      'IndentBlanklineIndentContext6',
-      'IndentBlanklineIndentContext3',
-      'IndentBlanklineIndentContext1',
-    },
   }
 }
 

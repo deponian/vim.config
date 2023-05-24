@@ -38,7 +38,6 @@ vim.opt.splitbelow = true                           -- open horizontal splits be
 vim.opt.splitright = true                           -- open vertical splits to the right of the current window
 vim.opt.switchbuf = 'usetab'                        -- try to reuse windows/tabs when switching buffers
 vim.opt.synmaxcol = 500                             -- don't bother syntax highlighting long lines
-vim.opt.termguicolors = true                        -- use guifg/guibg instead of ctermfg/ctermbg in the terminal
 vim.opt.undofile = true                             -- save undo history to an undo file
 vim.opt.updatecount = 80                            -- update swapfiles every 80 typed chars
 vim.opt.updatetime = 250                            -- CursorHold interval

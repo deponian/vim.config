@@ -86,8 +86,10 @@ if has_luasnip then
   })
 end
 
+vim.opt.termguicolors = true
+
 -- colorscheme
--- these settings has to be placed AFTER set termguicolors 
+-- these settings has to be placed AFTER set termguicolors
 require('onedark').setup  {
   -- Main options --
   style = 'deep', -- Default theme style. Choose between 'dark', 'darker', 'cool', 'deep', 'warm', 'warmer' and 'light'
@@ -118,9 +120,32 @@ require('onedark').setup  {
     FloatBorder = {fg = '$bg1', bg = 'none'},
     NormalFloat = {fg = '$fg', bg = 'none'},
 
+    CurSearch = {fg = '#1a212e', bg = '#54b0fd'},
+
     DiffText = {fg = 'none', bg = '#1d5c8c'},
     DiffAdd = {fg = 'none', bg = '#013325'},
     DiffDelete = {fg = '#8f8f8f', bg = '#331c1e'},
+
+    DiagnosticUnderlineError = {fmt = 'none'},
+    DiagnosticUnderlineHint = {fmt = 'none'},
+    DiagnosticUnderlineInfo = {fmt = 'none'},
+    DiagnosticUnderlineWarn = {fmt = 'none'},
+
+    GitSignsChange = {fg = '$orange'},
+    GitSignsChangeLn = {fg = '$orange'},
+    GitSignsChangeNr = {fg = '$orange'},
+
+    TroubleNormal = {bg = "none"},
+    TroubleCount = {fg = '$orange'},
+    TroubleFile = {fg = '$cyan'},
+    TroubleFoldIcon = {fg = '$fg'},
+    TroubleLocation = {fg = '$cyan'},
+    TroubleTextError = {fg = '$fg'},
+    TroubleTextInformation = {fg = '$fg'},
+    TroubleTextHint = {fg = '$fg'},
+    TroubleTextWarning = {fg = '$fg'},
+    TroubleText = {fg = '$fg'},
+    TroublePreview = {fg = '$purple'},
   },
 
   -- Plugins Config --
@@ -131,7 +156,7 @@ require('onedark').setup  {
   },
 }
 
-vim.cmd('colorscheme onedark')
+require('onedark').load()
 
 -- https://github.com/neovim/neovim/issues/9800
 vim.cmd('highlight CursorLine ctermfg=white guibg=#21283b')
