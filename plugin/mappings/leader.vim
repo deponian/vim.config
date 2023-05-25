@@ -76,7 +76,7 @@ nnoremap <Leader>F <C-W>gf
 
 " <Leader>n -- Disable highlighting of search results
 " (mnemonic: [n]o highlighting)
-nmap <Leader>n <Plug>(LoupeClearHighlight)<cmd>lua require('scalpelua').clear_highlight()<CR>
+nmap <Leader>n <Plug>(LoupeClearHighlight)
 
 " <Leader>c -- Fold all #-comments in buffer
 " (mnemonic: comment)
