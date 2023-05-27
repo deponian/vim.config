@@ -111,9 +111,14 @@ vnoremap <Leader>b :FromBase64<CR>
 vnoremap <Leader>B :ToBase64<CR>
 
 " <Leader>m -- Toggle minimap
-" (mnemonic: minimap)
+" (mnemonic: mini[m]ap)
 nnoremap <Leader>m <cmd>lua MiniMap.toggle()<CR>
 
 " <Leader>u -- Toggle Trouble plugin
 " (mnemonic: tro[u]ble)
 nnoremap <Leader>u <cmd>TroubleToggle<CR>
+
+" <Leader>a -- ChatGPT integration
+" (mnemonic: [a]rtificial intelligence)
+nnoremap <Leader>a :AI<Space>
+vnoremap <Leader>a :AIEdit<Space>
