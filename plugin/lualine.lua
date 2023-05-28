@@ -84,7 +84,13 @@ require('lualine').setup {
   },
   winbar = {},
   inactive_winbar = {},
-  extensions = { 'fugitive', 'fzf', 'man', 'nvim-tree', 'quickfix' }
+  extensions = {
+    'fugitive',
+    'fzf',
+    'nvim-tree',
+    'quickfix',
+    require('deponian.lualine.man')
+  }
 }
 
 require('lualine').hide({place = {'tabline'}})
