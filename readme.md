@@ -36,12 +36,12 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/hrsh7th/cmp-nvim-lsp
 - https://github.com/hrsh7th/cmp-path
 - https://github.com/hrsh7th/nvim-cmp
-- https://github.com/jose-elias-alvarez/null-ls.nvim.git
 - https://github.com/junegunn/fzf
 - https://github.com/junegunn/fzf.vim
 - https://github.com/lambdalisue/suda.vim
 - https://github.com/lukas-reineke/cmp-rg
 - https://github.com/lukas-reineke/indent-blankline.nvim
+- https://github.com/mfussenegger/nvim-lint
 - https://github.com/mustache/vim-mustache-handlebars
 - https://github.com/navarasu/onedark.nvim
 - https://github.com/neovim/nvim-lspconfig

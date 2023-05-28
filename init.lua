@@ -27,7 +27,6 @@ vim.cmd('packadd! lualine')               -- https://github.com/nvim-lualine/lua
 vim.cmd('packadd! lualine-whitespace')    -- https://github.com/deponian/nvim-lualine-whitespace
 vim.cmd('packadd! luasnip')               -- https://github.com/L3MON4D3/LuaSnip
 vim.cmd('packadd! minimap')               -- https://github.com/deponian/mini.map
-vim.cmd('packadd! null-ls')               -- https://github.com/jose-elias-alvarez/null-ls.nvim
 vim.cmd('packadd! nvim-cmp')              -- https://github.com/hrsh7th/nvim-cmp
 vim.cmd('packadd! nvim-cmp-buffer')       -- https://github.com/hrsh7th/cmp-buffer
 vim.cmd('packadd! nvim-cmp-calc')         -- https://github.com/hrsh7th/cmp-calc
@@ -38,6 +37,7 @@ vim.cmd('packadd! nvim-cmp-path')         -- https://github.com/hrsh7th/cmp-path
 vim.cmd('packadd! nvim-cmp-rg')           -- https://github.com/lukas-reineke/cmp-rg
 vim.cmd('packadd! nvim-cmp-spell')        -- https://github.com/f3fora/cmp-spell
 vim.cmd('packadd! nvim-colorizer')        -- https://github.com/NvChad/nvim-colorizer.lua
+vim.cmd('packadd! nvim-lint')             -- https://github.com/mfussenegger/nvim-lint.git
 vim.cmd('packadd! nvim-lspconfig')        -- https://github.com/neovim/nvim-lspconfig
 vim.cmd('packadd! nvim-ts-rainbow')       -- https://github.com/HiPhish/nvim-ts-rainbow2.git
 vim.cmd('packadd! nvim-web-devicons')     -- https://github.com/kyazdani42/nvim-web-devicons
