@@ -4,7 +4,7 @@
 nnoremap <Leader>q :quit<CR>
 
 " <Leader>Q -- exit withoout saving
-nnoremap <Leader>Q :quit!<CR>
+nnoremap <Leader>Q :quitall!<CR>
 
 " <Leader>w -- save buffer
 nnoremap <Leader>w :write<CR>
