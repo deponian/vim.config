@@ -33,7 +33,7 @@ yamllint.parser =  require('lint.parser').from_pattern(pattern, groups, severiti
   ['source'] = 'yamllint'
 })
 
-vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave", "BufEnter" }, {
+vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave", "BufEnter" }, {
   callback = function()
     require("lint").try_lint()
   end,
