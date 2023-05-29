@@ -20,7 +20,7 @@ vim.cmd('packadd! commentary')            -- https://github.com/tpope/vim-commen
 vim.cmd('packadd! fugitive')              -- https://github.com/tpope/vim-fugitive
 vim.cmd('packadd! fzf')                   -- https://github.com/junegunn/fzf
 vim.cmd('packadd! fzf-vim')               -- https://github.com/junegunn/fzf.vim
-vim.cmd('packadd! gitsigns')              -- https://github.com/lewis6991/gitsigns.nvim.git
+vim.cmd('packadd! gitsigns')              -- https://github.com/lewis6991/gitsigns.nvim
 vim.cmd('packadd! indent-blankline')      -- https://github.com/lukas-reineke/indent-blankline.nvim
 vim.cmd('packadd! loupe')                 -- https://github.com/deponian/vim-loupe
 vim.cmd('packadd! lualine')               -- https://github.com/nvim-lualine/lualine.nvim
@@ -30,16 +30,16 @@ vim.cmd('packadd! minimap')               -- https://github.com/deponian/mini.ma
 vim.cmd('packadd! nvim-cmp')              -- https://github.com/hrsh7th/nvim-cmp
 vim.cmd('packadd! nvim-cmp-buffer')       -- https://github.com/hrsh7th/cmp-buffer
 vim.cmd('packadd! nvim-cmp-calc')         -- https://github.com/hrsh7th/cmp-calc
-vim.cmd('packadd! nvim-cmp-cmdline')      -- https://github.com/hrsh7th/cmp-cmdline.git
+vim.cmd('packadd! nvim-cmp-cmdline')      -- https://github.com/hrsh7th/cmp-cmdline
 vim.cmd('packadd! nvim-cmp-lsp')          -- https://github.com/hrsh7th/cmp-nvim-lsp
 vim.cmd('packadd! nvim-cmp-luasnip')      -- https://github.com/saadparwaiz1/cmp_luasnip
 vim.cmd('packadd! nvim-cmp-path')         -- https://github.com/hrsh7th/cmp-path
 vim.cmd('packadd! nvim-cmp-rg')           -- https://github.com/lukas-reineke/cmp-rg
 vim.cmd('packadd! nvim-cmp-spell')        -- https://github.com/f3fora/cmp-spell
 vim.cmd('packadd! nvim-colorizer')        -- https://github.com/NvChad/nvim-colorizer.lua
-vim.cmd('packadd! nvim-lint')             -- https://github.com/mfussenegger/nvim-lint.git
+vim.cmd('packadd! nvim-lint')             -- https://github.com/mfussenegger/nvim-lint
 vim.cmd('packadd! nvim-lspconfig')        -- https://github.com/neovim/nvim-lspconfig
-vim.cmd('packadd! nvim-ts-rainbow')       -- https://github.com/HiPhish/nvim-ts-rainbow2.git
+vim.cmd('packadd! nvim-ts-rainbow')       -- https://github.com/HiPhish/nvim-ts-rainbow2
 vim.cmd('packadd! nvim-web-devicons')     -- https://github.com/kyazdani42/nvim-web-devicons
 vim.cmd('packadd! nvimtree')              -- https://github.com/kyazdani42/nvim-tree.lua
 vim.cmd('packadd! onedark')               -- https://github.com/navarasu/onedark.nvim
@@ -52,15 +52,15 @@ vim.cmd('packadd! suda')                  -- https://github.com/lambdalisue/suda
 vim.cmd('packadd! surround')              -- https://github.com/tpope/vim-surround
 vim.cmd('packadd! terminus')              -- https://github.com/deponian/vim-terminus
 vim.cmd('packadd! treesitter')            -- https://github.com/nvim-treesitter/nvim-treesitter
-vim.cmd('packadd! trouble')               -- https://github.com/folke/trouble.nvim.git
-vim.cmd('packadd! vim-ai')                -- https://github.com/madox2/vim-ai.git
+vim.cmd('packadd! trouble')               -- https://github.com/folke/trouble.nvim
+vim.cmd('packadd! vim-ai')                -- https://github.com/madox2/vim-ai
 
 -- Load language/syntax/filetype plugins
 vim.cmd('packadd! ansible')               -- https://github.com/pearofducks/ansible-vim
 vim.cmd('packadd! cmake')                 -- https://github.com/pboettch/vim-cmake-syntax
 vim.cmd('packadd! dockerfile')            -- https://github.com/ekalinin/Dockerfile.vim
 vim.cmd('packadd! git')                   -- https://github.com/tpope/vim-git
-vim.cmd('packadd! github-actions')        -- https://github.com/yasuhiroki/github-actions-yaml.vim.git
+vim.cmd('packadd! github-actions')        -- https://github.com/yasuhiroki/github-actions-yaml.vim
 vim.cmd('packadd! go')                    -- https://github.com/fatih/vim-go
 vim.cmd('packadd! haproxy')               -- https://github.com/CH-DanReif/haproxy.vim
 vim.cmd('packadd! helm')                  -- https://github.com/towolf/vim-helm
