@@ -4,7 +4,7 @@ require('lint').linters_by_ft = {
   dockerfile = {'hadolint'}
 }
 
--- reconfigure yamllint
+-- change config for different filetypes
 local function get_config()
   if vim.bo.filetype == "yaml.gha" then
     return os.getenv("HOME") .. "/.config/yamllint/config.gha"
@@ -12,9 +12,9 @@ local function get_config()
     return os.getenv("HOME") .. "/.config/yamllint/config"
   end
 end
+
+-- reconfigure yamllint
 local yamllint = require('lint').linters.yamllint
-yamllint.stdin = true
-yamllint.stream = 'stdout'
 yamllint.args = {
   "--format",
   "parsable",
@@ -22,16 +22,6 @@ yamllint.args = {
   get_config,
   "-"
 }
--- stdin:line:col: [severity] message (code)
-local pattern = 'stdin:(%d+):(%d+): %[(.+)%] (.+) %((.+)%)'
-local groups = { 'lnum', 'col', 'severity', 'message', 'code' }
-local severities = {
-  ['error'] = vim.diagnostic.severity.ERROR,
-  ['warning'] = vim.diagnostic.severity.WARN,
-}
-yamllint.parser =  require('lint.parser').from_pattern(pattern, groups, severities, {
-  ['source'] = 'yamllint'
-})
 
 vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave", "BufEnter" }, {
   callback = function()
