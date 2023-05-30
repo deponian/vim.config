@@ -22,7 +22,8 @@ require('lualine').setup {
   sections = {
     lualine_a = { 'mode' },
     lualine_b = { {'b:gitsigns_head', icon = ''} },
-    lualine_c = { { 'filename', file_status = false, newfile_status = true, path = 3 }
+    lualine_c = {
+      { 'filename', file_status = false, newfile_status = true, path = 3 }
     },
     lualine_x = {
       {
@@ -42,7 +43,7 @@ require('lualine').setup {
     lualine_z = {
       { 'searchcount', color = { fg = '#1a212e', bg = '#efbd5d' } },
       { 'selectioncount', color = { fg = '#c75ae8', bg = '#1a212e' } },
-      { require('lualine-whitespace').check_all, color = { fg = '#1a212e', bg = '#efbd5d' } },
+      { require('lualine-whitespace').print_all, color = { fg = '#1a212e', bg = '#efbd5d' } },
       require('deponian.lualine.location')
     }
   },

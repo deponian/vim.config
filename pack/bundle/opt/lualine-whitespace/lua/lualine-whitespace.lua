@@ -23,7 +23,7 @@ function M.check_trailing_whitespaces()
     result = string.format(M.cfg.trailing_format, trailing)
   end
 
-  return result
+  M.trailing = result
 end
 
 -- mixed indentation within a line
@@ -62,7 +62,7 @@ function M.check_mixed_indentation()
     result = string.format(M.cfg.mixed_format, mixed)
   end
 
-  return result
+  M.mixed = result
 end
 
 -- different indentation on different lines
@@ -104,20 +104,20 @@ function M.check_inconsistent_indentation()
     result = string.format(M.cfg.inconsistent_format, inconsistent)
   end
 
-  return result
+  M.inconsistent = result
 end
 
 function M.check_all()
   local result = ''
   local first = true
 
-  local trailing = M.check_trailing_whitespaces()
+  local trailing = M.trailing
   if trailing ~= '' then
     result = trailing
     first = false
   end
 
-  local mixed = M.check_mixed_indentation()
+  local mixed = M.mixed
   if mixed ~= '' then
     if first then
       result = mixed
@@ -127,7 +127,7 @@ function M.check_all()
     end
   end
 
-  local inconsistent = M.check_inconsistent_indentation()
+  local inconsistent = M.inconsistent
   if inconsistent ~= '' then
     if first then
       result = inconsistent
@@ -137,10 +137,27 @@ function M.check_all()
     end
   end
 
-  return result
+  M.all = result
+end
+
+function M.print_trailing_whitespaces()
+  return M.trailing
+end
+
+function M.print_mixed_indentation()
+  return M.mixed
+end
+
+function M.print_inconsistent_indentation()
+  return M.inconsistent
+end
+
+function M.print_all()
+  return M.all
 end
 
 local DEFAULT_OPTS = {
+  events = { "InsertLeave", "CursorHold", "BufEnter", "BufWrite" },
   max_lines = 20000,
   space = ' ',
   trailing_format = '[%s] trail',
@@ -153,6 +170,18 @@ local DEFAULT_OPTS = {
 
 function M.setup(config)
   M.cfg = vim.tbl_deep_extend("force", DEFAULT_OPTS, config or {})
+  M.trailing = ""
+  M.mixed = ""
+  M.inconsistent = ""
+  M.all = ""
+  vim.api.nvim_create_autocmd(M.cfg.events, {
+    callback = function()
+      require('lualine-whitespace').check_trailing_whitespaces()
+      require('lualine-whitespace').check_mixed_indentation()
+      require('lualine-whitespace').check_inconsistent_indentation()
+      require('lualine-whitespace').check_all()
+    end,
+  })
 end
 
 return M
