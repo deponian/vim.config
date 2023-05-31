@@ -33,6 +33,7 @@ vim.cmd('packadd! nvim-cmp-calc')         -- https://github.com/hrsh7th/cmp-calc
 vim.cmd('packadd! nvim-cmp-cmdline')      -- https://github.com/hrsh7th/cmp-cmdline
 vim.cmd('packadd! nvim-cmp-lsp')          -- https://github.com/hrsh7th/cmp-nvim-lsp
 vim.cmd('packadd! nvim-cmp-luasnip')      -- https://github.com/saadparwaiz1/cmp_luasnip
+vim.cmd('packadd! nvim-cmp-nvim-lua')     -- https://github.com/hrsh7th/cmp-nvim-lua.git
 vim.cmd('packadd! nvim-cmp-path')         -- https://github.com/hrsh7th/cmp-path
 vim.cmd('packadd! nvim-cmp-rg')           -- https://github.com/lukas-reineke/cmp-rg
 vim.cmd('packadd! nvim-cmp-spell')        -- https://github.com/f3fora/cmp-spell
