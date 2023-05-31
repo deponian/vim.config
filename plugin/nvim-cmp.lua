@@ -163,14 +163,18 @@ cmp.setup {
     { name = 'nvim_lua' },
     { name = 'luasnip' },
     { name = 'calc' },
+    {
+      name = "dictionary",
+      keyword_length = 2,
+    },
     { name = 'rg',
       keyword_length = 3,
       option = {
         additional_arguments = "--one-file-system --ignore-file ~/.vim/.ignore.rg",
       },
     },
-    { name = 'spell' },
-    { name = 'path',
+    {
+      name = 'path',
       option = {
         get_cwd = function () return vim.fn.getcwd() end
       },
@@ -197,7 +201,7 @@ cmp.setup {
         nvim_lsp = "[LSP]",
         luasnip = "[LuaSnip]",
         rg = "[Files]",
-        spell = "[Dictionary]",
+        dictionary = "[Dictionary]",
         calc = "[Calc]",
         path = "[Path]",
       })[entry.source.name]
@@ -215,4 +219,15 @@ cmp.setup.cmdline(':', {
     { name = 'cmdline' },
     { name = 'cmdline_history' }
   })
+})
+
+-- Dictionary source
+vim.opt.dictionary = vim.fn.stdpath("config") .. '/spell/en.utf-8.dict'
+local nvim_cmp_dictionary = vim.api.nvim_create_augroup('nvim_cmp_dictionary', { clear = true })
+vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
+  group = nvim_cmp_dictionary,
+  once = true,
+  callback = function()
+    require("cmp_dictionary").update()
+  end,
 })
