@@ -77,21 +77,9 @@ vim.cmd('packadd! toml')                  -- https://github.com/cespare/vim-toml
 vim.cmd('packadd! yaml')                  -- https://github.com/stephpy/vim-yaml
 vim.cmd('packadd! zsh')                   -- https://github.com/chrisbra/vim-zsh
 
--- LuaSnip configuration
-local has_luasnip, luasnip = pcall(require, 'luasnip')
-if has_luasnip then
-  -- LuaSnip sets up its autocmds in "plugin/luasnip.vim", too early
-  -- for us to influence them from "plugins/snippets.lua" (Lua files load
-  -- last), so we have to do this even earlier, here.
-  luasnip.config.set_config({
-    updateevents = "TextChanged,TextChangedI", -- default is InsertLeave
-  })
-end
-
-vim.opt.termguicolors = true
-
 -- colorscheme
 -- these settings has to be placed AFTER set termguicolors
+vim.opt.termguicolors = true
 require('onedark').setup  {
   -- Main options --
   style = 'deep', -- Default theme style. Choose between 'dark', 'darker', 'cool', 'deep', 'warm', 'warmer' and 'light'
@@ -163,12 +151,9 @@ require('onedark').load()
 -- https://github.com/neovim/neovim/issues/9800
 vim.cmd('highlight CursorLine ctermfg=white guibg=#21283b')
 
-
--- After this file is sourced, plugin code will be evaluated.
--- See ~/.config/nvim/after for files evaluated after that.
--- See `:scriptnames` for a list of all scripts, in evaluation order.
--- Launch Vim with `vim --startuptime vim.log` for profiling info.
---
--- To see all leader mappings, including those from plugins:
---
---	vim -c 'set t_te=' -c 'set t_ti=' -c 'map <space>' -c q | sort
+-- LuaSnip sets up its autocmds in "plugin/luasnip.vim", too early
+-- for us to influence them from "plugins/snippets.lua" (Lua files load
+-- last), so we have to do this even earlier, here.
+require('luasnip').config.set_config({
+  updateevents = "TextChanged,TextChangedI", -- default is InsertLeave
+})
