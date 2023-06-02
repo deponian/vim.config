@@ -37,8 +37,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/hrsh7th/cmp-nvim-lsp
 - https://github.com/hrsh7th/cmp-path
 - https://github.com/hrsh7th/nvim-cmp
-- https://github.com/junegunn/fzf
-- https://github.com/junegunn/fzf.vim
+- https://github.com/ibhagwan/fzf-lua
 - https://github.com/kyazdani42/nvim-tree.lua
 - https://github.com/kyazdani42/nvim-web-devicons
 - https://github.com/lambdalisue/suda.vim

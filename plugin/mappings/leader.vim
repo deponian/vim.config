@@ -44,8 +44,8 @@ nnoremap <Leader>z :call mappings#leader#zap()<CR>:echo "All trailing whitespace
 nnoremap <Leader>x :call mappings#leader#retab()<CR>:echo "Retabed successfully"<CR>
 
 " <Leader>t -- Find and open file
-nnoremap <silent> <Leader>t :Files<CR>
-nnoremap <Leader>T :Files
+nnoremap <silent> <Leader>t <cmd>lua require('fzf-lua').files()<CR>
+nnoremap <Leader>T :lua require('fzf-lua').files({cwd = ""})<Left><Left><Left>
 
 " <Leader>d -- Set indentation in buffer (change expandtab/noexpandtab, tabstop and etc)
 " (mnemonic: in[d]ent)
@@ -62,8 +62,8 @@ nmap <Leader>S :%s/
 
 " <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
 " (mnemonic: find)
-nnoremap <Leader>f :RG<CR>
-vnoremap <Leader>f y:RG . <C-R>"<CR>
+nnoremap <Leader>f <cmd>lua require("deponian.fzf-lua").live_grep_native()<CR>
+vnoremap <silent> <Leader>f :lua require("deponian.fzf-lua").live_grep_native({ search = '<C-R>=luaeval("require(\'deponian.general\').get_oneline_selection()")<CR>' })<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
 " (mnemonic: replace)
@@ -122,3 +122,15 @@ nnoremap <Leader>u <cmd>TroubleToggle<CR>
 " (mnemonic: [a]rtificial intelligence)
 nnoremap <Leader>a :AI<Space>
 vnoremap <Leader>a :AIEdit<Space>
+
+" <Leader>g -- git commands
+" mnemonic: [g]it [l]s-files
+nnoremap <Leader>gl <cmd>lua require('fzf-lua').git_files()<CR>
+" mnemonic: [g]it [s]tatus
+nnoremap <Leader>gs <cmd>lua require('fzf-lua').git_status()<CR>
+" mnemonic: [g]it [c]ommits
+nnoremap <Leader>gc <cmd>lua require('fzf-lua').git_commits()<CR>
+" mnemonic: [g]it [h]istory
+nnoremap <Leader>gh <cmd>lua require('fzf-lua').git_bcommits()<CR>
+" mnemonic: [g]it [b]ranches
+nnoremap <Leader>gb <cmd>lua require('fzf-lua').git_branches()<CR>

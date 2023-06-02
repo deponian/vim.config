@@ -18,8 +18,7 @@ vim.cmd([[
 vim.cmd('packadd! base64')                    -- https://github.com/christianrondeau/vim-base64
 vim.cmd('packadd! commentary')                -- https://github.com/tpope/vim-commentary
 vim.cmd('packadd! fugitive')                  -- https://github.com/tpope/vim-fugitive
-vim.cmd('packadd! fzf')                       -- https://github.com/junegunn/fzf
-vim.cmd('packadd! fzf-vim')                   -- https://github.com/junegunn/fzf.vim
+vim.cmd('packadd! fzf-lua')                   -- https://github.com/ibhagwan/fzf-lua.git
 vim.cmd('packadd! gitsigns')                  -- https://github.com/lewis6991/gitsigns.nvim
 vim.cmd('packadd! indent-blankline')          -- https://github.com/lukas-reineke/indent-blankline.nvim
 vim.cmd('packadd! loupe')                     -- https://github.com/deponian/vim-loupe

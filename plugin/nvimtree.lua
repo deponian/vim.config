@@ -94,19 +94,12 @@ local function on_attach(bufnr)
     else
       dir = vim.fn.fnamemodify(node.absolute_path, ":.:h")
     end
-    vim.cmd('RG ' .. dir)
+    require("deponian.fzf-lua").live_grep_native({cwd = dir})
   end, opts('ripgrep'))
 
   vim.keymap.set('n', 'F', function()
-    local node = api.tree.get_node_under_cursor()
-    local dir = ""
-    if node.fs_stat.type == "directory" then
-      dir = vim.fn.fnamemodify(node.absolute_path, ":.")
-    else
-      dir = vim.fn.fnamemodify(node.absolute_path, ":.:h")
-    end
-    vim.cmd('RGNH ' .. dir)
-  end, opts('ripgrepnohidden'))
+    require('fzf-lua').files({cwd = "~/projects/"})
+  end, opts('ripgrep'))
 end
 
 require("nvim-tree").setup {
