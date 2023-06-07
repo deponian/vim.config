@@ -40,7 +40,4 @@
 ("text" @number
  (#lua-match? @number "^#[0-9]+$"))
 
-; User mention (@user)
-("text" @constant @nospell
- (#lua-match? @constant "^[@][a-zA-Z0-9_-]+$")
- (#set! "priority" 95))
+((uri) @text.uri @nospell)

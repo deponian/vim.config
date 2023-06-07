@@ -6,16 +6,20 @@
   "export"
   "implements"
   "interface"
-  "keyof"
   "type"
   "namespace"
   "override"
-  "satisfies"
   "module"
   "infer"
+  "is"
 ] @keyword
 
-(as_expression "as" @keyword)
+[
+  "keyof"
+  "satisfies"
+] @keyword.operator
+
+(as_expression "as" @keyword.operator)
 
 [
   "abstract"
@@ -38,6 +42,8 @@
 
 (template_literal_type) @string
 
+(non_null_expression "!" @operator)
+
 ;; punctuation
 
 (type_arguments
@@ -55,7 +61,7 @@
 (type_annotation
   ":" @punctuation.delimiter)
 
-(pair
+(type_predicate_annotation
   ":" @punctuation.delimiter)
 
 (index_signature

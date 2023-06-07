@@ -1,5 +1,6 @@
 ; Gleam indents similar to Rust and JavaScript
 [
+  (anonymous_function)
   (assert)
   (case)
   (case_clause)
@@ -11,12 +12,10 @@
   (let)
   (list)
   (constant)
-  (external_function)
   (function)
   (type_definition)
   (type_alias)
   (todo)
-  (try)
   (tuple)
 ] @indent.begin
 

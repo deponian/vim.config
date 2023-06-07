@@ -59,28 +59,45 @@
 
 ; Inline function variables
 ((sym_lit) @variable.builtin
- (#match? @variable.builtin "^[%]"))
+ (#lua-match? @variable.builtin "^%%"))
 
 ; Constructor
 ((sym_lit) @constructor
- (#match? @constructor "^-\\>[^\\>].*"))
+ (#lua-match? @constructor "^-\\>[^\\>].*"))
 
-; Dynamic variables
+; Builtin dynamic variables
 ((sym_lit) @variable.builtin
- (#match? @variable.builtin "^[*].+[*]$"))
+ (#any-of? @variable.builtin
+  "*agent*" "*allow-unresolved-vars*" "*assert*"
+  "*clojure-version*" "*command-line-args*"
+  "*compile-files*" "*compile-path*" "*compiler-options*"
+  "*data-readers*" "*default-data-reader-fn*"
+  "*err*" "*file*" "*flush-on-newline*" "*fn-loader*"
+  "*in*" "*math-context*" "*ns*" "*out*"
+  "*print-dup*" "*print-length*" "*print-level*"
+  "*print-meta*" "*print-namespace-maps*" "*print-readably*"
+  "*read-eval*" "*reader-resolver*"
+  "*source-path*" "*suppress-read*"
+  "*unchecked-math*" "*use-context-classloader*"
+  "*verbose-defrecords*" "*warn-on-reflection*"))
+
+; Builtin repl variables
+((sym_lit) @variable.builtin
+ (#any-of? @variable.builtin
+  "*1" "*2" "*3" "*e"))
 
 ; Gensym
 ;; Might not be needed
 ((sym_lit) @variable
- (#match? @variable "^.*#$"))
+ (#lua-match? @variable "^.*#$"))
 
 ; Types
 ;; TODO: improve?
 ((sym_lit) @type
- (#match? @type "^[A-Z][^/]*$"))
+ (#lua-match? @type "^[%u][^/]*$"))
 ;; Symbols with `.` but not `/`
 ((sym_lit) @type
- (#match? @type "^[^/]+[.][^/]*$"))
+ (#lua-match? @type "^[^/]+[.][^/]*$"))
 
 ; Interop
 ((sym_lit) @method
@@ -88,11 +105,11 @@
 ((sym_lit) @field
  (#match? @field "^\\.-"))
 ((sym_lit) @field
- (#match? @field "^[A-Z].*/.+"))
+ (#lua-match? @field "^[%u].*/.+"))
 (list_lit
  .
  (sym_lit) @method
- (#match? @method "^[A-Z].*/.+"))
+ (#lua-match? @method "^[%u].*/.+"))
 ;; TODO: Special casing for the `.` macro
 
 ; Operators
@@ -107,7 +124,7 @@
 ; Definition functions
 ((sym_lit) @keyword
  (#any-of? @keyword
-  "def" "defonce" "defrecord" "defmacro" "definline"
+  "def" "defonce" "defrecord" "defmacro" "definline" "definterface"
   "defmulti" "defmethod" "defstruct" "defprotocol"
   "deftype"))
 ((sym_lit) @keyword
@@ -127,9 +144,11 @@
  (#any-of? @conditional
   "case" "cond" "cond->" "cond->>" "condp"))
 ((sym_lit) @conditional
- (#match? @conditional "^if(\\-.*)?$"))
+ (#any-of? @conditional
+  "if" "if-let" "if-not" "if-some"))
 ((sym_lit) @conditional
- (#match? @conditional "^when(\\-.*)?$"))
+ (#any-of? @conditional
+  "when" "when-first" "when-let" "when-not" "when-some"))
 
 ; Repeats
 ((sym_lit) @repeat
@@ -139,7 +158,7 @@
 ; Exception
 ((sym_lit) @exception
  (#any-of? @exception
-  "throw" "try" "catch" "finally" "ex-info"))
+  "throw" "try" "catch" "finally"))
 
 ; Includes
 ((sym_lit) @include
@@ -157,15 +176,14 @@
   "monitor-exit" "proxy" "proxy-super" "pvalues"
   "refer-clojure" "reify" "set!" "some->" "some->>"
   "time" "unquote" "unquote-splicing" "var" "vswap!"
-  "ex-cause" "ex-data" "ex-message"))
-((sym_lit) @function.macro
- (#match? @function.macro "^with\\-.*$"))
+  "with-bindings" "with-in-str" "with-loading-context" "with-local-vars"
+  "with-open" "with-out-str" "with-precision" "with-redefs"))
 
 ; All builtin functions
 ; (->> (ns-publics *ns*)
 ;      (keep (fn [[s v]] (when-not (:macro (meta v)) s)))
 ;      sort
-;      cp/print))
+;      clojure.pprint/pprint))
 ;; ...and then lots of manual filtering...
 ((sym_lit) @function.builtin
  (#any-of? @function.builtin
@@ -277,7 +295,19 @@
   "val" "vals" "var-get" "var-set" "var?" "vary-meta" "vec"
   "vector" "vector-of" "vector?" "volatile!" "volatile?"
   "vreset!" "with-bindings*" "with-meta" "with-redefs-fn" "xml-seq"
-  "zero?" "zipmap"))
+  "zero?" "zipmap"
+  ;; earlier
+  "drop" "drop-last" "drop-while"
+  "double?" "doubles"
+  "ex-data" "ex-info"
+  ;; 1.10
+  "ex-cause" "ex-message"
+  ;; 1.11
+  "NaN?" "abs" "infinite?" "iteration" "random-uuid"
+  "parse-boolean" "parse-double" "parse-long" "parse-uuid"
+  "seq-to-map-for-destructuring"
+  ;; 1.12
+  "partitionv" "partitionv-all" "splitv-at"))
 
 
 

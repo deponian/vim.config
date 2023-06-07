@@ -167,7 +167,7 @@ list.c = {
     url = "https://github.com/tree-sitter/tree-sitter-c",
     files = { "src/parser.c" },
   },
-  maintainers = { "@vigoux" },
+  maintainers = { "@amaanq" },
 }
 
 list.c_sharp = {
@@ -235,6 +235,14 @@ list.cooklang = {
     files = { "src/parser.c", "src/scanner.cc" },
   },
   maintainers = { "@addcninblue" },
+}
+
+list.corn = {
+  install_info = {
+    url = "https://github.com/jakestanger/tree-sitter-corn",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@jakestanger" },
 }
 
 list.cpon = {
@@ -515,7 +523,7 @@ list.git_config = {
   },
   filetype = "gitconfig",
   maintainers = { "@amaanq" },
-  readme_name = "gitconfig",
+  readme_name = "git_config",
 }
 
 list.gitignore = {
@@ -691,7 +699,7 @@ list.http = {
     files = { "src/parser.c" },
     generate_requires_npm = true,
   },
-  maintainers = { "@NTBBloodbath" },
+  maintainers = { "@amaanq" },
 }
 
 list.ini = {
@@ -701,6 +709,24 @@ list.ini = {
   },
   maintainers = { "@theHamsta" },
   experimental = true,
+}
+
+list.ispc = {
+  install_info = {
+    url = "https://github.com/fab4100/tree-sitter-ispc",
+    files = { "src/parser.c" },
+    generate_requires_npm = true,
+  },
+  maintainers = { "@fab4100" },
+}
+
+list.janet_simple = {
+  install_info = {
+    url = "https://github.com/sogaiu/tree-sitter-janet-simple",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  filetype = "janet",
+  maintainers = { "@sogaiu" },
 }
 
 list.java = {
@@ -851,6 +877,14 @@ list.luap = {
   readme_name = "lua patterns",
 }
 
+list.luau = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-luau",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@amaanq" },
+}
+
 list.m68k = {
   install_info = {
     url = "https://github.com/grahambates/tree-sitter-m68k",
@@ -965,6 +999,14 @@ list.norg = {
   maintainers = { "@JoeyGrajciar", "@vhyrro" },
 }
 
+list.objc = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-objc",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@amaanq" },
+}
+
 list.ocaml = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-ocaml",
@@ -991,6 +1033,14 @@ list.ocamllex = {
     requires_generate_from_grammar = true,
   },
   maintainers = { "@undu" },
+}
+
+list.odin = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-odin",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@amaanq" },
 }
 
 list.org = {
@@ -1109,6 +1159,14 @@ list.pug = {
   },
   maintainers = { "@zealot128" },
   experimental = true,
+}
+
+list.puppet = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-puppet",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@amaanq" },
 }
 
 list.python = {
@@ -1230,7 +1288,7 @@ list.rust = {
     url = "https://github.com/tree-sitter/tree-sitter-rust",
     files = { "src/parser.c", "src/scanner.c" },
   },
-  maintainers = { "@vigoux" },
+  maintainers = { "@amaanq" },
 }
 
 list.scala = {
@@ -1269,7 +1327,7 @@ list.slint = {
 list.smali = {
   install_info = {
     url = "https://git.sr.ht/~yotam/tree-sitter-smali",
-    files = { "src/parser.c" },
+    files = { "src/parser.c", "src/scanner.c" },
   },
   maintainers = { "@amaanq" },
 }
@@ -1370,7 +1428,7 @@ list.t32 = {
   install_info = {
     url = "https://codeberg.org/xasc/tree-sitter-t32",
     files = { "src/parser.c", "src/scanner.c" },
-    revision = "675cd7de4eb80f2faa1e6d3bc9ee195fa9ef9790",
+    revision = "1dd98248b01e4a3933c1b85b58bab0875e2ba437",
   },
   maintainers = { "@xasc" },
 }
@@ -1489,6 +1547,14 @@ list.ungrammar = {
   maintainers = { "@Philipp-M", "@amaanq" },
 }
 
+list.usd = {
+  install_info = {
+    url = "https://github.com/ColinKennedy/tree-sitter-usd",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@ColinKennedy" },
+}
+
 list.uxntal = {
   install_info = {
     url = "https://github.com/amaanq/tree-sitter-uxntal",
@@ -1536,10 +1602,10 @@ list.vhs = {
 
 list.vim = {
   install_info = {
-    url = "https://github.com/vigoux/tree-sitter-viml",
+    url = "https://github.com/neovim/tree-sitter-vim",
     files = { "src/parser.c", "src/scanner.c" },
   },
-  maintainers = { "@vigoux" },
+  maintainers = { "@clason" },
 }
 
 list.vimdoc = {
