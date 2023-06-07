@@ -88,8 +88,8 @@ require('lualine').setup {
   extensions = {
     'fugitive',
     'fzf',
-    'nvim-tree',
     'quickfix',
+    require('deponian.lualine.nvim-tree'),
     require('deponian.lualine.man')
   }
 }
