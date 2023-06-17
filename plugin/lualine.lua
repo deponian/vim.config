@@ -61,6 +61,7 @@ require('lualine').setup {
         'tabs',
         mode = 1,
         use_mode_colors = true,
+        max_length = vim.o.columns,
 
         fmt = function(name, context)
           if string.match(name, 'NvimTree_') then
