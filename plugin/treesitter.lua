@@ -30,3 +30,6 @@ vim.api.nvim_set_hl(0, "@boolean.yaml", { link = "Conditional" })
 
 -- custom highlighting for gitcommit filetype
 vim.api.nvim_set_hl(0, "@text.uri.gitcommit", { link = "Constant" })
+
+-- custom highlighting for url inside text
+vim.api.nvim_set_hl(0, "@text.uri", { link = "Constant" })
