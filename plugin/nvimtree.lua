@@ -209,7 +209,7 @@ require("nvim-tree").setup {
         },
       },
     },
-    special_files = { "Cargo.toml", "Makefile", "README.md", "readme.md" },
+    special_files = {},
     symlink_destination = true,
   },
   hijack_directories = {
