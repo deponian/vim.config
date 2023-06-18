@@ -138,36 +138,39 @@ end
 
 function M.grep_project(opts)
   -- fake some options to help
-  -- build_prompt() understand the situation
+  -- build_prompt() and build_rg_opts() understand the situation
   local fake_opts = vim.deepcopy(require("fzf-lua.config").globals.grep)
   fake_opts.fn_reload = nil
 
   opts = opts or {}
   opts.prompt = opts.prompt or build_prompt(fake_opts)
+  opts.rg_opts = opts.rg_opts or build_rg_opts(fake_opts)
   require("fzf-lua").grep_project(opts)
 end
 
 function M.live_grep_native(opts)
   -- fake some options to help
-  -- build_prompt() understand the situation
+  -- build_prompt() and build_rg_opts() understand the situation
   local fake_opts = vim.deepcopy(require("fzf-lua.config").globals.grep)
   fake_opts.fn_reload = true
   fake_opts.rg_glob = false
 
   opts = opts or {}
   opts.prompt = opts.prompt or build_prompt(fake_opts)
+  opts.rg_opts = opts.rg_opts or build_rg_opts(fake_opts)
   require("fzf-lua").live_grep_native(opts)
 end
 
 function M.live_grep_glob(opts)
   -- fake some options to help
-  -- build_prompt() understand the situation
+  -- build_prompt() and build_rg_opts() understand the situation
   local fake_opts = vim.deepcopy(require("fzf-lua.config").globals.grep)
   fake_opts.fn_reload = true
   fake_opts.rg_glob = true
 
   opts = opts or {}
   opts.prompt = opts.prompt or build_prompt(fake_opts)
+  opts.rg_opts = opts.rg_opts or build_rg_opts(fake_opts)
   require("fzf-lua").live_grep_glob(opts)
 end
 
