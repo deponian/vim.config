@@ -62,7 +62,7 @@ nmap <Leader>S :%s/
 
 " <Leader>f -- Recursively find WORD under cursor or selected sequence in all files in a directory tree
 " (mnemonic: find)
-nnoremap <Leader>f <cmd>lua require("deponian.fzf-lua").live_grep_native()<CR>
+nnoremap <Leader>f <cmd>lua require("deponian.fzf-lua").live_grep()<CR>
 vnoremap <silent> <Leader>f :lua require("deponian.fzf-lua").live_grep_native({ search = '<C-R>=luaeval("require(\'deponian.general\').get_oneline_selection()")<CR>' })<CR>
 
 " <Leader>r -- Replace WORD or selected sequence within page
