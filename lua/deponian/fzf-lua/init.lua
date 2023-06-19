@@ -184,6 +184,7 @@ function M.setup_grep()
   require("fzf-lua").setup({
     grep = {
       fzf_opts = {
+        ["--info"] = "inline",
         ["--delimiter"] = ":",
         ["--nth"] = "4..",
       },

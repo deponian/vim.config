@@ -251,7 +251,7 @@ require'fzf-lua'.setup({
     -- previewer      = "bat",          -- uncomment to override previewer
                                         -- (name from 'previewers' table)
                                         -- set to 'false' to disable
-    prompt            = 'Files❯ ',
+    prompt            = 'Files: ',
     fzf_opts          = { ["--info"] = "inline", },
     multiprocess      = true,           -- run command in a separate process
     git_icons         = true,           -- show git icons?
@@ -284,7 +284,7 @@ require'fzf-lua'.setup({
   },
   git = {
     files = {
-      prompt        = 'GitFiles❯ ',
+      prompt        = 'GitFiles: ',
       cmd           = 'git ls-files --exclude-standard',
       multiprocess  = true,           -- run command in a separate process
       git_icons     = true,           -- show git icons?
@@ -295,7 +295,7 @@ require'fzf-lua'.setup({
       -- cwd_header = true
     },
     status = {
-      prompt        = 'GitStatus❯ ',
+      prompt        = 'GitStatus: ',
       -- consider using `git status -su` if you wish to see
       -- untracked files individually under their subfolders
       cmd           = "git -c color.status=false status -s",
@@ -321,7 +321,7 @@ require'fzf-lua'.setup({
       -- },
     },
     commits = {
-      prompt        = 'Commits❯ ',
+      prompt        = 'Commits: ',
       cmd           = "git log --color --pretty=format:'%C(#5398dd)%h %C(#00d7af)%cd%C(reset)%C(#f2684b)%d %C(#d9d9d9)%s' --date=format:'%F'",
       preview       = "git show --pretty='%Cred%H%n%Cblue%an <%ae>%n%C(yellow)%cD%n%Cgreen%s' --color {1}",
       -- uncomment if you wish to use git-delta as pager
@@ -331,7 +331,7 @@ require'fzf-lua'.setup({
       },
     },
     bcommits = {
-      prompt        = 'History❯ ',
+      prompt        = 'File History: ',
       -- default preview shows a git diff vs the previous commit
       -- if you prefer to see the entire commit you can use:
       --   git show --color {1} --rotate-to=<file>
@@ -349,7 +349,7 @@ require'fzf-lua'.setup({
       },
     },
     branches = {
-      prompt          = 'Branches❯ ',
+      prompt          = 'Branches: ',
       cmd             = "git branch --all --color",
       preview         = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
       actions = {
@@ -357,7 +357,7 @@ require'fzf-lua'.setup({
       },
     },
     stash = {
-      prompt          = 'Stash❯ ',
+      prompt          = 'Stash: ',
       cmd             = "git --no-pager stash list",
       preview         = "git --no-pager stash show --patch --color {1}",
       actions = {
@@ -385,19 +385,19 @@ require'fzf-lua'.setup({
   },
   grep = {},
   args = {
-    prompt            = 'Args❯ ',
+    prompt            = 'Args: ',
     files_only        = true,
     -- actions inherit from 'actions.files' and merge
     actions           = { ["ctrl-x"] = { actions.arg_del, actions.resume } }
   },
   oldfiles = {
-    prompt            = 'History❯ ',
+    prompt            = 'History: ',
     cwd_only          = false,
     stat_file         = true,         -- verify files exist on disk
     include_current_session = false,  -- include bufs from current session
   },
   buffers = {
-    prompt            = 'Buffers❯ ',
+    prompt            = 'Buffers: ',
     file_icons        = true,         -- show file icons?
     color_icons       = true,         -- colorize file|git icons
     sort_lastused     = true,         -- sort buffers() by last used
@@ -414,7 +414,7 @@ require'fzf-lua'.setup({
     }
   },
   tabs = {
-    prompt            = 'Tabs❯ ',
+    prompt            = 'Tabs: ',
     tab_title         = "Tab",
     tab_marker        = "<<",
     file_icons        = true,         -- show file icons?
@@ -432,7 +432,7 @@ require'fzf-lua'.setup({
   },
   lines = {
     previewer         = "builtin",    -- set to 'false' to disable
-    prompt            = 'Lines❯ ',
+    prompt            = 'Lines: ',
     show_unloaded     = true,         -- show unloaded buffers
     show_unlisted     = false,        -- exclude 'help' buffers
     no_term_buffers   = true,         -- exclude 'term' buffers
@@ -453,7 +453,7 @@ require'fzf-lua'.setup({
   },
   blines = {
     previewer         = "builtin",    -- set to 'false' to disable
-    prompt            = 'BLines❯ ',
+    prompt            = 'BLines: ',
     show_unlisted     = true,         -- include 'help' buffers
     no_term_buffers   = false,        -- include 'term' buffers
     fzf_opts = {
@@ -471,7 +471,7 @@ require'fzf-lua'.setup({
     },
   },
   tags = {
-    prompt                = 'Tags❯ ',
+    prompt                = 'Tags: ',
     ctags_file            = nil,      -- auto-detect from tags-option
     multiprocess          = true,
     file_icons            = true,
@@ -489,7 +489,7 @@ require'fzf-lua'.setup({
     no_header_i           = false,    -- hide interactive header?
   },
   btags = {
-    prompt                = 'BTags❯ ',
+    prompt                = 'BTags: ',
     ctags_file            = nil,      -- auto-detect from tags-option
     ctags_autogen         = false,    -- dynamically generate ctags each call
     multiprocess          = true,
@@ -506,7 +506,7 @@ require'fzf-lua'.setup({
     -- actions inherit from 'actions.files'
   },
   colorschemes = {
-    prompt            = 'Colorschemes❯ ',
+    prompt            = 'Colorschemes: ',
     live_preview      = true,       -- apply the colorscheme on preview?
     actions           = { ["default"] = actions.colorscheme, },
     winopts           = { height = 0.55, width = 0.30, },
@@ -525,7 +525,7 @@ require'fzf-lua'.setup({
     marker = ">",                   -- current list marker
   },
   lsp = {
-    prompt_postfix    = '❯ ',       -- will be appended to the LSP label
+    prompt_postfix    = ': ',       -- will be appended to the LSP label
                                     -- to override use 'prompt' instead
     cwd_only          = false,      -- LSP/diagnostics for cwd only?
     async_or_timeout  = 5000,       -- timeout(ms) or 'true' for async calls
@@ -614,7 +614,7 @@ require'fzf-lua'.setup({
     }
   },
   diagnostics ={
-    prompt            = 'Diagnostics❯ ',
+    prompt            = 'Diagnostics: ',
     cwd_only          = false,
     file_icons        = true,
     git_icons         = false,
