@@ -18,6 +18,7 @@ vim.opt.inccommand = 'nosplit'                        -- live highlighting of :s
 vim.opt.lazyredraw = true                             -- don't bother updating screen during macro playback
 vim.opt.linebreak = true                              -- wrap long lines at characters in 'breakat'
 vim.opt.modelines = 5                                 -- scan this many lines looking for modeline
+vim.opt.mouse = 'a'                                   -- enable mouse support in all modes
 vim.opt.mousemodel = 'extend'                         -- disable right-click popup-menu
 vim.opt.mousescroll = 'ver:1,hor:1'                   -- smoother scrolling
 vim.opt.number = true                                 -- show line numbers in gutter
@@ -66,3 +67,15 @@ vim.opt.shiftwidth = 4
 vim.opt.expandtab = false
 vim.opt.smartindent = true
 vim.opt.shiftround = true
+
+-- Change shape of cursor in insert and replace mode
+vim.opt.guicursor = 'n-v-sm:block,i-c-ci-ve:ver25,r-cr-o:hor20'
+
+-- Restore your cursor shape after exiting neovim
+-- if you don't use standard block shape cursor
+vim.cmd([[
+  augroup cursorshape
+    autocmd!
+    autocmd VimLeave * set guicursor=a:ver25-blinkon1000-blinkoff1000
+  augroup END
+]])
