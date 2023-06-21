@@ -13,3 +13,6 @@ vim.keymap.set("x", "<S-RightMouse>", "<Nop>")
 vim.keymap.set("x", "<S-Up>", "<Nop>")
 vim.keymap.set("x", "<S-Down>", "<Nop>")
 
+-- Move J command away
+vim.keymap.set("x", "J", "<Nop>")
+vim.keymap.set("x", "<Leader>j", "J")
