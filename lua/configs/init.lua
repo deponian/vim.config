@@ -47,6 +47,14 @@ return {
     end
   },
 
+  {
+    "echasnovski/mini.splitjoin",
+    lazy = false,
+    config = function ()
+      require("mini.splitjoin").setup()
+    end
+  },
+
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
