@@ -18,6 +18,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/ch-danreif/haproxy.vim
 - https://github.com/christianrondeau/vim-base64
 - https://github.com/dmitmel/cmp-cmdline-history
+- https://github.com/echasnovski/mini.splitjoin
 - https://github.com/folke/lazy.nvim
 - https://github.com/folke/trouble.nvim
 - https://github.com/hrsh7th/cmp-buffer
@@ -48,6 +49,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/nvim-treesitter/nvim-treesitter
 - https://github.com/pearofducks/ansible-vim
 - https://github.com/rafamadriz/friendly-snippets
+- https://github.com/rrethy/vim-illuminate
 - https://github.com/saadparwaiz1/cmp_luasnip
 - https://github.com/towolf/vim-helm
 - https://github.com/tpope/vim-commentary
