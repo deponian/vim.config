@@ -1,0 +1,6 @@
+require("keymaps.command")
+require("keymaps.insert")
+require("keymaps.terminal")
+require("keymaps.visual")
+require("keymaps.normal")
+require("keymaps.leader")

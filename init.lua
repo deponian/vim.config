@@ -1,157 +1,42 @@
--- Set mapleader and maplocalleader
-vim.g.mapleader = ' '
-vim.g.maplocalleader = '\\'
+-- use plugins from .plugins if .../lazy doesn't exist
+local plugins_path = vim.fn.stdpath("data") .. "/lazy"
+if vim.fn.isdirectory(plugins_path) == 0 then
+  plugins_path = vim.fn.stdpath("config") .. "/.plugins"
+end
+local lazypath = plugins_path .. "/lazy.nvim"
 
--- Disable netrw
-vim.g.loaded_netrw = 1
-vim.g.loaded_netrwPlugin = 1
+-- install lazy.nvim if it doesn't exist
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable",
+    lazypath,
+  })
+end
 
--- Return to last edit position when opening files
-vim.cmd([[
-  autocmd BufReadPost *
-        \ if line("'\"") >= 1 && line("'\"") <= line("$") |
-        \ exe "normal! g`\"" |
-        \ endif
-]])
+-- place where plugin manager lives
+vim.opt.rtp:prepend(plugins_path .. "/lazy.nvim")
 
--- Load general plugins
-vim.cmd('packadd! base64')                    -- https://github.com/christianrondeau/vim-base64
-vim.cmd('packadd! commentary')                -- https://github.com/tpope/vim-commentary
-vim.cmd('packadd! fugitive')                  -- https://github.com/tpope/vim-fugitive
-vim.cmd('packadd! fzf-lua')                   -- https://github.com/ibhagwan/fzf-lua.git
-vim.cmd('packadd! gitsigns')                  -- https://github.com/lewis6991/gitsigns.nvim
-vim.cmd('packadd! indent-blankline')          -- https://github.com/lukas-reineke/indent-blankline.nvim
-vim.cmd('packadd! loupe')                     -- https://github.com/deponian/vim-loupe
-vim.cmd('packadd! lualine')                   -- https://github.com/nvim-lualine/lualine.nvim
-vim.cmd('packadd! lualine-whitespace')        -- https://github.com/deponian/nvim-lualine-whitespace
-vim.cmd('packadd! luasnip')                   -- https://github.com/L3MON4D3/LuaSnip
-vim.cmd('packadd! minimap')                   -- https://github.com/deponian/mini.map
-vim.cmd('packadd! nvim-cmp')                  -- https://github.com/hrsh7th/nvim-cmp
-vim.cmd('packadd! nvim-cmp-buffer')           -- https://github.com/hrsh7th/cmp-buffer
-vim.cmd('packadd! nvim-cmp-calc')             -- https://github.com/hrsh7th/cmp-calc
-vim.cmd('packadd! nvim-cmp-cmdline')          -- https://github.com/hrsh7th/cmp-cmdline
-vim.cmd('packadd! nvim-cmp-cmdline-history')  -- https://github.com/dmitmel/cmp-cmdline-history.git
-vim.cmd('packadd! nvim-cmp-dictionary')       -- https://github.com/uga-rosa/cmp-dictionary.git
-vim.cmd('packadd! nvim-cmp-lsp')              -- https://github.com/hrsh7th/cmp-nvim-lsp
-vim.cmd('packadd! nvim-cmp-luasnip')          -- https://github.com/saadparwaiz1/cmp_luasnip
-vim.cmd('packadd! nvim-cmp-nvim-lua')         -- https://github.com/hrsh7th/cmp-nvim-lua.git
-vim.cmd('packadd! nvim-cmp-path')             -- https://github.com/hrsh7th/cmp-path
-vim.cmd('packadd! nvim-cmp-rg')               -- https://github.com/lukas-reineke/cmp-rg
-vim.cmd('packadd! nvim-colorizer')            -- https://github.com/NvChad/nvim-colorizer.lua
-vim.cmd('packadd! nvim-lint')                 -- https://github.com/mfussenegger/nvim-lint
-vim.cmd('packadd! nvim-lspconfig')            -- https://github.com/neovim/nvim-lspconfig
-vim.cmd('packadd! nvim-ts-rainbow')           -- https://github.com/HiPhish/nvim-ts-rainbow2
-vim.cmd('packadd! nvim-web-devicons')         -- https://github.com/kyazdani42/nvim-web-devicons
-vim.cmd('packadd! nvimtree')                  -- https://github.com/kyazdani42/nvim-tree.lua
-vim.cmd('packadd! onedark')                   -- https://github.com/navarasu/onedark.nvim
-vim.cmd('packadd! plenary')                   -- https://github.com/nvim-lua/plenary.nvim
-vim.cmd('packadd! repeat')                    -- https://github.com/tpope/vim-repeat
-vim.cmd('packadd! rhubarb')                   -- https://github.com/tpope/vim-rhubarb
-vim.cmd('packadd! scalpelua')                 -- https://github.com/deponian/nvim-scalpelua
-vim.cmd('packadd! speeddating')               -- https://github.com/tpope/vim-speeddating
-vim.cmd('packadd! suda')                      -- https://github.com/lambdalisue/suda.vim
-vim.cmd('packadd! surround')                  -- https://github.com/tpope/vim-surround
-vim.cmd('packadd! treesitter')                -- https://github.com/nvim-treesitter/nvim-treesitter
-vim.cmd('packadd! trouble')                   -- https://github.com/folke/trouble.nvim
-vim.cmd('packadd! vim-ai')                    -- https://github.com/madox2/vim-ai
+-- evertything we need before initialization of plugins
+require("options")
+require("settings")
+require("autocmd")
+require("keymaps")
 
--- Load language/syntax/filetype plugins
-vim.cmd('packadd! ansible')               -- https://github.com/pearofducks/ansible-vim
-vim.cmd('packadd! cmake')                 -- https://github.com/pboettch/vim-cmake-syntax
-vim.cmd('packadd! dockerfile')            -- https://github.com/ekalinin/Dockerfile.vim
-vim.cmd('packadd! git')                   -- https://github.com/tpope/vim-git
-vim.cmd('packadd! github-actions')        -- https://github.com/yasuhiroki/github-actions-yaml.vim
-vim.cmd('packadd! go')                    -- https://github.com/fatih/vim-go
-vim.cmd('packadd! haproxy')               -- https://github.com/CH-DanReif/haproxy.vim
-vim.cmd('packadd! helm')                  -- https://github.com/towolf/vim-helm
-vim.cmd('packadd! log')                   -- https://github.com/MTDL9/vim-log-highlighting
-vim.cmd('packadd! mustache')              -- https://github.com/mustache/vim-mustache-handlebars
-vim.cmd('packadd! nftables')              -- https://github.com/nfnty/vim-nftables
-vim.cmd('packadd! nginx')                 -- https://github.com/chr4/nginx.vim
-vim.cmd('packadd! systemd')               -- https://github.com/Matt-Deacalion/vim-systemd-syntax
-vim.cmd('packadd! terraform')             -- https://github.com/hashivim/vim-terraform
-vim.cmd('packadd! tmux')                  -- https://github.com/ericpruitt/tmux.vim
-vim.cmd('packadd! toml')                  -- https://github.com/cespare/vim-toml
-vim.cmd('packadd! yaml')                  -- https://github.com/stephpy/vim-yaml
-vim.cmd('packadd! zsh')                   -- https://github.com/chrisbra/vim-zsh
-
--- colorscheme
--- these settings has to be placed AFTER set termguicolors
-vim.opt.termguicolors = true
-require('onedark').setup  {
-  -- Main options --
-  style = 'deep', -- Default theme style. Choose between 'dark', 'darker', 'cool', 'deep', 'warm', 'warmer' and 'light'
-  transparent = true,  -- Show/hide background
-  term_colors = true, -- Change terminal color as per the selected theme style
-  ending_tildes = false, -- Show the end-of-buffer tildes. By default they are hidden
-  cmp_itemkind_reverse = false, -- reverse item kind highlights in cmp menu
-  -- toggle theme style ---
-  toggle_style_key = nil, -- Default keybinding to toggle
-  toggle_style_list = {'dark', 'darker', 'cool', 'deep', 'warm', 'warmer', 'light'}, -- List of styles to toggle between
-
-  -- Change code style ---
-  -- Options are italic, bold, underline, none
-  -- You can configure multiple style with comma seperated, For e.g., keywords = 'italic,bold'
-  code_style = {
-    comments = 'italic',
-    keywords = 'none',
-    functions = 'none',
-    strings = 'none',
-    variables = 'none'
+-- initialization of plugins
+require("lazy").setup("configs", {
+  root = plugins_path,
+  lockfile = vim.fn.stdpath("config") .. "/.lazy-lock.json",
+  install = {
+    missing = false,
   },
-
-  -- Custom Highlights --
-  colors = {}, -- Override default colors
-  highlights = {
-    VertSplit = {fg = '$bg1'},
-
-    FloatBorder = {fg = '$bg1', bg = 'none'},
-    NormalFloat = {fg = '$fg', bg = 'none'},
-
-    CurSearch = {fg = '#1a212e', bg = '#54b0fd'},
-
-    DiffText = {fg = 'none', bg = '#1d5c8c'},
-    DiffAdd = {fg = 'none', bg = '#013325'},
-    DiffDelete = {fg = '#8f8f8f', bg = '#331c1e'},
-
-    DiagnosticUnderlineError = {fmt = 'none'},
-    DiagnosticUnderlineHint = {fmt = 'none'},
-    DiagnosticUnderlineInfo = {fmt = 'none'},
-    DiagnosticUnderlineWarn = {fmt = 'none'},
-
-    GitSignsChange = {fg = '$orange'},
-    GitSignsChangeLn = {fg = '$orange'},
-    GitSignsChangeNr = {fg = '$orange'},
-
-    TroubleNormal = {bg = "none"},
-    TroubleCount = {fg = '$orange'},
-    TroubleFile = {fg = '$cyan'},
-    TroubleFoldIcon = {fg = '$fg'},
-    TroubleLocation = {fg = '$cyan'},
-    TroubleTextError = {fg = '$fg'},
-    TroubleTextInformation = {fg = '$fg'},
-    TroubleTextHint = {fg = '$fg'},
-    TroubleTextWarning = {fg = '$fg'},
-    TroubleText = {fg = '$fg'},
-    TroublePreview = {fg = '$purple'},
+  checker = {
+    enabled = false,
   },
-
-  -- Plugins Config --
-  diagnostics = {
-    darker = true, -- darker colors for diagnostic
-    undercurl = true,   -- use undercurl instead of underline for diagnostics
-    background = true,    -- use background color for virtual text
+  change_detection = {
+    enabled = false,
   },
-}
-
-require('onedark').load()
-
--- https://github.com/neovim/neovim/issues/9800
-vim.cmd('highlight CursorLine ctermfg=white guibg=#21283b')
-
--- LuaSnip sets up its autocmds in "plugin/luasnip.vim", too early
--- for us to influence them from "plugins/snippets.lua" (Lua files load
--- last), so we have to do this even earlier, here.
-require('luasnip').config.set_config({
-  updateevents = "TextChanged,TextChangedI", -- default is InsertLeave
 })

@@ -10,7 +10,7 @@ local function build_rg_opts()
       opts_str = opts_str .. option .. "=".. value .. " "
     end
   end
-  opts_str = vim.trim(opts_str)
+  opts_str = vim.trim(opts_str) .. " -e"
   return opts_str
 end
 
@@ -196,7 +196,7 @@ function M.setup_grep()
       -- functions like live_grep directly from require("fzf-lua")
       rg_opts = "--color=always --max-columns=4096 --glob='!.git/' " ..
                 "--column --line-number --no-heading --no-ignore " ..
-                "--smart-case --hidden --fixed-strings",
+                "--smart-case --hidden --fixed-strings -e",
       actions = {
         ["ctrl-g"] = { switch_to_grep_project },
         ["ctrl-n"] = { switch_to_live_grep },
