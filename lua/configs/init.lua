@@ -69,6 +69,14 @@ return {
     end
   },
 
+  {
+    "echasnovski/mini.pairs",
+    lazy = false,
+    config = function()
+      require("mini.pairs").setup()
+    end
+  },
+
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
