@@ -50,8 +50,22 @@ return {
   {
     "echasnovski/mini.splitjoin",
     lazy = false,
-    config = function ()
+    config = function()
       require("mini.splitjoin").setup()
+    end
+  },
+
+  {
+    "echasnovski/mini.jump",
+    lazy = false,
+    opts = {
+      mappings = {
+        repeat_jump = "",
+      },
+    },
+    config = function(_, opts)
+      require("mini.jump").setup(opts)
+      vim.cmd [[highlight MiniJump guifg=#FFDD87 guibg=#123E60 gui=bold]]
     end
   },
 

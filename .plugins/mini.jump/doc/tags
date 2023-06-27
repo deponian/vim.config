@@ -1,0 +1,8 @@
+MiniJump	mini-jump.txt	/*MiniJump*
+MiniJump.config	mini-jump.txt	/*MiniJump.config*
+MiniJump.jump()	mini-jump.txt	/*MiniJump.jump()*
+MiniJump.setup()	mini-jump.txt	/*MiniJump.setup()*
+MiniJump.smart_jump()	mini-jump.txt	/*MiniJump.smart_jump()*
+MiniJump.state	mini-jump.txt	/*MiniJump.state*
+MiniJump.stop_jumping()	mini-jump.txt	/*MiniJump.stop_jumping()*
+mini.jump	mini-jump.txt	/*mini.jump*
