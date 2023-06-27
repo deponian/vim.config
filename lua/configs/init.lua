@@ -77,10 +77,18 @@ return {
     end
   },
 
+  {
+    "echasnovski/mini.surround",
+    lazy = false,
+    config = function()
+      vim.keymap.set("n", "s", "<Nop>")
+      require("mini.surround").setup()
+    end
+  },
+
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
-  { "tpope/vim-surround" },
   { "nvim-lua/plenary.nvim", lazy = true },
 
   -- language/syntax/filetype plugins
