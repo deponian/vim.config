@@ -11,9 +11,9 @@ M.config = function ()
 
   local on_attach = function ()
     vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = true, silent = true})
-    vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
+    vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
     vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
-    vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
+    vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
   end
 
   -- UI tweaks from https://github.com/neovim/nvim-lspconfig/wiki/UI-customization
