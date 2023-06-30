@@ -90,6 +90,7 @@ return {
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
+  { "fatih/vim-go" },
 
   -- language/syntax/filetype plugins
   { "ch-danreif/haproxy.vim" },
