@@ -70,14 +70,6 @@ return {
   },
 
   {
-    "echasnovski/mini.pairs",
-    lazy = false,
-    config = function()
-      require("mini.pairs").setup()
-    end
-  },
-
-  {
     "echasnovski/mini.surround",
     lazy = false,
     config = function()
