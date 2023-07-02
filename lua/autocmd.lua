@@ -96,7 +96,7 @@ end)
 
 -- Copy all plugins from lazy directory and
 -- clean up unnecessary files
-augroup("CleanUpPluginDirs", function(group)
+augroup("CopyPlugins", function(group)
   autocmd("User", {
     group = group,
     pattern = { "LazyInstall", "LazyUpdate", "LazySync" },
@@ -119,7 +119,7 @@ augroup("CleanUpPluginDirs", function(group)
 
       -- copy all plugins to repository
       vim.fn.system({
-        "rsync", "--quiet", "-r",
+        "rsync", "--quiet", "--delete", "-r",
         plugins_data_path .. "/",
         plugins_local_path
       })
