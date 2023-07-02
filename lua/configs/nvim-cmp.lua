@@ -125,6 +125,7 @@ M.config = function()
   }
 
   cmp.setup {
+    preselect = cmp.PreselectMode.None,
     mapping = {
       ['<BS>'] = cmp.mapping(function(_fallback)
         local keys = smart_bs()
