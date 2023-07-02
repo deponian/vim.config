@@ -27,7 +27,7 @@ M.config = function ()
     "-"
   }
 
-  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave", "BufEnter" }, {
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave", "BufEnter", "CursorHold" }, {
     callback = function()
       require("lint").try_lint()
     end,
