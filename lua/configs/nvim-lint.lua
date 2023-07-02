@@ -1,10 +1,11 @@
 local M = { "mfussenegger/nvim-lint" }
 
 M.config = function ()
-  require('lint').linters_by_ft = {
-    yaml = {'yamllint'},
-    ["yaml.gha"] = {'yamllint'},
-    dockerfile = {'hadolint'}
+  require("lint").linters_by_ft = {
+    go = {"golangcilint"},
+    yaml = {"yamllint"},
+    ["yaml.gha"] = {"yamllint"},
+    dockerfile = {"hadolint"}
   }
 
   -- change config for different filetypes
@@ -17,7 +18,7 @@ M.config = function ()
   end
 
   -- reconfigure yamllint
-  local yamllint = require('lint').linters.yamllint
+  local yamllint = require("lint").linters.yamllint
   yamllint.args = {
     "--format",
     "parsable",
