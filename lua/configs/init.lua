@@ -77,12 +77,18 @@ return {
       require("mini.surround").setup()
     end
   },
+  {
+    "fatih/vim-go",
+    lazy = false,
+    init = function()
+      vim.g.go_fmt_fail_silently = 1
+    end
+  },
 
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
-  { "fatih/vim-go" },
 
   -- language/syntax/filetype plugins
   { "ch-danreif/haproxy.vim" },
