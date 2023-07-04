@@ -12,9 +12,9 @@ M.opts = {
 
 M.config = function(_, opts)
   require("illuminate").configure(opts)
-  vim.cmd [[highlight IlluminatedWordText guibg=#283347 gui=bold]]
-  vim.cmd [[highlight IlluminatedWordRead guibg=#283347 gui=bold]]
-  vim.cmd [[highlight IlluminatedWordWrite guibg=#283347 gui=bold]]
+  vim.cmd [[highlight IlluminatedWordText guifg=#f2cc81 gui=bold]]
+  vim.cmd [[highlight IlluminatedWordRead guifg=#f2cc81 gui=bold]]
+  vim.cmd [[highlight IlluminatedWordWrite guifg=#f2cc81 gui=bold]]
 end
 
 M.keys = {

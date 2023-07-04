@@ -29,6 +29,7 @@ M.opts = {
   -- Custom Highlights --
   colors = {}, -- Override default colors
   highlights = {
+    Visual = {bg = '#303f5d'},
     VertSplit = {fg = '$bg1'},
 
     FloatBorder = {fg = '$bg1', bg = 'none'},
