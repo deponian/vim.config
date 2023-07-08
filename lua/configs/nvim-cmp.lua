@@ -45,48 +45,6 @@ M.config = function()
     end
   end
 
-  -- Complement to `smart_tab()`.
-  --
-  -- When 'noexpandtab' is set (ie. hard tabs are in use), backspace:
-  --
-  --    - On the left (ie. in the indent) will delete a tab.
-  --    - On the right (when in trailing whitespace) will delete enough
-  --      spaces to get back to the previous tabstop.
-  --    - Everywhere else it will just delete the previous character.
-  --
-  -- For other buffers ('expandtab'), we let Neovim behave as standard and that
-  -- yields intuitive behavior.
-  local smart_bs = function ()
-    if vim.o.expandtab then
-      return rhs('<BS>')
-    else
-      local col = column()
-      local line = vim.api.nvim_get_current_line()
-      local prefix = line:sub(1, col)
-      local in_leading_indent = prefix:find('^%s*$')
-      if in_leading_indent then
-        return rhs('<BS>')
-      end
-      local previous_char = prefix:sub(#prefix, #prefix)
-      if previous_char ~= ' ' then
-        return rhs('<BS>')
-      end
-      -- Delete enough spaces to take us back to the previous tabstop.
-      --
-      -- Originally I was calculating the number of <BS> to send, but
-      -- Neovim has some special casing that causes one <BS> to delete
-      -- multiple characters even when 'expandtab' is off (eg. if you hit
-      -- <BS> after pressing <CR> on a line with trailing whitespace and
-      -- Neovim inserts whitespace to match.
-      --
-      -- So, turn 'expandtab' on temporarily and let Neovim figure out
-      -- what a single <BS> should do.
-      --
-      -- See `:h i_CTRL-\_CTRL-O`.
-      return rhs('<C-\\><C-o>:set expandtab<CR><BS><C-\\><C-o>:set noexpandtab<CR>')
-    end
-  end
-
   local has_words_before = function()
     local line, col = unpack(vim.api.nvim_win_get_cursor(0))
     return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match("%s") == nil
@@ -127,11 +85,6 @@ M.config = function()
   cmp.setup {
     preselect = cmp.PreselectMode.None,
     mapping = {
-      ['<BS>'] = cmp.mapping(function(_fallback)
-        local keys = smart_bs()
-        vim.api.nvim_feedkeys(keys, 'nt', true)
-      end, { 'i', 's' }),
-
       ['<CR>'] = cmp.mapping(function(fallback)
         if cmp.visible() then
           if cmp.get_selected_entry() then
