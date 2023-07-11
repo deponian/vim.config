@@ -29,6 +29,7 @@ M.opts = {
       pager = "delta --width=$FZF_PREVIEW_COLUMNS",
     },
     builtin = {
+      treesitter = { enable = true, disable = {"yaml"} },
       extensions = {
         ["bmp"] = { "chafa" },
         ["jpg"] = { "chafa" },
