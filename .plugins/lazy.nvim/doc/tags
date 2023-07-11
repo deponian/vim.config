@@ -7,6 +7,7 @@ lazy.nvim-lazy.nvim-installation	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-installatio
 lazy.nvim-lazy.nvim-lockfile-lazy-lock.json	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-lockfile-lazy-lock.json*
 lazy.nvim-lazy.nvim-migration-guide	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-migration-guide*
 lazy.nvim-lazy.nvim-performance	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-performance*
+lazy.nvim-lazy.nvim-plugin-authors	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-plugin-authors*
 lazy.nvim-lazy.nvim-plugin-spec	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-plugin-spec*
 lazy.nvim-lazy.nvim-requirements	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-requirements*
 lazy.nvim-lazy.nvim-startup-sequence	lazy.nvim.txt	/*lazy.nvim-lazy.nvim-startup-sequence*

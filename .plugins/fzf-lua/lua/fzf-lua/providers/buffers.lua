@@ -136,14 +136,14 @@ local populate_buffer_entries = function(opts, bufnrs, tabh)
 end
 
 
-local function gen_buffer_entry(opts, buf, hl_curbuf, cwd)
+local function gen_buffer_entry(opts, buf, cwd)
   -- local hidden = buf.info.hidden == 1 and 'h' or 'a'
   local hidden = ""
   local readonly = buf.readonly and "=" or " "
   local changed = buf.info.changed == 1 and "+" or " "
   local flags = hidden .. readonly .. changed
-  local leftbr = utils.ansi_codes.clear("[")
-  local rightbr = utils.ansi_codes.clear("]")
+  local leftbr = "["
+  local rightbr = "]"
   local bufname = #buf.info.name > 0 and path.relative(buf.info.name, cwd or vim.loop.cwd())
   if opts.filename_only then
     bufname = path.basename(bufname)
@@ -156,20 +156,14 @@ local function gen_buffer_entry(opts, buf, hl_curbuf, cwd)
   -- add line number
   bufname = ("%s:%s"):format(bufname, buf.info.lnum > 0 and buf.info.lnum or "")
   if buf.flag == "%" then
-    flags = utils.ansi_codes.red(buf.flag) .. flags
-    if hl_curbuf then
-      -- no header line, highlight current buffer
-      leftbr = utils.ansi_codes.green("[")
-      rightbr = utils.ansi_codes.green("]")
-      bufname = utils.ansi_codes.green(bufname)
-    end
+    flags = utils.ansi_codes[opts.hls.buf_flag_cur](buf.flag) .. flags
   elseif buf.flag == "#" then
-    flags = utils.ansi_codes.cyan(buf.flag) .. flags
+    flags = utils.ansi_codes[opts.hls.buf_flag_alt](buf.flag) .. flags
   else
     flags = utils.nbsp .. flags
   end
   local bufnrstr = string.format("%s%s%s", leftbr,
-    utils.ansi_codes.yellow(string.format(buf.bufnr)), rightbr)
+    utils.ansi_codes[opts.hls.buf_nr](tostring(buf.bufnr)), rightbr)
   local buficon = ""
   local hl = ""
   if opts.file_icons then
@@ -208,7 +202,7 @@ M.buffers = function(opts)
       if next(filtered) then
         local buffers = populate_buffer_entries(opts, filtered)
         for _, bufinfo in pairs(buffers) do
-          local ok, entry = pcall(gen_buffer_entry, opts, bufinfo, not opts.sort_lastused)
+          local ok, entry = pcall(gen_buffer_entry, opts, bufinfo)
           assert(ok and entry)
           cb(entry)
         end
@@ -259,42 +253,64 @@ M.buffer_lines = function(opts)
   opts.fn_pre_fzf = UPDATE_STATE
   opts.fn_pre_fzf()
 
-  local buffers = filter_buffers(opts,
-    opts.current_buffer_only and { __STATE.curbuf } or __STATE.buflist)
-
-  local items = {}
-
-  for _, bufnr in ipairs(buffers) do
-    local data = {}
-    local filepath = vim.api.nvim_buf_get_name(bufnr)
-    if vim.api.nvim_buf_is_loaded(bufnr) then
-      data = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-    elseif vim.fn.filereadable(filepath) ~= 0 then
-      data = vim.fn.readfile(filepath, "")
+  local contents = function(cb)
+    local function add_entry(x, co)
+      cb(x, function(err)
+        coroutine.resume(co)
+        if err then cb(nil) end
+      end)
+      coroutine.yield()
     end
-    local bufname = path.basename(filepath)
-    local buficon, hl
-    if opts.file_icons then
-      local filename = path.tail(bufname)
-      local extension = path.extension(filename)
-      buficon, hl = make_entry.get_devicon(filename, extension)
-      if opts.color_icons then
-        buficon = utils.ansi_codes[hl](buficon)
+
+    coroutine.wrap(function()
+      local co = coroutine.running()
+
+      local buffers = filter_buffers(opts,
+        opts.current_buffer_only and { __STATE.curbuf } or __STATE.buflist)
+
+      for _, bufnr in ipairs(buffers) do
+        local data = {}
+        local bufname, buficon, hl
+        -- use vim.schedule to avoid
+        -- E5560: vimL function must not be called in a lua loop callback
+        vim.schedule(function()
+          local filepath = vim.api.nvim_buf_get_name(bufnr)
+          if vim.api.nvim_buf_is_loaded(bufnr) then
+            data = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+          elseif vim.fn.filereadable(filepath) ~= 0 then
+            data = vim.fn.readfile(filepath, "")
+          end
+          bufname = path.basename(filepath)
+          if opts.file_icons then
+            local filename = path.tail(bufname)
+            local extension = path.extension(filename)
+            buficon, hl = make_entry.get_devicon(filename, extension)
+            if opts.color_icons then
+              buficon = utils.ansi_codes[hl](buficon)
+            end
+          end
+          if not bufname or #bufname == 0 then
+            bufname = utils.nvim_buf_get_name(bufnr)
+          end
+          coroutine.resume(co)
+        end)
+
+        -- wait for vim.schedule
+        coroutine.yield()
+
+        for l, text in ipairs(data) do
+          add_entry(string.format("[%s]%s%s%s%s:%s: %s",
+            utils.ansi_codes[opts.hls.buf_nr](tostring(bufnr)),
+            utils.nbsp,
+            buficon or "",
+            buficon and utils.nbsp or "",
+            utils.ansi_codes[opts.hls.buf_name](bufname),
+            utils.ansi_codes[opts.hls.buf_linenr](tostring(l)),
+            text), co)
+        end
       end
-    end
-    if not bufname or #bufname == 0 then
-      bufname = utils.nvim_buf_get_name(bufnr)
-    end
-    for l, text in ipairs(data) do
-      table.insert(items, ("[%s]%s%s%s%s:%s: %s"):format(
-        utils.ansi_codes.yellow(tostring(bufnr)),
-        utils.nbsp,
-        buficon or "",
-        buficon and utils.nbsp or "",
-        utils.ansi_codes.magenta(bufname),
-        utils.ansi_codes.green(tostring(l)),
-        text))
-    end
+      cb(nil)
+    end)()
   end
 
   if opts.search and #opts.search > 0 then
@@ -303,7 +319,7 @@ M.buffer_lines = function(opts)
 
   opts = core.set_fzf_field_index(opts, 3, opts._is_skim and "{}" or "{..-2}")
 
-  core.fzf_exec(items, opts)
+  core.fzf_exec(contents, opts)
 end
 
 M.tabs = function(opts)
@@ -375,13 +391,11 @@ M.tabs = function(opts)
               (vim.loop.cwd() == tab_cwd and ""
                 or string.format(": %s", path.HOME_to_tilde(tab_cwd))))
           end,
-          utils.ansi_codes.blue)
+          utils.ansi_codes[opts.hls.tab_title])
 
         local marker, fn_marker_hl = opt_hl("tab_marker",
           function(s) return s end,
-          function(s)
-            return utils.ansi_codes.blue(utils.ansi_codes.bold(s));
-          end)
+          utils.ansi_codes[opts.hls.tab_marker])
 
         if not opts.current_tab_only then
           cb(string.format("%d)%s%s\t%s", t, utils.nbsp,
@@ -399,7 +413,7 @@ M.tabs = function(opts)
         local tabh = vim.api.nvim_list_tabpages()[t]
         local buffers = populate_buffer_entries(opts, bufnrs_flat, tabh)
         for _, bufinfo in pairs(buffers) do
-          cb(gen_buffer_entry(opts, bufinfo, false, tab_cwd))
+          cb(gen_buffer_entry(opts, bufinfo, tab_cwd))
         end
       end
       cb(nil)

@@ -5,10 +5,6 @@ local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
 
--- Save once since this can't be run in a fast event and will err with:
--- E5560: vimL function must not be called in a lua loop callback
-local __HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
-
 local function CTX_UPDATE()
   -- save current win/buf context, ignore when fzf
   -- window is already open (actions.sym_lsym)
@@ -23,7 +19,7 @@ local function CTX_UPDATE()
 end
 
 local function handler_capabilty(handler)
-  if __HAS_NVIM_08 then
+  if utils.__HAS_NVIM_08 then
     return handler.server_capability
   else
     return handler.resolved_capability
@@ -41,7 +37,7 @@ local function check_capabilities(feature, silent)
   local num_clients = 0
 
   for _, client in pairs(clients) do
-    if __HAS_NVIM_08 then
+    if utils.__HAS_NVIM_08 then
       if client.server_capabilities[feature] then
         num_clients = num_clients + 1
       end
@@ -105,6 +101,9 @@ local function location_handler(opts, cb, _, result, ctx, _)
     jump_to_location(opts, result[1], encoding)
   end
   local items = vim.lsp.util.locations_to_items(result, encoding)
+  if opts.filter and type(opts.filter) == "function" then
+    items = opts.filter(items)
+  end
   for _, entry in ipairs(items) do
     if not opts.current_buffer_only or __CTX.bufname == entry.filename then
       entry = make_entry.lcol(entry, opts)
@@ -626,7 +625,6 @@ local function gen_sym2style_map(opts)
   assert(M._sym2style == nil)
   assert(opts.symbol_style ~= nil)
   M._sym2style = {}
-  local colormap = vim.api.nvim_get_color_map()
   for kind, icon in pairs(opts.symbol_icons) do
     -- style==1: "<icon> <kind>"
     -- style==2: "<icon>"
@@ -640,7 +638,7 @@ local function gen_sym2style_map(opts)
       s = kind
     end
     if s and opts.symbol_hl then
-      M._sym2style[kind] = utils.ansi_from_hl(opts.symbol_hl(kind), s, colormap)
+      M._sym2style[kind] = utils.ansi_from_hl(opts.symbol_hl(kind), s)
     elseif s then
       M._sym2style[kind] = s
     else

@@ -177,6 +177,12 @@ M.fzf_wrap = function(opts, contents, fn_selected)
 end
 
 M.fzf = function(contents, opts)
+  -- Disable opening from the command-line window `:q`
+  -- creates all kinds of issues, will fail on `nvim_win_close`
+  if vim.fn.win_gettype() == "command" then
+    utils.info("Unable to open from the command-line window. See `:help E11`.")
+    return
+  end
   -- normalize with globals if not already normalized
   if not opts or not opts._normalized then
     opts = config.normalize_opts(opts or {}, {})
@@ -242,6 +248,13 @@ M.fzf = function(contents, opts)
   if previewer then
     -- Set the preview command line
     opts.preview = previewer:cmdline()
+    -- fzf 0.40 added 'zero' event for when there's no match
+    -- clears the preview when there are no matching entries
+    if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.40 and previewer.zero then
+      opts.keymap = opts.keymap or {}
+      opts.keymap.fzf = opts.keymap.fzf or {}
+      opts.keymap.fzf["zero"] = previewer:zero()
+    end
     if type(previewer.preview_window) == "function" then
       -- do we need to override the preview_window args?
       -- this can happen with the builtin previewer
@@ -285,7 +298,8 @@ M.fzf = function(contents, opts)
       fzf_bin = opts.fzf_bin,
       cwd = opts.cwd,
       silent_fail = opts.silent_fail,
-      is_fzf_tmux = opts._is_fzf_tmux
+      is_fzf_tmux = opts._is_fzf_tmux,
+      debug = opts.debug_cmd or opts.debug and not (opts.debug_cmd == false)
     })
   -- kill fzf piped process PID
   -- NOTE: might be an overkill since we're using $FZF_DEFAULT_COMMAND
@@ -342,10 +356,6 @@ M.preview_window = function(o)
   return preview_args
 end
 
-M.get_color = function(hl_group, what)
-  return vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID(hl_group)), what)
-end
-
 -- Create fzf --color arguments from a table of vim highlight groups.
 M.create_fzf_colors = function(opts)
   local colors = opts and opts.fzf_colors
@@ -354,11 +364,10 @@ M.create_fzf_colors = function(opts)
   end
   if not colors then return end
 
-  local colormap = vim.api.nvim_get_color_map()
   local tbl = {}
   for highlight, list in pairs(colors) do
     if type(list) == "table" then
-      local hexcol = utils.hexcol_from_hl(list[2], list[1], colormap)
+      local hexcol = utils.hexcol_from_hl(list[2], list[1])
       if hexcol and #hexcol > 0 then
         table.insert(tbl, ("%s:%s"):format(highlight, hexcol))
       end
@@ -585,10 +594,9 @@ M.mt_cmd_wrapper = function(opts)
         libuv.shellescape(config._devicons_path),
         fn_transform)
     end
-    local cmd = libuv.wrap_spawn_stdio(opts_to_str(opts),
-      fn_transform, fn_preprocess)
+    local cmd = libuv.wrap_spawn_stdio(opts_to_str(opts), fn_transform, fn_preprocess)
     if opts.debug_cmd or opts.debug and not (opts.debug_cmd == false) then
-      print(cmd)
+      utils.info(string.format("multiprocess cmd: %s", cmd))
     end
     return cmd
   else
@@ -660,7 +668,7 @@ M.set_header = function(opts, hdr_tbl)
     cwd = {
       hdr_txt_opt = "cwd_header_txt",
       hdr_txt_str = "cwd: ",
-      hdr_txt_col = "red",
+      hdr_txt_col = opts.hls.header_text,
       val = function()
         -- do not display header when we're inside our
         -- cwd unless the caller specifically requested
@@ -675,7 +683,7 @@ M.set_header = function(opts, hdr_tbl)
     search = {
       hdr_txt_opt = "grep_header_txt",
       hdr_txt_str = "Grep string: ",
-      hdr_txt_col = "red",
+      hdr_txt_col = opts.hls.header_text,
       val = function()
         return opts.search and #opts.search > 0 and opts.search
       end,
@@ -683,7 +691,7 @@ M.set_header = function(opts, hdr_tbl)
     lsp_query = {
       hdr_txt_opt = "lsp_query_header_txt",
       hdr_txt_str = "Query: ",
-      hdr_txt_col = "red",
+      hdr_txt_col = opts.hls.header_text,
       val = function()
         return opts.lsp_query and #opts.lsp_query > 0 and opts.lsp_query
       end,
@@ -691,7 +699,7 @@ M.set_header = function(opts, hdr_tbl)
     regex_filter = {
       hdr_txt_opt = "regex_header_txt",
       hdr_txt_str = "Regex filter: ",
-      hdr_txt_col = "red",
+      hdr_txt_col = opts.hls.header_text,
       val = function()
         return opts.regex_filter and #opts.regex_filter > 0 and opts.regex_filter
       end,
@@ -710,8 +718,8 @@ M.set_header = function(opts, hdr_tbl)
             local to = opts.fn_reload and def.fn_reload or def[1]
             table.insert(ret, def.pos or #ret + 1,
               string.format("<%s> to %s",
-                utils.ansi_codes.yellow(k),
-                utils.ansi_codes.red(to)))
+                utils.ansi_from_hl(opts.hls.header_bind, k),
+                utils.ansi_from_hl(opts.hls.header_text, to)))
           end
         end
         -- table.concat fails if the table indexes aren't consecutive
@@ -749,7 +757,7 @@ M.set_header = function(opts, hdr_tbl)
       hdr_str = not hdr_str and "" or (hdr_str .. ", ")
       hdr_str = ("%s%s%s"):format(hdr_str, def.hdr_txt_str,
         not def.hdr_txt_col and txt or
-        utils.ansi_codes[def.hdr_txt_col](txt))
+        utils.ansi_from_hl(def.hdr_txt_col, txt))
     end
   end
   if hdr_str and #hdr_str > 0 then
@@ -768,8 +776,7 @@ M.convert_reload_actions = function(reload_cmd, opts)
   end
   -- Does not work with fzf version < 0.36, fzf fails with
   -- "error 2: bind action not specified:" (#735)
-  local version = utils.fzf_version(opts)
-  if version < 0.36 then
+  if not opts.__FZF_VERSION or opts.__FZF_VERSION < 0.36 then
     fallback = true
   end
   -- Two types of action as table:
@@ -826,9 +833,10 @@ M.convert_reload_actions = function(reload_cmd, opts)
       -- replace the action with shell cmd proxy to the original action
       local shell_action = shell.raw_action(function(items, _, _)
         v.fn(items, opts)
-      end, "{+}", opts.debug)
+      end, v.field_index == false and "" or v.field_index or "{+}", opts.debug)
       opts.keymap.fzf[k] = {
-        string.format("%sexecute-silent(%s)+reload(%s)",
+        string.format("%s%sexecute-silent(%s)+reload(%s)",
+          type(v.prefix) == "string" and v.prefix or "",
           unbind and (unbind .. "+") or "",
           shell_action,
           reload_cmd),
@@ -854,9 +862,11 @@ M.convert_exec_silent_actions = function(opts)
       -- replace the action with shell cmd proxy to the original action
       local shell_action = shell.raw_action(function(items, _, _)
         v.fn(items, opts)
-      end, "{+}", opts.debug)
+      end, v.field_index == false and "" or v.field_index or "{+}", opts.debug)
       opts.keymap.fzf[k] = {
-        string.format("execute-silent(%s)", shell_action),
+        string.format("%sexecute-silent(%s)",
+          type(v.prefix) == "string" and v.prefix or "",
+          shell_action),
         desc = config.get_action_helpstr(v.fn)
       }
       opts.actions[k] = nil
@@ -879,6 +889,9 @@ M.setup_fzf_interactive_flags = function(command, fzf_field_expression, opts)
   end
 
   local reload_command = initial_command
+  if type(opts.query_delay) == "number" then
+    reload_command = string.format("sleep %.2f; %s", opts.query_delay / 1000, reload_command)
+  end
   if not opts.exec_empty_query then
     reload_command = ("[ -z %s ] || %s"):format(fzf_field_expression, reload_command)
   end

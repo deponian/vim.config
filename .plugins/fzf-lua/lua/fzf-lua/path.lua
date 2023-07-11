@@ -205,13 +205,10 @@ function M.entry_to_ctag(entry, noesc)
   return ctag
 end
 
-function M.entry_to_location(entry, opts)
+function M.entry_to_location(entry, _)
   local uri, line, col = entry:match("^(.*://.*):(%d+):(%d+):")
   line = line and tonumber(line) or 1
   col = col and tonumber(col) or 1
-  if opts and opts.path_shorten then
-    uri = uri:match("^.*://") .. M.lengthen(uri:match("^.*://(.*)"))
-  end
   return {
     stripped = entry,
     line = line,
@@ -318,12 +315,13 @@ function M.git_cwd(cmd, opts)
     { "cwd",          "-C" },
     { "git_dir",      "--git-dir" },
     { "git_worktree", "--work-tree" },
+    { "git_config",   "-c",         noexpand = true },
   }
   if type(cmd) == "string" then
     local args = ""
     for _, a in ipairs(git_args) do
       if o[a[1]] then
-        o[a[1]] = vim.fn.expand(o[a[1]])
+        o[a[1]] = a.noexpand and o[a[1]] or vim.fn.expand(o[a[1]])
         args = args .. ("%s %s "):format(a[2], vim.fn.shellescape(o[a[1]]))
       end
     end
@@ -333,7 +331,7 @@ function M.git_cwd(cmd, opts)
     cmd = utils.tbl_deep_clone(cmd)
     for _, a in ipairs(git_args) do
       if o[a[1]] then
-        o[a[1]] = vim.fn.expand(o[a[1]])
+        o[a[1]] = a.noexpand and o[a[1]] or vim.fn.expand(o[a[1]])
         table.insert(cmd, idx, a[2])
         table.insert(cmd, idx + 1, o[a[1]])
         idx = idx + 2

@@ -114,7 +114,7 @@ list.awk = {
 list.bash = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-bash",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
   },
   filetype = "sh",
   maintainers = { "@TravonteD" },
@@ -177,6 +177,14 @@ list.c_sharp = {
   },
   filetype = "cs",
   maintainers = { "@Luxed" },
+}
+
+list.cairo = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-cairo",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@amaanq" },
 }
 
 list.capnp = {
@@ -273,7 +281,7 @@ list.css = {
 list.cuda = {
   install_info = {
     url = "https://github.com/theHamsta/tree-sitter-cuda",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
     generate_requires_npm = true,
   },
   maintainers = { "@theHamsta" },
@@ -603,6 +611,15 @@ list.gowork = {
   maintainers = { "@omertuc" },
 }
 
+list.groovy = {
+  install_info = {
+    url = "https://github.com/Decodetalkers/tree-sitter-groovy",
+    files = { "src/parser.c" },
+    branch = "gh-pages",
+  },
+  maintainers = { "@Decodetalkers" },
+}
+
 list.graphql = {
   install_info = {
     url = "https://github.com/bkegley/tree-sitter-graphql",
@@ -670,7 +687,7 @@ list.hjson = {
 list.hlsl = {
   install_info = {
     url = "https://github.com/theHamsta/tree-sitter-hlsl",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
     generate_requires_npm = true,
   },
   maintainers = { "@theHamsta" },
@@ -683,6 +700,15 @@ list.hocon = {
     generate_requires_npm = true,
   },
   maintainers = { "@antosha417" },
+}
+
+list.hoon = {
+  install_info = {
+    url = "https://github.com/urbit-pilled/tree-sitter-hoon",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@urbit-pilled" },
+  experimental = true,
 }
 
 list.html = {
@@ -709,6 +735,14 @@ list.http = {
     generate_requires_npm = true,
   },
   maintainers = { "@amaanq" },
+}
+
+list.hurl = {
+  install_info = {
+    url = "https://github.com/pfeiferj/tree-sitter-hurl",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@pfeiferj" },
 }
 
 list.ini = {
@@ -1019,7 +1053,7 @@ list.objc = {
 list.ocaml = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-ocaml",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
     location = "ocaml",
   },
   maintainers = { "@undu" },
@@ -1028,7 +1062,7 @@ list.ocaml = {
 list.ocaml_interface = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-ocaml",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
     location = "interface",
   },
   filetype = "ocamlinterface",
@@ -1038,7 +1072,7 @@ list.ocaml_interface = {
 list.ocamllex = {
   install_info = {
     url = "https://github.com/atom-ocaml/tree-sitter-ocamllex",
-    files = { "src/parser.c", "src/scanner.cc" },
+    files = { "src/parser.c", "src/scanner.c" },
     requires_generate_from_grammar = true,
   },
   maintainers = { "@undu" },
@@ -1073,6 +1107,14 @@ list.passwd = {
     files = { "src/parser.c" },
   },
   maintainers = { "@amaanq" },
+}
+
+list.pem = {
+  install_info = {
+    url = "https://github.com/ObserverOfTime/tree-sitter-pem",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@ObserverOfTime" },
 }
 
 list.perl = {
@@ -1233,7 +1275,6 @@ list.racket = {
     url = "https://github.com/6cdh/tree-sitter-racket",
     files = { "src/parser.c", "src/scanner.c" },
   },
-  maintainers = { "@6cdh" },
 }
 
 list.rasi = {
@@ -1313,7 +1354,6 @@ list.scheme = {
     url = "https://github.com/6cdh/tree-sitter-scheme",
     files = { "src/parser.c" },
   },
-  maintainers = { "@6cdh" },
 }
 
 list.scss = {
@@ -1576,12 +1616,12 @@ list.uxntal = {
 
 list.v = {
   install_info = {
-    url = "https://github.com/vlang/vls",
+    url = "https://github.com/v-analyzer/v-analyzer",
     files = { "src/parser.c", "src/scanner.c" },
     location = "tree_sitter_v",
   },
   filetype = "vlang",
-  maintainers = { "@kkharji" },
+  maintainers = { "@kkharji", "@amaanq" },
 }
 
 list.vala = {
@@ -1649,6 +1689,17 @@ list.wgsl_bevy = {
     generate_requires_npm = true,
   },
   maintainers = { "@theHamsta" },
+}
+
+list.wing = {
+  install_info = {
+    url = "https://github.com/winglang/wing",
+    files = { "src/parser.c", "src/scanner.c" },
+    location = "libs/tree-sitter-wing",
+    requires_generate_from_grammar = true,
+  },
+  maintainers = { "@gshpychka" },
+  experimental = true,
 }
 
 list.yaml = {

@@ -23,6 +23,17 @@ M.colorschemes = function(opts)
   local current_background = vim.o.background
   local colors = opts.colors or vim.fn.getcompletion("", "color")
 
+  if type(opts.ignore_patterns) == "table" then
+    colors = vim.tbl_filter(function(x)
+      for _, p in ipairs(opts.ignore_patterns) do
+        if x:match(p) then
+          return false
+        end
+      end
+      return true
+    end, colors)
+  end
+
   opts.fzf_opts["--no-multi"] = ""
 
   if opts.live_preview then
@@ -62,12 +73,11 @@ M.highlights = function(opts)
   if not opts then return end
 
   local contents = function(cb)
-    local colormap = vim.api.nvim_get_color_map()
     local highlights = vim.fn.getcompletion("", "highlight")
 
     local function add_entry(hl, co)
       -- translate the highlight using ansi escape sequences
-      local x = utils.ansi_from_hl(hl, hl, colormap)
+      local x = utils.ansi_from_hl(hl, hl)
       cb(x, function(err)
         if co then coroutine.resume(co) end
         if err then

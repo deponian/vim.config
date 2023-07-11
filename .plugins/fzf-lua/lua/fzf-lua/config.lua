@@ -34,6 +34,17 @@ M._devicons_geticons = function()
     local default = table.remove(icons, 1)
     icons["<default>"] = default
   end
+  -- some devicons customizations remove `info.color`
+  -- retrieve the color from the highlight group (#801)
+  for k, info in pairs(icons) do
+    if not info.color then
+      local hlgroup = "DevIcon" .. info.name
+      local hexcol = utils.hexcol_from_hl(hlgroup, "fg")
+      if hexcol and #hexcol > 0 then
+        icons[k].color = hexcol
+      end
+    end
+  end
   return icons
 end
 
@@ -109,12 +120,20 @@ function M.normalize_opts(opts, defaults)
 
   -- Merge required tables from globals
   for _, k in ipairs({
-    "winopts", "keymap", "fzf_opts", "fzf_tmux_opts", "previewers"
+    "winopts", "keymap", "fzf_opts", "fzf_tmux_opts", "previewers", "hls"
   }) do
     opts[k] = vim.tbl_deep_extend("keep",
       -- must clone or map will be saved as reference
       -- and then overwritten if found in 'backward_compat'
-      opts[k] or {}, utils.tbl_deep_clone(M.globals[k]) or {})
+      type(opts[k]) == "function" and opts[k]() or opts[k] or {},
+      type(M.globals[k]) == "function" and M.globals[k]() or
+      type(M.globals[k]) == "table" and utils.tbl_deep_clone(M.globals[k]) or {})
+  end
+
+  -- Merge `winopts` with outputs from `winopts_fn`
+  local winopts_fn = opts.winopts_fn or M.globals.winopts_fn
+  if type(winopts_fn) == "function" then
+    opts.winopts = vim.tbl_deep_extend("force", opts.winopts, winopts_fn() or {})
   end
 
   -- Merge arrays from globals|defaults, can't use 'vim.tbl_xxx'
@@ -170,15 +189,6 @@ function M.normalize_opts(opts, defaults)
   -- Merge global resume options
   opts.global_resume = get_opt("global_resume", opts, M.globals)
 
-  -- Backward compat: renamed '{continue|repeat}_last_search'
-  if opts.resume == nil then
-    for _, o in ipairs({ "repeat_last_search", "continue_last_search" }) do
-      if opts[o] ~= nil then
-        opts.resume = opts[o]
-      end
-    end
-  end
-
   -- global option overrides. If exists, these options will
   -- be used in a "LOGICAL AND" against the local option (#188)
   -- e.g.:
@@ -196,64 +206,65 @@ function M.normalize_opts(opts, defaults)
   -- backward compatibility, rhs overrides lhs
   -- (rhs being the "old" option)
   local backward_compat = {
-    ["winopts.row"]                  = "winopts.win_row",
-    ["winopts.col"]                  = "winopts.win_col",
-    ["winopts.width"]                = "winopts.win_width",
-    ["winopts.height"]               = "winopts.win_height",
-    ["winopts.border"]               = "winopts.win_border",
-    ["winopts.on_create"]            = "winopts.window_on_create",
-    ["winopts.preview.wrap"]         = "preview_wrap",
-    ["winopts.preview.border"]       = "preview_border",
-    ["winopts.preview.hidden"]       = "preview_opts",
-    ["winopts.preview.vertical"]     = "preview_vertical",
-    ["winopts.preview.horizontal"]   = "preview_horizontal",
-    ["winopts.preview.layout"]       = "preview_layout",
-    ["winopts.preview.flip_columns"] = "flip_columns",
-    ["winopts.preview.default"]      = "default_previewer",
-    ["winopts.hl.normal"]            = "winopts.hl_normal",
-    ["winopts.hl.border"]            = "winopts.hl_border",
-    ["winopts.hl.cursor"]            = "previewers.builtin.hl_cursor",
-    ["winopts.hl.cursorline"]        = "previewers.builtin.hl_cursorline",
-    ["winopts.preview.delay"]        = "previewers.builtin.delay",
-    ["winopts.preview.title"]        = "previewers.builtin.title",
-    ["winopts.preview.title_align"]  = "previewers.builtin.title_align",
-    ["winopts.preview.scrollbar"]    = "previewers.builtin.scrollbar",
-    ["winopts.preview.scrollchar"]   = "previewers.builtin.scrollchar",
-    -- Diagnostics & LSP symbols separation options
-    ["diag_icons"]                   = "lsp.lsp_icons",
+    { "winopts.row",                  "winopts.win_row" },
+    { "winopts.col",                  "winopts.win_col" },
+    { "winopts.width",                "winopts.win_width" },
+    { "winopts.height",               "winopts.win_height" },
+    { "winopts.border",               "winopts.win_border" },
+    { "winopts.on_create",            "winopts.window_on_create" },
+    { "winopts.preview.wrap",         "preview_wrap" },
+    { "winopts.preview.border",       "preview_border" },
+    { "winopts.preview.hidden",       "preview_opts" },
+    { "winopts.preview.vertical",     "preview_vertical" },
+    { "winopts.preview.horizontal",   "preview_horizontal" },
+    { "winopts.preview.layout",       "preview_layout" },
+    { "winopts.preview.flip_columns", "flip_columns" },
+    { "winopts.preview.default",      "default_previewer" },
+    { "winopts.preview.delay",        "previewers.builtin.delay" },
+    { "winopts.preview.title",        "previewers.builtin.title" },
+    { "winopts.preview.title_pos",    "winopts.preview.title_align" },
+    { "winopts.preview.scrollbar",    "previewers.builtin.scrollbar" },
+    { "winopts.preview.scrollchar",   "previewers.builtin.scrollchar" },
+    { "diag_icons",                   "lsp.lsp_icons" },
+    { "cwd_header",                   "show_cwd_header" },
+    { "cwd_prompt",                   "show_cwd_prompt" },
+    { "resume",                       "continue_last_search" },
+    { "resume",                       "repeat_last_search" },
+    { "hls.normal",                   "winopts.hl_normal" },
+    { "hls.border",                   "winopts.hl_border" },
+    { "hls.cursor",                   "previewers.builtin.hl_cursor" },
+    { "hls.cursorline",               "previewers.builtin.hl_cursorline" },
+    { "hls",                          "winopts.hl" },
   }
-
-  -- recursive key loopkup, can also set new value
-  local map_recurse = function(m, s, v, w)
-    local keys = utils.strsplit(s, ".")
-    local val, map = m, nil
-    for i = 1, #keys do
-      map = val
-      val = val[keys[i]]
-      if not val then break end
-      if v ~= nil and i == #keys then map[keys[i]] = v end
-    end
-    if v and w then utils.warn(w) end
-    return val
-  end
 
   -- iterate backward compat map, retrieve values from opts or globals
-  for k, v in pairs(backward_compat) do
-    map_recurse(opts, k, map_recurse(opts, v) or map_recurse(M.globals, v))
-    -- ,("'%s' is now defined under '%s'"):format(v, k))
+  for _, t in ipairs(backward_compat) do
+    local new_key, old_key = t[1], t[2]
+    local old_val = utils.map_get(opts, old_key) or utils.map_get(M.globals, old_key)
+    local new_val = utils.map_get(opts, new_key)
+    if old_val ~= nil then
+      if type(old_val) == "table" and type(new_val) == "table" then
+        utils.map_set(opts, new_key, vim.tbl_deep_extend("keep", new_val, old_val))
+      else
+        utils.map_set(opts, new_key, old_val)
+      end
+      utils.map_set(opts, old_key, nil)
+      -- utils.warn(string.format("option moved/renamed: '%s' -> '%s'", old_key, new_key))
+    end
   end
 
-  -- renamed options
-  local renamed = {
-    ["cwd_header"] = "show_cwd_header",
-    ["cwd_prompt"] = "show_cwd_prompt",
-  }
+  -- Merge highlight overrides with defaults, we only do this after the
+  -- backward compat copy due to the migration of `winopts.hl` -> `hls`
+  opts.hls = vim.tbl_deep_extend("keep", opts.hls or {}, M.globals.__HLS)
 
-  for k, v in pairs(renamed) do
-    if opts[v] ~= nil then
-      opts[k] = opts[v]
-      opts[v] = nil
-    end
+  -- Cache provider specific highlights so we don't call vim functions
+  -- within a "fast event" (`vim.in_fast_event()`) and err with:
+  -- E5560: vimL function must not be called in a lua loop callback
+  for _, hl_opt in ipairs(opts._cached_hls or {}) do
+    local hlgroup = opts.hls[hl_opt]
+    assert(hlgroup ~= nil) -- must exist
+    local _, escseq = utils.ansi_from_hl(hlgroup)
+    utils.cache_ansi_escseq(hlgroup, escseq)
   end
 
   if type(opts.previewer) == "function" then
@@ -316,6 +327,26 @@ function M.normalize_opts(opts, defaults)
   -- are we using skim?
   opts._is_skim = opts.fzf_bin:find("sk") ~= nil
 
+  -- enforce fzf minimum requirements
+  if not opts._is_skim then
+    local FZF_VERSION, rc, err = utils.fzf_version(opts)
+    opts.__FZF_VERSION = FZF_VERSION
+    if not opts.__FZF_VERSION then
+      utils.err(string.format(
+        "'fzf --version' failed with error %s: %s", rc, err))
+      return nil
+    elseif opts.__FZF_VERSION < 0.25 then
+      utils.err(string.format(
+        "fzf version %.2f is lower than minimum (0.25), aborting.",
+        opts.__FZF_VERSION))
+      return nil
+    elseif opts.__FZF_VERSION < 0.27 then
+      -- remove `--border=none`, fails when < 0.27
+      opts.fzf_opts = opts.fzf_opts or {}
+      opts.fzf_opts["--border"] = false
+    end
+  end
+
   -- are we using fzf-tmux
   opts._is_fzf_tmux = vim.env.TMUX and opts.fzf_bin:match("fzf%-tmux$")
 
@@ -340,38 +371,6 @@ M.bytecode = function(s, datatype)
       -- can't find any references for it other than
       -- it being used in packer.nvim
       return string.dump(iter, true)
-    end
-  end
-end
-
--- returns nil if not found
-M.get_global = function(s)
-  local keys = utils.strsplit(s, ".")
-  local iter = M.globals
-  for i = 1, #keys do
-    iter = iter[keys[i]]
-    if not iter then break end
-    if i == #keys then
-      return iter
-    end
-  end
-end
-
--- builds the tree if needed
-M.set_global = function(s, value)
-  local keys = utils.strsplit(s, ".")
-  local iter = M.globals
-  for i = 1, #keys do
-    if i == #keys then
-      iter[keys[i]] = value
-    else
-      -- build the new leaf on parent
-      -- to preserve original table ref
-      local parent = iter
-      if not parent[keys[i]] then
-        parent[keys[i]] = {}
-      end
-      iter = parent[keys[i]]
     end
   end
 end

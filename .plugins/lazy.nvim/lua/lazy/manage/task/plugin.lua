@@ -1,8 +1,19 @@
 local Util = require("lazy.util")
 local Loader = require("lazy.core.loader")
+local Config = require("lazy.core.config")
 
 ---@type table<string, LazyTaskDef>
 local M = {}
+
+---@param plugin LazyPlugin
+local function get_build_file(plugin)
+  for _, path in ipairs({ "build.lua", "build/init.lua" }) do
+    path = plugin.dir .. "/" .. path
+    if Util.file_exists(path) then
+      return path
+    end
+  end
+end
 
 M.build = {
   ---@param opts? {force:boolean}
@@ -10,7 +21,7 @@ M.build = {
     if opts and opts.force then
       return false
     end
-    return not (plugin._.dirty and plugin.build)
+    return not (plugin._.dirty and (plugin.build or get_build_file(plugin)))
   end,
   run = function(self)
     vim.cmd([[silent! runtime plugin/rplugin.vim]])
@@ -18,6 +29,23 @@ M.build = {
     Loader.load(self.plugin, { task = "build" })
 
     local builders = self.plugin.build
+
+    local build_file = get_build_file(self.plugin)
+    if build_file then
+      if builders then
+        if Config.options.build.warn_on_override then
+          Util.warn(
+            ("Plugin **%s** provides its own build script, but you also defined a `build` command.\nThe `build.lua` file will not be used"):format(
+              self.plugin.name
+            )
+          )
+        end
+      else
+        builders = function()
+          Loader.source(build_file)
+        end
+      end
+    end
     if builders then
       builders = type(builders) == "table" and builders or { builders }
       ---@cast builders (string|fun(LazyPlugin))[]

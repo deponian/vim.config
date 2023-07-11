@@ -372,6 +372,8 @@ end
 M.colorscheme = function(selected)
   local colorscheme = selected[1]
   vim.cmd("colorscheme " .. colorscheme)
+  -- setup fzf-lua's own highlight groups
+  utils.setup_highlights()
 end
 
 M.ensure_insert_mode = function()
@@ -424,17 +426,17 @@ M.exec_menu = function(selected)
 end
 
 
-M.search = function(selected)
+M.search = function(selected, opts)
   local query = selected[1]
   vim.cmd("stopinsert")
-  vim.fn.feedkeys(string.format("/%s", query), "n")
+  vim.fn.feedkeys(
+    string.format("%s%s", opts.reverse_search and "?" or "/", query), "n")
   return query
 end
 
-M.search_cr = function(selected)
-  local query = M.search(selected)
+M.search_cr = function(selected, opts)
+  M.search(selected, opts)
   utils.feed_keys_termcodes("<CR>")
-  vim.fn.histadd("search", query)
 end
 
 M.goto_mark = function(selected)
