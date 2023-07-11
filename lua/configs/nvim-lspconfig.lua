@@ -109,6 +109,13 @@ M.config = function ()
     on_attach = on_attach,
     settings = {
       Lua = {
+        format = {
+          enable = true,
+          defaultConfig = {
+            indent_style = "space",
+            indent_size = "2",
+          }
+        },
         runtime = {
           -- Tell the language server which version of Lua you're using (most likely LuaJIT in the case of Neovim)
           version = 'LuaJIT',
