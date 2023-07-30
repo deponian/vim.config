@@ -266,7 +266,7 @@ function M.reload(plugin)
   end
 
   -- reload any vimscript files for this plugin
-  local scripts = vim.fn.getscriptinfo({ name = ".vim" })
+  local scripts = vim.fn.getscriptinfo()
   local loaded_scripts = {}
   for _, s in ipairs(scripts) do
     ---@type string
@@ -333,6 +333,7 @@ function M._load(plugin, reason, opts)
   plugin._.loaded.time = Util.track().time
   table.remove(M.loading)
   vim.schedule(function()
+    vim.api.nvim_exec_autocmds("User", { pattern = "LazyLoad", modeline = false, data = plugin.name })
     vim.api.nvim_exec_autocmds("User", { pattern = "LazyRender", modeline = false })
   end)
 end

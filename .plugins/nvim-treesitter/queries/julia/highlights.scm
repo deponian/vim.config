@@ -13,7 +13,9 @@
 (macro_definition
   name: (identifier) @function.macro)
 
-(quote_expression ":" [(identifier) (operator)]) @symbol
+(quote_expression
+  ":" @symbol
+  [(identifier) (operator)] @symbol)
 
 (field_expression
   (identifier) @field .)
@@ -286,6 +288,7 @@
       (abstract_definition)
       (struct_definition)
       (function_definition)
+      (short_function_definition)
       (assignment)
       (const_statement)
     ])

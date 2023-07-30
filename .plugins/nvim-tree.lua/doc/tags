@@ -127,6 +127,7 @@ nvim-tree.actions.expand_all.max_folder_discovery	nvim-tree-lua.txt	/*nvim-tree.
 nvim-tree.actions.file_popup	nvim-tree-lua.txt	/*nvim-tree.actions.file_popup*
 nvim-tree.actions.file_popup.open_win_config	nvim-tree-lua.txt	/*nvim-tree.actions.file_popup.open_win_config*
 nvim-tree.actions.open_file	nvim-tree-lua.txt	/*nvim-tree.actions.open_file*
+nvim-tree.actions.open_file.eject	nvim-tree-lua.txt	/*nvim-tree.actions.open_file.eject*
 nvim-tree.actions.open_file.quit_on_open	nvim-tree-lua.txt	/*nvim-tree.actions.open_file.quit_on_open*
 nvim-tree.actions.open_file.resize_window	nvim-tree-lua.txt	/*nvim-tree.actions.open_file.resize_window*
 nvim-tree.actions.open_file.window_picker	nvim-tree-lua.txt	/*nvim-tree.actions.open_file.window_picker*
@@ -158,11 +159,11 @@ nvim-tree.filters.custom	nvim-tree-lua.txt	/*nvim-tree.filters.custom*
 nvim-tree.filters.dotfiles	nvim-tree-lua.txt	/*nvim-tree.filters.dotfiles*
 nvim-tree.filters.exclude	nvim-tree-lua.txt	/*nvim-tree.filters.exclude*
 nvim-tree.filters.git_clean	nvim-tree-lua.txt	/*nvim-tree.filters.git_clean*
+nvim-tree.filters.git_ignored	nvim-tree-lua.txt	/*nvim-tree.filters.git_ignored*
 nvim-tree.filters.no_buffer	nvim-tree-lua.txt	/*nvim-tree.filters.no_buffer*
 nvim-tree.git	nvim-tree-lua.txt	/*nvim-tree.git*
 nvim-tree.git.disable_for_dirs	nvim-tree-lua.txt	/*nvim-tree.git.disable_for_dirs*
 nvim-tree.git.enable	nvim-tree-lua.txt	/*nvim-tree.git.enable*
-nvim-tree.git.ignore	nvim-tree-lua.txt	/*nvim-tree.git.ignore*
 nvim-tree.git.show_on_dirs	nvim-tree-lua.txt	/*nvim-tree.git.show_on_dirs*
 nvim-tree.git.show_on_open_dirs	nvim-tree-lua.txt	/*nvim-tree.git.show_on_open_dirs*
 nvim-tree.git.timeout	nvim-tree-lua.txt	/*nvim-tree.git.timeout*
@@ -235,7 +236,9 @@ nvim-tree.renderer.symlink_destination	nvim-tree-lua.txt	/*nvim-tree.renderer.sy
 nvim-tree.respect_buf_cwd	nvim-tree-lua.txt	/*nvim-tree.respect_buf_cwd*
 nvim-tree.root_dirs	nvim-tree-lua.txt	/*nvim-tree.root_dirs*
 nvim-tree.select_prompts	nvim-tree-lua.txt	/*nvim-tree.select_prompts*
-nvim-tree.sort_by	nvim-tree-lua.txt	/*nvim-tree.sort_by*
+nvim-tree.sort	nvim-tree-lua.txt	/*nvim-tree.sort*
+nvim-tree.sort.sort_folders_first	nvim-tree-lua.txt	/*nvim-tree.sort.sort_folders_first*
+nvim-tree.sort.sorter	nvim-tree-lua.txt	/*nvim-tree.sort.sorter*
 nvim-tree.sync_root_with_cwd	nvim-tree-lua.txt	/*nvim-tree.sync_root_with_cwd*
 nvim-tree.system_open	nvim-tree-lua.txt	/*nvim-tree.system_open*
 nvim-tree.system_open.args	nvim-tree-lua.txt	/*nvim-tree.system_open.args*

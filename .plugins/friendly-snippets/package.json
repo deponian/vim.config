@@ -378,7 +378,11 @@
             },
             {
                 "language": "kotlin",
-                "path": "./snippets/kotlin.json"
+                "path": "./snippets/kotlin/kotlin.json"
+            },
+            {
+                "language": "kdoc",
+                "path": "./snippets/kotlin/kdoc.json"
             },
             {
                 "language": ["plaintex", "tex"],
@@ -475,6 +479,10 @@
             {
                 "language": "nu",
                 "path": "./snippets/nushell.json"
+            },
+            {
+                "language": "reason",
+                "path": "./snippets/reason.json"
             }
         ]
     }

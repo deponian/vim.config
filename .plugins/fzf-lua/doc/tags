@@ -1,3 +1,4 @@
+after	fzf-lua.txt	/*after*
 fzf-lua-buffers-and-files	fzf-lua.txt	/*fzf-lua-buffers-and-files*
 fzf-lua-commands	fzf-lua.txt	/*fzf-lua-commands*
 fzf-lua-completion-functions	fzf-lua.txt	/*fzf-lua-completion-functions*

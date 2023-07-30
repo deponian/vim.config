@@ -86,6 +86,10 @@ end
 
 ---@param text Text
 function View:render(text)
+  if not self:is_valid() then
+    return
+  end
+
   self:unlock()
   self:set_lines(text.lines)
   self:lock()
@@ -156,11 +160,17 @@ function View:setup(opts)
       keys = { keys }
     end
     for _, key in pairs(keys) do
-      vim.api.nvim_buf_set_keymap(self.buf, "n", key, [[<cmd>lua require("trouble").action("]] .. action .. [[")<cr>]], {
-        silent = true,
-        noremap = true,
-        nowait = true,
-      })
+      vim.api.nvim_buf_set_keymap(
+        self.buf,
+        "n",
+        key,
+        [[<cmd>lua require("trouble").action("]] .. action .. [[")<cr>]],
+        {
+          silent = true,
+          noremap = true,
+          nowait = true,
+        }
+      )
     end
   end
 
@@ -308,6 +318,10 @@ function View:on_win_enter()
 end
 
 function View:focus()
+  if not self:is_valid() then
+    return
+  end
+
   View.switch_to(self.win, self.buf)
   local line = self:get_line()
   if line == 1 then
@@ -446,13 +460,7 @@ function View:hover(opts)
   if not (item and item.full_text) then
     return
   end
-
-  local lines = {}
-  for line in item.full_text:gmatch("([^\n]*)\n?") do
-    table.insert(lines, line)
-  end
-
-  vim.lsp.util.open_floating_preview(lines, "plaintext", { border = "single" })
+  vim.lsp.util.open_floating_preview(vim.split(item.full_text, "\n"), "markdown", config.options.win_config)
 end
 
 function View:jump(opts)
@@ -520,5 +528,40 @@ end
 -- View.preview = View._preview
 
 View.preview = util.throttle(50, View._preview)
+
+function View:open_code_href()
+  if not vim.api.nvim_win_is_valid(self.parent) then
+    return
+  end
+
+  local item = self:current_item()
+  if not item then
+    return
+  end
+  util.debug("open code href")
+
+  if item.is_file ~= true and item.code_href then
+    local cmd
+    if vim.fn.has("win32") == 1 then
+      cmd = "explorer"
+    elseif vim.fn.executable("xdg-open") == 1 then
+      cmd = "xdg-open"
+    elseif vim.fn.executable("wslview") == 1 then
+      cmd = "wslview"
+    else
+      cmd = "open"
+    end
+
+    local ret = vim.fn.jobstart({ cmd, item.code_href }, { detach = true })
+    if ret <= 0 then
+      local msg = {
+        "Failed to open code href",
+        ret,
+        vim.inspect(cmd),
+      }
+      vim.notify(table.concat(msg, "\n"), vim.log.levels.ERROR)
+    end
+  end
+end
 
 return View

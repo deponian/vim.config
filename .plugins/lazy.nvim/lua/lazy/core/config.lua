@@ -50,6 +50,8 @@ M.defaults = {
     border = "none",
     title = nil, ---@type string only works when border is not "none"
     title_pos = "center", ---@type "center" | "left" | "right"
+    -- Show pills on top of the Lazy window
+    pills = true, ---@type boolean
     icons = {
       cmd = " ",
       config = "",
@@ -159,7 +161,7 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "10.0.2" -- x-release-please-version
+M.version = "10.3.0" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 

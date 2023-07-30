@@ -196,7 +196,7 @@ local function setup_autocommands(opts)
   create_nvim_tree_autocmd("BufWipeout", {
     pattern = "NvimTree_*",
     callback = function()
-      if utils.is_nvim_tree_buf(0) then
+      if utils.is_nvim_tree_buf(0) and opts.actions.open_file.eject then
         view._prevent_buffer_override()
       end
     end,
@@ -205,7 +205,6 @@ local function setup_autocommands(opts)
   create_nvim_tree_autocmd("BufWritePost", {
     callback = function()
       if opts.auto_reload_on_write and not opts.filesystem_watchers.enable then
-        log.line("dev", "BufWritePost reloading")
         reloaders.reload_explorer()
       end
     end,
@@ -366,7 +365,10 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
   hijack_cursor = false,
   hijack_netrw = true,
   hijack_unnamed_buffer_when_opening = false,
-  sort_by = "name",
+  sort = {
+    sorter = "name",
+    folders_first = true,
+  },
   root_dirs = {},
   prefer_startup_root = false,
   sync_root_with_cwd = false,
@@ -497,6 +499,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     },
   },
   filters = {
+    git_ignored = true,
     dotfiles = false,
     git_clean = false,
     no_buffer = false,
@@ -510,7 +513,6 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
   },
   git = {
     enable = true,
-    ignore = true,
     show_on_dirs = true,
     show_on_open_dirs = true,
     disable_for_dirs = {},
@@ -543,6 +545,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     },
     open_file = {
       quit_on_open = false,
+      eject = true,
       resize_window = true,
       window_picker = {
         enable = true,
@@ -613,7 +616,7 @@ local FIELD_OVERRIDE_TYPECHECK = {
   min = { string = true, ["function"] = true, number = true },
   remove_keymaps = { boolean = true, table = true },
   on_attach = { ["function"] = true, string = true },
-  sort_by = { ["function"] = true, string = true },
+  sorter = { ["function"] = true, string = true },
   root_folder_label = { ["function"] = true, string = true, boolean = true },
   picker = { ["function"] = true, string = true },
 }
