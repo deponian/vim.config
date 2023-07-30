@@ -3,20 +3,7 @@ local M = { "nvim-treesitter/nvim-treesitter" }
 M.config = function()
   require("nvim-treesitter.configs").setup({
     -- A list of parser names, or "all"
-    ensure_installed = {
-      "awk", "bash", "comment",
-      "css", "diff", "dockerfile", "embedded_template",
-      "git_config", "git_rebase", "gitattributes", "gitcommit", "gitignore",
-      "go", "gomod", "gosum", "gowork", "hcl",
-      "html", "htmldjango", "http", "ini", "javascript",
-      "jq", "jsdoc", "json", "json5", "jsonc",
-      "jsonnet", "lua", "luadoc", "luap", "make",
-      "markdown", "markdown_inline", "ninja", "passwd",
-      "phpdoc", "proto", "python", "query",
-      "regex", "rst", "ruby",
-      "sxhkdrc", "teal", "terraform", "toml",
-      "vim", "vimdoc", "vue", "yaml",
-    },
+    ensure_installed = "all",
     -- List of parsers to ignore installing
     ignore_install = {},
     highlight = {
