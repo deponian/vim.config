@@ -84,6 +84,12 @@ return {
       vim.g.go_fmt_fail_silently = 1
     end
   },
+  {
+    "pearofducks/ansible-vim",
+    init = function()
+      vim.g.ansible_ftdetect_filename_regex = [[\v(playbook|site|local|requirements)\.ya?ml$]]
+    end
+  },
 
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
@@ -95,7 +101,6 @@ return {
   { "mtdl9/vim-log-highlighting" },
   { "mustache/vim-mustache-handlebars" },
   { "nfnty/vim-nftables" },
-  { "pearofducks/ansible-vim" },
   { "towolf/vim-helm" },
   { "tpope/vim-git" },
   { "yasuhiroki/github-actions-yaml.vim" },
