@@ -237,7 +237,7 @@ nvim-tree.respect_buf_cwd	nvim-tree-lua.txt	/*nvim-tree.respect_buf_cwd*
 nvim-tree.root_dirs	nvim-tree-lua.txt	/*nvim-tree.root_dirs*
 nvim-tree.select_prompts	nvim-tree-lua.txt	/*nvim-tree.select_prompts*
 nvim-tree.sort	nvim-tree-lua.txt	/*nvim-tree.sort*
-nvim-tree.sort.sort_folders_first	nvim-tree-lua.txt	/*nvim-tree.sort.sort_folders_first*
+nvim-tree.sort.folders_first	nvim-tree-lua.txt	/*nvim-tree.sort.folders_first*
 nvim-tree.sort.sorter	nvim-tree-lua.txt	/*nvim-tree.sort.sorter*
 nvim-tree.sync_root_with_cwd	nvim-tree-lua.txt	/*nvim-tree.sync_root_with_cwd*
 nvim-tree.system_open	nvim-tree-lua.txt	/*nvim-tree.system_open*

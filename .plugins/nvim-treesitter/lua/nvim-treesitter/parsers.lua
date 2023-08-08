@@ -1198,10 +1198,10 @@ list.promql = {
 
 list.proto = {
   install_info = {
-    url = "https://github.com/mitchellh/tree-sitter-proto",
+    url = "https://github.com/treywood/tree-sitter-proto",
     files = { "src/parser.c" },
   },
-  maintainers = { "@fsouza" },
+  maintainers = { "@treywood" },
 }
 
 list.prql = {
@@ -1510,9 +1510,8 @@ list.systemtap = {
 
 list.t32 = {
   install_info = {
-    url = "https://codeberg.org/xasc/tree-sitter-t32",
+    url = "https://gitlab.com/xasc/tree-sitter-t32.git",
     files = { "src/parser.c", "src/scanner.c" },
-    revision = "1dd98248b01e4a3933c1b85b58bab0875e2ba437",
   },
   maintainers = { "@xasc" },
 }

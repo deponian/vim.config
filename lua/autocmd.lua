@@ -137,7 +137,6 @@ augroup("CopyPlugins", function(group)
         ["test"] = "d",
         ["etc"] = "d",
         ["README.md"] = "f",
-        [".gitignore"] = "f",
         ["Makefile"] = "f",
         [".luacheckrc"] = "f",
         [".stylua.toml"] = "f",
