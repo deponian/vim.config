@@ -147,7 +147,7 @@ M.keys = {
     end },
     { "<Leader>f",
       function()
-        require('deponian.fzf-lua').live_grep({ search = require('deponian.general').get_oneline_selection() })
+        require('deponian.fzf-lua').live_grep({ search = require('deponian.general').get_oneline_selection(), no_esc = true })
       end,
       mode = "x",
       silent = true },
