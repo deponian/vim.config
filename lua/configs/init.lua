@@ -95,6 +95,7 @@ return {
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
+  { "godlygeek/tabular" },
 
   -- language/syntax/filetype plugins
   { "ch-danreif/haproxy.vim" },
