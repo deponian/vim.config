@@ -1,5 +1,6 @@
 after	fzf-lua.txt	/*after*
 fzf-lua-buffers-and-files	fzf-lua.txt	/*fzf-lua-buffers-and-files*
+fzf-lua-coming-from-fzf.vim?	fzf-lua.txt	/*fzf-lua-coming-from-fzf.vim?*
 fzf-lua-commands	fzf-lua.txt	/*fzf-lua-commands*
 fzf-lua-completion-functions	fzf-lua.txt	/*fzf-lua-completion-functions*
 fzf-lua-contents	fzf-lua.txt	/*fzf-lua-contents*

@@ -140,9 +140,10 @@
   (#eq? @keyword.coroutine "coroutine"))
 
 (variable_list
-   attribute: (attribute
-     (["<" ">"] @punctuation.bracket
-      (identifier) @attribute)))
+  (attribute
+    "<" @punctuation.bracket
+    (identifier) @attribute
+    ">" @punctuation.bracket))
 
 ;; Labels
 
@@ -242,6 +243,8 @@
 (number) @number
 
 (string) @string
+
+(escape_sequence) @string.escape
 
 ;; Error
 (ERROR) @error

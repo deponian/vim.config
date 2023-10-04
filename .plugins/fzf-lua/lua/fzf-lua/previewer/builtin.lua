@@ -503,8 +503,18 @@ function Previewer.buffer_or_file:populate_terminal_cmd(tmpbuf, cmd, entry)
       end)
     end
   else
-    -- add filename as last parameter
-    table.insert(cmd, entry.path)
+    -- replace `<file>` placeholder with the filename
+    local add_file = true
+    for i, arg in ipairs(cmd) do
+      if arg == "<file>" then
+        cmd[i] = entry.path
+        add_file = false
+      end
+    end
+    -- or add filename as last parameter
+    if add_file then
+      table.insert(cmd, entry.path)
+    end
     -- must be modifiable or 'termopen' fails
     vim.bo[tmpbuf].modifiable = true
     vim.api.nvim_buf_call(tmpbuf, function()
@@ -900,11 +910,12 @@ function Previewer.help_tags:new(o, opts, fzf_win)
 end
 
 function Previewer.help_tags:parse_entry(entry_str)
-  local tag, filename = entry_str:match("(.*)%s+(.*)$")
+  local tag = entry_str:match("^[^%s]+")
+  local vimdoc = entry_str:match("[^%s]+$")
   return {
     htag = tag,
     hregex = ([[\V*%s*]]):format(tag:gsub([[\]], [[\\]])),
-    path = filename,
+    path = vimdoc,
     filetype = "help",
   }
 end
@@ -989,7 +1000,7 @@ function Previewer.marks:parse_entry(entry_str)
     bufnr = self.win.src_bufnr
     filepath = api.nvim_buf_get_name(bufnr)
   end
-  if filepath and #filepath > 0 then
+  if #filepath > 0 then
     local ok, res = pcall(vim.fn.expand, filepath)
     if not ok then
       filepath = ""

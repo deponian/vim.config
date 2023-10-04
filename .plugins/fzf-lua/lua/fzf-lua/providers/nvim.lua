@@ -93,14 +93,18 @@ end
 M.command_history = function(opts)
   opts = config.normalize_opts(opts, config.globals.command_history)
   if not opts then return end
-  opts.fzf_opts["--header"] = arg_header("<CR>", "<Ctrl-e>", "execute")
+  if opts.fzf_opts["--header"] == nil then
+    opts.fzf_opts["--header"] = arg_header("<CR>", "<Ctrl-e>", "execute")
+  end
   history(opts, "cmd")
 end
 
 M.search_history = function(opts)
   opts = config.normalize_opts(opts, config.globals.search_history)
   if not opts then return end
-  opts.fzf_opts["--header"] = arg_header("<CR>", "<Ctrl-e>", "search")
+  if opts.fzf_opts["--header"] == nil then
+    opts.fzf_opts["--header"] = arg_header("<CR>", "<Ctrl-e>", "search")
+  end
   history(opts, "search")
 end
 
@@ -108,6 +112,7 @@ M.changes = function(opts)
   opts = opts or {}
   opts.cmd = "changes"
   opts.prompt = opts.prompt or "Changes> "
+  opts.h1 = opts.h1 or "change"
   return M.jumps(opts)
 end
 
@@ -121,14 +126,18 @@ M.jumps = function(opts)
   local entries = {}
   for i = #jumps - 1, 3, -1 do
     local jump, line, col, text = jumps[i]:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
-    table.insert(entries, string.format("%-15s %-15s %-15s %s",
+    table.insert(entries, string.format(" %16s %15s %15s %s",
       utils.ansi_codes.yellow(jump),
       utils.ansi_codes.blue(line),
       utils.ansi_codes.green(col),
       text))
   end
 
+  table.insert(entries, 1,
+    string.format("%6s %s  %s %s", opts.h1 or "jump", "line", "col", "file/text"))
+
   opts.fzf_opts["--no-multi"] = ""
+  opts.fzf_opts["--header-lines"] = "1"
 
   core.fzf_exec(entries, opts)
 end
@@ -217,8 +226,12 @@ M.marks = function(opts)
   local filter = opts.marks and vim.split(opts.marks, "")
   for i = #marks, 3, -1 do
     local mark, line, col, text = marks[i]:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
+    col = tostring(tonumber(col) + 1)
+    if path.starts_with_separator(text) then
+      text = path.HOME_to_tilde(text)
+    end
     if not filter or vim.tbl_contains(filter, mark) then
-      table.insert(entries, string.format("%-15s %-15s %-15s %s",
+      table.insert(entries, string.format(" %-15s %15s %15s %s",
         utils.ansi_codes.yellow(mark),
         utils.ansi_codes.blue(line),
         utils.ansi_codes.green(col),
@@ -227,9 +240,12 @@ M.marks = function(opts)
   end
 
   table.sort(entries, function(a, b) return a < b end)
+  table.insert(entries, 1,
+    string.format("%-5s %s  %s %s", "mark", "line", "col", "file/text"))
 
   -- opts.fzf_opts['--preview'] = prev_act
   opts.fzf_opts["--no-multi"] = ""
+  opts.fzf_opts["--header-lines"] = "1"
 
   core.fzf_exec(entries, opts)
 end
@@ -291,6 +307,8 @@ M.keymaps = function(opts)
   opts = config.normalize_opts(opts, config.globals.keymaps)
   if not opts then return end
 
+  local formatter = opts.formatter or "%s │ %-14s │ %-33s │ %s"
+  local key_modes = opts.modes or { "n", "i", "c", "v", "t" }
   local modes = {
     n = "blue",
     i = "red",
@@ -300,23 +318,36 @@ M.keymaps = function(opts)
   }
   local keymaps = {}
 
+
   local add_keymap = function(keymap)
-    local keymap_desc = keymap.desc or keymap.rhs or string.format("%s", keymap.callback);
     -- ignore dummy mappings
     if type(keymap.rhs) == "string" and #keymap.rhs == 0 then
       return
     end
-    keymap.str = string.format("%s │ %-40s │ %s",
+
+    -- by default we ignore <SNR> and <Plug> mappings
+    if type(keymap.lhs) == "string" and type(opts.ignore_patterns) == "table" then
+      for _, p in ipairs(opts.ignore_patterns) do
+        -- case insensitive pattern match
+        local pattern, lhs = p:lower(), vim.trim(keymap.lhs:lower())
+        if lhs:match(pattern) then
+          return
+        end
+      end
+    end
+
+    keymap.str = string.format(formatter,
       utils.ansi_codes[modes[keymap.mode] or "blue"](keymap.mode),
       keymap.lhs:gsub("%s", "<Space>"),
-      keymap_desc or "")
+      -- desc can be a multi-line string, normalize it
+      string.sub(string.gsub(keymap.desc or "", "\n%s+", "\r") or "", 1, 30),
+      (keymap.rhs or string.format("%s", keymap.callback)))
 
-    local k = string.format("[%s:%s:%s]",
-      keymap.buffer, keymap.mode, keymap.lhs)
+    local k = string.format("[%s:%s:%s]", keymap.buffer, keymap.mode, keymap.lhs)
     keymaps[k] = keymap
   end
 
-  for mode, _ in pairs(modes) do
+  for _, mode in pairs(key_modes) do
     local global = vim.api.nvim_get_keymap(mode)
     for _, keymap in pairs(global) do
       add_keymap(keymap)
@@ -333,9 +364,13 @@ M.keymaps = function(opts)
   end
 
   opts.fzf_opts["--no-multi"] = ""
+  opts.fzf_opts["--header-lines"] = "1"
 
   -- sort alphabetically
   table.sort(entries)
+
+  local header_str = string.format(formatter, "m", "keymap", "description", "detail")
+  table.insert(entries, 1, header_str)
 
   core.fzf_exec(entries, opts)
 end

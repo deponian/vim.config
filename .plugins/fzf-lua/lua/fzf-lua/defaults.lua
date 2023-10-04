@@ -20,13 +20,13 @@ M.defaults = {
   nbsp          = utils.nbsp,
   global_resume = true,
   winopts       = {
-    height       = 0.85,
-    width        = 0.80,
-    row          = 0.35,
-    col          = 0.55,
-    border       = "rounded",
-    fullscreen   = false,
-    preview      = {
+    height         = 0.85,
+    width          = 0.80,
+    row            = 0.35,
+    col            = 0.55,
+    border         = "rounded",
+    fullscreen     = false,
+    preview        = {
       default      = "builtin",
       border       = "border",
       wrap         = "nowrap",
@@ -58,8 +58,9 @@ M.defaults = {
         scrolloff      = 1,
       },
     },
-    _borderchars = {
+    _borderchars   = {
       ["none"]    = { " ", " ", " ", " ", " ", " ", " ", " " },
+      ["solid"]   = { " ", " ", " ", " ", " ", " ", " ", " " },
       ["single"]  = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
       ["double"]  = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
       ["rounded"] = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
@@ -67,7 +68,17 @@ M.defaults = {
       ["thiccc"]  = { "▛", "▀", "▜", "▐", "▟", "▄", "▙", "▌" },
       ["thicccc"] = { "█", "█", "█", "█", "█", "█", "█", "█" },
     },
-    on_create    = function()
+    -- border chars reverse lookup for ambiwidth="double"
+    _border2string = {
+      [" "] = "solid",
+      ["┌"] = "single",
+      ["╔"] = "double",
+      ["╭"] = "rounded",
+      ["┏"] = "double",
+      ["▛"] = "double",
+      ["█"] = "double",
+    },
+    on_create      = function()
       -- vim.cmd("set winhl=Normal:Normal,FloatBorder:Normal")
     end,
   },
@@ -222,7 +233,7 @@ M.defaults.git = {
     prompt      = "GitStatus> ",
     -- override `color.status=always`, techincally not required
     -- since we now also call `utils.strip_ansi_coloring` (#706)
-    cmd         = "git -c color.status=false status -s",
+    cmd         = "git -c color.status=false status -su",
     previewer   = "git_diff",
     file_icons  = true and M._has_devicons,
     color_icons = true,
@@ -505,7 +516,7 @@ M.defaults.colorschemes = {
 }
 
 M.defaults.highlights = {
-  prompt    = "highlights> ",
+  prompt    = "Highlights> ",
   previewer = { _ctor = previewers.builtin.highlights, },
 }
 
@@ -643,6 +654,7 @@ M.defaults.diagnostics = {
   color_icons = true,
   git_icons   = false,
   diag_icons  = true,
+  multiline   = true,
   _actions    = function() return M.globals.actions.files end,
   -- signs = {
   --   ["Error"] = { text = "e", texthl = "DiagnosticError" },
@@ -749,11 +761,12 @@ M.defaults.registers = {
 }
 
 M.defaults.keymaps = {
-  prompt    = "Keymaps> ",
-  previewer = { _ctor = previewers.builtin.keymaps },
-  winopts   = { preview = { layout = "vertical" } },
-  fzf_opts  = { ["--tiebreak"] = "index", },
-  actions   = {
+  prompt          = "Keymaps> ",
+  previewer       = { _ctor = previewers.builtin.keymaps },
+  winopts         = { preview = { layout = "vertical" } },
+  fzf_opts        = { ["--tiebreak"] = "index", },
+  ignore_patterns = { "^<SNR>", "^<Plug>" },
+  actions         = {
     ["default"] = actions.keymap_apply,
     ["ctrl-s"]  = actions.keymap_split,
     ["ctrl-v"]  = actions.keymap_vsplit,

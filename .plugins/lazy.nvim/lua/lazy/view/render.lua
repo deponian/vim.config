@@ -241,6 +241,9 @@ function M:section(section)
   end, self.plugins)
 
   local count = #section_plugins
+  table.sort(section_plugins, function(a, b)
+    return a.name:lower() < b.name:lower()
+  end)
   if count > 0 then
     self:append(section.title, "LazyH2"):append(" (" .. count .. ")", "LazyComment"):nl()
     for _, plugin in ipairs(section_plugins) do
@@ -408,13 +411,15 @@ function M:plugin(plugin)
   else
     self:append(" ")
     local reason = {}
-    for handler in pairs(Handler.types) do
-      if plugin[handler] then
-        local trigger = {}
-        for _, value in ipairs(plugin[handler]) do
-          table.insert(trigger, type(value) == "table" and value[1] or value)
+    if plugin._.kind ~= "disabled" then
+      for handler in pairs(Handler.types) do
+        if plugin[handler] then
+          local trigger = {}
+          for _, value in ipairs(plugin[handler]) do
+            table.insert(trigger, type(value) == "table" and value[1] or value)
+          end
+          reason[handler] = table.concat(trigger, " ")
         end
-        reason[handler] = table.concat(trigger, " ")
       end
     end
     for _, other in pairs(Config.plugins) do

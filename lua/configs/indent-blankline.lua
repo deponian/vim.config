@@ -4,64 +4,37 @@ local M = {
 }
 
 M.opts = {
-  char = "¦",
-  context_char = "¦",
-  space_char_blankline = " ",
-  show_current_context = true,
-  use_treesitter_scope = false,
-  viewport_buffer = 100,
-  filetype = {
-    "yaml", "helm", "yaml.gha",
-    "lua", "yaml.ansible", "yaml.docker-compose",
-    "javascript", "json"
+  indent = {
+    char = "¦",
+    highlight = {
+      "IndentBlanklineIndent1",
+      "IndentBlanklineIndent2",
+      "IndentBlanklineIndent3",
+      "IndentBlanklineIndent4",
+      "IndentBlanklineIndent5",
+      "IndentBlanklineIndent6",
+    },
   },
-  char_highlight_list = {
-    "IndentBlanklineIndent1",
-    "IndentBlanklineIndent2",
-    "IndentBlanklineIndent3",
-    "IndentBlanklineIndent4",
-    "IndentBlanklineIndent5",
-    "IndentBlanklineIndent6",
-  },
-  context_highlight_list = {
-    "IndentBlanklineIndentContext1",
-    "IndentBlanklineIndentContext2",
-    "IndentBlanklineIndentContext3",
-    "IndentBlanklineIndentContext4",
-    "IndentBlanklineIndentContext5",
-    "IndentBlanklineIndentContext6",
-  },
-  context_patterns = {
-    "class",
-    "^func",
-    "method",
-    "^if",
-    "while",
-    "for",
-    "with",
-    "try",
-    "except",
-    "arguments",
-    "argument_list",
-    "object",
-    "dictionary",
-    "element",
-    "table",
-    "tuple",
-    "do_block",
-    "block_mapping_pair",
+  scope = {
+    show_start = false,
+    show_end = false,
+    highlight = {
+      "IndentBlanklineIndentContext1",
+      "IndentBlanklineIndentContext2",
+      "IndentBlanklineIndentContext3",
+      "IndentBlanklineIndentContext4",
+      "IndentBlanklineIndentContext5",
+      "IndentBlanklineIndentContext6",
+    },
+    include = {
+      node_type = {
+        yaml = { "*" },
+      },
+    },
   },
 }
 
 M.config = function(_, opts)
-  require("indent_blankline").setup(opts)
-  -- default
-  vim.cmd [[highlight IndentBlanklineChar guifg=#2f3a52]]
-  vim.cmd [[highlight IndentBlanklineSpaceChar guifg=#2f3a52]]
-  vim.cmd [[highlight IndentBlanklineSpaceCharBlankline guifg=#2f3a52]]
-  vim.cmd [[highlight IndentBlanklineContextChar guifg=#c75ae8]]
-  vim.cmd [[highlight IndentBlanklineContextStart gui=underline]]
-
   -- rainbow
   vim.cmd [[highlight IndentBlanklineIndent1 guifg=#56292d gui=nocombine]]
   vim.cmd [[highlight IndentBlanklineIndent2 guifg=#564629 gui=nocombine]]
@@ -77,6 +50,8 @@ M.config = function(_, opts)
   vim.cmd [[highlight IndentBlanklineIndentContext4 guifg=#4ea4b1 gui=nocombine,bold]]
   vim.cmd [[highlight IndentBlanklineIndentContext5 guifg=#4b83b4 gui=nocombine,bold]]
   vim.cmd [[highlight IndentBlanklineIndentContext6 guifg=#945ba4 gui=nocombine,bold]]
+
+  require("ibl").setup(opts)
 end
 
 return M

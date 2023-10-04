@@ -101,12 +101,8 @@ M.diagnostics = function(opts)
     end
     diag_opts.severity = opts.severity_only
   else
-    if opts.severity_limit ~= nil then
-      diag_opts.severity["min"] = opts.severity_limit
-    end
-    if opts.severity_bound ~= nil then
-      diag_opts.severity["max"] = opts.severity_bound
-    end
+    diag_opts.severity["min"] = opts.severity_limit or 4
+    diag_opts.severity["max"] = opts.severity_bound or 1
   end
 
   local curbuf = vim.api.nvim_get_current_buf()
@@ -114,6 +110,16 @@ M.diagnostics = function(opts)
       vim.diagnostic.get(not opts.diag_all and curbuf or nil, diag_opts) or
       opts.diag_all and vim.lsp.diagnostic.get_all() or
       { [curbuf] = vim.lsp.diagnostic.get(curbuf, opts.client_id) }
+
+  if opts.sort then
+    if opts.sort == 2 or opts.sort == "2" then
+      -- ascending: hint, info, warn, error
+      table.sort(diag_results, function(a, b) return a.severity > b.severity end)
+    else
+      -- descending: error, warn, info, hint
+      table.sort(diag_results, function(a, b) return a.severity < b.severity end)
+    end
+  end
 
   local has_diags = false
   if vim.diagnostic then
@@ -148,7 +154,9 @@ M.diagnostics = function(opts)
       filename = filename,
       lnum = row + 1,
       col = col + 1,
-      text = vim.trim(diag.message:gsub("[\n]", "")),
+      text = vim.trim(opts.multiline
+        and diag.message:gsub("[\n]", " ")
+        or diag.message:match("^[^\n]+")),
       type = diag.severity or 1
     }
     return buffer_diag

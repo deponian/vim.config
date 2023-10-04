@@ -18,8 +18,6 @@
 ; --------------------
 (annotation
   name: (identifier) @attribute)
-(marker_annotation
-  name: (identifier) @attribute)
 
 ; Operators and Tokens
 ; --------------------
@@ -230,6 +228,9 @@
     "dynamic"
     "external"
     "static"
+    "final"
+    "base"
+    "sealed"
 ] @type.qualifier
 
 ; when used as an identifier:

@@ -1,4 +1,16 @@
 ;; ----------------------------------------------------------------------------
+;; Parameters
+
+;; NOTE: These are at the top, so that they have low priority,
+;; and don't override destructured parameters 
+
+(function
+  patterns: (patterns (pat_name) @parameter))
+
+(exp_lambda
+  (pat_name) @parameter)
+
+;; ----------------------------------------------------------------------------
 ;; Literals and comments
 
 (integer) @number
@@ -11,6 +23,31 @@
 
 (comment) @comment
 
+; FIXME: The below documentation comment queries are inefficient
+; and need to be anchored, using something like
+; ((comment) @_first . (comment)+ @comment.documentation)
+; once https://github.com/neovim/neovim/pull/24738 has been merged.
+;
+; ((comment) @comment.documentation 
+;   (#lua-match? @comment.documentation "^-- |"))
+;
+; ((comment) @_first @comment.documentation 
+;  (comment) @comment.documentation 
+;   (#lua-match? @_first "^-- |"))
+;
+; ((comment) @comment.documentation 
+;   (#lua-match? @comment.documentation "^-- %^"))
+;
+; ((comment) @_first @comment.documentation 
+;  (comment) @comment.documentation 
+;   (#lua-match? @_first "^-- %^"))
+;
+; ((comment) @comment.documentation 
+;   (#lua-match? @comment.documentation "^{-"))
+;
+; ((comment) @_first @comment.documentation 
+;  (comment) @comment.documentation 
+;   (#lua-match? @_first "^{-"))
 
 ;; ----------------------------------------------------------------------------
 ;; Punctuation
@@ -77,7 +114,13 @@
   "@"
 ] @operator
 
+
 (module) @namespace
+((qualified_module (module) @constructor)
+ . (module))
+(qualified_type (module) @namespace)
+(qualified_variable (module) @namespace)
+(import (module) @namespace)
 
 [
   (where)
@@ -110,7 +153,24 @@
 
 (variable) @variable
 (pat_wildcard) @variable
-(signature name: (variable) @variable)
+(signature name: (variable) @function)
+((signature name: (variable) @variable)
+ (function 
+  name: (variable) @_name
+  rhs: [
+   (exp_literal)
+   (exp_apply (exp_name (constructor)))
+   (quasiquote)
+  ])
+ (#eq? @variable @_name))
+(function name: (variable) @function)
+(function 
+  name: (variable) @variable
+  rhs: [
+   (exp_literal)
+   (exp_apply (exp_name (constructor)))
+   (quasiquote)
+  ])
 
 (function
   name: (variable) @function
@@ -125,13 +185,59 @@
 ((signature (variable) @function (forall (context (fun)))) . (function (variable)))
 ((signature (variable) @_type (forall (context (fun)))) . (function (variable) @function) (#eq? @function @_type))
 
-(exp_infix (variable) @operator)  ; consider infix functions as operators
-(exp_section_right (variable) @operator) ; partially applied infix functions (sections) also get highlighted as operators
+; consider infix functions as operators
+(exp_infix (variable) @operator)  
+(exp_infix (qualified_variable (variable) @operator))
+; partially applied infix functions (sections) also get highlighted as operators
+(exp_section_right (variable) @operator) 
+(exp_section_right (qualified_variable (variable) @operator)) 
 (exp_section_left (variable) @operator)
+(exp_section_left (qualified_variable (variable) @operator))
 
-(exp_infix (exp_name) @function.call (#set! "priority" 101))
+; function calls with an infix operator
+; e.g. func <$> a <*> b
+(exp_infix (exp_name) @function.call . (operator))
+; qualified function calls with an infix operator
+(exp_infix (exp_name 
+  (qualified_variable (
+      (module) @namespace
+      (variable) @function.call))) . (operator))
+; infix operators applied to variables
+((exp_name (variable) @variable) . (operator))
+((operator) . (exp_name (variable) @variable))
+; function calls with infix operators
+((exp_name (variable) @function.call) . (operator) @_op
+ (#any-of? @_op "$" "<$>" ">>="))
+; function composition, arrows
+((exp_name (variable) @function) . (operator) @_op
+ (#any-of? @_op "." ">>>"))
+((operator) @_op (exp_name (variable) @function)
+ (#any-of? @_op "." ">>>"))
+        
+        
 (exp_apply . (exp_name (variable) @function.call))
 (exp_apply . (exp_name (qualified_variable (variable) @function.call)))
+
+; let/where bindings
+(_ (decls (function name: (variable) @variable)))
+(_ (decls 
+  (function 
+    name: (variable) @function
+    patterns: (patterns (pat_name) @parameter))))
+
+; higher-order function parameters
+(function
+  patterns: (patterns (pat_name (variable) @function))
+  rhs: (exp_apply (exp_name (variable) @_name) . (exp_name)+)
+  (#eq? @function @_name))
+(function
+  patterns: (patterns (pat_name (variable) @function))
+  rhs: (_ (operator) @_op (exp_name (variable))
+ (#any-of? @_op "." ">>>")))
+(function
+  patterns: (patterns (pat_name (variable) @function))
+  rhs: (_ (exp_name (variable)) . (operator) @_op)
+ (#any-of? @_op "$" "<$>" ">>=" "." ">>>"))
 
 
 ;; ----------------------------------------------------------------------------
@@ -145,16 +251,79 @@
 
 ; True or False
 ((constructor) @boolean (#any-of? @boolean "True" "False"))
-
+; otherwise (= True)
+((variable) @boolean
+  (#eq? @boolean "otherwise"))
 
 ;; ----------------------------------------------------------------------------
 ;; Quasi-quotes
 
 (quoter) @function.call
-; Highlighting of quasiquote_body is handled by injections.scm
+
+(quasiquote 
+  (quoter) @_name (#eq? @_name "qq")
+  (quasiquote_body) @string)
+
+; Highlighting of quasiquote_body for other languages is handled by injections.scm
+
+;; ----------------------------------------------------------------------------
+;; Exceptions/error handling
+
+((variable) @exception
+  (#any-of? @exception 
+   "error"
+   "undefined"
+   "try"
+   "tryJust"
+   "tryAny"
+   "catch"
+   "catches"
+   "catchJust"
+   "handle"
+   "handleJust"
+   "throw"
+   "throwIO"
+   "throwTo"
+   "throwError"
+   "ioError"
+   "mask"
+   "mask_"
+   "uninterruptibleMask"
+   "uninterruptibleMask_"
+   "bracket"
+   "bracket_"
+   "bracketOnErrorSource"
+   "finally"
+   "onException"))
+
+;; ----------------------------------------------------------------------------
+;; Debugging
+((variable) @debug
+  (#any-of? @debug 
+   "trace"
+   "traceId"
+   "traceShow"
+   "traceShowId"
+   "traceWith"
+   "traceShowWith"
+   "traceStack"
+   "traceIO"
+   "traceM"
+   "traceShowM"
+   "traceEvent"
+   "traceEventWith"
+   "traceEventIO"
+   "flushEventLog"
+   "traceMarker"
+   "traceMarkerIO"))
+
+
+;; ----------------------------------------------------------------------------
+;; Fields
+(field (variable) @field)
+
 
 ;; ----------------------------------------------------------------------------
 ;; Spell checking
 
 (comment) @spell
-

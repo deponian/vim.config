@@ -23,6 +23,8 @@ local config = {
     large_file_cutoff = nil,
     large_file_config = nil,
     min_count_to_highlight = 1,
+    should_enable = nil,
+    case_insensitive_regex = false,
 }
 
 function M.set(config_overrides)
@@ -35,9 +37,9 @@ end
 
 function M.get()
     return (
-        M.large_file_cutoff() == nil
-        or vim.fn.line('$') <= M.large_file_cutoff()
-        or M.large_file_overrides() == nil
+            M.large_file_cutoff() == nil
+            or vim.fn.line('$') <= M.large_file_cutoff()
+            or M.large_file_overrides() == nil
         )
         and config
         or M.large_file_overrides()
@@ -120,6 +122,16 @@ end
 
 function M.min_count_to_highlight()
     return M.get()['min_count_to_highlight'] or 1
+end
+
+function M.should_enable()
+    return M.get()['should_enable'] or function(_)
+        return true
+    end
+end
+
+function M.case_insensitive_regex()
+    return M.get()['case_insensitive_regex']
 end
 
 return M

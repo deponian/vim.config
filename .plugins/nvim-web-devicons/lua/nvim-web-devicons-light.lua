@@ -23,6 +23,12 @@ local icons_by_filename = {
     cterm_color = "239",
     name = "DsStore",
   },
+  [".editorconfig"] = {
+    icon = "",
+    color = "#333333",
+    cterm_color = "236",
+    name = "EditorConfig",
+  },
   [".eslintrc"] = {
     icon = "",
     color = "#4b32c3",
@@ -83,6 +89,12 @@ local icons_by_filename = {
     cterm_color = "91",
     name = "SettingsJson",
   },
+  ["svelte.config.js"] = {
+    icon = "",
+    color = "#bf2e00",
+    cterm_color = "160",
+    name = "SvelteConfig",
+  },
   [".vimrc"] = {
     icon = "",
     color = "#017226",
@@ -106,6 +118,12 @@ local icons_by_filename = {
     color = "#447028",
     cterm_color = "22",
     name = "Zshrc",
+  },
+  ["avif"] = {
+    icon = "",
+    color = "#6b4d83",
+    cterm_color = "96",
+    name = "Avif",
   },
   ["brewfile"] = {
     icon = "",
@@ -174,6 +192,12 @@ local icons_by_filename = {
     name = "License",
   },
   ["r"] = {
+    icon = "󰟔",
+    color = "#286844",
+    cterm_color = "29",
+    name = "R",
+  },
+  ["R"] = {
     icon = "󰟔",
     color = "#286844",
     cterm_color = "29",
@@ -498,6 +522,12 @@ local icons_by_file_extension = {
     cterm_color = "22",
     name = "Csv",
   },
+  ["cts"] = {
+    icon = "",
+    color = "#36677c",
+    cterm_color = "24",
+    name = "Cts",
+  },
   ["cxx"] = {
     icon = "",
     color = "#36677c",
@@ -779,6 +809,12 @@ local icons_by_file_extension = {
     cterm_color = "124",
     name = "Html",
   },
+  ["huff"] = {
+    icon = "󰡘",
+    color = "#4242c7",
+    cterm_color = "56",
+    name = "Huff",
+  },
   ["hxx"] = {
     icon = "",
     color = "#6b4d83",
@@ -850,6 +886,12 @@ local icons_by_file_extension = {
     color = "#666620",
     cterm_color = "58",
     name = "Json",
+  },
+  ["jsonc"] = {
+    icon = "",
+    color = "#666620",
+    cterm_color = "58",
+    name = "Jsonc",
   },
   ["json5"] = {
     icon = "",
@@ -1001,6 +1043,12 @@ local icons_by_file_extension = {
     cterm_color = "61",
     name = "Motoko",
   },
+  ["mts"] = {
+    icon = "",
+    color = "#36677c",
+    cterm_color = "24",
+    name = "Mts",
+  },
   ["mustache"] = {
     icon = "",
     color = "#975122",
@@ -1151,6 +1199,12 @@ local icons_by_file_extension = {
     name = "Query",
   },
   ["r"] = {
+    icon = "󰟔",
+    color = "#286844",
+    cterm_color = "29",
+    name = "R",
+  },
+  ["R"] = {
     icon = "󰟔",
     color = "#286844",
     cterm_color = "29",
@@ -1571,7 +1625,7 @@ local icons_by_file_extension = {
     name = "Solidity",
   },
   ["prisma"] = {
-    icon = "󰔶",
+    icon = "",
     color = "#333333",
     cterm_color = "236",
     name = "Prisma",

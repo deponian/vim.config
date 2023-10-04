@@ -3,21 +3,24 @@ local scheduler = require('gitsigns.async').scheduler
 
 local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
-local subprocess = require('gitsigns.subprocess')
+local system = require('gitsigns.system').system
 
 local gs_config = require('gitsigns.config')
 local config = gs_config.config
-
-local gs_hunks = require('gitsigns.hunks')
 
 local uv = vim.loop
 local startswith = vim.startswith
 
 local dprint = require('gitsigns.debug.log').dprint
+local dprintf = require('gitsigns.debug.log').dprintf
 local eprint = require('gitsigns.debug.log').eprint
 local err = require('gitsigns.message').error
+local error_once = require('gitsigns.message').error_once
 
 local M = {}
+
+--- @type fun(cmd: string[], opts?: SystemOpts): vim.SystemCompleted
+local asystem = async.wrap(system, 3)
 
 --- @param file string
 --- @return boolean
@@ -104,16 +107,15 @@ function M._set_version(version)
     return
   end
 
-  --- @type integer, integer, string?, string?
-  local _, _, stdout, stderr = async.wait(2, subprocess.run_job, {
-    command = 'git',
-    args = { '--version' },
-  })
+  --- @type vim.SystemCompleted
+  local obj = asystem({ 'git', '--version' })
+
+  local stdout = obj.stdout
 
   local line = vim.split(stdout or '', '\n', { plain = true })[1]
   if not line then
     err("Unable to detect git version as 'git --version' failed to return anything")
-    eprint(stderr)
+    eprint(obj.stderr)
     return
   end
   assert(type(line) == 'string', 'Unexpected output: ' .. line)
@@ -122,11 +124,9 @@ function M._set_version(version)
   M.version = parse_version(parts[3])
 end
 
---- @class Gitsigns.Git.JobSpec
+--- @class Gitsigns.Git.JobSpec : SystemOpts
 --- @field command? string
---- @field cwd? string
---- @field writer? string[] | string
---- @field suppress_stderr? boolean
+--- @field ignore_error? boolean
 
 --- @param args string[]
 --- @param spec? Gitsigns.Git.JobSpec
@@ -135,38 +135,43 @@ local git_command = async.create(function(args, spec)
   if not M.version then
     M._set_version(config._git_version)
   end
-  spec = spec or {}
-  spec.command = spec.command or 'git'
-  spec.args = spec.command == 'git'
-      and {
-        '--no-pager',
-        '--literal-pathspecs',
-        '-c',
-        'gc.auto=0', -- Disable auto-packing which emits messages to stderr
-        unpack(args),
-      }
-    or args
 
-  if not spec.cwd and not uv.cwd() then
-    spec.cwd = vim.env.HOME
+  spec = spec or {}
+
+  local cmd = {
+    spec.command or 'git',
+    '--no-pager',
+    '--literal-pathspecs',
+    '-c',
+    'gc.auto=0', -- Disable auto-packing which emits messages to stderr
+    unpack(args),
+  }
+
+  if spec.text == nil then
+    spec.text = true
   end
 
-  --- @type integer, integer, string?, string?
-  local _, _, stdout, stderr = async.wait(2, subprocess.run_job, spec)
+  -- Fix #895. Only needed for Nvim 0.9 and older
+  spec.clear_env = true
 
-  if not spec.suppress_stderr then
-    if stderr then
-      local cmd_str = table.concat({ spec.command, unpack(args) }, ' ')
-      log.eprintf("Received stderr when running command\n'%s':\n%s", cmd_str, stderr)
-    end
+  --- @type vim.SystemCompleted
+  local obj = asystem(cmd, spec)
+  local stdout = obj.stdout
+  local stderr = obj.stderr
+
+  if not spec.ignore_error and obj.code > 0 then
+    local cmd_str = table.concat(cmd, ' ')
+    log.eprintf("Received exit code %d when running command\n'%s':\n%s", obj.code, cmd_str, stderr)
   end
 
   local stdout_lines = vim.split(stdout or '', '\n', { plain = true })
 
-  -- If stdout ends with a newline, then remove the final empty string after
-  -- the split
-  if stdout_lines[#stdout_lines] == '' then
-    stdout_lines[#stdout_lines] = nil
+  if spec.text then
+    -- If stdout ends with a newline, then remove the final empty string after
+    -- the split
+    if stdout_lines[#stdout_lines] == '' then
+      stdout_lines[#stdout_lines] = nil
+    end
   end
 
   if log.verbose then
@@ -174,6 +179,10 @@ local git_command = async.create(function(args, spec)
     for i = 1, math.min(10, #stdout_lines) do
       log.vprintf('\t%s', stdout_lines[i])
     end
+  end
+
+  if stderr == '' then
+    stderr = nil
   end
 
   return stdout_lines, stderr
@@ -196,6 +205,9 @@ function M.diff(file_cmp, file_buf, indent_heuristic, diff_algo)
     '--unified=0',
     file_cmp,
     file_buf,
+  }, {
+    -- git-diff implies --exit-code
+    ignore_error = true,
   })
 end
 
@@ -211,7 +223,7 @@ local function process_abbrev_head(gitdir, head_str, path, cmd)
   if head_str == 'HEAD' then
     local short_sha = git_command({ 'rev-parse', '--short', 'HEAD' }, {
       command = cmd or 'git',
-      suppress_stderr = true,
+      ignore_error = true,
       cwd = path,
     })[1] or ''
     if log.debug_mode and short_sha ~= '' then
@@ -234,7 +246,9 @@ local cygpath_convert ---@type fun(path: string): string
 
 if has_cygpath then
   cygpath_convert = function(path)
-    return git_command({ '-aw', path }, { command = 'cygpath' })[1]
+    --- @type vim.SystemCompleted
+    local obj = asystem({ 'cygpath', '-aw', path })
+    return obj.stdout
   end
 end
 
@@ -289,8 +303,8 @@ function M.get_repo_info(path, cmd, gitdir, toplevel)
   })
 
   local results = git_command(args, {
-    command = cmd or 'git',
-    suppress_stderr = true,
+    command = cmd,
+    ignore_error = true,
     cwd = toplevel or path,
   })
 
@@ -305,7 +319,7 @@ function M.get_repo_info(path, cmd, gitdir, toplevel)
     toplevel = toplevel_r,
     gitdir = gitdir_r,
     abbrev_head = process_abbrev_head(gitdir_r, results[3], path, cmd),
-    detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git'
+    detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git',
   }
 end
 
@@ -349,38 +363,6 @@ function Repo:files_changed()
   return ret
 end
 
---- @param ... integer
---- @return string
-local function make_bom(...)
-  local r = {}
-  ---@diagnostic disable-next-line:no-unknown
-  for i, a in ipairs({ ... }) do
-    ---@diagnostic disable-next-line:no-unknown
-    r[i] = string.char(a)
-  end
-  return table.concat(r)
-end
-
-local BOM_TABLE = {
-  ['utf-8'] = make_bom(0xef, 0xbb, 0xbf),
-  ['utf-16le'] = make_bom(0xff, 0xfe),
-  ['utf-16'] = make_bom(0xfe, 0xff),
-  ['utf-16be'] = make_bom(0xfe, 0xff),
-  ['utf-32le'] = make_bom(0xff, 0xfe, 0x00, 0x00),
-  ['utf-32'] = make_bom(0xff, 0xfe, 0x00, 0x00),
-  ['utf-32be'] = make_bom(0x00, 0x00, 0xfe, 0xff),
-  ['utf-7'] = make_bom(0x2b, 0x2f, 0x76),
-  ['utf-1'] = make_bom(0xf7, 0x54, 0x4c),
-}
-
-local function strip_bom(x, encoding)
-  local bom = BOM_TABLE[encoding]
-  if bom and vim.startswith(x, bom) then
-    return x:sub(bom:len() + 1)
-  end
-  return x
-end
-
 --- @param encoding string
 --- @return boolean
 local function iconv_supported(encoding)
@@ -398,10 +380,9 @@ end
 --- @param encoding? string
 --- @return string[] stdout, string? stderr
 function Repo:get_show_text(object, encoding)
-  local stdout, stderr = self:command({ 'show', object }, { suppress_stderr = true })
+  local stdout, stderr = self:command({ 'show', object }, { text = false, ignore_error = true })
 
   if encoding and encoding ~= 'utf-8' and iconv_supported(encoding) then
-    stdout[1] = strip_bom(stdout[1], encoding)
     for i, l in ipairs(stdout) do
       --- @diagnostic disable-next-line:param-type-mismatch
       stdout[i] = vim.iconv(l, encoding, 'utf-8')
@@ -422,7 +403,7 @@ end
 function Repo.new(dir, gitdir, toplevel)
   local self = setmetatable({}, { __index = Repo })
 
-  self.username = git_command({ 'config', 'user.name' })[1]
+  self.username = git_command({ 'config', 'user.name' }, { ignore_error = true })[1]
   local info = M.get_repo_info(dir, nil, gitdir, toplevel)
   for k, v in
     pairs(info --[[@as table<string,any>]])
@@ -503,10 +484,10 @@ function Obj:file_info(file, silent)
     '--exclude-standard',
     '--eol',
     file or self.file,
-  }, { suppress_stderr = true })
+  }, { ignore_error = true })
 
   if stderr and not silent then
-    -- Suppress_stderr for the cases when we run:
+    -- ignore_error for the cases when we run:
     --    git ls-files --others exists/nonexist
     if not stderr:match('^warning: could not open directory .*: No such file or directory') then
       log.eprint(stderr)
@@ -539,6 +520,10 @@ end
 --- @param revision string
 --- @return string[] stdout, string? stderr
 function Obj:get_show_text(revision)
+  if revision == 'FILE' then
+    return util.file_lines(self.file, { raw = true })
+  end
+
   if not self.relpath then
     return {}
   end
@@ -547,7 +532,8 @@ function Obj:get_show_text(revision)
 
   if not self.i_crlf and self.w_crlf then
     -- Add cr
-    for i = 1, #stdout do
+    -- Do not add cr to the newline at the end of file
+    for i = 1, #stdout - 1 do
       stdout[i] = stdout[i] .. '\r'
     end
   end
@@ -559,13 +545,7 @@ Obj.unstage_file = function(self)
   self:command({ 'reset', self.file })
 end
 
---- @class Gitsigns.BlameInfo
---- -- Info in header
---- @field sha string
---- @field abbrev_sha string
---- @field orig_lnum integer
---- @field final_lnum integer
---- Porcelain fields
+--- @class Gitsigns.CommitInfo
 --- @field author string
 --- @field author_mail string
 --- @field author_time integer
@@ -575,39 +555,87 @@ end
 --- @field committer_time integer
 --- @field committer_tz string
 --- @field summary string
---- @field previous string
---- @field previous_filename string
---- @field previous_sha string
+--- @field sha string
+--- @field abbrev_sha string
+--- @field boundary? true
+
+--- @class Gitsigns.BlameInfoPublic: Gitsigns.BlameInfo, Gitsigns.CommitInfo
+--- @field body? string[]
+--- @field hunk_no? integer
+--- @field num_hunks? integer
+--- @field hunk? string[]
+--- @field hunk_head? string
+
+--- @class Gitsigns.BlameInfo
+--- @field orig_lnum integer
+--- @field final_lnum integer
+--- @field commit Gitsigns.CommitInfo
 --- @field filename string
+--- @field previous_filename? string
+--- @field previous_sha? string
+
+local NOT_COMMITTED = {
+  author = 'Not Committed Yet',
+  author_mail = '<not.committed.yet>',
+  committer = 'Not Committed Yet',
+  committer_mail = '<not.committed.yet>',
+}
+
+--- @param file string
+--- @return Gitsigns.CommitInfo
+function M.not_commited(file)
+  local time = os.time()
+  return {
+    sha = string.rep('0', 40),
+    abbrev_sha = string.rep('0', 8),
+    author = 'Not Committed Yet',
+    author_mail = '<not.committed.yet>',
+    author_tz = '+0000',
+    author_time = time,
+    committer = 'Not Committed Yet',
+    committer_time = time,
+    committer_mail = '<not.committed.yet>',
+    committer_tz = '+0000',
+    summary = 'Version of ' .. file,
+  }
+end
+
+---@param x any
+---@return integer
+local function asinteger(x)
+  return assert(tonumber(x))
+end
 
 --- @param lines string[]
---- @param lnum integer
---- @param ignore_whitespace boolean
---- @return Gitsigns.BlameInfo?
+--- @param lnum? integer
+--- @param ignore_whitespace? boolean
+--- @return table<integer,Gitsigns.BlameInfo?>?
 function Obj:run_blame(lines, lnum, ignore_whitespace)
-  local not_committed = {
-    author = 'Not Committed Yet',
-    ['author_mail'] = '<not.committed.yet>',
-    committer = 'Not Committed Yet',
-    ['committer_mail'] = '<not.committed.yet>',
-  }
+  local ret = {} --- @type table<integer,Gitsigns.BlameInfo>
 
   if not self.object_name or self.repo.abbrev_head == '' then
     -- As we support attaching to untracked files we need to return something if
     -- the file isn't isn't tracked in git.
     -- If abbrev_head is empty, then assume the repo has no commits
-    return not_committed
+    local commit = M.not_commited(self.file)
+    for i in ipairs(lines) do
+      ret[i] = {
+        orig_lnum = 0,
+        final_lnum = i,
+        commit = commit,
+        filename = self.file,
+      }
+    end
+    return ret
   end
 
-  local args = {
-    'blame',
-    '--contents',
-    '-',
-    '-L',
-    lnum .. ',+1',
-    '--line-porcelain',
-    self.file,
-  }
+  local args = { 'blame', '--contents', '-', '--incremental' }
+
+  if lnum then
+    vim.list_extend(args, { '-L', lnum .. ',+1' })
+  end
+
+  args[#args + 1] = self.file
 
   if ignore_whitespace then
     args[#args + 1] = '-w'
@@ -618,38 +646,99 @@ function Obj:run_blame(lines, lnum, ignore_whitespace)
     vim.list_extend(args, { '--ignore-revs-file', ignore_file })
   end
 
-  local results = self:command(args, { writer = lines })
+  local results, stderr = self:command(args, { stdin = lines, ignore_error = true })
+  if stderr then
+    error_once('Error running git-blame: ' .. stderr)
+    return
+  end
+
   if #results == 0 then
     return
   end
-  local header = vim.split(table.remove(results, 1), ' ')
 
-  --- @diagnostic disable-next-line:missing-fields
-  local ret = {} --- @type Gitsigns.BlameInfo
-  ret.sha = header[1]
-  ret.orig_lnum = tonumber(header[2]) --[[@as integer]]
-  ret.final_lnum = tonumber(header[3]) --[[@as integer]]
-  ret.abbrev_sha = string.sub(ret.sha, 1, 8)
-  for _, l in ipairs(results) do
-    if not startswith(l, '\t') then
-      local cols = vim.split(l, ' ')
-      --- @type string
-      local key = table.remove(cols, 1):gsub('-', '_')
-      --- @diagnostic disable-next-line:no-unknown
-      ret[key] = table.concat(cols, ' ')
-      if key == 'previous' then
-        ret.previous_sha = cols[1]
-        ret.previous_filename = cols[2]
+  local commits = {} --- @type table<string,Gitsigns.CommitInfo>
+  local i = 1
+
+  while i <= #results do
+    --- @param pat? string
+    --- @return string
+    local function get(pat)
+      local l = assert(results[i])
+      i = i + 1
+      if pat then
+        return l:match(pat)
       end
+      return l
     end
-  end
 
-  -- New in git 2.41:
-  -- The output given by "git blame" that attributes a line to contents
-  -- taken from the file specified by the "--contents" option shows it
-  -- differently from a line attributed to the working tree file.
-  if ret.author_mail == '<external.file>' or ret.author_mail == 'External file (--contents)' then
-    ret = vim.tbl_extend('force', ret, not_committed)
+    local function peek(pat)
+      local l = results[i]
+      if l and pat then
+        return l:match(pat)
+      end
+      return l
+    end
+
+    local sha, orig_lnum_str, final_lnum_str, size_str = get('(%x+) (%d+) (%d+) (%d+)')
+    local orig_lnum = asinteger(orig_lnum_str)
+    local final_lnum = asinteger(final_lnum_str)
+    local size = asinteger(size_str)
+
+    if peek():match('^author ') then
+      --- @type table<string,string|true>
+      local commit = {
+        sha = sha,
+        abbrev_sha = sha:sub(1, 8),
+      }
+
+      -- filename terminates the entry
+      while peek() and not (peek():match('^filename ') or peek():match('^previous ')) do
+        local l = get()
+        local key, value = l:match('^([^%s]+) (.*)')
+        if key then
+          if vim.endswith(key, '_time') then
+            value = tonumber(value)
+          end
+          key = key:gsub('%-', '_') --- @type string
+          commit[key] = value
+        else
+          commit[l] = true
+          if l ~= 'boundary' then
+            dprintf("Unknown tag: '%s'", l)
+          end
+        end
+      end
+
+      -- New in git 2.41:
+      -- The output given by "git blame" that attributes a line to contents
+      -- taken from the file specified by the "--contents" option shows it
+      -- differently from a line attributed to the working tree file.
+      if
+        commit.author_mail == '<external.file>'
+        or commit.author_mail == 'External file (--contents)'
+      then
+        commit = vim.tbl_extend('force', commit, NOT_COMMITTED)
+      end
+      commits[sha] = commit
+    end
+
+    local previous_sha, previous_filename = peek():match('^previous (%x+) (.*)')
+    if previous_sha then
+      get()
+    end
+
+    local filename = assert(get():match('^filename (.*)'))
+
+    for j = 0, size - 1 do
+      ret[final_lnum + j] = {
+        final_lnum = final_lnum + j,
+        orig_lnum = orig_lnum + j,
+        commit = commits[sha],
+        filename = filename,
+        previous_filename = previous_filename,
+        previous_sha = previous_sha,
+      }
+    end
   end
 
   return ret
@@ -683,7 +772,7 @@ function Obj:stage_lines(lines)
     '--path',
     self.relpath,
     '--stdin',
-  }, { writer = lines })
+  }, { stdin = lines })
 
   local new_object = stdout[1]
 
@@ -698,6 +787,8 @@ end
 --- @param invert? boolean
 function Obj.stage_hunks(self, hunks, invert)
   ensure_file_in_index(self)
+
+  local gs_hunks = require('gitsigns.hunks')
 
   local patch = gs_hunks.create_patch(self.relpath, hunks, self.mode_bits, invert)
 
@@ -715,7 +806,7 @@ function Obj.stage_hunks(self, hunks, invert)
     '--unidiff-zero',
     '-',
   }, {
-    writer = patch,
+    stdin = patch,
   })
 end
 

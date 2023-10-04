@@ -245,6 +245,14 @@ local normalize_winopts = function(o)
     winopts.border = "rounded"
   end
 
+  -- when ambiwdith="double" `nvim_open_win` with border chars fails:
+  -- with "border chars must be one cell", force string border (#874)
+  if vim.o.ambiwidth == "double" and type(winopts.border) == "table" then
+    local topleft = winopts.border[1]
+    winopts.border = topleft
+        and config.globals.winopts._border2string[topleft] or "rounded"
+  end
+
   -- We only allow 'none|single|double|rounded'
   if type(winopts.border) == "string" then
     -- save the original string so we can pass it
@@ -551,6 +559,23 @@ function FzfWin:redraw_preview()
     self.prev_winopts, self.border_winopts = self:fs_preview_layout(self.fullscreen)
   end
 
+  -- manual border chars looks horrible with ambiwdith="double", override border
+  -- window with preview window dimensions and use builtin `nvim_open_win` border
+  -- NOTES:
+  --    (1) there will be no border scroll
+  --    (2) preview title only when nvim >= 0.9
+  if vim.o.ambiwidth == "double" then
+    assert(type(self.winopts._border) == "string")
+    self.border_winopts = vim.tbl_extend("force", self.border_winopts, { zindex = 990 })
+    self.prev_winopts = vim.tbl_extend("force", self.prev_winopts, {
+      zindex = 991,
+      col = self.border_winopts.col,
+      row = self.border_winopts.row,
+      border = self.winopts._border,
+    })
+    self.prev_single_win = true
+  end
+
   if self:validate_preview() then
     self.border_buf = api.nvim_win_get_buf(self.border_winid)
     self:redraw_preview_border()
@@ -667,11 +692,14 @@ function FzfWin:redraw_main()
   win_opts.row = winopts.row or math.floor(((lines - win_opts.height) / 2) - 1)
   win_opts.col = winopts.col or math.floor((columns - win_opts.width) / 2)
 
-  -- adjust for borderless main window (#364)
-  if self.winopts._border and self.winopts._border == "none" then
+  -- prioritize using border string argument in `nvim_open_win`
+  if self.winopts._border then
     win_opts.border = self.winopts._border
-    win_opts.width = win_opts.width + 2
-    win_opts.height = win_opts.height + 2
+    -- adjust for borderless main window (#364)
+    if self.winopts._border == "none" then
+      win_opts.width = win_opts.width + 2
+      win_opts.height = win_opts.height + 2
+    end
   end
 
   -- When border chars are empty strings 'nvim_open_win' adjusts
@@ -1027,14 +1055,15 @@ function FzfWin:update_scrollbar_float(o)
   if o.bar_height >= o.line_count then
     self:hide_scrollbar()
   else
+    local offset = self.prev_single_win and 1 or 0
     local info = o.wininfo
     local style1 = {}
     style1.relative = "editor"
     style1.style = "minimal"
     style1.width = 1
     style1.height = info.height
-    style1.row = info.winrow - 1
-    style1.col = info.wincol + info.width +
+    style1.row = info.winrow - 1 + offset
+    style1.col = info.wincol + info.width + offset +
         (tonumber(self.winopts.preview.scrolloff) or -2)
     style1.zindex = info.zindex or 997
     if self._swin1 and vim.api.nvim_win_is_valid(self._swin1) then
@@ -1096,6 +1125,27 @@ function FzfWin:update_scrollbar(hide)
 end
 
 function FzfWin:update_title(title)
+  if self.prev_single_win then
+    -- we are using a single window, the border window is hidden
+    -- under the preview window and thus meaningless to update
+    -- if neovim >= 0.9 we can use the builtin title params instead
+    if utils.__HAS_NVIM_09 then
+      -- since `nvim_win_set_config` removes all styling, save backup
+      -- of the current options and restore after the call (#813)
+      local style = self:get_winopts(self.preview_winid, self._previewer:gen_winopts())
+      -- `nvim_win_set_config`: Invalid key: 'noautocmd'
+      self.prev_winopts.noautocmd = nil
+      api.nvim_win_set_config(self.preview_winid, vim.tbl_extend("keep", {
+          title = type(self.hls.preview_title) == "string"
+              and { { title, self.hls.preview_title } }
+              or title,
+          title_pos = self.winopts.preview.title_pos,
+        },
+        self.prev_winopts))
+      self:set_winopts(self.preview_winid, style)
+    end
+    return
+  end
   local right_pad = 7
   local border_buf = api.nvim_win_get_buf(self.border_winid)
   local top = api.nvim_buf_get_lines(border_buf, 0, 1, 0)[1]
@@ -1157,7 +1207,7 @@ function FzfWin.toggle_preview()
 end
 
 function FzfWin.toggle_preview_wrap()
-  if not _self then return end
+  if not _self or not _self:validate_preview() then return end
   local self = _self
   self.preview_wrap = not api.nvim_win_get_option(self.preview_winid, "wrap")
   if self and self:validate_preview() then
@@ -1348,6 +1398,13 @@ function FzfWin.toggle_help()
     -- topmost popup
     zindex = 999,
   }
+
+  -- "border chars mustbe one cell" (#874)
+  if vim.o.ambiwidth == "double" then
+    -- "single" looks better
+    -- winopts.border[2] = "-"
+    winopts.border = "single"
+  end
 
   self.km_bufnr = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_option(self.km_bufnr, "bufhidden", "wipe")

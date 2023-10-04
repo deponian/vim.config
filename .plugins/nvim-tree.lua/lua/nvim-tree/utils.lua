@@ -210,6 +210,16 @@ function M.canonical_path(path)
   return path
 end
 
+-- Escapes special characters in string if windows else returns unmodified string.
+-- @param path string
+-- @return path
+function M.escape_special_chars(path)
+  if path == nil then
+    return path
+  end
+  return M.is_windows and path:gsub("%(", "\\("):gsub("%)", "\\)") or path
+end
+
 -- Create empty sub-tables if not present
 -- @param tbl to create empty inside of
 -- @param path dot separated string of sub-tables
@@ -415,12 +425,18 @@ function M.array_shallow_clone(array)
   return to
 end
 
--- remove item from array if it exists
+--- Remove and return item from array if present.
+--- @param array table
+--- @param item any
+--- @return any|nil removed
 function M.array_remove(array, item)
+  if not array then
+    return nil
+  end
   for i, v in ipairs(array) do
     if v == item then
       table.remove(array, i)
-      break
+      return v
     end
   end
 end

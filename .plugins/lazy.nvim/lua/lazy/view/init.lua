@@ -159,7 +159,7 @@ function M:open_url(path)
 end
 
 function M:setup_patterns()
-  local commit_pattern = "%f[%w](" .. string.rep("%w", 7) .. ")%f[%W]"
+  local commit_pattern = "%f[%w](" .. string.rep("[a-f0-9]", 7) .. ")%f[%W]"
   self:on_pattern(ViewConfig.keys.hover, {
     [commit_pattern] = function(hash)
       self:diff({ commit = hash, browser = true })
@@ -243,6 +243,8 @@ function M:diff(opts)
     else
       Diff.handlers[Config.options.diff.cmd](plugin, diff)
     end
+
+    return true
   end
 end
 

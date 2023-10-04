@@ -203,22 +203,13 @@ Api.marks.list = wrap(require("nvim-tree.marks").get_marks)
 Api.marks.toggle = wrap_node(require("nvim-tree.marks").toggle_mark)
 Api.marks.clear = wrap(require("nvim-tree.marks").clear_marks)
 Api.marks.bulk.delete = wrap(require("nvim-tree.marks.bulk-delete").bulk_delete)
+Api.marks.bulk.trash = wrap(require("nvim-tree.marks.bulk-trash").bulk_trash)
 Api.marks.bulk.move = wrap(require("nvim-tree.marks.bulk-move").bulk_move)
 Api.marks.navigate.next = wrap(require("nvim-tree.marks.navigation").next)
 Api.marks.navigate.prev = wrap(require("nvim-tree.marks.navigation").prev)
 Api.marks.navigate.select = wrap(require("nvim-tree.marks.navigation").select)
 
 Api.config.mappings.default_on_attach = require("nvim-tree.keymap").default_on_attach
-
-Api.config.mappings.active = wrap(function()
-  notify.warn "api.config.mappings.active is deprecated in favor of config.mappings.get_keymap"
-  return require("nvim-tree.keymap-legacy").active_mappings_clone()
-end)
-
-Api.config.mappings.default = function()
-  notify.warn "api.config.mappings.default is deprecated in favor of config.mappings.get_keymap_default"
-  return require("nvim-tree.keymap-legacy").default_mappings_clone()
-end
 
 Api.config.mappings.get_keymap = wrap(function()
   return require("nvim-tree.keymap").get_keymap()

@@ -9,6 +9,9 @@ local util = require('gitsigns.util')
 local cache = require('gitsigns.cache').cache
 local config = require('gitsigns.config').config
 local debounce_trailing = require('gitsigns.debounce').debounce_trailing
+local manager = require('gitsigns.manager')
+
+local buf_check = manager.buf_check
 
 local dprint = log.dprint
 local dprintf = log.dprintf
@@ -43,7 +46,7 @@ local function handle_moved(bufnr, old_relpath)
   git_obj.file = git_obj.repo.toplevel .. util.path_sep .. git_obj.relpath
   bcache.file = git_obj.file
   git_obj:update_file_info()
-  async.scheduler()
+  async.scheduler_if_buf_valid(bufnr)
 
   local bufexists = util.bufexists(bcache.file)
   local old_name = api.nvim_buf_get_name(bufnr)
@@ -56,37 +59,40 @@ local function handle_moved(bufnr, old_relpath)
   dprintf('%s buffer %d from %s to %s', msg, bufnr, old_name, bcache.file)
 end
 
-local watch_gitdir_handler = async.void(function(bufnr)
-  if not cache[bufnr] then
-    -- Very occasionally an external git operation may cause the buffer to
-    -- detach and update the git dir simultaneously. When this happens this
-    -- handler will trigger but there will be no cache.
-    dprint('Has detached, aborting')
-    return
-  end
+--- @param bufnr integer
+local handler = debounce_trailing(
+  200,
+  async.void(function(bufnr)
+    local __FUNC__ = 'watcher_handler'
+    buf_check(bufnr)
 
-  local git_obj = cache[bufnr].git_obj
+    local git_obj = cache[bufnr].git_obj
 
-  git_obj.repo:update_abbrev_head()
+    git_obj.repo:update_abbrev_head()
 
-  async.scheduler()
-  Status:update(bufnr, { head = git_obj.repo.abbrev_head })
+    buf_check(bufnr)
 
-  local was_tracked = git_obj.object_name ~= nil
-  local old_relpath = git_obj.relpath
+    Status:update(bufnr, { head = git_obj.repo.abbrev_head })
 
-  git_obj:update_file_info()
+    local was_tracked = git_obj.object_name ~= nil
+    local old_relpath = git_obj.relpath
 
-  if config.watch_gitdir.follow_files and was_tracked and not git_obj.object_name then
-    -- File was tracked but is no longer tracked. Must of been removed or
-    -- moved. Check if it was moved and switch to it.
-    handle_moved(bufnr, old_relpath)
-  end
+    git_obj:update_file_info()
+    buf_check(bufnr)
 
-  cache[bufnr]:invalidate()
+    if config.watch_gitdir.follow_files and was_tracked and not git_obj.object_name then
+      -- File was tracked but is no longer tracked. Must of been removed or
+      -- moved. Check if it was moved and switch to it.
+      handle_moved(bufnr, old_relpath)
+      buf_check(bufnr)
+    end
 
-  require('gitsigns.manager').update(bufnr, cache[bufnr])
-end)
+    cache[bufnr]:invalidate(true)
+
+    require('gitsigns.manager').update(bufnr)
+  end),
+  1
+)
 
 -- vim.inspect but on one line
 --- @param x any
@@ -97,14 +103,15 @@ end
 
 local M = {}
 
+local WATCH_IGNORE = {
+  ORIG_HEAD = true,
+  FETCH_HEAD = true,
+}
+
 --- @param bufnr integer
 --- @param gitdir string
---- @return uv_fs_event_t?
+--- @return uv.uv_fs_event_t
 function M.watch_gitdir(bufnr, gitdir)
-  -- Setup debounce as we create the luv object so the debounce is independent
-  -- to each watcher
-  local watch_gitdir_handler_db = debounce_trailing(200, watch_gitdir_handler)
-
   dprintf('Watching git dir')
   local w = assert(uv.new_fs_event())
   w:start(gitdir, {}, function(err, filename, events)
@@ -116,14 +123,17 @@ function M.watch_gitdir(bufnr, gitdir)
 
     local info = string.format("Git dir update: '%s' %s", filename, inspect(events))
 
-    if vim.endswith(filename, '.lock') then
+    -- The luv docs say filename is passed as a string but it has been observed
+    -- to sometimes be nil.
+    --    https://github.com/lewis6991/gitsigns.nvim/issues/848
+    if filename == nil or WATCH_IGNORE[filename] or vim.endswith(filename, '.lock') then
       dprintf('%s (ignoring)', info)
       return
     end
 
     dprint(info)
 
-    watch_gitdir_handler_db(bufnr)
+    handler(bufnr)
   end)
   return w
 end

@@ -67,7 +67,6 @@ M.config = function()
     reload_on_bufenter = false,
     respect_buf_cwd = false,
     on_attach = on_attach,
-    remove_keymaps = false,
     select_prompts = false,
     view = {
       centralize_selection = false,
@@ -76,7 +75,6 @@ M.config = function()
       width = {
         max = 42,
       },
-      hide_root_folder = false,
       side = "left",
       preserve_window_proportions = false,
       number = false,

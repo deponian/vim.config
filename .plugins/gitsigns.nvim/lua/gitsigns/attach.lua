@@ -10,7 +10,6 @@ local hl = require('gitsigns.highlight')
 
 local gs_cache = require('gitsigns.cache')
 local cache = gs_cache.cache
-local CacheEntry = gs_cache.CacheEntry
 local Status = require('gitsigns.status')
 
 local gs_config = require('gitsigns.config')
@@ -49,7 +48,7 @@ local function parse_fugitive_uri(name)
 end
 
 --- @param name string
---- @return string? buffer
+--- @return string buffer
 --- @return string? commit
 local function parse_gitsigns_uri(name)
   -- TODO(lewis6991): Support submodules
@@ -77,18 +76,20 @@ local function get_buf_path(bufnr)
     if vim.startswith(file, 'fugitive://') then
       local path, commit = parse_fugitive_uri(file)
       dprintf("Fugitive buffer for file '%s' from path '%s'", path, file)
-      path = uv.fs_realpath(path)
       if path then
-        return path, commit
+        local realpath = uv.fs_realpath(path)
+        if realpath then
+          return realpath, commit
+        end
       end
     end
 
     if vim.startswith(file, 'gitsigns://') then
       local path, commit = parse_gitsigns_uri(file)
       dprintf("Gitsigns buffer for file '%s' from path '%s'", path, file)
-      path = uv.fs_realpath(path)
-      if path then
-        return path, commit
+      local realpath = uv.fs_realpath(path)
+      if realpath then
+        return realpath, commit
       end
     end
   end
@@ -109,6 +110,7 @@ end
 --- @param bufnr integer
 local function on_reload(_, bufnr)
   local __FUNC__ = 'on_reload'
+  cache[bufnr]:invalidate()
   dprint('Reload')
   manager.update_debounced(bufnr)
 end
@@ -116,6 +118,10 @@ end
 --- @param _ 'detach'
 --- @param bufnr integer
 local function on_detach(_, bufnr)
+  api.nvim_clear_autocmds({
+    group = 'gitsigns',
+    buffer = bufnr,
+  })
   M.detach(bufnr, true)
 end
 
@@ -217,12 +223,12 @@ end
 --- @field commit string
 --- @field base string
 
--- Ensure attaches cannot be interleaved.
--- Since attaches are asynchronous we need to make sure an attach isn't
--- performed whilst another one is in progress.
+--- Ensure attaches cannot be interleaved.
+--- Since attaches are asynchronous we need to make sure an attach isn't
+--- performed whilst another one is in progress.
 --- @param cbuf integer
---- @param ctx Gitsigns.GitContext
---- @param aucmd string
+--- @param ctx? Gitsigns.GitContext
+--- @param aucmd? string
 local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
   local __FUNC__ = 'attach'
 
@@ -289,7 +295,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
 
   if not git_obj and not ctx then
     git_obj = try_worktrees(cbuf, file, encoding)
-    async.scheduler()
+    async.scheduler_if_buf_valid(cbuf)
   end
 
   if not git_obj then
@@ -298,7 +304,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
   end
   local repo = git_obj.repo
 
-  async.scheduler()
+  async.scheduler_if_buf_valid(cbuf)
   Status:update(cbuf, {
     head = repo.abbrev_head,
     root = repo.toplevel,
@@ -327,14 +333,15 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
 
   -- On windows os.tmpname() crashes in callback threads so initialise this
   -- variable on the main thread.
-  async.scheduler()
+  async.scheduler_if_buf_valid(cbuf)
 
   if config.on_attach and config.on_attach(cbuf) == false then
     dprint('User on_attach() returned false')
     return
   end
 
-  cache[cbuf] = CacheEntry.new({
+  cache[cbuf] = gs_cache.new({
+    bufnr = cbuf,
     base = ctx and ctx.base or config.base,
     file = file,
     commit = commit,
@@ -359,8 +366,16 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
     on_detach = on_detach,
   })
 
+  api.nvim_create_autocmd('BufWrite', {
+    group = 'gitsigns',
+    buffer = cbuf,
+    callback = function()
+      manager.update_debounced(cbuf)
+    end,
+  })
+
   -- Initial update
-  manager.update(cbuf, cache[cbuf])
+  manager.update(cbuf)
 end)
 
 --- Detach Gitsigns from all buffers it is attached to.
@@ -404,7 +419,7 @@ end
 ---     {async}
 ---
 --- @param bufnr integer Buffer number
---- @param ctx table|nil
+--- @param ctx Gitsigns.GitContext|nil
 ---     Git context data that may optionally be used to attach to any
 ---     buffer that represents a real git object.
 ---     • {file}: (string)
@@ -419,6 +434,7 @@ end
 ---       The git revision that the file belongs to.
 ---     • {base}: (string|nil)
 ---       The git revision that the file should be compared to.
+--- @param _trigger? string
 M.attach = void(function(bufnr, ctx, _trigger)
   attach_throttled(bufnr or api.nvim_get_current_buf(), ctx, _trigger)
 end)

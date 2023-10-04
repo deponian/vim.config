@@ -171,7 +171,13 @@ M.fzf_wrap = function(opts, contents, fn_selected)
     opts.fn_selected = opts.fn_selected or fn_selected
     local selected = M.fzf(contents, opts)
     if opts.fn_selected then
-      opts.fn_selected(selected, opts)
+      -- errors thrown here gets silenced possibly
+      -- due to a coroutine, so catch explicitly
+      xpcall(function()
+        opts.fn_selected(selected, opts)
+      end, function(err)
+        utils.err("fn_selected threw an error: " .. debug.traceback(err, 1))
+      end)
     end
   end)
 end
@@ -569,6 +575,7 @@ M.mt_cmd_wrapper = function(opts)
   if not opts.requires_processing
       and not opts.git_icons
       and not opts.file_icons
+      and not opts.file_ignore_patterns
       and not opts.path_shorten then
     -- command does not require any processing
     return opts.cmd

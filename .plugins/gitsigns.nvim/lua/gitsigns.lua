@@ -13,7 +13,7 @@ local uv = vim.loop
 
 local M = {}
 
-local cwd_watcher ---@type uv_fs_event_t?
+local cwd_watcher ---@type uv.uv_fs_event_t?
 
 local update_cwd_head = void(function()
   local paths = vim.fs.find('.git', {
@@ -154,7 +154,7 @@ end
 --- Attributes: ~
 ---     {async}
 ---
---- @param cfg table Configuration for Gitsigns.
+--- @param cfg table|nil Configuration for Gitsigns.
 ---     See |gitsigns-usage| for more details.
 M.setup = void(function(cfg)
   gs_config.build(cfg)

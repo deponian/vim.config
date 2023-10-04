@@ -105,7 +105,7 @@ M.vimcmd_file = function(vimcmd, selected, opts)
     entry.ctag = opts._ctag and path.entry_to_ctag(selected[i])
     local fullpath = entry.path or entry.uri and entry.uri:match("^%a+://(.*)")
     if not path.starts_with_separator(fullpath) then
-      fullpath = path.join({ opts.cwd or vim.loop.cwd(), fullpath })
+      fullpath = path.join({ opts.cwd or opts._cwd or vim.loop.cwd(), fullpath })
     end
     if vimcmd == "e"
         and curbuf ~= fullpath
@@ -128,6 +128,10 @@ M.vimcmd_file = function(vimcmd, selected, opts)
       if entry.path then
         -- do not run ':<cmd> <file>' for uri entries (#341)
         local relpath = path.relative(entry.path, vim.loop.cwd())
+        if vim.o.autochdir then
+          -- force full paths when `autochdir=true` (#882)
+          relpath = fullpath
+        end
         vim.cmd(vimcmd .. " " .. vim.fn.fnameescape(relpath))
       elseif vimcmd ~= "e" then
         -- uri entries only execute new buffers (new|vnew|tabnew)
@@ -158,17 +162,17 @@ M.file_edit = function(selected, opts)
 end
 
 M.file_split = function(selected, opts)
-  local vimcmd = "new"
+  local vimcmd = "split"
   M.vimcmd_file(vimcmd, selected, opts)
 end
 
 M.file_vsplit = function(selected, opts)
-  local vimcmd = "vnew"
+  local vimcmd = "vsplit"
   M.vimcmd_file(vimcmd, selected, opts)
 end
 
 M.file_tabedit = function(selected, opts)
-  local vimcmd = "tabnew"
+  local vimcmd = "tab split"
   M.vimcmd_file(vimcmd, selected, opts)
 end
 
@@ -237,7 +241,7 @@ M.file_switch = function(selected, opts)
   end
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
     local bname = vim.api.nvim_buf_get_name(b)
-    if bname and bname == fullpath then
+    if bname == fullpath then
       bufnr = b
       break
     end
@@ -404,7 +408,7 @@ end
 
 M.run_builtin = function(selected)
   local method = selected[1]
-  vim.cmd(string.format("lua require'fzf-lua'.%s()", method))
+  pcall(loadstring(string.format("require'fzf-lua'.%s()", method)))
 end
 
 M.ex_run = function(selected)
@@ -443,7 +447,7 @@ M.goto_mark = function(selected)
   local mark = selected[1]
   mark = mark:match("[^ ]+")
   vim.cmd("stopinsert")
-  vim.cmd("normal! '" .. mark)
+  vim.cmd("normal! `" .. mark)
   -- vim.fn.feedkeys(string.format("'%s", mark))
 end
 
@@ -472,7 +476,8 @@ M.goto_jump = function(selected, opts)
 end
 
 M.keymap_apply = function(selected)
-  local key = selected[1]:match("[│]%s+(.*)%s+[│]")
+  -- extract lhs in the keymap. The lhs can't contain a whitespace.
+  local key = selected[1]:match("[│]%s+([^%s]*)%s+[│]")
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(key, true, false, true), "t", true)
 end
 
@@ -568,8 +573,16 @@ M.git_switch = function(selected, opts)
   end
 end
 
-M.git_yank_commit = function(selected, _)
-  local commit_hash = selected[1]:match("[^ ]+")
+local match_commit_hash = function(line, opts)
+  if type(opts.fn_match_commit_hash) == "function" then
+    return opts.fn_match_commit_hash(line, opts)
+  else
+    return line:match("[^ ]+")
+  end
+end
+
+M.git_yank_commit = function(selected, opts)
+  local commit_hash = match_commit_hash(selected[1], opts)
   vim.fn.setreg([[0]], commit_hash)
   vim.fn.setreg([["]], commit_hash)
 end
@@ -577,7 +590,7 @@ end
 M.git_checkout = function(selected, opts)
   local cmd_checkout = path.git_cwd({ "git", "checkout" }, opts)
   local cmd_cur_commit = path.git_cwd({ "git", "rev-parse", "--short HEAD" }, opts)
-  local commit_hash = selected[1]:match("[^ ]+")
+  local commit_hash = match_commit_hash(selected[1], opts)
   if utils.input("Checkout commit " .. commit_hash .. "? [y/n] ") == "y" then
     local current_commit = utils.io_systemlist(cmd_cur_commit)
     if (commit_hash == current_commit) then return end
@@ -674,7 +687,7 @@ M.git_buf_edit = function(selected, opts)
   local win = vim.api.nvim_get_current_win()
   local buffer_filetype = vim.bo.filetype
   local file = path.relative(vim.fn.expand("%:p"), git_root)
-  local commit_hash = selected[1]:match("[^ ]+")
+  local commit_hash = match_commit_hash(selected[1], opts)
   table.insert(cmd, commit_hash .. ":" .. file)
   local git_file_contents = utils.io_systemlist(cmd)
   local buf = vim.api.nvim_create_buf(true, true)

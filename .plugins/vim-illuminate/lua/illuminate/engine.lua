@@ -21,7 +21,8 @@ local function buf_should_illuminate(bufnr)
         return false
     end
 
-    return (config.max_file_lines() == nil or vim.fn.line('$') <= config.max_file_lines())
+    return config.should_enable()(bufnr)
+        and (config.max_file_lines() == nil or vim.fn.line('$') <= config.max_file_lines())
         and util.is_allowed(
             config.modes_allowlist(bufnr),
             config.modes_denylist(bufnr),
@@ -172,7 +173,7 @@ function M.refresh_references(bufnr, winid)
 end
 
 function M.get_provider(bufnr)
-    for _, provider in ipairs(config.providers(bufnr)) do
+    for _, provider in ipairs(config.providers(bufnr) or {}) do
         local ok, providerModule = pcall(require, string.format('illuminate.providers.%s', provider))
         if ok and providerModule.is_ready(bufnr) then
             return providerModule, provider

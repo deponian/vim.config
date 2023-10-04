@@ -24,28 +24,86 @@ function M.dirname(file)
   return file:match(string.format('^(.+)%s[^%s]+', M.path_sep, M.path_sep))
 end
 
---- @param file string
+--- @param path string
+--- @param opts {raw: boolean}?
 --- @return string[]
-function M.file_lines(file)
-  local text = {} --- @type string[]
-  for line in io.lines(file) do
-    text[#text + 1] = line
+function M.file_lines(path, opts)
+  opts = opts or {}
+  local file = assert(io.open(path))
+  local contents = file:read('*a')
+  local lines = vim.split(contents, '\n', { plain = true })
+  if not opts.raw then
+    -- If contents ends with a newline, then remove the final empty string after the split
+    if lines[#lines] == '' then
+      lines[#lines] = nil
+    end
   end
-  return text
+  return lines
 end
 
 M.path_sep = package.config:sub(1, 1)
+
+--- @param ... integer
+--- @return string
+local function make_bom(...)
+  local r = {}
+  ---@diagnostic disable-next-line:no-unknown
+  for i, a in ipairs({ ... }) do
+    ---@diagnostic disable-next-line:no-unknown
+    r[i] = string.char(a)
+  end
+  return table.concat(r)
+end
+
+local BOM_TABLE = {
+  ['utf-8'] = make_bom(0xef, 0xbb, 0xbf),
+  ['utf-16le'] = make_bom(0xff, 0xfe),
+  ['utf-16'] = make_bom(0xfe, 0xff),
+  ['utf-16be'] = make_bom(0xfe, 0xff),
+  ['utf-32le'] = make_bom(0xff, 0xfe, 0x00, 0x00),
+  ['utf-32'] = make_bom(0xff, 0xfe, 0x00, 0x00),
+  ['utf-32be'] = make_bom(0x00, 0x00, 0xfe, 0xff),
+  ['utf-7'] = make_bom(0x2b, 0x2f, 0x76),
+  ['utf-1'] = make_bom(0xf7, 0x54, 0x4c),
+}
+
+---@param x string
+---@param encoding string
+---@return string
+local function add_bom(x, encoding)
+  local bom = BOM_TABLE[encoding]
+  if bom then
+    return bom .. x
+  end
+  return x
+end
 
 --- @param bufnr integer
 --- @return string[]
 function M.buf_lines(bufnr)
   -- nvim_buf_get_lines strips carriage returns if fileformat==dos
   local buftext = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  if vim.bo[bufnr].fileformat == 'dos' then
-    for i = 1, #buftext do
+
+  local dos = vim.bo[bufnr].fileformat == 'dos'
+
+  if dos then
+    for i = 1, #buftext - 1 do
       buftext[i] = buftext[i] .. '\r'
     end
   end
+
+  if vim.bo[bufnr].endofline then
+    -- Add CR to the last line
+    if dos then
+      buftext[#buftext] = buftext[#buftext] .. '\r'
+    end
+    buftext[#buftext + 1] = ''
+  end
+
+  if vim.bo[bufnr].bomb then
+    buftext[1] = add_bom(buftext[1], vim.bo[bufnr].fileencoding)
+  end
+
   return buftext
 end
 
@@ -72,9 +130,11 @@ end
 --- @param lines string[]
 function M.set_lines(bufnr, start_row, end_row, lines)
   if vim.bo[bufnr].fileformat == 'dos' then
-    for i = 1, #lines do
-      lines[i] = lines[i]:gsub('\r$', '')
-    end
+    lines = M.strip_cr(lines)
+  end
+  if start_row == 0 and end_row == -1 and lines[#lines] == '' then
+    lines = vim.deepcopy(lines)
+    lines[#lines] = nil
   end
   vim.api.nvim_buf_set_lines(bufnr, start_row, end_row, false, lines)
 end
@@ -131,17 +191,6 @@ function M.get_relative_time(timestamp)
   end
 end
 
---- @generic T
---- @param x T[]
---- @return T[]
-function M.copy_array(x)
-  local r = {}
-  for i, e in ipairs(x) do
-    r[i] = e
-  end
-  return r
-end
-
 --- Strip '\r' from the EOL of each line only if all lines end with '\r'
 --- @param xs0 string[]
 --- @return string[]
@@ -161,6 +210,7 @@ function M.strip_cr(xs0)
 end
 
 --- @param base? string
+--- @return string?
 function M.calc_base(base)
   if base and base:sub(1, 1):match('[~\\^]') then
     base = 'HEAD' .. base
@@ -170,6 +220,9 @@ end
 
 function M.emptytable()
   return setmetatable({}, {
+    ---@param t table<any,any>
+    ---@param k any
+    ---@return any
     __index = function(t, k)
       t[k] = {}
       return t[k]
@@ -185,7 +238,7 @@ local function expand_date(fmt, time)
 end
 
 ---@param fmt string
----@param info table
+---@param info table<string,any>
 ---@param reltime? boolean Use relative time as the default date format
 ---@return string
 function M.expand_format(fmt, info, reltime)
@@ -197,6 +250,7 @@ function M.expand_format(fmt, info, reltime)
     if not match then
       break
     end
+    --- @cast key string
 
     ret[#ret + 1], fmt = fmt:sub(1, scol - 1), fmt:sub(ecol + 1)
 
@@ -226,6 +280,60 @@ end
 function M.bufexists(buf)
   --- @diagnostic disable-next-line:param-type-mismatch
   return vim.fn.bufexists(buf) == 1
+end
+
+--- @param x Gitsigns.BlameInfo
+--- @return Gitsigns.BlameInfoPublic
+function M.convert_blame_info(x)
+  --- @type Gitsigns.BlameInfoPublic
+  local ret = vim.tbl_extend('error', x, x.commit)
+  ret.commit = nil
+  return ret
+end
+
+--- Efficiently remove items from middle of a list a list.
+---
+--- Calling table.remove() in a loop will re-index the tail of the table on
+--- every iteration, instead this function will re-index  the table exactly
+--- once.
+---
+--- Based on https://stackoverflow.com/questions/12394841/safely-remove-items-from-an-array-table-while-iterating/53038524#53038524
+---
+---@param t any[]
+---@param first integer
+---@param last integer
+function M.list_remove(t, first, last)
+  local n = #t
+  for i = 0, n - first do
+    t[first + i] = t[last + 1 + i]
+    t[last + 1 + i] = nil
+  end
+end
+
+--- Efficiently insert items into the middle of a list.
+---
+--- Calling table.insert() in a loop will re-index the tail of the table on
+--- every iteration, instead this function will re-index  the table exactly
+--- once.
+---
+--- Based on https://stackoverflow.com/questions/12394841/safely-remove-items-from-an-array-table-while-iterating/53038524#53038524
+---
+---@param t any[]
+---@param first integer
+---@param last integer
+---@param v any
+function M.list_insert(t, first, last, v)
+  local n = #t
+
+  -- Shift table forward
+  for i = n - first, 0, -1 do
+    t[last + 1 + i] = t[first + i]
+  end
+
+  -- Fill in new values
+  for i = first, last do
+    t[i] = v
+  end
 end
 
 return M

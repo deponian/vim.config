@@ -14,6 +14,7 @@ return {
   },
   ignore_exitcode = true,
   parser = function(output)
+    if output == "" then return {} end
     local decoded = vim.json.decode(output)
     local diagnostics = {}
     for _, item in ipairs(decoded or {}) do
@@ -23,6 +24,7 @@ return {
         end_lnum = item.endLine - 1,
         end_col = item.endColumn - 1,
         code = item.code,
+        source = "shellcheck",
         user_data = {
           lsp = {
             code = item.code,

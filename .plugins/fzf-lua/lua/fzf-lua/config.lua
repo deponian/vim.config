@@ -20,9 +20,12 @@ M._devicons_geticons = function()
   if not M._has_devicons or not M._devicons or not M._devicons.get_icons then
     return
   end
-  if M.__DEVICONS then
+  -- force refresh if `bg` changed from dark/light (#855)
+  if M.__DEVICONS and vim.o.bg == M.__DEVICONS_BG then
     return M.__DEVICONS
   end
+  -- save the current background
+  M.__DEVICONS_BG = vim.o.bg
   -- rpc request cannot return a table that has mixed elements
   -- of both indexed items and key value, it will fail with
   -- "Cannot convert given lua table"
@@ -146,6 +149,16 @@ function M.normalize_opts(opts, defaults)
       type(opts[k]) == "function" and opts[k]() or opts[k] or {},
       type(M.globals[k]) == "function" and M.globals[k]() or
       type(M.globals[k]) == "table" and utils.tbl_deep_clone(M.globals[k]) or {})
+  end
+
+  -- prioritize fzf-tmux split pane flags over the
+  -- popup flag `-p` from fzf-lua defaults (#865)
+  if type(opts.fzf_tmux_opts) == "table" then
+    for _, flag in ipairs({ "-u", "-d", "-l", "-r" }) do
+      if opts.fzf_tmux_opts[flag] then
+        opts.fzf_tmux_opts["-p"] = nil
+      end
+    end
   end
 
   -- Merge `winopts` with outputs from `winopts_fn`
@@ -296,6 +309,13 @@ function M.normalize_opts(opts, defaults)
       opts.previewer, M.globals.previewers.builtin)
   end
 
+  -- we need the original `cwd` with `autochdir=true` (#882)
+  -- use `_cwd` to not interfere with supplied users' options
+  -- as this can have unintended effects (e.g. in "buffers")
+  if vim.o.autochdir and not opts.cwd then
+    opts._cwd = vim.loop.cwd()
+  end
+
   if opts.cwd and #opts.cwd > 0 then
     opts.cwd = vim.fn.expand(opts.cwd)
     if not vim.loop.fs_stat(opts.cwd) then
@@ -371,6 +391,13 @@ function M.normalize_opts(opts, defaults)
   -- libuv.spawn_nvim_fzf_cmd() pid callback
   opts._set_pid = M.set_pid
   opts._get_pid = M.get_pid
+
+  -- setup devicons terminal highlight groups does nothing unless
+  -- neovim `bg` is changed, call via utils/loadstring to prevent
+  -- circular require and also make sure "make_entry.lua" isn't
+  -- loaded before devicons vars are setup by this module
+  -- TODO: cleanup the background update and devicons load logic
+  utils.setup_devicon_term_hls()
 
   -- mark as normalized
   opts._normalized = true

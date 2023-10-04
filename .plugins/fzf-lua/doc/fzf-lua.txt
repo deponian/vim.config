@@ -1,9 +1,10 @@
-*fzf-lua.txt*           For Neovim >= 0.5.0          Last change: 2023 July 28
+*fzf-lua.txt*         For Neovim >= 0.5.0         Last change: 2023 October 04
 
 ==============================================================================
 Table of Contents                                  *fzf-lua-table-of-contents*
 
 Quickstart .............................................. |fzf-lua-quickstart|
+Coming from fzf.vim? .......................... |fzf-lua-coming-from-fzf.vim?|
 Rationale ................................................ |fzf-lua-rationale|
 Why Fzf-Lua ............................................ |fzf-lua-why-fzf-lua|
 Dependencies .......................................... |fzf-lua-dependencies|
@@ -89,6 +90,16 @@ in it's own sandbox with the default keybinds below):
 | `<C-k>`     | builtin commands  | `<F1>`      | neovim help       |
 
 
+                                                                              
+COMING FROM FZF.VIM?                            *fzf-lua-coming-from-fzf.vim?*
+
+Easy! run `:FzfLua setup_fzfvim_cmds` and use the same familiar commands used
+by fzf.vim, i.e. `:Files`, `:Rg`, etc.
+
+  Using the builtin `fzf-vim` profile will also create fzf.vim's user commands,
+  i.e. `require("fzf-lua").setup({ "fzf-vim" })`
+
+
 ------------------------------------------------------------------------------
 RATIONALE                                                  *fzf-lua-rationale*
 
@@ -168,9 +179,9 @@ INSTALLATION                                            *fzf-lua-installation*
 Using vim-plug <https://github.com/junegunn/vim-plug>
 
 >vim
-    Plug "ibhagwan/fzf-lua", {"branch": "main"}
+    Plug 'ibhagwan/fzf-lua', {'branch': 'main'}
     " optional for icon support
-    Plug "nvim-tree/nvim-web-devicons"
+    Plug 'nvim-tree/nvim-web-devicons'
 <
 Using packer.nvim <https://github.com/wbthomason/packer.nvim>
 
@@ -466,6 +477,7 @@ Conviniently, fzf-lua comes with a set of preconfigured profiles, notably:
 | `default`          | fzf-lua defaults, uses neovim "builtin" previewer and devicons (if available) for git/files/buffers |
 | `fzf-native`       | utilizes fzf's native previewing ability in the terminal where possible using `bat` for previews |
 | `fzf-tmux`         | similar to `fzf-native` and opens in a tmux popup (requires tmux > 3.2) |
+| `fzf-vim`          | closest to `fzf.vim`'s defaults (+icons), also sets up user commands (`:Files`, `:Rg`, etc) |
 | `max-perf`         | similar to `fzf-native` and disables icons globally for max performance |
 | `telescope`        | closest match to telescope defaults in look and feel and keybinds |
 | `skim`             | uses [`skim`](https://github.com/lotabout/skim) as an fzf alternative, (requires the `sk` binary) |
@@ -757,7 +769,9 @@ open an issue and I'll be more than happy to help.**
           extensions      = {
             -- neovim terminal only supports `viu` block output
             ["png"]       = { "viu", "-b" },
-            ["svg"]       = { "chafa" },
+            -- by default the filename is added as last argument
+            -- if required, use `<file>` for argument positioning
+            ["svg"]       = { "chafa", "<file>" },
             ["jpg"]       = { "ueberzug" },
           },
           -- if using `ueberzug` in the above extensions map
@@ -820,9 +834,7 @@ open an issue and I'll be more than happy to help.**
         },
         status = {
           prompt        = 'GitStatus❯ ',
-          -- consider using `git status -su` if you wish to see
-          -- untracked files individually under their subfolders
-          cmd           = "git -c color.status=false status -s",
+          cmd           = "git -c color.status=false status -su",
           file_icons    = true,
           git_icons     = true,
           color_icons   = true,
@@ -1018,6 +1030,7 @@ open an issue and I'll be more than happy to help.**
         prompt            = 'BLines❯ ',
         show_unlisted     = true,         -- include 'help' buffers
         no_term_buffers   = false,        -- include 'term' buffers
+        -- start          = "cursor"      -- start display from cursor?
         fzf_opts = {
           -- hide filename, tiebreak by line no.
           ['--delimiter'] = "'[\\]:]'",
@@ -1077,6 +1090,20 @@ open an issue and I'll be more than happy to help.**
         -- uncomment to execute a callback after interface is closed
         -- e.g. a call to reset statusline highlights
         -- post_reset_cb     = function() ... end,
+      },
+      keymaps = {
+        prompt            = "Keymaps> ",
+        winopts           = { preview = { layout = "vertical" } },
+        fzf_opts          = { ["--tiebreak"] = "index", },
+        -- by default, we ignore <Plug> and <SNR> mappings
+        -- set `ignore_patterns = false` to disable filtering
+        ignore_patterns   = { "^<SNR>", "^<Plug>" },
+        actions           = {
+          ["default"]     = actions.keymap_apply,
+          ["ctrl-s"]      = actions.keymap_split,
+          ["ctrl-v"]      = actions.keymap_vsplit,
+          ["ctrl-t"]      = actions.keymap_tabedit,
+        },
       },
       quickfix = {
         file_icons        = true,
@@ -1182,6 +1209,8 @@ open an issue and I'll be more than happy to help.**
         git_icons         = false,
         diag_icons        = true,
         icon_padding      = '',     -- add padding for wide diagnostics signs
+        multiline         = true,   -- concatenate multi-line diags into a single line
+                                    -- set to `false` to display the first line only
         -- by default icons and highlights are extracted from 'DiagnosticSignXXX'
         -- and highlighted by a highlight group of the same name (which is usually
         -- set by your colorscheme, for more info see:

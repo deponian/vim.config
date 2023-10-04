@@ -63,7 +63,7 @@
 
 ; Constructor
 ((sym_lit) @constructor
- (#lua-match? @constructor "^-\\>[^\\>].*"))
+ (#lua-match? @constructor "^-%>[^>].*"))
 
 ; Builtin dynamic variables
 ((sym_lit) @variable.builtin
@@ -100,12 +100,17 @@
  (#lua-match? @type "^[^/]+[.][^/]*$"))
 
 ; Interop
+; (.instanceMember instance args*)
+; (.instanceMember Classname args*)
 ((sym_lit) @method
- (#match? @method "^\\.[^-]"))
+ (#lua-match? @method "^%.[^-]"))
+; (.-instanceField instance)
 ((sym_lit) @field
- (#match? @field "^\\.-"))
+ (#lua-match? @field "^%.%-.*"))
+;  Classname/staticField
 ((sym_lit) @field
  (#lua-match? @field "^[%u].*/.+"))
+; (Classname/staticMethod args*)
 (list_lit
  .
  (sym_lit) @method
@@ -133,7 +138,7 @@
  (#any-of? @keyword.coroutine
   "alts!" "alts!!" "await" "await-for" "await1" "chan" "close!" "future" "go" "sync" "thread" "timeout" "<!" "<!!" ">!" ">!!"))
 ((sym_lit) @keyword.function
- (#match? @keyword.function "^(defn|defn-|fn|fn[*])$"))
+ (#any-of? @keyword.function "defn" "defn-" "fn" "fn*"))
 
 ; Comment
 ((sym_lit) @comment

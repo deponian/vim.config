@@ -8,9 +8,10 @@ end
 
 local M = {}
 
-M.__HAS_NVIM_09 = vim.fn.has("nvim-0.9") == 1
-M.__HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
 M.__HAS_NVIM_07 = vim.fn.has("nvim-0.7") == 1
+M.__HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
+M.__HAS_NVIM_09 = vim.fn.has("nvim-0.9") == 1
+M.__HAS_NVIM_010 = vim.fn.has("nvim-0.10") == 1
 
 function M.__FILE__() return debug.getinfo(2, "S").source end
 
@@ -99,34 +100,26 @@ function M.nvim_has_option(option)
   return vim.fn.exists("&" .. option) == 1
 end
 
-function M._echo_multiline(msg, hl)
-  vim.cmd("echohl " .. hl)
-  for _, s in ipairs(vim.fn.split(msg, "\n")) do
-    vim.cmd("echom '" .. s:gsub("'", "''") .. "'")
-  end
-  vim.cmd("echohl None")
-end
-
-local fast_event_aware_echo = function(msg, hl)
+local fast_event_aware_notify = function(msg, level, opts)
   if vim.in_fast_event() then
     vim.schedule(function()
-      M._echo_multiline("[Fzf-lua] " .. msg, hl)
+      vim.notify("[Fzf-lua] " .. msg, level, opts)
     end)
   else
-    M._echo_multiline("[Fzf-lua] " .. msg, hl)
+    vim.notify("[Fzf-lua] " .. msg, level, opts)
   end
 end
 
 function M.info(msg)
-  fast_event_aware_echo(msg, "Directory")
+  fast_event_aware_notify(msg, vim.log.levels.INFO, {})
 end
 
 function M.warn(msg)
-  fast_event_aware_echo(msg, "WarningMsg")
+  fast_event_aware_notify(msg, vim.log.levels.WARN, {})
 end
 
 function M.err(msg)
-  fast_event_aware_echo(msg, "ErrorMsg")
+  fast_event_aware_notify(msg, vim.log.levels.ERROR, {})
 end
 
 function M.shell_error()
@@ -171,7 +164,7 @@ end
 
 function M.glob_escape(str)
   if not str then return str end
-  return str:gsub("[\\%{}]", function(x)
+  return str:gsub("[\\%{}[%]]", function(x)
     return [[\]] .. x
   end)
 end
@@ -186,8 +179,7 @@ function M.pcall_expand(filepath)
   -- :lua print(vim.fn.expand("~/file[2-1].ext"))
   -- but not when escaping the hyphen:
   -- :lua print(vim.fn.expand("~/file[2\\-1].ext"))
-  local ok, expanded = pcall(vim.fn.expand,
-    filepath:gsub("%-", "\\-"))
+  local ok, expanded = pcall(vim.fn.expand, filepath:gsub("%-", "\\-"))
   if ok and expanded and #expanded > 0 then
     return expanded
   else
@@ -205,6 +197,15 @@ M.file_is_binary = function(filepath)
   end
   local out = M.io_system({ "file", "--dereference", "--mime", filepath })
   return out:match("charset=binary") ~= nil
+end
+
+M.file_is_readable = function(filepath)
+  local fd = vim.loop.fs_open(filepath, "r", 438)
+  if fd then
+    vim.loop.fs_close(fd)
+    return true
+  end
+  return false
 end
 
 M.perl_file_is_binary = function(filepath)
@@ -465,10 +466,13 @@ function M.ansi_from_hl(hl, s)
     end
   end
   local escseq = #escseqs > 0 and table.concat(escseqs) or nil
-  if escseq then
-    s = string.format("%s%s%s", escseq, s or "", M.ansi_escseq.clear)
+  local escfn = function(str)
+    if escseq then
+      str = string.format("%s%s%s", escseq, str or "", M.ansi_escseq.clear)
+    end
+    return str
   end
-  return s, escseq
+  return escfn(s), escseq, escfn
 end
 
 function M.strip_ansi_coloring(str)
@@ -549,6 +553,10 @@ end
 
 function M.setup_highlights()
   pcall(loadstring("require'fzf-lua'.setup_highlights()"))
+end
+
+function M.setup_devicon_term_hls()
+  pcall(loadstring("require'fzf-lua.make_entry'.setup_devicon_term_hls()"))
 end
 
 function M.load_profile(fname, name, silent)
@@ -693,7 +701,7 @@ function M.nvim_buf_get_name(bufnr, bufinfo)
     return bufinfo.name
   end
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-  if not bufname or #bufname == 0 then
+  if #bufname == 0 then
     local is_qf = M.buf_is_qf(bufnr, bufinfo)
     if is_qf then
       bufname = is_qf == 1 and "[Quickfix List]" or "[Location List]"

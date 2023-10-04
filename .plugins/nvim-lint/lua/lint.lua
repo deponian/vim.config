@@ -23,6 +23,7 @@ local M = {}
 ---@field stream? "stdout"|"stderr"|"both" result stream. Defaults to stdout
 ---@field ignore_exitcode? boolean if exit code != 1 should be ignored or result in a warning. Defaults to false
 ---@field env? table
+---@field cwd? string
 ---@field parser lint.Parser|fun(output:string, bufnr:number, linter_cwd:string):Diagnostic[]
 
 
@@ -116,7 +117,7 @@ end
 
 
 --- Running processes by buffer -> by linter name
----@type table<integer, table<string, uv_process_t>> bufnr: {linter: handle}
+---@type table<integer, table<string, uv.uv_process_t>> bufnr: {linter: handle}
 local running_procs_by_buf = {}
 
 
@@ -177,7 +178,7 @@ end
 
 ---@param linter lint.Linter
 ---@param opts? {cwd?: string, ignore_errors?: boolean}
----@return uv_process_t|nil
+---@return uv.uv_process_t|nil
 function M.lint(linter, opts)
   assert(linter, 'lint must be called with a linter')
   local stdin = assert(uv.new_pipe(false), "Must be able to create pipe")
@@ -209,7 +210,7 @@ function M.lint(linter, opts)
     args = args,
     stdio = { stdin, stdout, stderr },
     env = env,
-    cwd = opts.cwd or vim.fn.getcwd(),
+    cwd = opts.cwd or linter.cwd or vim.fn.getcwd(),
     detached = false
   }
   local cmd = eval_fn_or_id(linter.cmd)
