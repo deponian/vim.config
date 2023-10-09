@@ -1,7 +1,12 @@
 local M = { "deponian/nvim-scalpelua" }
 
 M.opts = {
-  minimap_enabled = true
+  minimap_enabled = true,
+  highlighting = {
+    regular_search_pattern = "Search",
+    current_search_pattern = "CurSearch",
+    minimap_integration = "Constant",
+  },
 }
 
 M.keys = {

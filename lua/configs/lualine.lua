@@ -13,7 +13,7 @@ M.opts = function ()
   return {
     options = {
       icons_enabled = true,
-      theme = require('deponian.lualine.onedark'),
+      theme = "tokyonight",
       component_separators = '',
       section_separators = '',
       disabled_filetypes = {

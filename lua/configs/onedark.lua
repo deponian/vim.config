@@ -2,6 +2,7 @@ local M = {
   "navarasu/onedark.nvim",
   lazy = false,
   priority = 1000,
+  enabled = false
 }
 
 M.opts = {
