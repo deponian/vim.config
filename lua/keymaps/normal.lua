@@ -37,7 +37,7 @@ vim.keymap.set("n", "<F4>", "<cmd>setlocal spell! spelllang=en<CR>")
 vim.keymap.set("n", "<F5>", "<cmd>edit!<CR>", {silent = true})
 
 -- Show different version of current file
-vim.keymap.set("n", "<F6>", require("deponian.keymaps.normal").git_show_file_versions, {silent = true})
+vim.keymap.set("n", "<F6>", ":DiffviewFileHistory %<CR>", {silent = true})
 
 -- Toggle diff mode for all windows
 vim.keymap.set("n", "<F7>", require("deponian.keymaps.normal").toggle_diff, {silent = true})

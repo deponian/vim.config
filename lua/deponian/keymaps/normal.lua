@@ -19,24 +19,6 @@ function M.cycle_through_windows()
   end
 end
 
-function M.git_show_file_versions()
-  if vim.bo.filetype == "NvimTree" then
-    print("Choose not nvimtree window")
-  else
-    local mapping_qf = vim.api.nvim_create_augroup("mapping_qf", { clear = true })
-    vim.api.nvim_create_autocmd("FileType", {
-      group = mapping_qf,
-      pattern = "qf",
-      callback = function(args)
-        vim.keymap.set("n", "<CR>", "<CR>:copen<CR>", { buffer = args.buf, silent = true })
-      end
-    })
-    vim.cmd('vsplit')
-    vim.cmd('0Gclog')
-    vim.cmd('copen 7')
-  end
-end
-
 function M.toggle_diff()
   require('nvim-tree.api').tree.close()
   vim.cmd('cclose')

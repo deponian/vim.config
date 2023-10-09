@@ -51,6 +51,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/rafamadriz/friendly-snippets
 - https://github.com/rrethy/vim-illuminate
 - https://github.com/saadparwaiz1/cmp_luasnip
+- https://github.com/sindrets/diffview.nvim
 - https://github.com/towolf/vim-helm
 - https://github.com/tpope/vim-commentary
 - https://github.com/tpope/vim-fugitive
