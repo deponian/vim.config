@@ -43,6 +43,7 @@ M.opts = {
   on_highlights = function(hl, c)
     hl.DiffChange = { bg = "#312117" }
     hl.DiffText = { bg = "#2a77b7" }
+    hl.NvimTreeWinSeparator = { bg = "#222436", fg = "#222436" }
   end,
 }
 
