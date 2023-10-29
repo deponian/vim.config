@@ -56,3 +56,7 @@ vim.keymap.set("n", "<Leader>F", "<C-W>gf")
 -- <Leader>c -- Fold all #-comments in buffer
 -- (mnemonic: comment)
 vim.keymap.set("n", "<Leader>c", [[:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM]])
+
+-- <Leader>n -- Remove search highlighting
+-- (mnemonic: nohlsearch)
+vim.keymap.set("n", "<Leader>n", "<cmd>nohlsearch<CR>")

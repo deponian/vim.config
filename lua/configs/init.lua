@@ -1,15 +1,5 @@
 return {
   {
-    "deponian/vim-loupe",
-    lazy = false,
-    keys = {
-      -- <Leader>n -- Disable highlighting of search results
-      -- (mnemonic: [n]o highlighting)
-      { "<Leader>n", "<Plug>(LoupeClearHighlight)" }
-    },
-  },
-
-  {
     "nvim-tree/nvim-web-devicons",
     config = function ()
       require("nvim-web-devicons").set_icon {

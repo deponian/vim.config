@@ -1,5 +1,9 @@
 -- Visual mode mappings
 
+-- Apply sane pattern syntax by default
+vim.keymap.set("x", "/", [[/\v]])
+vim.keymap.set("x", "?", [[?\v]])
+
 -- Move between splits
 vim.keymap.set("x", "<C-h>", "<C-w>h")
 vim.keymap.set("x", "<C-j>", "<C-w>j")

@@ -1,5 +1,9 @@
 -- Normal mode mappings
 
+-- Apply sane pattern syntax by default
+vim.keymap.set("n", "/", [[/\v]])
+vim.keymap.set("n", "?", [[?\v]])
+
 -- Disable Shift + Right Mouse search
 vim.keymap.set("n", "<S-RightMouse>", "<Nop>")
 
