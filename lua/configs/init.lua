@@ -67,6 +67,7 @@ return {
       require("mini.surround").setup()
     end
   },
+
   {
     "fatih/vim-go",
     lazy = false,
@@ -74,6 +75,7 @@ return {
       vim.g.go_fmt_fail_silently = 1
     end
   },
+
   {
     "pearofducks/ansible-vim",
     init = function()
@@ -81,12 +83,34 @@ return {
     end
   },
 
+  {
+    "sindrets/diffview.nvim",
+    opts = {
+      keymaps = {
+        view = {
+          { "n", "<tab>", false },
+          { "n", "<s-tab>", false },
+        },
+        file_panel = {
+          { "n", "<tab>", false },
+          { "n", "<s-tab>", false },
+        },
+        file_history_panel = {
+          { "n", "<tab>", false },
+          { "n", "<s-tab>", false },
+        }
+      }
+    },
+    -- config = function(_, opts)
+    --   require("diffview").setup(opts)
+    -- end
+  },
+
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
   { "godlygeek/tabular" },
-  { "sindrets/diffview.nvim" },
 
   -- language/syntax/filetype plugins
   { "ch-danreif/haproxy.vim" },

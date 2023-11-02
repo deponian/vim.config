@@ -41,8 +41,11 @@ M.opts = {
   end,
 
   on_highlights = function(hl, c)
-    hl.DiffChange = { bg = "#312117" }
-    hl.DiffText = { bg = "#2a77b7" }
+    hl.DiffAdd = { bg = "#1d3c41" }
+    hl.DiffChange = { bg = "#252a3f" }
+    hl.DiffDelete = { bg = "#40252e" }
+    hl.DiffText = { bg = "#026faf" }
+
     hl.NvimTreeWinSeparator = { bg = "#222436", fg = "#222436" }
   end,
 }
