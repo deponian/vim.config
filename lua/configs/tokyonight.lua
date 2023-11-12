@@ -38,6 +38,8 @@ M.opts = {
     colors.gitSigns.change = colors.orange
     colors.gitSigns.add = colors.green
     colors.gitSigns.delete = colors.red
+
+    colors.bg_visual = "#553a19"
   end,
 
   on_highlights = function(hl, c)
