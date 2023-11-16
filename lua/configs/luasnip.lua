@@ -39,6 +39,19 @@ M.config = function(_, opts)
             "IFS=$'\\n\\t'", "", ""
           }),
         i(0),
+      }),
+      s("foreachline", {
+        t({"while read -r line; do",
+            "\techo \"${line}\""
+          }),
+        i(0),
+        t({"", "done < file.txt", ""
+          })
+      }),
+      s("catmultiline", {
+        t({"cat <<- EOF", ""}),
+        i(0),
+        t({"", "EOF"})
       })
     },
   })
