@@ -1,6 +1,7 @@
 local M = {
   "lukas-reineke/indent-blankline.nvim",
   event = { "BufReadPost", "BufNewFile" },
+  enabled = vim.o.background == "dark"
 }
 
 M.opts = {
