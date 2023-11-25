@@ -143,7 +143,11 @@ M.config = function ()
     on_attach = on_attach,
   })
 
-  require("lspconfig").tsserver.setup({})
+  require("lspconfig").tsserver.setup({
+    capabilities = capabilities,
+    handlers = handlers,
+    on_attach = on_attach,
+  })
 end
 
 return M

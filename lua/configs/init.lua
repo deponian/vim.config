@@ -105,6 +105,26 @@ return {
     --   require("diffview").setup(opts)
     -- end
   },
+  {
+    "williamboman/mason.nvim",
+    lazy = false,
+    priority = 900,
+    opts = {
+      max_concurrent_installers = 8,
+    },
+    config = function(_, opts)
+      require("mason").setup(opts)
+    end
+  },
+  {
+    "williamboman/mason-lspconfig.nvim",
+    lazy = false,
+    priority = 800,
+    opts = {},
+    config = function(_, opts)
+      require("mason-lspconfig").setup(opts)
+    end
+  },
 
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
