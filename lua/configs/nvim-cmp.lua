@@ -136,6 +136,7 @@ M.config = function()
     },
 
     sources = cmp.config.sources({
+      { name = 'buffer' },
       { name = 'nvim_lsp' },
       { name = 'nvim_lua' },
       { name = 'luasnip' },
@@ -156,8 +157,6 @@ M.config = function()
           get_cwd = function () return vim.fn.getcwd() end
         },
       },
-    }, {
-      { name = 'buffer' },
     }),
 
     window = {
