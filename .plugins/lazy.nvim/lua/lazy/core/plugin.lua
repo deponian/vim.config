@@ -1,6 +1,6 @@
 local Config = require("lazy.core.config")
-local Util = require("lazy.core.util")
 local Handler = require("lazy.core.handler")
+local Util = require("lazy.core.util")
 
 ---@class LazyCorePlugin
 local M = {}
@@ -42,15 +42,6 @@ end
 function Spec:parse(spec)
   self:normalize(spec)
   self:fix_disabled()
-
-  -- calculate handlers
-  for _, plugin in pairs(self.plugins) do
-    for _, handler in pairs(Handler.types) do
-      if plugin[handler] then
-        plugin[handler] = M.values(plugin, handler, true)
-      end
-    end
-  end
 end
 
 -- PERF: optimized code to get package name without using lua patterns
@@ -84,8 +75,11 @@ function Spec:add(plugin, results)
     end
   end
 
+  ---@type string?
+  local dir
+
   if plugin.dir then
-    plugin.dir = Util.norm(plugin.dir)
+    dir = Util.norm(plugin.dir)
     -- local plugin
     plugin.name = plugin.name or Spec.get_name(plugin.dir)
   elseif plugin.url then
@@ -99,16 +93,6 @@ function Spec:add(plugin, results)
         end
       end
     end
-    -- dev plugins
-    if
-      plugin.dev
-      and (not Config.options.dev.fallback or vim.fn.isdirectory(Config.options.dev.path .. "/" .. plugin.name) == 1)
-    then
-      plugin.dir = Config.options.dev.path .. "/" .. plugin.name
-    else
-      -- remote plugin
-      plugin.dir = Config.options.root .. "/" .. plugin.name
-    end
   elseif is_ref then
     plugin.name = plugin[1]
   else
@@ -119,6 +103,17 @@ function Spec:add(plugin, results)
   if not plugin.name or plugin.name == "" then
     self:error("Plugin spec " .. vim.inspect(plugin) .. " has no name")
     return
+  end
+
+  -- dev plugins
+  if
+    plugin.dev
+    and (not Config.options.dev.fallback or vim.fn.isdirectory(Config.options.dev.path .. "/" .. plugin.name) == 1)
+  then
+    dir = Config.options.dev.path .. "/" .. plugin.name
+  elseif plugin.dev == false then
+    -- explicitely select the default path
+    dir = Config.options.root .. "/" .. plugin.name
   end
 
   if type(plugin.config) == "table" then
@@ -134,12 +129,15 @@ function Spec:add(plugin, results)
 
   M.last_fid = M.last_fid + 1
   plugin._ = {
+    dir = dir,
     fid = M.last_fid,
     fpid = fpid,
     dep = fpid ~= nil,
     module = self.importing,
   }
   self.fragments[plugin._.fid] = plugin
+  -- remote plugin
+  plugin.dir = plugin._.dir or (plugin.name and (Config.options.root .. "/" .. plugin.name)) or nil
 
   if fpid then
     local parent = self.fragments[fpid]
@@ -328,11 +326,14 @@ end
 
 function Spec:report(level)
   level = level or vim.log.levels.ERROR
+  local count = 0
   for _, notif in ipairs(self.notifs) do
     if notif.level >= level then
       Util.notify(notif.msg, { level = notif.level })
+      count = count + 1
     end
   end
+  return count
 end
 
 ---@param spec LazySpec|LazySpecImport
@@ -378,6 +379,9 @@ function Spec:import(spec)
     return self:error("Invalid import spec. `import` should be a string: " .. vim.inspect(spec))
   end
   if vim.tbl_contains(self.modules, spec.import) then
+    return
+  end
+  if spec.cond == false or (type(spec.cond) == "function" and not spec.cond()) then
     return
   end
   if spec.enabled == false or (type(spec.enabled) == "function" and not spec.enabled()) then
@@ -438,12 +442,27 @@ function Spec:merge(old, new)
   new._.dep = old._.dep and new._.dep
 
   if new.url and old.url and new.url ~= old.url then
-    self:error("Two plugins with the same name and different url:\n" .. vim.inspect({ old = old, new = new }))
+    self:warn("Two plugins with the same name and different url:\n" .. vim.inspect({ old = old, new = new }))
   end
 
   if new.dependencies and old.dependencies then
     Util.extend(new.dependencies, old.dependencies)
   end
+
+  local new_dir = new._.dir or old._.dir or (new.name and (Config.options.root .. "/" .. new.name)) or nil
+  if new_dir ~= old.dir then
+    local msg = "Plugin `" .. new.name .. "` changed `dir`:\n- from: `" .. old.dir .. "`\n- to: `" .. new_dir .. "`"
+    if new._.rtp_loaded or old._.rtp_loaded then
+      msg = msg
+        .. "\n\nThis plugin was already partially loaded, so we did not change it's `dir`.\nPlease fix your config."
+      self:error(msg)
+      new_dir = old.dir
+    else
+      self:warn(msg)
+    end
+  end
+  new.dir = new_dir
+  new._.rtp_loaded = new._.rtp_loaded or old._.rtp_loaded
 
   new._.super = old
   setmetatable(new, { __index = old })
@@ -575,20 +594,42 @@ function M.has_errors(plugin)
   return false
 end
 
--- Merges super values or runs the values function to override values or return new ones
+-- Merges super values or runs the values function to override values or return new ones.
+-- Values are cached for performance.
 -- Used for opts, cmd, event, ft and keys
 ---@param plugin LazyPlugin
 ---@param prop string
 ---@param is_list? boolean
 function M.values(plugin, prop, is_list)
+  if not plugin[prop] then
+    return {}
+  end
+  plugin._.cache = plugin._.cache or {}
+  local key = prop .. (is_list and "_list" or "")
+  if plugin._.cache[key] == nil then
+    plugin._.cache[key] = M._values(plugin, plugin, prop, is_list)
+  end
+  return plugin._.cache[key]
+end
+
+-- Merges super values or runs the values function to override values or return new ones
+-- Used for opts, cmd, event, ft and keys
+---@param root LazyPlugin
+---@param plugin LazyPlugin
+---@param prop string
+---@param is_list? boolean
+function M._values(root, plugin, prop, is_list)
+  if not plugin[prop] then
+    return {}
+  end
   ---@type table
-  local ret = plugin._.super and M.values(plugin._.super, prop, is_list) or {}
+  local ret = plugin._.super and M._values(root, plugin._.super, prop, is_list) or {}
   local values = rawget(plugin, prop)
 
   if not values then
     return ret
   elseif type(values) == "function" then
-    ret = values(plugin, ret) or ret
+    ret = values(root, ret) or ret
     return type(ret) == "table" and ret or { ret }
   end
 

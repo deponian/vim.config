@@ -19,9 +19,6 @@
   "%"
 ] @punctuation.special
 
-; Parser Errors
-(ERROR) @error
-
 ; Identifiers
 (identifier) @variable
 
@@ -112,6 +109,7 @@
   ))
   (arguments [
     (call (identifier) @function)
+    (identifier) @function
     (binary_operator left: (call target: (identifier) @function) operator: "when")])?)
 
 ; Kernel Keywords & Special Forms

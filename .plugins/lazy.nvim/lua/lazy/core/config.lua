@@ -20,8 +20,8 @@ M.defaults = {
   concurrency = jit.os:find("Windows") and (vim.loop.available_parallelism() * 2) or nil, ---@type number limit the maximum amount of concurrent tasks
   git = {
     -- defaults for the `Lazy log` command
-    -- log = { "-10" }, -- show the last 10 commits
-    log = { "-8" }, -- show commits from the last 3 days
+    -- log = { "--since=3 days ago" }, -- show commits from the last 3 days
+    log = { "-8" }, -- show the last 8 commits
     timeout = 120, -- kill processes that take more than 2 minutes
     url_format = "https://github.com/%s.git",
     -- lazy.nvim requires git >=2.19.0. If you really want to use lazy with an older version,
@@ -55,7 +55,7 @@ M.defaults = {
     icons = {
       cmd = " ",
       config = "",
-      event = "",
+      event = " ",
       ft = " ",
       init = " ",
       import = " ",
@@ -65,8 +65,9 @@ M.defaults = {
       not_loaded = "○",
       plugin = " ",
       runtime = " ",
+      require = "󰢱 ",
       source = " ",
-      start = "",
+      start = " ",
       task = "✔ ",
       list = {
         "●",
@@ -80,22 +81,27 @@ M.defaults = {
     browser = nil, ---@type string?
     throttle = 20, -- how frequently should the ui process render events
     custom_keys = {
-      -- you can define custom key maps here.
-      -- To disable one of the defaults, set it to false
+      -- You can define custom key maps here. If present, the description will
+      -- be shown in the help menu.
+      -- To disable one of the defaults, set it to false.
 
-      -- open lazygit log
-      ["<localleader>l"] = function(plugin)
-        require("lazy.util").float_term({ "lazygit", "log" }, {
-          cwd = plugin.dir,
-        })
-      end,
+      ["<localleader>l"] = {
+        function(plugin)
+          require("lazy.util").float_term({ "lazygit", "log" }, {
+            cwd = plugin.dir,
+          })
+        end,
+        desc = "Open lazygit log",
+      },
 
-      -- open a terminal for the plugin dir
-      ["<localleader>t"] = function(plugin)
-        require("lazy.util").float_term(nil, {
-          cwd = plugin.dir,
-        })
-      end,
+      ["<localleader>t"] = {
+        function(plugin)
+          require("lazy.util").float_term(nil, {
+            cwd = plugin.dir,
+          })
+        end,
+        desc = "Open terminal in plugin dir",
+      },
     },
   },
   diff = {
@@ -113,6 +119,7 @@ M.defaults = {
     concurrency = nil, ---@type number? set to 1 to check for updates very slowly
     notify = true, -- get a notification when new updates are found
     frequency = 3600, -- check for updates every hour
+    check_pinned = false, -- check for pinned packages that can't be updated
   },
   change_detection = {
     -- automatically check for config file changes and reload the ui
@@ -158,10 +165,19 @@ M.defaults = {
     -- executed. In this case, a warning message will be shown.
     warn_on_override = true,
   },
+  -- Enable profiling of lazy.nvim. This will add some overhead,
+  -- so only enable this when you are debugging lazy.nvim
+  profiling = {
+    -- Enables extra stats on the debug tab related to the loader cache.
+    -- Additionally gathers stats about all package.loaders
+    loader = false,
+    -- Track each new require in the Lazy profiling tab
+    require = false,
+  },
   debug = false,
 }
 
-M.version = "10.5.1" -- x-release-please-version
+M.version = "10.15.1" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 

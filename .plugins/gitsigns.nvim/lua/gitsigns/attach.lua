@@ -1,21 +1,18 @@
 local async = require('gitsigns.async')
 local git = require('gitsigns.git')
 
+local manager = require('gitsigns.manager')
+
 local log = require('gitsigns.debug.log')
 local dprintf = log.dprintf
 local dprint = log.dprint
-
-local manager = require('gitsigns.manager')
-local hl = require('gitsigns.highlight')
 
 local gs_cache = require('gitsigns.cache')
 local cache = gs_cache.cache
 local Status = require('gitsigns.status')
 
-local gs_config = require('gitsigns.config')
-local config = gs_config.config
+local config = require('gitsigns.config').config
 
-local void = require('gitsigns.async').void
 local util = require('gitsigns.util')
 
 local throttle_by_id = require('gitsigns.debounce').throttle_by_id
@@ -25,7 +22,7 @@ local uv = vim.loop
 
 local M = {}
 
-local vimgrep_running = false
+local attach_disabled = false
 
 --- @param name string
 --- @return string? buffer
@@ -165,6 +162,26 @@ local function try_worktrees(_bufnr, file, encoding)
   end
 end
 
+--- vimpgrep creates and deletes lots of buffers so attaching to each one will
+--- waste lots of resource and even slow down vimgrep.
+local function setup_vimgrep_autocmds()
+  api.nvim_create_autocmd('QuickFixCmdPre', {
+    group = 'gitsigns',
+    pattern = '*vimgrep*',
+    callback = function()
+      attach_disabled = true
+    end,
+  })
+
+  api.nvim_create_autocmd('QuickFixCmdPost', {
+    group = 'gitsigns',
+    pattern = '*vimgrep*',
+    callback = function()
+      attach_disabled = false
+    end,
+  })
+end
+
 local done_setup = false
 
 function M._setup()
@@ -175,38 +192,17 @@ function M._setup()
   done_setup = true
 
   manager.setup()
-
-  hl.setup_highlights()
-  api.nvim_create_autocmd('ColorScheme', {
-    group = 'gitsigns',
-    callback = hl.setup_highlights,
-  })
+  require('gitsigns.highlight').setup()
 
   api.nvim_create_autocmd('OptionSet', {
     group = 'gitsigns',
-    pattern = 'fileformat',
+    pattern = { 'fileformat', 'bomb', 'eol' },
     callback = function()
       require('gitsigns.actions').refresh()
     end,
   })
 
-  -- vimpgrep creates and deletes lots of buffers so attaching to each one will
-  -- waste lots of resource and even slow down vimgrep.
-  api.nvim_create_autocmd('QuickFixCmdPre', {
-    group = 'gitsigns',
-    pattern = '*vimgrep*',
-    callback = function()
-      vimgrep_running = true
-    end,
-  })
-
-  api.nvim_create_autocmd('QuickFixCmdPost', {
-    group = 'gitsigns',
-    pattern = '*vimgrep*',
-    callback = function()
-      vimgrep_running = false
-    end,
-  })
+  setup_vimgrep_autocmds()
 
   require('gitsigns.current_line_blame').setup()
 
@@ -223,7 +219,7 @@ end
 --- @field commit string
 --- @field base string
 
---- Ensure attaches cannot be interleaved.
+--- Ensure attaches cannot be interleaved for the same buffer.
 --- Since attaches are asynchronous we need to make sure an attach isn't
 --- performed whilst another one is in progress.
 --- @param cbuf integer
@@ -234,7 +230,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
 
   M._setup()
 
-  if vimgrep_running then
+  if attach_disabled then
     dprint('attaching is disabled')
     return
   end
@@ -435,7 +431,7 @@ end
 ---     • {base}: (string|nil)
 ---       The git revision that the file should be compared to.
 --- @param _trigger? string
-M.attach = void(function(bufnr, ctx, _trigger)
+M.attach = async.void(function(bufnr, ctx, _trigger)
   attach_throttled(bufnr or api.nvim_get_current_buf(), ctx, _trigger)
 end)
 

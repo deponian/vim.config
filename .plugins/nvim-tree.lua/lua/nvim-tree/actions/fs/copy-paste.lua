@@ -105,8 +105,14 @@ local function do_single_paste(source, dest, action_type, action_fn)
   end
 
   if dest_stats then
+    local input_opts = {
+      prompt = "Rename to ",
+      default = dest,
+      completion = "dir",
+    }
+
     if source == dest then
-      vim.ui.input({ prompt = "Rename to ", default = dest, completion = "dir" }, function(new_dest)
+      vim.ui.input(input_opts, function(new_dest)
         utils.clear_prompt()
         if new_dest then
           do_single_paste(source, new_dest, action_type, action_fn)
@@ -120,7 +126,7 @@ local function do_single_paste(source, dest, action_type, action_fn)
         if item_short == "y" then
           on_process()
         elseif item_short == "" or item_short == "r" then
-          vim.ui.input({ prompt = "Rename to ", default = dest, completion = "dir" }, function(new_dest)
+          vim.ui.input(input_opts, function(new_dest)
             utils.clear_prompt()
             if new_dest then
               do_single_paste(source, new_dest, action_type, action_fn)
@@ -246,15 +252,19 @@ function M.print_clipboard()
 end
 
 local function copy_to_clipboard(content)
+  local clipboard_name
   if M.config.actions.use_system_clipboard == true then
     vim.fn.setreg("+", content)
     vim.fn.setreg('"', content)
-    return notify.info(string.format("Copied %s to system clipboard!", content))
+    clipboard_name = "system"
   else
     vim.fn.setreg('"', content)
     vim.fn.setreg("1", content)
-    return notify.info(string.format("Copied %s to neovim clipboard!", content))
+    clipboard_name = "neovim"
   end
+
+  vim.api.nvim_exec_autocmds("TextYankPost", {})
+  return notify.info(string.format("Copied %s to %s clipboard!", content, clipboard_name))
 end
 
 function M.copy_filename(node)

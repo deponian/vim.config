@@ -96,12 +96,85 @@ end
 -- Call once so we aren't dependent on calling setup()
 M.reset_defaults()
 
-function M.normalize_opts(opts, defaults)
+M.resume_get = function(what, opts)
+  assert(opts.__resume_key)
+  if type(opts.__resume_get) == "function" then
+    -- override was set (live_grep, live_workspace_symbols)
+    return opts.__resume_get(what, opts)
+  end
+  local fn_key = tostring(opts.__resume_key):match("[^%s]+$")
+  what = string.format("__resume_map.%s%s", fn_key,
+    type(what) == "string" and ("." .. what) or "")
+  -- _G.dump("resume_get", what, utils.map_get(M, what))
+  return utils.map_get(M, what)
+end
+
+-- store an option in both the resume options and provider specific __call_opts
+M.resume_set = function(what, val, opts)
+  assert(opts.__resume_key)
+  if type(opts.__resume_set) == "function" then
+    -- override was set (live_grep, live_workspace_symbols)
+    return opts.__resume_set(what, val, opts)
+  end
+  local fn_key = tostring(opts.__resume_key):match("[^%s]+$")
+  local key1 = string.format("__resume_map.%s%s", fn_key,
+    type(what) == "string" and ("." .. what) or "")
+  local key2 = string.format("__resume_data.opts.%s", what)
+  utils.map_set(M, key1, val)
+  utils.map_set(M, key2, val)
+  -- backward compatibility for users using `get_last_query`
+  if what == "query" then
+    utils.map_set(M, "__resume_data.last_query", val)
+  end
+  -- _G.dump("resume_set", key1, utils.map_get(M, key1))
+end
+
+function M.resume_opts(opts)
+  assert(opts.resume and opts.__call_opts)
+  local __call_opts = M.resume_get(nil, opts)
+  opts = vim.tbl_deep_extend("keep", opts, __call_opts or {})
+  opts.__call_opts = vim.tbl_deep_extend("keep", opts.__call_opts, __call_opts or {})
+  -- _G.dump("__call_opts", opts.__call_opts)
+  return opts
+end
+
+function M.normalize_opts(opts, defaults, __resume_key)
   if not opts then opts = {} end
 
   -- opts can also be a function that returns an opts table
   if type(opts) == "function" then
     opts = opts()
+  end
+
+  -- expand opts that were specified with a dot
+  -- e.g. `:FzfLua files winopts.border=single`
+  for k, v in pairs(opts) do
+    if k:match("%.") then
+      utils.map_set(opts, k, v)
+      opts[k] = nil
+    end
+  end
+
+  -- save the user's original call params separately
+  opts.__call_opts = opts.__call_opts or utils.deepcopy(opts)
+
+  -- resume storage data lookup key, default to the calling function ref
+  -- __FNCREF2__ will use the 2nd function ref in the stack (calling fn)
+  opts.__resume_key = __resume_key
+      or opts.__resume_key
+      or (type(defaults) == "string" and defaults)
+      or (type(defaults) == "table" and defaults.__resume_key)
+      or utils.__FNCREF2__()
+
+  -- if defaults is string retrieve from M.globals
+  if type(defaults) == "string" then
+    defaults = utils.map_get(M.globals, defaults)
+    assert(type(defaults) == "table")
+  end
+
+  -- merge current opts with revious __call_opts on resume
+  if opts.resume then
+    opts = M.resume_opts(opts)
   end
 
   -- ignore case for keybinds or conflicts may occur (#654)
@@ -121,10 +194,6 @@ function M.normalize_opts(opts, defaults)
   end
   M.globals.keymap = keymap_tolower(M.globals.keymap)
 
-  -- save the user's call parameters separately
-  -- we reuse those with 'actions.grep_lgrep'
-  opts.__call_opts = opts.__call_opts or utils.deepcopy(opts)
-
   -- inherit from globals.actions?
   if type(defaults._actions) == "function" then
     defaults.actions = vim.tbl_deep_extend("keep",
@@ -132,7 +201,14 @@ function M.normalize_opts(opts, defaults)
       defaults._actions())
   end
 
-  -- First, merge with provider defaults
+  -- First merge with the users' "provider-global" defaults
+  if type(M.globals.defaults) == "table" then
+    opts = vim.tbl_deep_extend("keep", opts, utils.tbl_deep_clone(M.globals.defaults))
+  elseif type(M.globals.defaults) == "function" then
+    opts = vim.tbl_deep_extend("keep", opts, utils.tbl_deep_clone(M.globals.defaults()))
+  end
+
+  -- Then merge with provider defaults "keeping" provider-globals
   -- we must clone the 'defaults' tbl, otherwise 'opts.actions.default'
   -- overrides 'config.globals.lsp.actions.default' in neovim 6.0
   -- which then prevents the default action of all other LSP providers
@@ -217,9 +293,7 @@ function M.normalize_opts(opts, defaults)
     end
   end
 
-  -- Merge global resume options
-  opts.global_resume = get_opt("global_resume", opts, M.globals)
-
+  -- DEPRECATED: use `defaults` (provider-defaults) table
   -- global option overrides. If exists, these options will
   -- be used in a "LOGICAL AND" against the local option (#188)
   -- e.g.:
@@ -256,7 +330,6 @@ function M.normalize_opts(opts, defaults)
     { "winopts.preview.title_pos",    "winopts.preview.title_align" },
     { "winopts.preview.scrollbar",    "previewers.builtin.scrollbar" },
     { "winopts.preview.scrollchar",   "previewers.builtin.scrollchar" },
-    { "diag_icons",                   "lsp.lsp_icons" },
     { "cwd_header",                   "show_cwd_header" },
     { "cwd_prompt",                   "show_cwd_prompt" },
     { "resume",                       "continue_last_search" },
@@ -282,6 +355,12 @@ function M.normalize_opts(opts, defaults)
       utils.map_set(opts, old_key, nil)
       -- utils.warn(string.format("option moved/renamed: '%s' -> '%s'", old_key, new_key))
     end
+  end
+
+  -- Setup completion options
+  if opts.complete then
+    opts.actions = opts.actions or {}
+    opts.actions["default"] = actions.complete
   end
 
   -- Merge highlight overrides with defaults, we only do this after the
@@ -489,13 +568,14 @@ M._action_to_helpstr = {
   [actions.git_yank_commit]     = "git-yank-commit",
   [actions.arg_add]             = "arg-list-add",
   [actions.arg_del]             = "arg-list-delete",
+  [actions.toggle_ignore]       = "toggle-ignore",
   [actions.grep_lgrep]          = "grep<->lgrep",
   [actions.sym_lsym]            = "sym<->lsym",
   [actions.tmux_buf_set_reg]    = "set-register",
   [actions.paste_register]      = "paste-register",
   [actions.set_qflist]          = "set-{qf|loc}list",
   [actions.apply_profile]       = "apply-profile",
-  [actions.complete_insert]     = "complete-insert",
+  [actions.complete]            = "complete",
 }
 
 return M

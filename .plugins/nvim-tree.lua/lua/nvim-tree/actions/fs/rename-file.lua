@@ -10,6 +10,7 @@ local M = {
 }
 
 local ALLOWED_MODIFIERS = {
+  [":p"] = true,
   [":p:h"] = true,
   [":t"] = true,
   [":t:r"] = true,
@@ -33,7 +34,7 @@ function M.rename(node, to)
   if not success then
     return notify.warn(err_fmt(notify_from, notify_to, err))
   end
-  notify.info(notify_from .. "  " .. notify_to)
+  notify.info(string.format("%s -> %s", notify_from, notify_to))
   utils.rename_loaded_buffers(node.absolute_path, to)
   events._dispatch_node_renamed(node.absolute_path, to)
 end
@@ -52,9 +53,7 @@ function M.fn(default_modifier)
 
     -- support for only specific modifiers have been implemented
     if not ALLOWED_MODIFIERS[modifier] then
-      return notify.warn(
-        "Modifier " .. vim.inspect(modifier) .. " is not in allowed list : " .. table.concat(ALLOWED_MODIFIERS, ",")
-      )
+      return notify.warn("Modifier " .. vim.inspect(modifier) .. " is not in allowed list : " .. table.concat(ALLOWED_MODIFIERS, ","))
     end
 
     node = lib.get_last_group_node(node)
@@ -79,7 +78,11 @@ function M.fn(default_modifier)
       default_path = default_path .. "/"
     end
 
-    local input_opts = { prompt = "Rename to ", default = default_path, completion = "file" }
+    local input_opts = {
+      prompt = "Rename to ",
+      default = default_path,
+      completion = "file",
+    }
 
     vim.ui.input(input_opts, function(new_file_path)
       utils.clear_prompt()

@@ -22,6 +22,7 @@ fzf-lua-optional-dependencies	fzf-lua.txt	/*fzf-lua-optional-dependencies*
 fzf-lua-profiles	fzf-lua.txt	/*fzf-lua-profiles*
 fzf-lua-quickstart	fzf-lua.txt	/*fzf-lua-quickstart*
 fzf-lua-rationale	fzf-lua.txt	/*fzf-lua-rationale*
+fzf-lua-resume	fzf-lua.txt	/*fzf-lua-resume*
 fzf-lua-search	fzf-lua.txt	/*fzf-lua-search*
 fzf-lua-table-of-contents	fzf-lua.txt	/*fzf-lua-table-of-contents*
 fzf-lua-tags	fzf-lua.txt	/*fzf-lua-tags*

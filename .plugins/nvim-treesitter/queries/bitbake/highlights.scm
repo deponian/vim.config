@@ -200,7 +200,7 @@
 
 ; Namespace
 
-(inherit_directive (identifier) @namespace)
+(inherit_path) @namespace
 
 ;; Normal parameters
 (parameters
@@ -356,5 +356,3 @@
               "bytes" "bytearray" "memoryview" "set" "frozenset" "dict" "type" "object"))
 
 (comment) @comment @spell
-
-(ERROR) @error

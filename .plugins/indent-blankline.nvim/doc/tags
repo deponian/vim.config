@@ -34,6 +34,7 @@ ibl.config.scope.include.node_type	indent_blankline.txt	/*ibl.config.scope.inclu
 ibl.config.scope.injected_languages	indent_blankline.txt	/*ibl.config.scope.injected_languages*
 ibl.config.scope.priority	indent_blankline.txt	/*ibl.config.scope.priority*
 ibl.config.scope.show_end	indent_blankline.txt	/*ibl.config.scope.show_end*
+ibl.config.scope.show_exact_scope	indent_blankline.txt	/*ibl.config.scope.show_exact_scope*
 ibl.config.scope.show_start	indent_blankline.txt	/*ibl.config.scope.show_start*
 ibl.config.viewport_buffer	indent_blankline.txt	/*ibl.config.viewport_buffer*
 ibl.config.viewport_buffer.max	indent_blankline.txt	/*ibl.config.viewport_buffer.max*

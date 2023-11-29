@@ -39,6 +39,7 @@ M.default_config = {
         char = nil,
         show_start = true,
         show_end = true,
+        show_exact_scope = false,
         injected_languages = true,
         highlight = "IblScope",
         priority = 1024,
@@ -188,6 +189,7 @@ local validate_config = function(config)
             char = { config.scope.char, { "string", "table" }, true },
             show_start = { config.scope.show_start, "boolean", true },
             show_end = { config.scope.show_end, "boolean", true },
+            show_exact_scope = { config.scope.show_exact_scope, "boolean", true },
             injected_languages = { config.scope.injected_languages, "boolean", true },
             highlight = { config.scope.highlight, { "string", "table" }, true },
             priority = { config.scope.priority, "number", true },
@@ -288,12 +290,12 @@ end
 
 --- Overwrites the global configuration
 ---
---- Same as `set_config`, but all list values are overwritten instead of merged
+--- Same as `update_config`, but all list values are overwritten instead of merged
 ---@param config ibl.config
 ---@return ibl.config.full
 M.overwrite_config = function(config)
     validate_config(config)
-    M.config = merge_configs("overwrite", M.default_config, config)
+    M.config = merge_configs("overwrite", M.config or M.default_config, config)
 
     return M.config
 end

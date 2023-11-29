@@ -1,6 +1,6 @@
 local Config = require("lazy.core.config")
-local Runner = require("lazy.manage.runner")
 local Plugin = require("lazy.core.plugin")
+local Runner = require("lazy.manage.runner")
 
 local M = {}
 
@@ -103,6 +103,7 @@ function M.update(opts)
       "git.origin",
       "git.branch",
       "git.fetch",
+      "git.status",
       { "git.checkout", lockfile = opts.lockfile },
       "plugin.docs",
       "wait",
@@ -132,6 +133,7 @@ function M.check(opts)
     pipeline = {
       { "git.origin", check = true },
       "git.fetch",
+      "git.status",
       "wait",
       { "git.log", check = true },
     },

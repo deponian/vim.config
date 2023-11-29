@@ -33,7 +33,7 @@ local M = {}
 --- @field count integer
 --- @field smods Gitsigns.CmdParams.Smods
 
--- Variations of functions from M which are used for the Gitsigns command
+--- Variations of functions from M which are used for the Gitsigns command
 --- @type table<string,fun(args: Gitsigns.CmdArgs, params: Gitsigns.CmdParams)>
 local C = {}
 
@@ -191,8 +191,6 @@ end
 --- @param staged? boolean
 --- @return Gitsigns.Hunk.Hunk[]? hunks
 local function get_hunks(bufnr, bcache, greedy, staged)
-  local hunks --- @type Gitsigns.Hunk.Hunk[]
-
   if greedy then
     -- Re-run the diff without linematch
     local buftext = util.buf_lines(bufnr)
@@ -205,8 +203,8 @@ local function get_hunks(bufnr, bcache, greedy, staged)
     if not text then
       return
     end
-    hunks = run_diff(text, buftext, false)
-    async.scheduler()
+    local hunks = run_diff(text, buftext, false)
+    manager.buf_check(bufnr)
     return hunks
   end
 
@@ -225,20 +223,20 @@ end
 local function get_hunk(bufnr, range, greedy, staged)
   local bcache = cache[bufnr]
   local hunks = get_hunks(bufnr, bcache, greedy, staged)
-  local hunk --- @type Gitsigns.Hunk.Hunk?
-  if range then
-    table.sort(range)
-    local top, bot = range[1], range[2]
-    hunk = Hunks.create_partial_hunk(hunks or {}, top, bot)
-    hunk.added.lines = api.nvim_buf_get_lines(bufnr, top - 1, bot, false)
-    hunk.removed.lines = vim.list_slice(
-      bcache.compare_text,
-      hunk.removed.start,
-      hunk.removed.start + hunk.removed.count - 1
-    )
-  else
-    hunk = get_cursor_hunk(bufnr, hunks)
+
+  if not range then
+    return get_cursor_hunk(bufnr, hunks)
   end
+
+  table.sort(range)
+  local top, bot = range[1], range[2]
+  local hunk = Hunks.create_partial_hunk(hunks or {}, top, bot)
+  hunk.added.lines = api.nvim_buf_get_lines(bufnr, top - 1, bot, false)
+  hunk.removed.lines = vim.list_slice(
+    bcache.compare_text,
+    hunk.removed.start,
+    hunk.removed.start + hunk.removed.count - 1
+  )
   return hunk
 end
 
@@ -1243,7 +1241,7 @@ end
 --- Attributes: ~
 ---     {async}
 ---
---- @param nr integer Window number or the |window-ID|.
+--- @param nr? integer Window number or the |window-ID|.
 ---     `0` for the current window (default).
 --- @param target integer|string See |gitsigns.setqflist()|.
 M.setloclist = function(nr, target)

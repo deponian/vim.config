@@ -21,16 +21,8 @@ M._devicons_setup = _G._devicons_setup
 
 local function load_config_section(s, datatype, optional)
   if config then
-    local keys = utils.strsplit(s, ".")
-    local iter, sect = config, nil
-    for i = 1, #keys do
-      iter = iter[keys[i]]
-      if not iter then break end
-      if i == #keys and type(iter) == datatype then
-        sect = iter
-      end
-    end
-    return sect
+    local val = utils.map_get(config, s)
+    return type(val) == datatype and val or nil
   elseif M._fzf_lua_server then
     -- load config from our running instance
     local res = nil
@@ -61,35 +53,36 @@ local function load_config_section(s, datatype, optional)
   end
 end
 
-local function set_config_section(s, data)
-  if M._fzf_lua_server then
-    -- save config in our running instance
-    local ok, errmsg = pcall(function()
-      local chan_id = vim.fn.sockconnect("pipe", M._fzf_lua_server, { rpc = true })
-      vim.rpcrequest(chan_id, "nvim_exec_lua", ([[
-        local data = select(1, ...)
-        require'fzf-lua'.config.%s = data
-      ]]):format(s), { data })
-      vim.fn.chanclose(chan_id)
-    end)
-    if not ok then
-      io.stderr:write(("Error setting remote config section '%s': %s\n")
-        :format(s, errmsg))
-    end
-    return ok
-  elseif config then
-    local keys = utils.strsplit(s, ".")
-    local iter = config
-    for i = 1, #keys do
-      iter = iter[keys[i]]
-      if not iter then break end
-      if i == #keys - 1 then
-        iter[keys[i + 1]] = data
-        return iter
-      end
-    end
-  end
-end
+-- NOT NEEDED SINCE RESUME DATA REFACTOR
+-- local function set_config_section(s, data)
+--   if M._fzf_lua_server then
+--     -- save config in our running instance
+--     local ok, errmsg = pcall(function()
+--       local chan_id = vim.fn.sockconnect("pipe", M._fzf_lua_server, { rpc = true })
+--       vim.rpcrequest(chan_id, "nvim_exec_lua", ([[
+--         local data = select(1, ...)
+--         require'fzf-lua'.config.%s = data
+--       ]]):format(s), { data })
+--       vim.fn.chanclose(chan_id)
+--     end)
+--     if not ok then
+--       io.stderr:write(("Error setting remote config section '%s': %s\n")
+--         :format(s, errmsg))
+--     end
+--     return ok
+--   elseif config then
+--     local keys = utils.strsplit(s, ".")
+--     local iter = config
+--     for i = 1, #keys do
+--       iter = iter[keys[i]]
+--       if not iter then break end
+--       if i == #keys - 1 then
+--         iter[keys[i + 1]] = data
+--         return iter
+--       end
+--     end
+--   end
+-- end
 
 -- Setup the terminal colors codes for nvim-web-devicons colors
 M.setup_devicon_term_hls = function()
@@ -325,16 +318,6 @@ M.preprocess = function(opts)
   local argvz = "{argvz}"
   local has_argvz = opts.cmd and opts.cmd:match(argvz)
 
-  -- save our last search argument for resume
-  if opts.argv_expr and has_argvz then
-    local query = argv(nil, opts.debug)
-    set_config_section("__resume_data.last_query", query)
-    if opts.__module__ then
-      set_config_section(("globals.%s._last_search"):format(opts.__module__),
-        { query = query, no_esc = true })
-    end
-  end
-
   -- did the caller request rg with glob support?
   -- manipulation needs to be done before the argv hack
   if opts.rg_glob and has_argvz then
@@ -479,13 +462,17 @@ M.tag = function(x, opts)
   for _, s in ipairs({ "/", "\\" }) do
     text = text:gsub([[\]] .. s, s)
   end
+  -- different alignment fmt if string contains ansi coloring
+  -- from rg/grep output when using `tags_grep_xxx` 
+  local align = utils.has_ansi_coloring(name) and 47 or 30
   local line, tag = text:match("(%d-);?(/.*/)")
   line = line and #line > 0 and tonumber(line)
-  return ("%s%s: %s %s"):format(
+  return string.format("%-" .. tostring(align) .. "s%s%s%s: %s",
+    name,
+    utils.nbsp,
     M.file(file, opts),
     not line and "" or ":" .. utils.ansi_codes.green(tostring(line)),
-    utils.ansi_codes.magenta(name),
-    utils.ansi_codes.green(tag)
+    utils.ansi_codes.blue(tag)
   ), line
 end
 

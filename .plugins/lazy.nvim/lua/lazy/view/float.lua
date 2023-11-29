@@ -1,6 +1,6 @@
 local Config = require("lazy.core.config")
-local ViewConfig = require("lazy.view.config")
 local Util = require("lazy.util")
+local ViewConfig = require("lazy.view.config")
 
 ---@class LazyFloatOptions
 ---@field buf? number
@@ -104,6 +104,8 @@ function M:mount()
     self.buf = self.buf
   elseif self.opts.file then
     self.buf = vim.fn.bufadd(self.opts.file)
+    vim.bo[self.buf].readonly = true
+    vim.bo[self.buf].swapfile = false
     vim.fn.bufload(self.buf)
     vim.bo[self.buf].modifiable = false
   elseif self.opts.buf then

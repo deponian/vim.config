@@ -19,7 +19,16 @@ function M.__LINE__() return debug.getinfo(2, "l").currentline end
 
 function M.__FNC__() return debug.getinfo(2, "n").name end
 
+-- current function ref, since `M.__FNCREF__` is itself a function
+-- we need to go backwards once in stack (i.e. "2")
 function M.__FNCREF__() return debug.getinfo(2, "f").func end
+
+-- calling function ref, go backwards in stack twice first
+-- out of `utils.__FNCREF2__`, second out of calling function
+function M.__FNCREF2__()
+  local dbginfo = debug.getinfo(3, "f")
+  return dbginfo and dbginfo.func
+end
 
 -- sets an invisible unicode character as icon separator
 -- the below was reached after many iterations, a short summary of everything
@@ -197,6 +206,17 @@ M.file_is_binary = function(filepath)
   end
   local out = M.io_system({ "file", "--dereference", "--mime", filepath })
   return out:match("charset=binary") ~= nil
+end
+
+local S_IFMT = 0xF000  -- filetype mask
+local S_IFIFO = 0x1000 -- fifo
+
+M.file_is_fifo = function(filepath)
+  local stat = vim.loop.fs_stat(filepath)
+  if stat and bit.band(stat.mode, S_IFMT) == S_IFIFO then
+    return true
+  end
+  return false
 end
 
 M.file_is_readable = function(filepath)
@@ -475,6 +495,15 @@ function M.ansi_from_hl(hl, s)
   return escfn(s), escseq, escfn
 end
 
+function M.has_ansi_coloring(str)
+  return str:match("%[[%d;]-m")
+end
+
+function M.ansi_col_len(str)
+  local match = M.has_ansi_coloring(str)
+  return match and #match or 0
+end
+
 function M.strip_ansi_coloring(str)
   if not str then return str end
   -- remove escape sequences of the following formats:
@@ -539,12 +568,29 @@ function M.get_visual_selection()
 end
 
 function M.fzf_exit()
-  vim.cmd([[lua require('fzf-lua.win').win_leave()]])
+  -- Usually called from the LSP module to exit the interface on "async" mode
+  -- when no results are found or when `jump_to_single_result` is used, when
+  -- the latter is used in "sync" mode we also need to make sure core.__CTX
+  -- is cleared or we'll have the wrong cursor coordiantes (#928)
+  return loadstring([[
+    require('fzf-lua').core.__CTX = nil
+    require('fzf-lua').win.win_leave()
+  ]])()
 end
 
 function M.fzf_winobj()
   -- use 'loadstring' to prevent circular require
   return loadstring("return require'fzf-lua'.win.__SELF()")()
+end
+
+function M.resume_get(what, opts)
+  local f = loadstring("return require'fzf-lua'.config.resume_get")()
+  return f(what, opts)
+end
+
+M.resume_set = function(what, val, opts)
+  local f = loadstring("return require'fzf-lua'.config.resume_set")()
+  return f(what, val, opts)
 end
 
 function M.reset_info()

@@ -35,14 +35,15 @@
 ; Annotations
 
 (annotation
+  "@" @attribute
   name: (identifier) @attribute)
 (marker_annotation
+  "@" @attribute
   name: (identifier) @attribute)
 
 ; Operators
 
 [
-  "@"
   "+"
   ":"
   "++"
@@ -95,6 +96,8 @@
 (constructor_declaration
   name: (identifier) @type)
 (type_identifier) @type
+((type_identifier) @type.builtin
+  (#eq? @type.builtin "var"))
 ((method_invocation
   object: (identifier) @type)
  (#lua-match? @type "^[A-Z]"))
@@ -105,8 +108,8 @@
 ((field_access
   object: (identifier) @type)
   (#lua-match? @type "^[A-Z]"))
-((scoped_identifier
-  scope: (identifier) @type)
+(scoped_identifier
+  (identifier) @type
   (#lua-match? @type "^[A-Z]"))
 
 ; Fields

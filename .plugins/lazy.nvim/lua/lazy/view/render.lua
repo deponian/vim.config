@@ -1,9 +1,10 @@
 local Config = require("lazy.core.config")
-local Util = require("lazy.util")
-local Sections = require("lazy.view.sections")
-local Handler = require("lazy.core.handler")
 local Git = require("lazy.manage.git")
+local Handler = require("lazy.core.handler")
+local Keys = require("lazy.core.handler.keys")
 local Plugin = require("lazy.core.plugin")
+local Sections = require("lazy.view.sections")
+local Util = require("lazy.util")
 local ViewConfig = require("lazy.view.config")
 
 local Text = require("lazy.view.text")
@@ -209,6 +210,14 @@ function M:help()
       self:append(" " .. (mode.desc_plugin or mode.desc)):nl()
     end
   end
+  for lhs, rhs in pairs(Config.options.ui.custom_keys) do
+    if type(rhs) == "table" and rhs.desc then
+      self:append("- ", "LazySpecial", { indent = 2 })
+      self:append("Custom key ", "Title")
+      self:append(lhs, "LazyProp")
+      self:append(" " .. rhs.desc):nl()
+    end
+  end
 end
 
 function M:progressbar()
@@ -319,23 +328,17 @@ function M:reason(reason, opts)
   end
   for _, key in ipairs(keys) do
     local value = reason[key]
-    if type(key) == "number" then
-    elseif key == "require" then
-    elseif key ~= "time" then
+    local skip = type(key) == "number" or key == "time"
+    if not skip then
       if first then
         first = false
       else
         self:append(" ")
       end
-      if key == "event" then
-        value = value:match("User (.*)") or value
-      end
-      if key == "keys" then
-        value = type(value) == "string" and value or value[1]
-      end
       local hl = "LazyReason" .. key:sub(1, 1):upper() .. key:sub(2)
       local icon = Config.options.ui.icons[key]
       if icon then
+        icon = icon:gsub("%s*$", "")
         self:append(icon .. " ", hl)
         self:append(value, hl)
       else
@@ -407,27 +410,18 @@ function M:plugin(plugin)
   end
   local plugin_start = self:row()
   if plugin._.loaded then
+    -- When the plugin is loaded, only show the loading reason
     self:reason(plugin._.loaded)
   else
+    -- otherwise show all lazy handlers
     self:append(" ")
-    local reason = {}
-    if plugin._.kind ~= "disabled" then
-      for handler in pairs(Handler.types) do
-        if plugin[handler] then
-          local trigger = {}
-          for _, value in ipairs(plugin[handler]) do
-            table.insert(trigger, type(value) == "table" and value[1] or value)
-          end
-          reason[handler] = table.concat(trigger, " ")
-        end
-      end
-    end
+    self:handlers(plugin)
     for _, other in pairs(Config.plugins) do
       if vim.tbl_contains(other.dependencies or {}, plugin.name) then
-        reason.plugin = other.name
+        self:reason({ plugin = other.name })
+        self:append(" ")
       end
     end
-    self:reason(reason)
   end
   self:diagnostics(plugin)
   self:nl()
@@ -481,7 +475,7 @@ function M:log(task)
       self:append(vim.trim(msg), dimmed and "LazyDimmed" or nil):highlight({
         ["#%d+"] = "LazyCommitIssue",
         ["^%S+:"] = dimmed and "Bold" or "LazyCommitType",
-        ["^%S+(%(.*%)):"] = "LazyCommitScope",
+        ["^%S+(%(.*%))!?:"] = "LazyCommitScope",
         ["`.-`"] = "@text.literal.markdown_inline",
         ["%*.-%*"] = "Italic",
         ["%*%*.-%*%*"] = "Bold",
@@ -530,22 +524,34 @@ function M:details(plugin)
     end
   end)
 
-  for handler in pairs(Handler.types) do
-    if plugin[handler] then
-      table.insert(props, {
-        handler,
-        function()
-          for _, value in ipairs(plugin[handler]) do
-            self:reason({ [handler] = value })
-            self:append(" ")
-          end
-        end,
-      })
-    end
+  for handler in pairs(plugin._.handlers or {}) do
+    table.insert(props, {
+      handler,
+      function()
+        self:handlers(plugin, handler)
+      end,
+    })
   end
   self:props(props, { indent = 6 })
 
   self:nl()
+end
+
+---@param plugin LazyPlugin
+---@param types? LazyHandlerTypes[]|LazyHandlerTypes
+function M:handlers(plugin, types)
+  if not plugin._.handlers then
+    return
+  end
+  types = type(types) == "string" and { types } or types
+  types = types and types or vim.tbl_keys(Handler.types)
+  for _, t in ipairs(types) do
+    for id, value in pairs(plugin._.handlers[t] or {}) do
+      value = t == "keys" and Keys.to_string(value) or id
+      self:reason({ [t] = value })
+      self:append(" ")
+    end
+  end
 end
 
 ---@alias LazyProps {[1]:string, [2]:string|fun(), [3]?:string}[]
@@ -676,16 +682,15 @@ function M:debug()
 
   Util.foreach(require("lazy.core.handler").handlers, function(handler_type, handler)
     Util.foreach(handler.active, function(value, plugins)
-      value = type(value) == "table" and value[1] or value
       if not vim.tbl_isempty(plugins) then
         ---@type string[]
         plugins = vim.tbl_values(plugins)
         table.sort(plugins)
         self:append("● ", "LazySpecial", { indent = 2 })
         if handler_type == "keys" then
-          for k, v in pairs(Handler.handlers.keys:values(Config.plugins[plugins[1]])) do
+          for k, v in pairs(Config.plugins[plugins[1]]._.handlers.keys) do
             if k == value then
-              value = v
+              value = Keys.to_string(v)
               break
             end
           end

@@ -956,12 +956,6 @@ function! s:LinesError(...) abort
   return [r.exit_status ? [] : r.stdout, r.exit_status]
 endfunction
 
-function! s:NullError(cmd) abort
-  let r = fugitive#Execute(a:cmd)
-  let list = r.exit_status ? [] : split(tr(join(r.stdout, "\1"), "\1\n", "\n\1"), "\1", 1)[0:-2]
-  return [list, s:JoinChomp(r.stderr), r.exit_status]
-endfunction
-
 function! s:TreeChomp(...) abort
   let r = call('fugitive#Execute', a:000)
   if !r.exit_status
@@ -2672,12 +2666,10 @@ function! fugitive#BufReadStatus(cmdbang) abort
   let amatch = s:Slash(expand('%:p'))
   unlet! b:fugitive_reltime b:fugitive_type
   try
-    doautocmd BufReadPre
     let config = fugitive#Config()
 
     let dir = s:Dir()
     let cmd = [dir]
-    setlocal noreadonly modifiable nomodeline buftype=nowrite
     if amatch !~# '^fugitive:' && s:cpath($GIT_INDEX_FILE !=# '' ? resolve(s:GitIndexFileEnv()) : fugitive#Find('.git/index', dir)) !=# s:cpath(amatch)
       let cmd += [{'env': {'GIT_INDEX_FILE': FugitiveGitPath(amatch)}}]
     endif
@@ -2686,21 +2678,29 @@ function! fugitive#BufReadStatus(cmdbang) abort
       call add(cmd, '--no-optional-locks')
     endif
 
+    let tree = s:Tree(dir)
+    if !empty(tree)
+      let status_cmd = cmd + ['status', '-bz']
+      call add(status_cmd, fugitive#GitVersion(2, 11) ? '--porcelain=v2' : '--porcelain')
+      let status = fugitive#Execute(status_cmd, function('len'))
+    endif
+
+    doautocmd BufReadPre
+    setlocal noreadonly modifiable nomodeline buftype=nowrite
     let b:fugitive_files = {'Staged': {}, 'Unstaged': {}}
+
     let [staged, unstaged, untracked] = [[], [], []]
     let props = {}
 
-    let tree = s:Tree()
-    if empty(tree)
+    if !exists('status')
       let branch = FugitiveHead(0, dir)
       let head = FugitiveHead(11, dir)
-    elseif fugitive#GitVersion(2, 11)
-      let status_cmd = cmd + ['status', '--porcelain=v2', '-bz']
-      let [output, message, exec_error] = s:NullError(status_cmd)
-      if exec_error
-        throw 'fugitive: ' . message
-      endif
 
+    elseif fugitive#Wait(status).exit_status
+      throw 'fugitive: ' . s:JoinChomp(status.stderr)
+
+    elseif status.args[-1] ==# '--porcelain=v2'
+      let output = split(tr(join(status.stdout, "\1"), "\1\n", "\n\1"), "\1", 1)[0:-2]
       let i = 0
       while i < len(output)
         let line = output[i]
@@ -2742,13 +2742,9 @@ function! fugitive#BufReadStatus(cmdbang) abort
       else
         let head = FugitiveHead(11, dir)
       endif
-    else " git < 2.11
-      let status_cmd = cmd + ['status', '--porcelain', '-bz']
-      let [output, message, exec_error] = s:NullError(status_cmd)
-      if exec_error
-        throw 'fugitive: ' . message
-      endif
 
+    else
+      let output = split(tr(join(status.stdout, "\1"), "\1\n", "\n\1"), "\1", 1)[0:-2]
       while get(output, 0, '') =~# '^\l\+:'
         call remove(output, 0)
       endwhile
@@ -5705,7 +5701,8 @@ function! s:GrepParseLine(options, quiet, dir, line) abort
   if entry.module !~# ':'
     let entry.filename = s:PathJoin(a:options.prefix, entry.module)
   else
-    let entry.filename = fugitive#Find(entry.module, a:dir)
+    let entry.filename = fugitive#Find(matchstr(entry.module, '^[^:]*:') .
+          \ substitute(matchstr(entry.module, ':\zs.*'), '/\=:', '/', 'g'), a:dir)
   endif
   return entry
 endfunction
@@ -6114,6 +6111,10 @@ function! s:OpenExpand(dir, file, wants_cmd) abort
     endif
   else
     let efile = s:Expand(a:file)
+  endif
+  if efile =~# '^https\=://'
+    let [url, lnum] = s:ResolveUrl(efile, a:dir)
+    return [url, a:wants_cmd ? lnum : 0]
   endif
   let url = s:Generate(efile, a:dir)
   if a:wants_cmd && a:file[0] ==# '>' && efile[0] !=# '>' && get(b:, 'fugitive_type', '') isnot# 'tree' && &filetype !=# 'netrw'
@@ -7609,6 +7610,115 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
   catch /^fugitive:/
     return 'echoerr ' . string(v:exception)
   endtry
+endfunction
+
+function! s:RemoteRefToLocalRef(repo, remote_url, ref_path) abort
+  let ref_path = substitute(a:ref_path, ':', '/', '')
+  let rev = ''
+  if ref_path =~# '^\x\{40,\}\%(/\|$\)'
+    let rev = substitute(ref_path, '/', ':', '')
+  elseif ref_path =~# '^[^:/^~]\+'
+    let first_component = matchstr(ref_path, '^[^:/^~]\+')
+    let lines = fugitive#Execute(['ls-remote', a:remote_url, first_component, first_component . '/*'], a:repo).stdout[0:-2]
+    for line in lines
+      let full = matchstr(line, "\t\\zs.*")
+      for candidate in [full, matchstr(full, '^refs/\w\+/\zs.*')]
+        if candidate ==# first_component || strpart(ref_path . '/', 0, len(candidate) + 1) ==# candidate . '/'
+          let rev = matchstr(line, '^\x\+') . substitute(strpart(ref_path, len(candidate)), '/', ':', '')
+        endif
+      endfor
+    endfor
+  endif
+  if empty(rev)
+    return ''
+  endif
+  let commitish = matchstr(rev, '^[^:^~]*')
+  let rev_parse = fugitive#Execute(['rev-parse', '--verify', commitish], a:repo)
+  if rev_parse.exit_status
+    if fugitive#Execute(['fetch', remote_url, commitish], a:repo).exit_status
+      return ''
+    endif
+    let rev_parse = fugitive#Execute(['rev-parse', '--verify', commitish], a:repo)
+  endif
+  if rev_parse.exit_status
+    return ''
+  endif
+  return rev_parse.stdout[0] . matchstr(rev, ':.*')
+endfunction
+
+function! fugitive#ResolveUrl(target, ...) abort
+  let repo = call('s:Dir', a:000)
+  let origins = get(g:, 'fugitive_url_origins', {})
+  let prefix = substitute(s:Slash(a:target), '#.*', '', '')
+  while prefix =~# '://'
+    let extracted = FugitiveExtractGitDir(expand(get(origins, prefix, '')))
+    if !empty(extracted)
+      let repo = s:Dir(extracted)
+      break
+    endif
+    let prefix = matchstr(prefix, '.*\ze/')
+  endwhile
+  let git_dir = s:GitDir(repo)
+  for remote_name in keys(FugitiveConfigGetRegexp('^remote\.\zs.*\ze\.url$', repo))
+    let remote_url = fugitive#RemoteUrl(remote_name, repo)
+    for [no_anchor; variant] in [[1, 'commit'], [1, 'tree'], [1, 'tree', 1], [1, 'blob', 1], [0, 'blob', 1, '1`line1`', '1`line1`'], [0, 'blob', 1, '1`line1`', '2`line2`']]
+      let handler_opts = {
+            \ 'git_dir': git_dir,
+            \ 'repo': {'git_dir': git_dir},
+            \ 'remote': remote_url,
+            \ 'remote_name': remote_name,
+            \ 'commit': '1`commit`',
+            \ 'type': get(variant, 0),
+            \ 'path': get(variant, 1) ? '1`path`' : '',
+            \ 'line1': get(variant, 2),
+            \ 'line2': get(variant, 3)}
+      let url = ''
+      for l:.Handler in get(g:, 'fugitive_browse_handlers', [])
+        let l:.url = call(Handler, [copy(handler_opts)])
+        if type(url) == type('') && url =~# '://'
+          break
+        endif
+      endfor
+      if type(url) != type('') || url !~# '://'
+        continue
+      endif
+      let keys = split(substitute(url, '\d`\(\w\+`\)\|.', '\1', 'g'), '`')
+      let pattern = substitute(url, '\d`\w\+`\|[][^$.*\~]', '\=len(submatch(0)) == 1 ? "\\" . submatch(0) : "\\([^#?&;]\\{-\\}\\)"', 'g')
+      let pattern = '^' . substitute(pattern, '^https\=:', 'https\\=:', '') . '$'
+      let target = s:Slash(no_anchor ? substitute(a:target, '#.*', '', '') : a:target)
+      let values = matchlist(s:Slash(a:target), pattern)[1:-1]
+      if empty(values)
+        continue
+      endif
+      let kvs = {}
+      for i in range(len(keys))
+        let kvs[keys[i]] = values[i]
+      endfor
+      if has_key(kvs, 'commit') && has_key(kvs, 'path')
+        let ref_path = kvs.commit . '/' . kvs.path
+      elseif has_key(kvs, 'commit') && variant[0] ==# 'tree'
+        let ref_path = kvs.commit . '/'
+      elseif has_key(kvs, 'commit')
+        let ref_path = kvs.commit
+      else
+        continue
+      endif
+      let rev = s:RemoteRefToLocalRef(repo, remote_url, fugitive#UrlDecode(ref_path))
+      return [fugitive#Find(rev, repo), empty(rev) ? 0 : +get(kvs, 'line1')]
+    endfor
+  endfor
+  return ['', 0]
+endfunction
+
+function! s:ResolveUrl(target, ...) abort
+  try
+    let [url, lnum] = call('fugitive#ResolveUrl', [a:target] + a:000)
+    if !empty(url)
+      return [url, lnum]
+    endif
+  catch
+  endtry
+  return [substitute(a:target, '#.*', '', ''), 0]
 endfunction
 
 " Section: Maps

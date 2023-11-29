@@ -8,16 +8,22 @@
 ---@field loaded? {[string]:string}|{time:number}
 ---@field installed? boolean
 ---@field tasks? LazyTask[]
+---@field working? boolean
 ---@field dirty? boolean
 ---@field updated? {from:string, to:string}
 ---@field is_local? boolean
 ---@field updates? {from:GitInfo, to:GitInfo}
 ---@field cloned? boolean
+---@field outdated? boolean
 ---@field kind? LazyPluginKind
 ---@field dep? boolean True if this plugin is only in the spec as a dependency
 ---@field cond? boolean
 ---@field super? LazyPlugin
 ---@field module? string
+---@field dir? string Explicit dir or dev set for this plugin
+---@field rtp_loaded? boolean
+---@field handlers? LazyPluginHandlers
+---@field cache? table<string,any>
 
 ---@alias PluginOpts table|fun(self:LazyPlugin, opts:table):table?
 
@@ -29,11 +35,10 @@
 ---@field opts? PluginOpts
 
 ---@class LazyPluginHandlers
----@field event? string[]
----@field cmd? string[]
----@field ft? string[]
----@field keys? (string|LazyKeys)[]
----@field module? false
+---@field event? table<string,LazyEvent>
+---@field ft? table<string,LazyEvent>
+---@field keys? table<string,LazyKeys>
+---@field cmd? table<string,string>
 
 ---@class LazyPluginRef
 ---@field branch? string
@@ -61,10 +66,10 @@
 ---@field _ LazyPluginState
 
 ---@class LazyPluginSpecHandlers
----@field event? string[]|string|fun(self:LazyPlugin, event:string[]):string[]
+---@field event? string[]|string|LazyEventSpec[]|fun(self:LazyPlugin, event:string[]):string[]
 ---@field cmd? string[]|string|fun(self:LazyPlugin, cmd:string[]):string[]
 ---@field ft? string[]|string|fun(self:LazyPlugin, ft:string[]):string[]
----@field keys? string|string[]|LazyKeys[]|fun(self:LazyPlugin, keys:string[]):(string|LazyKeys)[]
+---@field keys? string|string[]|LazyKeysSpec[]|fun(self:LazyPlugin, keys:string[]):(string|LazyKeys)[]
 ---@field module? false
 
 ---@class LazyPluginSpec: LazyPluginBase,LazyPluginSpecHandlers,LazyPluginHooks,LazyPluginRef
@@ -75,3 +80,4 @@
 ---@class LazySpecImport
 ---@field import string spec module to import
 ---@field enabled? boolean|(fun():boolean)
+---@field cond? boolean|(fun():boolean)

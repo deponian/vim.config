@@ -18,7 +18,6 @@ end
 
 M.defaults = {
   nbsp          = utils.nbsp,
-  global_resume = true,
   winopts       = {
     height         = 0.85,
     width          = 0.80,
@@ -211,7 +210,9 @@ M.defaults.files = {
   find_opts              = [[-type f -not -path '*/\.git/*' -printf '%P\n']],
   rg_opts                = "--color=never --files --hidden --follow -g '!.git'",
   fd_opts                = "--color=never --type f --hidden --follow --exclude .git",
+  toggle_ignore_flag     = "--no-ignore",
   _actions               = function() return M.globals.actions.files end,
+  -- actions                = { ["ctrl-g"] = { actions.toggle_ignore } },
   winopts                = { preview = { winopts = { cursorline = false } } },
 }
 
@@ -275,12 +276,24 @@ M.defaults.git = {
     fzf_opts = { ["--no-multi"] = "" },
   },
   branches = {
-    prompt  = "Branches> ",
-    cmd     = "git branch --all --color",
-    preview = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
-    actions = {
+    prompt   = "Branches> ",
+    cmd      = "git branch --all --color",
+    preview  = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
+    fzf_opts = { ["--no-multi"] = "" },
+    actions  = {
       ["default"] = actions.git_switch,
     },
+  },
+  tags = {
+    prompt   = "Tags> ",
+    cmd      = "git for-each-ref --color --sort='-taggerdate' --format "
+        .. "'%(color:yellow)%(refname:short)%(color:reset) "
+        .. "%(color:green)(%(taggerdate:relative))%(color:reset)"
+        .. " %(subject) %(color:blue)%(taggername)%(color:reset)' refs/tags",
+    preview  = "git log --graph --color --pretty=format:'%C(yellow)%h%Creset "
+        .. "%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset' {1}",
+    fzf_opts = { ["--no-multi"] = "" },
+    actions  = { ["default"] = actions.git_checkout },
   },
   stash = {
     prompt   = "Stash> ",
@@ -426,60 +439,68 @@ M.defaults.tabs = {
 }
 
 M.defaults.lines = {
-  previewer       = M._default_previewer_fn,
-  prompt          = "Lines> ",
-  file_icons      = true and M._has_devicons,
-  color_icons     = true,
-  show_unloaded   = true,
-  show_unlisted   = false,
-  no_term_buffers = true,
-  fzf_opts        = {
+  previewer        = M._default_previewer_fn,
+  prompt           = "Lines> ",
+  file_icons       = true and M._has_devicons,
+  color_icons      = true,
+  show_unloaded    = true,
+  show_unlisted    = false,
+  no_term_buffers  = true,
+  fzf_opts         = {
     ["--delimiter"] = "'[\\]:]'",
     ["--nth"]       = "2..",
     ["--tiebreak"]  = "index",
     ["--tabstop"]   = "1",
   },
-  _actions        = function() return M.globals.actions.buffers end,
-  actions         = {
+  line_field_index = "{3}",
+  _actions         = function() return M.globals.actions.buffers end,
+  actions          = {
     ["default"] = actions.buf_edit_or_qf,
     ["alt-q"]   = actions.buf_sel_to_qf,
     ["alt-l"]   = actions.buf_sel_to_ll
   },
-  _cached_hls     = { "buf_name", "buf_nr", "buf_linenr" },
+  _cached_hls      = { "buf_name", "buf_nr", "buf_linenr" },
 }
 
 M.defaults.blines = {
-  previewer       = M._default_previewer_fn,
-  prompt          = "BLines> ",
-  file_icons      = false,
-  color_icons     = false,
-  show_unlisted   = true,
-  no_term_buffers = false,
-  fzf_opts        = {
+  previewer        = M._default_previewer_fn,
+  prompt           = "BLines> ",
+  file_icons       = false,
+  color_icons      = false,
+  show_unlisted    = true,
+  no_term_buffers  = false,
+  fzf_opts         = {
     ["--delimiter"] = "'[:]'",
     ["--with-nth"]  = "2..",
     ["--tiebreak"]  = "index",
     ["--tabstop"]   = "1",
   },
-  _actions        = function() return M.globals.actions.buffers end,
-  actions         = {
+  line_field_index = "{2}",
+  _actions         = function() return M.globals.actions.buffers end,
+  actions          = {
     ["default"] = actions.buf_edit_or_qf,
     ["alt-q"]   = actions.buf_sel_to_qf,
     ["alt-l"]   = actions.buf_sel_to_ll
   },
-  _cached_hls     = { "buf_name", "buf_nr", "buf_linenr" },
+  _cached_hls      = { "buf_name", "buf_nr", "buf_linenr" },
 }
 
 M.defaults.tags = {
   previewer    = { _ctor = previewers.builtin.tags },
   prompt       = "Tags> ",
+  input_prompt = "[tags] Grep For> ",
   ctags_file   = nil, -- auto-detect
   rg_opts      = "--no-heading --color=always --smart-case",
   grep_opts    = "--color=auto --perl-regexp",
   multiprocess = true,
   file_icons   = true and M._has_devicons,
-  git_icons    = true,
+  git_icons    = false,
   color_icons  = true,
+  fzf_opts     = {
+    ["--delimiter"] = string.format("'[:%s]'", utils.nbsp),
+    ["--tiebreak"]  = "begin",
+    ["--info"]      = "default",
+  },
   _actions     = function() return M.globals.actions.files end,
   actions      = { ["ctrl-g"] = { actions.grep_lgrep } },
 }
@@ -488,16 +509,17 @@ M.defaults.btags = {
   previewer    = { _ctor = previewers.builtin.tags },
   prompt       = "BTags> ",
   ctags_file   = nil, -- auto-detect
-  rg_opts      = "--no-heading --color=always",
-  grep_opts    = "--color=auto --perl-regexp",
+  rg_opts      = "--color=never --no-heading",
+  grep_opts    = "--color=never --perl-regexp",
   multiprocess = true,
-  file_icons   = true and M._has_devicons,
-  git_icons    = true,
+  file_icons   = false,
+  git_icons    = false,
   color_icons  = true,
   fzf_opts     = {
-    ["--delimiter"] = "'[:]'",
-    ["--with-nth"]  = "2..",
-    ["--tiebreak"]  = "index",
+    ["--delimiter"] = string.format("'[:%s]'", utils.nbsp),
+    ["--with-nth"]  = "1,-1",
+    ["--tiebreak"]  = "begin",
+    ["--info"]      = "default",
   },
   _actions     = function() return M.globals.actions.files end,
   actions      = { ["ctrl-g"] = false },
@@ -600,6 +622,31 @@ M.defaults.lsp.symbols = {
   symbol_fmt       = function(s, _) return "[" .. s .. "]" end,
   child_prefix     = true,
   async_or_timeout = true,
+  exec_empty_query = true,
+  -- new formatting options with symbol name at the start
+  fzf_opts         = {
+    ["--delimiter"] = string.format("'[:%s]'", utils.nbsp),
+    ["--tiebreak"]  = "begin",
+    ["--info"]      = "default",
+  },
+  line_field_index = "{-2}", -- line field index
+  field_index_expr = "{}",   -- entry field index
+  _fmt             = {
+    -- NOT NEEDED: we format at the source in `lsp.symbol_handler`
+    -- to = function(s, _)
+    --   local file, text = s:match("^(.+:.+:.+:)%s(.*)")
+    --   -- fzf has alignment issues with ansi colorings of differnt escape length
+    --   local align = 56 + utils.ansi_col_len(text)
+    --   return string.format("%-" .. align .. "s%s%s", text, utils.nbsp, file)
+    -- end,
+    from = function(s, _)
+      -- restore the format to something that `path.entry_to_file` can
+      -- handle more robustly, while this can stil work due to the `utils.nbsp`
+      -- it will fail when the symbol contains "[%d]" (which we use as bufnr)
+      local text, file = s:match(string.format("^(.-)%s(.*)", utils.nbsp))
+      return string.format("%s %s", file, text)
+    end
+  },
   _actions         = function() return M.globals.actions.files end,
   actions          = { ["ctrl-g"] = { actions.sym_lsym } },
 }
@@ -654,6 +701,7 @@ M.defaults.diagnostics = {
   color_icons = true,
   git_icons   = false,
   diag_icons  = true,
+  diag_source = false,
   multiline   = true,
   _actions    = function() return M.globals.actions.files end,
   -- signs = {
@@ -842,7 +890,7 @@ M.defaults.dap = {
 
 M.defaults.complete_path = {
   cmd     = nil, -- default: auto detect fd|rg|find
-  actions = { ["default"] = actions.complete_insert },
+  actions = { ["default"] = actions.complete },
 }
 
 M.defaults.complete_file = {
@@ -852,13 +900,12 @@ M.defaults.complete_file = {
   color_icons  = true,
   git_icons    = false,
   _actions     = function() return M.globals.actions.files end,
-  actions      = { ["default"] = actions.complete_insert },
+  actions      = { ["default"] = actions.complete },
   previewer    = M._default_previewer_fn,
   winopts      = { preview = { hidden = "hidden" } },
 }
 
-M.defaults.complete_line = {}
-M.defaults.complete_bline = {}
+M.defaults.complete_line = { complete = true }
 
 M.defaults.file_icon_padding = ""
 

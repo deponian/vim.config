@@ -1,22 +1,10 @@
 local core = require "fzf-lua.core"
 local utils = require "fzf-lua.utils"
 local config = require "fzf-lua.config"
+local actions = require "fzf-lua.actions"
 local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
-
-local function CTX_UPDATE()
-  -- save current win/buf context, ignore when fzf
-  -- window is already open (actions.sym_lsym)
-  if not __CTX or not utils.fzf_winobj() then
-    __CTX = {
-      winid = vim.api.nvim_get_current_win(),
-      bufnr = vim.api.nvim_get_current_buf(),
-      bufname = vim.api.nvim_buf_get_name(0),
-      cursor = vim.api.nvim_win_get_cursor(0),
-    }
-  end
-end
 
 local function handler_capabilty(handler)
   if utils.__HAS_NVIM_08 then
@@ -27,10 +15,7 @@ local function handler_capabilty(handler)
 end
 
 local function check_capabilities(handler, silent)
-  -- update CTX since this gets called before normalize_lsp_opts (#490)
-  CTX_UPDATE()
-
-  local clients = vim.lsp.buf_get_clients(__CTX and __CTX.bufnr or 0)
+  local clients = vim.lsp.buf_get_clients(core.CTX().bufnr)
 
   -- return the number of clients supporting the feature
   -- so the async version knows how many callbacks to wait for
@@ -98,7 +83,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
   local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
   result = vim.tbl_islist(result) and result or { result }
   if opts.ignore_current_line then
-    local cursor_line = __CTX.cursor[1] - 1
+    local cursor_line = core.CTX().cursor[1] - 1
     result = vim.tbl_filter(function(l)
       if l.range and l.range.start and l.range.start.line == cursor_line then
         return false
@@ -115,7 +100,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
     items = opts.filter(items)
   end
   for _, entry in ipairs(items) do
-    if not opts.current_buffer_only or __CTX.bufname == entry.filename then
+    if not opts.current_buffer_only or core.CTX().bname == entry.filename then
       entry = make_entry.lcol(entry, opts)
       entry = make_entry.file(entry, opts)
       if entry then cb(entry) end
@@ -183,23 +168,39 @@ local function symbol_handler(opts, cb, _, result, _, _)
   result = vim.tbl_islist(result) and result or { result }
   local items
   if opts.child_prefix then
-    items = symbols_to_items(result, __CTX.bufnr,
-      opts.child_prefix == true and string.rep("\xc2\xa0", 2) or opts.child_prefix)
+    items = symbols_to_items(result, core.CTX().bufnr,
+      opts.child_prefix == true and string.rep(" ", 2) or opts.child_prefix)
   else
-    items = vim.lsp.util.symbols_to_items(result, __CTX.bufnr)
+    items = vim.lsp.util.symbols_to_items(result, core.CTX().bufnr)
   end
   for _, entry in ipairs(items) do
-    if (not opts.current_buffer_only or __CTX.bufname == entry.filename) and
+    if (not opts.current_buffer_only or core.CTX().bname == entry.filename) and
         (not opts.regex_filter or entry.text:match(opts.regex_filter)) then
+      local mbicon_align = 0
       if M._sym2style then
         local kind = entry.text:match("%[(.-)%]")
-        if kind and M._sym2style[kind] then
-          entry.text = entry.text:gsub("%[.-%]", M._sym2style[kind], 1)
+        local styled = kind and M._sym2style[kind]
+        if styled then
+          entry.text = entry.text:gsub("%[.-%]", styled, 1)
+        end
+        -- align formatting to single byte and multi-byte icons
+        -- only styles 1,2 contain an icon
+        if tonumber(opts.symbol_style) == 1 or tonumber(opts.symbol_style) == 2 then
+          local icon = opts.symbol_icons and opts.symbol_icons[kind]
+          mbicon_align = icon and #icon or mbicon_align
         end
       end
+      -- move symbol `entry.text` to the start of the line
+      -- will be restored in preview/actions by `opts._fmt.from`
+      local symbol = entry.text
+      entry.text = nil
       entry = make_entry.lcol(entry, opts)
       entry = make_entry.file(entry, opts)
-      if entry then cb(entry) end
+      if entry then
+        local align = 52 + mbicon_align + utils.ansi_col_len(symbol)
+        entry = string.format("%-" .. align .. "s%s%s", symbol, utils.nbsp, entry)
+        cb(opts._fmt and opts._fmt.to and opts._fmt.to(entry, opts) or entry)
+      end
     end
   end
 end
@@ -375,7 +376,7 @@ local function gen_lsp_contents(opts)
   -- build positional params for the LSP query
   -- from the context buffer and cursor position
   if not lsp_params then
-    lsp_params = vim.lsp.util.make_position_params(__CTX.winid)
+    lsp_params = vim.lsp.util.make_position_params(core.CTX().winid)
     lsp_params.context = {
       includeDeclaration = opts.includeDeclaration == nil and true or opts.includeDeclaration
     }
@@ -387,7 +388,7 @@ local function gen_lsp_contents(opts)
     if type(opts.async_or_timeout) == "number" then
       timeout = opts.async_or_timeout
     end
-    local lsp_results, err = vim.lsp.buf_request_sync(__CTX.bufnr,
+    local lsp_results, err = vim.lsp.buf_request_sync(core.CTX().bufnr,
       lsp_handler.method, lsp_params, timeout)
     if err then
       utils.err(string.format("Error executing '%s': %s", lsp_handler.method, err))
@@ -459,7 +460,7 @@ local function gen_lsp_contents(opts)
         local async_buf_reqeust = function()
           -- save cancel all fnref so we can cancel all requests
           -- when using `live_ws_symbols`
-          _, opts._cancel_all = vim.lsp.buf_request(__CTX.bufnr,
+          _, opts._cancel_all = vim.lsp.buf_request(core.CTX().bufnr,
             lsp_handler.method, lsp_params,
             async_lsp_handler(co, lsp_handler, async_opts))
         end
@@ -504,7 +505,7 @@ end
 
 -- see $VIMRUNTIME/lua/vim/buf.lua:pick_call_hierarchy_item()
 local function gen_lsp_contents_call_hierarchy(opts)
-  local lsp_params = vim.lsp.util.make_position_params(__CTX and __CTX.winid or 0)
+  local lsp_params = vim.lsp.util.make_position_params(core.CTX().winid)
   local method = "textDocument/prepareCallHierarchy"
   local res, err = vim.lsp.buf_request_sync(0, method, lsp_params, 2000)
   if err then
@@ -523,8 +524,8 @@ local function gen_lsp_contents_call_hierarchy(opts)
   end
 end
 
-local normalize_lsp_opts = function(opts, cfg)
-  opts = config.normalize_opts(opts, cfg)
+local normalize_lsp_opts = function(opts, cfg, __resume_key)
+  opts = config.normalize_opts(opts, cfg, __resume_key)
   if not opts then return end
 
   if not opts.prompt and opts.prompt_postfix then
@@ -538,15 +539,11 @@ local normalize_lsp_opts = function(opts, cfg)
     opts.cwd_only = true
   end
 
-  -- save current win/buf context
-  -- moved to 'check_capabilities' (#490)
-  -- CTX_UPDATE()
-
   return opts
 end
 
 local function fzf_lsp_locations(opts, fn_contents)
-  opts = normalize_lsp_opts(opts, config.globals.lsp)
+  opts = normalize_lsp_opts(opts, "lsp")
   if not opts then return end
   if opts.force_uri == nil then opts.force_uri = true end
   opts = core.set_fzf_field_index(opts)
@@ -585,7 +582,7 @@ M.outgoing_calls = function(opts)
 end
 
 M.finder = function(opts)
-  opts = normalize_lsp_opts(opts, config.globals.lsp.finder)
+  opts = normalize_lsp_opts(opts, "lsp.finder")
   if not opts then return end
   if opts.force_uri == nil then opts.force_uri = true end
   local contents = {}
@@ -632,19 +629,19 @@ M.finder = function(opts)
 end
 
 local function gen_sym2style_map(opts)
-  assert(M._sym2style == nil)
   assert(opts.symbol_style ~= nil)
+  if M._sym2style then return end
   M._sym2style = {}
   for kind, icon in pairs(opts.symbol_icons) do
     -- style==1: "<icon> <kind>"
     -- style==2: "<icon>"
     -- style==3: "<kind>"
     local s = nil
-    if opts.symbol_style == 1 and config._has_devicons then
+    if tonumber(opts.symbol_style) == 1 and config._has_devicons then
       s = ("%s %s"):format(icon, kind)
-    elseif opts.symbol_style == 2 and config._has_devicons then
+    elseif tonumber(opts.symbol_style) == 2 and config._has_devicons then
       s = icon
-    elseif opts.symbol_style == 3 then
+    elseif tonumber(opts.symbol_style) == 3 then
       s = kind
     end
     if s and opts.symbol_hl then
@@ -664,45 +661,41 @@ local function gen_sym2style_map(opts)
 end
 
 M.document_symbols = function(opts)
-  opts = normalize_lsp_opts(opts, config.globals.lsp.symbols)
+  opts = normalize_lsp_opts(opts, "lsp.symbols", "lsp_document_symbols")
   if not opts then return end
-  opts.__MODULE__ = opts.__MODULE__ or M
+  -- no support for sym_lsym
+  for k, fn in pairs(opts.actions or {}) do
+    if type(fn) == "table" and
+        (fn[1] == actions.sym_lsym or fn.fn == actions.sym_lsym) then
+      opts.actions[k] = nil
+    end
+  end
   opts = core.set_header(opts, opts.headers or { "regex_filter" })
   opts = core.set_fzf_field_index(opts)
   if opts.force_uri == nil then opts.force_uri = true end
   if not opts.fzf_opts or opts.fzf_opts["--with-nth"] == nil then
-    opts.fzf_opts               = opts.fzf_opts or {}
-    opts.fzf_opts["--with-nth"] = "2.."
-    opts.fzf_opts["--tiebreak"] = "index"
+    -- our delims are {nbsp,:} make sure entry has no icons
+    -- "{nbsp}file:line:col:" and hide the last 4 fields
+    opts.git_icons = false
+    opts.file_icons = false
+    opts.fzf_opts = opts.fzf_opts or {}
+    opts.fzf_opts["--with-nth"] = "..-4"
   end
-  opts = gen_lsp_contents(opts)
-  if not opts.__contents then return end
   if opts.symbol_style or opts.symbol_fmt then
     opts.fn_pre_fzf = function() gen_sym2style_map(opts) end
     opts.fn_post_fzf = function() M._sym2style = nil end
+    -- run once in case we're not running async
+    opts.fn_pre_fzf()
   end
+  opts = gen_lsp_contents(opts)
+  if not opts.__contents then return end
   return core.fzf_exec(opts.__contents, opts)
 end
 
-local function get_last_lspquery(_)
-  return M.__last_ws_lsp_query
-end
-
-local function set_last_lspquery(_, query)
-  M.__last_ws_lsp_query = query
-  if config.__resume_data then
-    config.__resume_data.last_query = query
-  end
-end
-
 M.workspace_symbols = function(opts)
-  opts = normalize_lsp_opts(opts, config.globals.lsp.symbols)
+  opts = normalize_lsp_opts(opts, "lsp.symbols", "lsp_workspace_symbols")
   if not opts then return end
-  opts.__MODULE__ = opts.__MODULE__ or M
-  if not opts.lsp_query and opts.resume then
-    opts.lsp_query = get_last_lspquery(opts)
-  end
-  set_last_lspquery(opts, opts.lsp_query)
+  opts.__ACT_TO = opts.__ACT_TO or M.live_workspace_symbols
   opts.lsp_params = { query = opts.lsp_query or "" }
   opts = core.set_header(opts, opts.headers or
     { "actions", "cwd", "lsp_query", "regex_filter" })
@@ -712,40 +705,41 @@ M.workspace_symbols = function(opts)
   if not opts.__contents then return end
   if opts.symbol_style or opts.symbol_fmt then
     opts.fn_pre_fzf = function() gen_sym2style_map(opts) end
-    -- when using an empty string grep (as in 'grep_project') or
-    -- when switching from grep to live_grep using 'ctrl-g', users
-    -- may find it confusing why the last typed query is not
-    -- considered the last search. So we find out if that's the
-    -- case and use the last typed prompt as the grep string
-    opts.fn_post_fzf = function(o, _)
-      M._sym2style = nil
-      local last_lspquery = get_last_lspquery(o)
-      local last_query = config.__resume_data and config.__resume_data.last_query
-      if not last_lspquery or #last_lspquery == 0
-          and (last_query and #last_query > 0) then
-        set_last_lspquery(opts, last_query)
-      end
-    end
+    opts.fn_post_fzf = function() M._sym2style = nil end
   end
   return core.fzf_exec(opts.__contents, opts)
 end
 
+
 M.live_workspace_symbols = function(opts)
-  opts = normalize_lsp_opts(opts, config.globals.lsp.symbols)
+  opts = normalize_lsp_opts(opts, "lsp.symbols", "lsp_workspace_symbols")
   if not opts then return end
 
   -- needed by 'actions.sym_lsym'
-  -- prepend the prompt with asterisk
-  opts.__MODULE__ = opts.__MODULE__ or M
+  opts.__ACT_TO = opts.__ACT_TO or M.workspace_symbols
+
+  -- prepend prompt with "*" to indicate "live" query
   opts.prompt = opts.prompt and opts.prompt:match("^%*") or "*" .. opts.prompt
 
-  -- exec empty query is the default here
-  if opts.exec_empty_query == nil then
-    opts.exec_empty_query = true
+  -- when using live_workspace_symbols there is no "query"
+  -- the prompt input is the LSP query, store as "lsp_query"
+  opts.__resume_set = function(what, val, o)
+    config.resume_set(
+      what == "query" and "lsp_query" or what, val,
+      { __resume_key = o.__resume_key })
+  end
+  opts.__resume_get = function(what, o)
+    return config.resume_get(
+      what == "query" and "lsp_query" or what,
+      { __resume_key = o.__resume_key })
   end
 
-  if not opts.lsp_query and opts.resume then
-    opts.lsp_query = get_last_lspquery(opts)
+  -- if no lsp_query was set, use previous prompt query (from the non-live version)
+  if not opts.lsp_query or #opts.lsp_query == 0 and (opts.query and #opts.query > 0) then
+    opts.lsp_query = opts.query
+    -- also replace in `__call_opts` for `resume=true`
+    opts.__call_opts.query = nil
+    opts.__call_opts.lsp_query = opts.query
   end
 
   -- sent to the LSP server
@@ -756,9 +750,6 @@ M.live_workspace_symbols = function(opts)
   -- use our own
   opts.func_async_callback = false
   opts.fn_reload = function(query)
-    if query and not (opts.save_last_search == false) then
-      set_last_lspquery(opts, query)
-    end
     opts.lsp_params = { query = query or "" }
     opts = gen_lsp_contents(opts)
     return opts.__contents
@@ -778,11 +769,11 @@ end
 -- TODO: not needed anymore, it seems that `vim.lsp.buf.code_action` still
 -- uses the old `vim.lsp.diagnostic` API, we will do the same until neovim
 -- stops using this API
-local function get_line_diagnostics(_)
+--[[ local function get_line_diagnostics(_)
   if not vim.diagnostic then
     return vim.lsp.diagnostic.get_line_diagnostics()
   end
-  local diag = vim.diagnostic.get(__CTX.bufnr, { lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 })
+  local diag = vim.diagnostic.get(core.CTX().bufnr, { lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 })
   return diag and diag[1]
       and { {
         source = diag[1].source,
@@ -805,10 +796,10 @@ local function get_line_diagnostics(_)
       } }
       -- Must return an empty table or some LSP servers fail (#707)
       or {}
-end
+end ]]
 
 M.code_actions = function(opts)
-  opts = normalize_lsp_opts(opts, config.globals.lsp.code_actions)
+  opts = normalize_lsp_opts(opts, "lsp.code_actions")
   if not opts then return end
 
   -- code actions uses `vim.ui.select`, requires neovim >= 0.6
@@ -833,7 +824,7 @@ M.code_actions = function(opts)
       -- Neovim still uses `vim.lsp.diagnostic` API in "nvim/runtime/lua/vim/lsp/buf.lua"
       -- continue to use it until proven otherwise, this also fixes #707 as diagnostics
       -- must not be nil or some LSP servers will fail (e.g. ruff_lsp, rust_analyzer)
-      diagnostics = vim.lsp.diagnostic.get_line_diagnostics(__CTX and __CTX.bufnr or 0) or {}
+      diagnostics = vim.lsp.diagnostic.get_line_diagnostics(core.CTX().bufnr) or {}
     }
 
     -- make sure 'gen_lsp_contents' is run synchronously

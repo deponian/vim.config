@@ -366,7 +366,7 @@ More examples:
 # Output surrounding ~
 
 A table with <left> (plain text string) and <right> (plain text string)
-fields. Strings can contain new lines charater `\n` to add multiline parts.
+fields. Strings can contain new lines character `\n` to add multiline parts.
 
 Examples:
 - Lua block string: `{ left = '[[', right = ']]' }`
@@ -563,7 +563,7 @@ Examples of using `config.custom_surroundings` (see more examples at
     },
   })
 
-  -- Create custom surrouding for Lua's block string `[[...]]`. Use this inside
+  -- Create custom surrounding for Lua's block string `[[...]]`. Use this inside
   -- autocommand or 'after/ftplugin/lua.lua' file.
   vim.b.minisurround_config = {
     custom_surroundings = {
@@ -756,7 +756,7 @@ Two most common approaches for having a query file:
   your |$XDG_CONFIG_HOME| directory. It should contain queries with
   captures (later used to define surrounding parts). See |lua-treesitter-query|.
 To verify that query file is reachable, run (example for "lua" language)
-`:lua print(vim.inspect(vim.treesitter.get_query_files('lua', 'textobjects')))`
+`:lua print(vim.inspect(vim.treesitter.query.get_files('lua', 'textobjects')))`
 (output should have at least an intended file).
 
 Example configuration for function definition textobject with

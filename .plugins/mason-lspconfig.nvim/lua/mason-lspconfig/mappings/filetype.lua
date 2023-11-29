@@ -1,6 +1,7 @@
 -- THIS FILE IS GENERATED. DO NOT EDIT MANUALLY.
 -- stylua: ignore start
 return {
+  ["*"] = { "typos_lsp" },
   OpenFOAM = { "foam_ls" },
   PKGBUILD = { "pkgbuild_language_server" },
   ada = { "als" },
@@ -9,7 +10,7 @@ return {
   arduino = { "arduino_language_server" },
   asm = { "asm_lsp" },
   aspnetcorerazor = { "tailwindcss" },
-  astro = { "astro", "emmet_language_server", "emmet_ls", "eslint", "tailwindcss" },
+  astro = { "astro", "emmet_ls", "eslint", "tailwindcss" },
   ["astro-markdown"] = { "tailwindcss" },
   automake = { "autotools_ls" },
   awk = { "awk_ls" },
@@ -169,7 +170,7 @@ return {
   stylus = { "tailwindcss" },
   sugarss = { "stylelint_lsp", "tailwindcss" },
   surface = { "elixirls" },
-  svelte = { "emmet_language_server", "emmet_ls", "eslint", "svelte", "tailwindcss", "unocss" },
+  svelte = { "emmet_ls", "eslint", "svelte", "tailwindcss", "unocss" },
   svg = { "lemminx" },
   systemverilog = { "svlangserver", "svls", "verible" },
   teal = { "teal_ls" },
@@ -196,7 +197,7 @@ return {
   vlang = { "vls" },
   vmasm = { "asm_lsp" },
   vsh = { "v_analyzer" },
-  vue = { "emmet_language_server", "emmet_ls", "eslint", "stylelint_lsp", "tailwindcss", "unocss", "volar", "vuels" },
+  vue = { "emmet_ls", "eslint", "stylelint_lsp", "tailwindcss", "unocss", "volar", "vuels" },
   vv = { "v_analyzer" },
   wgsl = { "wgsl_analyzer" },
   wxss = { "stylelint_lsp" },

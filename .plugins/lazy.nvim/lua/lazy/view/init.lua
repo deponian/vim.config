@@ -1,10 +1,10 @@
-local Util = require("lazy.util")
-local Render = require("lazy.view.render")
 local Config = require("lazy.core.config")
-local ViewConfig = require("lazy.view.config")
-local Git = require("lazy.manage.git")
 local Diff = require("lazy.view.diff")
 local Float = require("lazy.view.float")
+local Git = require("lazy.manage.git")
+local Render = require("lazy.view.render")
+local Util = require("lazy.util")
+local ViewConfig = require("lazy.view.config")
 
 ---@class LazyViewState
 ---@field mode string
@@ -121,9 +121,10 @@ function M.create()
     end
   end)
 
-  for key, handler in pairs(Config.options.ui.custom_keys) do
-    if handler then
-      self:on_key(key, function()
+  for lhs, rhs in pairs(Config.options.ui.custom_keys) do
+    if rhs then
+      local handler = type(rhs) == "table" and rhs[1] or rhs
+      self:on_key(lhs, function()
         local plugin = self.render:get_plugin()
         if plugin then
           handler(plugin)

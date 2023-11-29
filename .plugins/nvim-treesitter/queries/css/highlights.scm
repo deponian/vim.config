@@ -34,11 +34,14 @@
  "~="
  "$="
  "*="
+ ] @operator
+
+[
  "and"
  "or"
  "not"
  "only"
- ] @operator
+ ] @keyword.operator
 
 (important) @type.qualifier
 
@@ -87,5 +90,3 @@
  "("
  "}"
  ] @punctuation.bracket
-
-(ERROR) @error

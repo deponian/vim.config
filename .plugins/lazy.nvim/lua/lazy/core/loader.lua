@@ -1,8 +1,8 @@
-local Util = require("lazy.core.util")
+local Cache = require("lazy.core.cache")
 local Config = require("lazy.core.config")
 local Handler = require("lazy.core.handler")
 local Plugin = require("lazy.core.plugin")
-local Cache = require("lazy.core.cache")
+local Util = require("lazy.core.util")
 
 ---@class LazyCoreLoader
 local M = {}
@@ -16,6 +16,7 @@ M.init_done = false
 M.disabled_rtp_plugins = { packer_compiled = true }
 ---@type table<string,string>
 M.did_ftdetect = {}
+M.did_handlers = false
 
 function M.disable_rtp_plugin(plugin)
   M.disabled_rtp_plugins[plugin] = true
@@ -56,6 +57,7 @@ function M.setup()
   -- setup handlers
   Util.track("handlers")
   Handler.setup()
+  M.did_handlers = true
   Util.track()
 end
 
@@ -214,6 +216,9 @@ function M.deactivate(plugin)
   -- disable handlers
   Handler.disable(plugin)
 
+  -- clear plugin properties cache
+  plugin._.cache = nil
+
   -- remove loaded lua modules
   Util.walkmods(plugin.dir .. "/lua", function(modname)
     package.loaded[modname] = nil
@@ -259,8 +264,10 @@ function M.reload(plugin)
     load = true
   end
 
-  for _, event in ipairs(plugin.event or {}) do
-    if event == "VimEnter" or event == "UIEnter" or event:find("VeryLazy") then
+  local events = plugin._.handlers and plugin._.handlers.event and plugin._.handlers.event or {}
+
+  for _, event in pairs(events) do
+    if event.id:find("VimEnter") or event.id:find("UIEnter") or event.id:find("VeryLazy") then
       load = true
       break
     end
@@ -495,8 +502,12 @@ end
 function M.auto_load(modname, modpath)
   local plugin = Plugin.find(modpath)
   if plugin and modpath:find(plugin.dir, 1, true) == 1 then
-    -- don't load if we're loading specs or if the plugin is already loaded
-    if not (Plugin.loading or plugin._.loaded) then
+    plugin._.rtp_loaded = true
+    -- don't load if:
+    -- * handlers haven't been setup yet
+    -- * we're loading specs
+    -- * the plugin is already loaded
+    if M.did_handlers and not (Plugin.loading or plugin._.loaded) then
       if plugin.module == false then
         error("Plugin " .. plugin.name .. " is not loaded and is configured with module=false")
       end
@@ -505,9 +516,7 @@ function M.auto_load(modname, modpath)
         error("You're trying to load `" .. plugin.name .. "` for which `cond==false`")
       end
     end
-    return true
   end
-  return false
 end
 
 ---@param modname string

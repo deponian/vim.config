@@ -1,6 +1,6 @@
-local Util = require("lazy.util")
-local Loader = require("lazy.core.loader")
 local Config = require("lazy.core.config")
+local Loader = require("lazy.core.loader")
+local Util = require("lazy.util")
 
 ---@type table<string, LazyTaskDef>
 local M = {}
@@ -29,6 +29,11 @@ M.build = {
     Loader.load(self.plugin, { task = "build" })
 
     local builders = self.plugin.build
+
+    -- Skip if `build` is set to `false`
+    if builders == false then
+      return
+    end
 
     local build_file = get_build_file(self.plugin)
     if build_file then

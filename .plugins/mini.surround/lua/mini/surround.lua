@@ -362,7 +362,7 @@
 --- # Output surrounding ~
 ---
 --- A table with <left> (plain text string) and <right> (plain text string)
---- fields. Strings can contain new lines charater `\n` to add multiline parts.
+--- fields. Strings can contain new lines character `\n` to add multiline parts.
 ---
 --- Examples:
 --- - Lua block string: `{ left = '[[', right = ']]' }`
@@ -527,7 +527,7 @@ end
 ---     },
 ---   })
 ---
----   -- Create custom surrouding for Lua's block string `[[...]]`. Use this inside
+---   -- Create custom surrounding for Lua's block string `[[...]]`. Use this inside
 ---   -- autocommand or 'after/ftplugin/lua.lua' file.
 ---   vim.b.minisurround_config = {
 ---     custom_surroundings = {
@@ -934,7 +934,7 @@ MiniSurround.gen_spec = { input = {}, output = {} }
 ---   your |$XDG_CONFIG_HOME| directory. It should contain queries with
 ---   captures (later used to define surrounding parts). See |lua-treesitter-query|.
 --- To verify that query file is reachable, run (example for "lua" language)
---- `:lua print(vim.inspect(vim.treesitter.get_query_files('lua', 'textobjects')))`
+--- `:lua print(vim.inspect(vim.treesitter.query.get_files('lua', 'textobjects')))`
 --- (output should have at least an intended file).
 ---
 --- Example configuration for function definition textobject with
@@ -1016,9 +1016,9 @@ end
 
 -- Helper data ================================================================
 -- Module default config
-H.default_config = MiniSurround.config
+H.default_config = vim.deepcopy(MiniSurround.config)
 
--- Namespaces to be used withing module
+-- Namespaces to be used within module
 H.ns_id = {
   highlight = vim.api.nvim_create_namespace('MiniSurroundHighlight'),
   input = vim.api.nvim_create_namespace('MiniSurroundInput'),
@@ -1095,7 +1095,7 @@ H.setup_config = function(config)
   -- General idea: if some table elements are not present in user-supplied
   -- `config`, take them from default config
   vim.validate({ config = { config, 'table', true } })
-  config = vim.tbl_deep_extend('force', H.default_config, config or {})
+  config = vim.tbl_deep_extend('force', vim.deepcopy(H.default_config), config or {})
 
   -- Validate per nesting level to produce correct error message
   vim.validate({
@@ -1454,7 +1454,7 @@ H.get_matched_node_pairs_plugin = function(captures)
   local ts_queries = require('nvim-treesitter.query')
   local ts_parsers = require('nvim-treesitter.parsers')
 
-  -- This is a modifed version of `ts_queries.get_capture_matches_recursively`
+  -- This is a modified version of `ts_queries.get_capture_matches_recursively`
   -- source code which keeps track of match language
   local matches = {}
   local parser = ts_parsers.get_parser(0)
@@ -1627,7 +1627,7 @@ end
 -- NOTE: spans are end-exclusive to allow empty spans via `from == to`
 H.new_span = function(from, to) return { from = from, to = to == nil and from or (to + 1) } end
 
----@param candidate table Candidate span to test agains `current`.
+---@param candidate table Candidate span to test against `current`.
 ---@param current table|nil Current best span.
 ---@param reference table Reference span to cover.
 ---@param opts table Fields: <search_method>.
@@ -1938,7 +1938,7 @@ H.region_replace = function(region, text)
   -- Allow single string as replacement
   if type(text) == 'string' then text = { text } end
 
-  -- Allow `\n` in string to denote new liness
+  -- Allow `\n` in string to denote new lines
   if #text > 0 then text = vim.split(table.concat(text, '\n'), '\n') end
 
   -- Replace. Use `pcall()` to do nothing if some position is out of bounds.

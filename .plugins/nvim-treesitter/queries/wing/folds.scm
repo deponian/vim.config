@@ -1,8 +1,6 @@
 [
   (class_definition)
   (class_implementation)
-  (resource_definition)
-  (resource_implementation)
   (interface_definition)
   (interface_implementation)
   (for_in_loop)
@@ -14,5 +12,4 @@
   (enum_definition)
   (try_catch_statement)
   (method_definition)
-  (inflight_method_definition)
 ] @fold

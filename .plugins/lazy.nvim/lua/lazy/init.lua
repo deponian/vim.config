@@ -1,6 +1,28 @@
----@type LazyCommands
+---@class Lazy: LazyCommands
 local M = {}
 M._start = 0
+
+local function profile_require()
+  local done = {} ---@type table<string, true>
+  local r = require
+  _G.require = function(modname)
+    local Util = package.loaded["lazy.core.util"]
+    if Util and not done[modname] then
+      done[modname] = true
+      Util.track({ require = modname })
+      local ok, ret = pcall(function()
+        return vim.F.pack_len(r(modname))
+      end)
+      Util.track()
+      if not ok then
+        error(ret, 2)
+      end
+      return vim.F.unpack_len(ret)
+    else
+      return r(modname)
+    end
+  end
+end
 
 ---@overload fun(opts: LazyConfig)
 ---@overload fun(spec:LazySpec, opts: LazyConfig)
@@ -40,15 +62,14 @@ function M.setup(spec, opts)
 
   local Cache = require("lazy.core.cache")
 
-  local enable_cache = not (
-    opts
-    and opts.performance
-    and opts.performance.cache
-    and opts.performance.cache.enabled == false
-  )
+  local enable_cache = vim.tbl_get(opts, "performance", "cache", "enabled") ~= false
   -- load module cache before anything else
   if enable_cache then
     Cache.enable()
+  end
+
+  if vim.tbl_get(opts, "profiling", "require") then
+    profile_require()
   end
 
   require("lazy.stats").track("LazyStart")
@@ -59,8 +80,12 @@ function M.setup(spec, opts)
 
   table.insert(package.loaders, 3, Loader.loader)
 
-  if vim.g.profile_loaders then
-    Cache.profile_loaders()
+  if vim.tbl_get(opts, "profiling", "loader") then
+    if vim.loader then
+      vim.loader._profile({ loaders = true })
+    else
+      Cache._profile_loaders()
+    end
   end
 
   Util.track({ plugin = "lazy.nvim" }) -- setup start

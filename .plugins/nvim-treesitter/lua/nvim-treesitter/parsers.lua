@@ -30,6 +30,7 @@ for ft, lang in pairs {
   ecma = "javascript",
   jsx = "javascript",
   sh = "bash",
+  apkbuild = "bash",
   PKGBUILD = "bash",
   html_tags = "html",
   ["typescript.tsx"] = "tsx",
@@ -92,6 +93,15 @@ list.agda = {
   maintainers = { "@Decodetalkers" },
 }
 
+list.angular = {
+  install_info = {
+    url = "https://github.com/steelsojka/tree-sitter-angular",
+    files = { "src/parser.c" },
+    requires_generate_from_grammar = true,
+  },
+  experimental = true,
+}
+
 list.apex = {
   install_info = {
     url = "https://github.com/aheber/tree-sitter-sfapex",
@@ -115,6 +125,14 @@ list.astro = {
     files = { "src/parser.c", "src/scanner.cc" },
   },
   maintainers = { "@virchau13" },
+}
+
+list.authzed = {
+  install_info = {
+    url = "https://github.com/mleonidas/tree-sitter-authzed",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@mattpolzin" },
 }
 
 list.awk = {
@@ -229,7 +247,7 @@ list.clojure = {
     url = "https://github.com/sogaiu/tree-sitter-clojure",
     files = { "src/parser.c" },
   },
-  maintainers = { "@sogaiu" },
+  maintainers = { "@NoahTheDuke" },
 }
 
 list.cmake = {
@@ -478,6 +496,15 @@ list.erlang = {
   maintainers = { "@filmor" },
 }
 
+list.facility = {
+  install_info = {
+    url = "https://github.com/FacilityApi/tree-sitter-facility",
+    files = { "src/parser.c" },
+  },
+  filetype = "fsd",
+  maintainers = { "@bryankenote" },
+}
+
 list.fennel = {
   install_info = {
     url = "https://github.com/travonted/tree-sitter-fennel",
@@ -632,6 +659,15 @@ list.glsl = {
   maintainers = { "@theHamsta" },
 }
 
+list.gn = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-gn",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@amaanq" },
+  readme_name = "GN (Generate Ninja)",
+}
+
 list.go = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-go",
@@ -697,6 +733,14 @@ list.graphql = {
     files = { "src/parser.c" },
   },
   maintainers = { "@bkegley" },
+}
+
+list.gstlaunch = {
+  install_info = {
+    url = "https://github.com/theHamsta/tree-sitter-gstlaunch",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@theHamsta" },
 }
 
 list.hack = {
@@ -942,6 +986,14 @@ list.kotlin = {
   maintainers = { "@SalBakraa" },
 }
 
+list.kusto = {
+  install_info = {
+    url = "https://github.com/Willem-J-an/tree-sitter-kusto",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@Willem-J-an" },
+}
+
 list.lalrpop = {
   install_info = {
     url = "https://github.com/traxys/tree-sitter-lalrpop",
@@ -967,12 +1019,29 @@ list.ledger = {
   maintainers = { "@cbarrete" },
 }
 
+list.leo = {
+  install_info = {
+    url = "https://github.com/r001/tree-sitter-leo",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@r001" },
+}
+
 list.llvm = {
   install_info = {
     url = "https://github.com/benwilliamgraham/tree-sitter-llvm",
     files = { "src/parser.c" },
   },
   maintainers = { "@benwilliamgraham" },
+}
+
+list.linkerscript = {
+  install_info = {
+    url = "https://github.com/amaanq/tree-sitter-linkerscript",
+    files = { "src/parser.c" },
+  },
+  filetype = "ld",
+  maintainers = { "@amaanq" },
 }
 
 list.liquidsoap = {
@@ -1097,11 +1166,35 @@ list.mlir = {
   maintainers = { "@artagnon" },
 }
 
+list.nasm = {
+  install_info = {
+    url = "https://github.com/naclsn/tree-sitter-nasm",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@ObserverOfTime" },
+}
+
 list.nickel = {
   install_info = {
     url = "https://github.com/nickel-lang/tree-sitter-nickel",
     files = { "src/parser.c", "src/scanner.cc" },
   },
+}
+
+list.nim = {
+  install_info = {
+    url = "https://github.com/alaviss/tree-sitter-nim",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@aMOPel" },
+}
+
+list.nim_format_string = {
+  install_info = {
+    url = "https://github.com/aMOPel/tree-sitter-nim-format-string",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@aMOPel" },
 }
 
 list.ninja = {
@@ -1144,6 +1237,14 @@ list.objc = {
     files = { "src/parser.c" },
   },
   maintainers = { "@amaanq" },
+}
+
+list.objdump = {
+  install_info = {
+    url = "https://github.com/ColinKennedy/tree-sitter-objdump",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@ColinKennedy" },
 }
 
 list.ocaml = {
@@ -1215,10 +1316,11 @@ list.pem = {
 
 list.perl = {
   install_info = {
-    url = "https://github.com/ganezdragon/tree-sitter-perl",
-    files = { "src/parser.c", "src/scanner.cc" },
+    url = "https://github.com/tree-sitter-perl/tree-sitter-perl",
+    files = { "src/parser.c", "src/scanner.c" },
+    branch = "release",
   },
-  maintainers = { "@lcrownover" },
+  maintainers = { "@RabbiVeesh", "@LeoNerd" },
 }
 
 list.php = {
@@ -1256,6 +1358,15 @@ list.po = {
   maintainers = { "@amaanq" },
 }
 
+list.pod = {
+  install_info = {
+    url = "https://github.com/tree-sitter-perl/tree-sitter-pod",
+    files = { "src/parser.c", "src/scanner.c" },
+    branch = "release",
+  },
+  maintainers = { "@RabbiVeesh", "@LeoNerd" },
+}
+
 list.poe_filter = {
   install_info = {
     url = "https://github.com/ObserverOfTime/tree-sitter-poe-filter",
@@ -1290,6 +1401,15 @@ list.promql = {
     experimental = true,
   },
   maintainers = { "@MichaHoffmann" },
+}
+
+list.properties = {
+  install_info = {
+    url = "https://github.com/ObserverOfTime/tree-sitter-properties",
+    files = { "src/parser.c" },
+  },
+  filetype = "jproperties",
+  maintainers = { "@ObserverOfTime" },
 }
 
 list.proto = {
@@ -1332,6 +1452,14 @@ list.puppet = {
     files = { "src/parser.c" },
   },
   maintainers = { "@amaanq" },
+}
+
+list.purescript = {
+  install_info = {
+    url = "https://github.com/postsolar/tree-sitter-purescript",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@postsolar" },
 }
 
 list.pymanifest = {
@@ -1454,8 +1582,7 @@ list.robot = {
     url = "https://github.com/Hubro/tree-sitter-robot",
     files = { "src/parser.c" },
   },
-  maintainers = { "@ema2159" },
-  experimental = true,
+  maintainers = { "@Hubro" },
 }
 
 list.ron = {
@@ -1520,6 +1647,17 @@ list.scss = {
     files = { "src/parser.c", "src/scanner.c" },
   },
   maintainers = { "@elianiva" },
+}
+
+list.slang = {
+  install_info = {
+    url = "https://github.com/theHamsta/tree-sitter-slang",
+    files = { "src/parser.c", "src/scanner.c" },
+    generate_requires_npm = true,
+  },
+  filetype = "shaderslang",
+  maintainers = { "@theHamsta" },
+  experimental = true,
 }
 
 list.slint = {
@@ -1593,7 +1731,7 @@ list.sparql = {
 list.sql = {
   install_info = {
     url = "https://github.com/derekstride/tree-sitter-sql",
-    files = { "src/parser.c" },
+    files = { "src/parser.c", "src/scanner.c" },
     branch = "gh-pages",
   },
   maintainers = { "@derekstride" },
@@ -1814,6 +1952,23 @@ list.typescript = {
   maintainers = { "@steelsojka" },
 }
 
+list.typoscript = {
+  install_info = {
+    url = "https://github.com/Teddytrombone/tree-sitter-typoscript",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@Teddytrombone" },
+}
+
+list.udev = {
+  install_info = {
+    url = "https://github.com/ObserverOfTime/tree-sitter-udev",
+    files = { "src/parser.c" },
+  },
+  filetype = "udevrules",
+  maintainers = { "@ObserverOfTime" },
+}
+
 list.ungrammar = {
   install_info = {
     url = "https://github.com/Philipp-M/tree-sitter-ungrammar",
@@ -1933,8 +2088,16 @@ list.wing = {
     location = "libs/tree-sitter-wing",
     requires_generate_from_grammar = true,
   },
-  maintainers = { "@gshpychka" },
+  maintainers = { "@gshpychka", "@MarkMcCulloh" },
   experimental = true,
+}
+
+list.xcompose = {
+  install_info = {
+    url = "https://github.com/ObserverOfTime/tree-sitter-xcompose",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@ObserverOfTime" },
 }
 
 list.xml = {
@@ -1976,6 +2139,14 @@ list.zig = {
     files = { "src/parser.c" },
   },
   maintainers = { "@maxxnino" },
+}
+
+list.templ = {
+  install_info = {
+    url = "https://github.com/vrischmann/tree-sitter-templ",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@vrischmann" },
 }
 
 local M = {

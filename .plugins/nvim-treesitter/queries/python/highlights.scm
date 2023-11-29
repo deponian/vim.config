@@ -347,5 +347,10 @@
               "bool" "int" "float" "complex" "list" "tuple" "range" "str"
               "bytes" "bytearray" "memoryview" "set" "frozenset" "dict" "type" "object"))
 
-;; Error
-(ERROR) @error
+;; Regex from the `re` module
+
+(call
+  function: (attribute
+              object: (identifier) @_re)
+  arguments: (argument_list . (string (string_content) @string.regex))
+  (#eq? @_re "re"))

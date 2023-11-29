@@ -117,6 +117,13 @@ function M.from_pattern(pattern, groups, severity_map, defaults, opts)
 end
 
 
+local parse_failure_msg = [[Parser failed. Error message:
+%s
+
+Output from linter:
+%s
+]]
+
 function M.accumulate_chunks(parse)
   local chunks = {}
   return {
@@ -126,13 +133,24 @@ function M.accumulate_chunks(parse)
     on_done = function(publish, bufnr, linter_cwd)
       vim.schedule(function()
         local output = table.concat(chunks)
-        local diagnostics
         if vim.api.nvim_buf_is_valid(bufnr) and output ~= "" then
-          diagnostics = parse(output, bufnr, linter_cwd)
+          local ok, diagnostics = pcall(parse, output, bufnr, linter_cwd)
+          if not ok then
+            local err = diagnostics
+            diagnostics = {
+              {
+                bufnr = bufnr,
+                lnum = 0,
+                col = 0,
+                message = string.format(parse_failure_msg, err, output),
+                severity = vim.diagnostic.severity.ERROR
+              }
+            }
+          end
+          publish(diagnostics, bufnr)
         else
-          diagnostics = {}
+          publish({}, bufnr)
         end
-        publish(diagnostics, bufnr)
       end)
     end,
   }
@@ -143,7 +161,7 @@ function M.split(parser)
   local remaining_calls = 2
   local chunks1 = {}
   local chunks2 = {}
-  local function on_done(publish, bufnr)
+  local function on_done(publish, bufnr, cwd)
     remaining_calls = remaining_calls - 1
     if remaining_calls == 0 then
       -- Ensure stdout/stderr output is not interleaved
@@ -153,7 +171,7 @@ function M.split(parser)
       for _, chunk in pairs(chunks2) do
         parser.on_chunk(chunk)
       end
-      parser.on_done(publish, bufnr)
+      parser.on_done(publish, bufnr, cwd)
     end
   end
   local parser1 = {

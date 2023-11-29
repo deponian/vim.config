@@ -13,6 +13,7 @@ local M = {}
 local ACTION_DEFINITIONS = {
   -- list of supported actions with labels to be displayed in the headers
   -- no pos implies an append to header array
+  [actions.toggle_ignore]     = { "Disable .gitignore", fn_reload = "Respect .gitignore" },
   [actions.grep_lgrep]        = { "Regex Search", fn_reload = "Fuzzy Search" },
   [actions.sym_lsym]          = { "Live Query", fn_reload = "Fuzzy Search" },
   [actions.buf_del]           = { "close" },
@@ -129,9 +130,7 @@ M.fzf_exec = function(contents, opts)
   if type(opts.fn_reload) == "function" then
     opts.__fn_transform = opts.fn_transform
     opts.__fn_reload = function(query)
-      if config.__resume_data then
-        config.__resume_data.last_query = query
-      end
+      config.resume_set("query", query, opts)
       return opts.fn_reload(query)
     end
     opts = M.setup_fzf_interactive_wrap(opts)
@@ -149,19 +148,11 @@ end
 
 M.fzf_resume = function(opts)
   if not config.__resume_data or not config.__resume_data.opts then
-    utils.info("No resume data available, is 'global_resume' enabled?")
+    utils.info("No resume data available.")
     return
   end
   opts = vim.tbl_deep_extend("force", config.__resume_data.opts, opts or {})
-  local last_query = config.__resume_data.last_query
-  if not last_query or #last_query == 0 then
-    -- in case we continue from another resume,
-    -- reset the previous query which was saved
-    -- inside "fzf_opts['--query']" argument
-    last_query = false
-  end
-  opts.__resume = true
-  opts.query = last_query
+  opts.__resuming = true
   M.fzf_exec(config.__resume_data.contents, opts)
 end
 
@@ -182,6 +173,44 @@ M.fzf_wrap = function(opts, contents, fn_selected)
   end)
 end
 
+-- conditionally update the context if fzf-lua
+-- interface isn't open
+M.CTX = function(includeBuflist)
+  -- save caller win/buf context, ignore when fzf
+  -- is already open (actions.sym_lsym|grep_lgrep)
+  if not M.__CTX or
+      -- when called from the LSP module in "sync" mode when no results are found
+      -- the fzf window won't open (e.g. "No refernces found") and the context is
+      -- never cleared. The below condition validates the source window when the
+      -- UI is not open (#907)
+      (not utils.fzf_winobj() and M.__CTX.bufnr ~= vim.api.nvim_get_current_buf()) then
+    M.__CTX = {
+      mode = vim.api.nvim_get_mode().mode,
+      bufnr = vim.api.nvim_get_current_buf(),
+      bname = vim.api.nvim_buf_get_name(0),
+      winid = vim.api.nvim_get_current_win(),
+      alt_bufnr = vim.fn.bufnr("#"),
+      tabnr = vim.fn.tabpagenr(),
+      tabh = vim.api.nvim_win_get_tabpage(0),
+      cursor = vim.api.nvim_win_get_cursor(0),
+      line = vim.api.nvim_get_current_line(),
+    }
+  end
+  -- perhaps a min impact optimization but since only
+  -- buffers/tabs use these we only include the current
+  -- list of buffers when requested
+  if includeBuflist and not M.__CTX.buflist then
+    -- also add a map for faster lookups than `vim.tbl_contains`
+    -- TODO: is it really faster since we must use string keys?
+    M.__CTX.bufmap = {}
+    M.__CTX.buflist = vim.api.nvim_list_bufs()
+    for _, b in ipairs(M.__CTX.buflist) do
+      M.__CTX.bufmap[tostring(b)] = true
+    end
+  end
+  return M.__CTX
+end
+
 M.fzf = function(contents, opts)
   -- Disable opening from the command-line window `:q`
   -- creates all kinds of issues, will fail on `nvim_win_close`
@@ -194,42 +223,43 @@ M.fzf = function(contents, opts)
     opts = config.normalize_opts(opts or {}, {})
     if not opts then return end
   end
-  if opts.fn_pre_win then
-    opts.fn_pre_win(opts)
+  -- flag used to print the query on stdout line 1
+  -- later to be removed from the result by M.fzf()
+  -- this provides a solution for saving the query
+  -- when the user pressed a valid bind but not when
+  -- aborting with <C-c> or <Esc>, see next comment
+  opts.fzf_opts["--print-query"] = ""
+  -- setup dummy callbacks for the default fzf 'abort' keybinds
+  -- this way the query also gets saved when we do not 'accept'
+  opts.actions = opts.actions or {}
+  opts.keymap = opts.keymap or {}
+  opts.keymap.fzf = opts.keymap.fzf or {}
+  for _, k in ipairs({ "ctrl-c", "ctrl-q", "esc" }) do
+    if opts.actions[k] == nil and
+        (opts.keymap.fzf[k] == nil or opts.keymap.fzf[k] == "abort") then
+      opts.actions[k] = actions.dummy_abort
+    end
   end
-  -- support global resume?
-  if opts.global_resume then
+  if not opts.__resuming then
+    -- `opts.__resuming` is only set from `fzf_resume`, since we
+    -- not resuming clear the shell protected functions registry
+    shell.clear_protected()
+  end
+  -- store last call opts for resume
+  config.resume_set(nil, opts.__call_opts, opts)
+  -- caller specified not to resume this call (used by "builtin" provider)
+  if not opts.no_resume then
     config.__resume_data = config.__resume_data or {}
     config.__resume_data.opts = utils.deepcopy(opts)
     config.__resume_data.contents = contents and utils.deepcopy(contents) or nil
-    if not opts.__resume then
-      -- since the shell callback isn't called until the user first types something
-      -- delete the stored query unless called from within 'fzf_resume', this prevents
-      -- using the stored query between different providers
-      config.__resume_data.last_query = nil
-      -- since we are changing providers it's also safe to clear the shell protected
-      -- functions registry
-      shell.clear_protected()
-    end
     -- save a ref to resume data for 'grep_lgrep'
     opts.__resume_data = config.__resume_data
-    -- We use this option to print the query on line 1
-    -- later to be removed from the result by M.fzf()
-    -- this provides a solution for saving the query
-    -- when the user pressed a valid bind but not when
-    -- aborting with <C-c> or <Esc>, see next comment
-    opts.fzf_opts["--print-query"] = ""
-    -- setup dummy callbacks for the default fzf 'abort' keybinds
-    -- this way the query also gets saved when we do not 'accept'
-    opts.actions = opts.actions or {}
-    opts.keymap = opts.keymap or {}
-    opts.keymap.fzf = opts.keymap.fzf or {}
-    for _, k in ipairs({ "ctrl-c", "ctrl-q", "esc" }) do
-      if opts.actions[k] == nil and
-          (opts.keymap.fzf[k] == nil or opts.keymap.fzf[k] == "abort") then
-        opts.actions[k] = actions.dummy_abort
-      end
-    end
+  end
+  -- update context and save a copy in options (for actions)
+  -- call before creating the window or fzf_winobj is not nil
+  opts.__CTX = M.CTX()
+  if opts.fn_pre_win then
+    opts.fn_pre_win(opts)
   end
   -- setup the fzf window and preview layout
   local fzf_win = win(opts)
@@ -316,16 +346,13 @@ M.fzf = function(contents, opts)
   end
   -- This was added by 'resume': when '--print-query' is specified
   -- we are guaranteed to have the query in the first line, save&remove it
-  if selected and #selected > 0 and
-      opts.fzf_opts["--print-query"] ~= nil then
+  if selected and #selected > 0 then
     if not (opts._is_skim and opts.fn_reload) then
       -- reminder: this doesn't get called with 'live_grep' when using skim
       -- due to a bug where '--print-query --interactive' combo is broken:
       -- skim always prints an empty line where the typed query should be.
       -- see addtional note above 'opts.fn_post_fzf' inside 'live_grep_mt'
-      local query = selected[1]
-      config.__resume_data = config.__resume_data or {}
-      config.__resume_data.last_query = type(query) == "string" and query or nil
+      config.resume_set("query", selected[1], opts)
     end
     table.remove(selected, 1)
   end
@@ -344,6 +371,7 @@ M.fzf = function(contents, opts)
       and (action[1] ~= nil or action.reload or action.noclose)
   if (not fzf_win:autoclose() == false) and not noclose then
     fzf_win:close(fzf_bufnr)
+    M.__CTX = nil
   end
   return selected
 end
@@ -527,7 +555,9 @@ M.mt_cmd_wrapper = function(opts)
   assert(opts and opts.cmd)
 
   local str_to_str = function(s)
-    return "[[" .. s:gsub("[%]]", function(x) return "\\" .. x end) .. "]]"
+    -- use long format of bracket escape so we can include "]" (#925)
+    -- https://www.lua.org/manual/5.4/manual.html#3.1
+    return "[==[" .. s .. "]==]"
   end
 
   local opts_to_str = function(o)
@@ -633,7 +663,7 @@ end
 -- for setting the preview offset (and on some
 -- cases the highlighted line)
 M.set_fzf_field_index = function(opts, default_idx, default_expr)
-  opts.line_field_index = opts.line_field_index or default_idx or 2
+  opts.line_field_index = opts.line_field_index or default_idx or "{2}"
   -- when entry contains lines we set the fzf FIELD INDEX EXPRESSION
   -- to the below so that only the filename is sent to the preview
   -- action, otherwise we will have issues with entries with text
@@ -724,7 +754,7 @@ M.set_header = function(opts, hdr_tbl)
           local action = type(v) == "function" and v or type(v) == "table" and (v.fn or v[1])
           if type(action) == "function" and defs[action] then
             local def = defs[action]
-            local to = opts.fn_reload and def.fn_reload or def[1]
+            local to = (opts.fn_reload or opts._hdr_to) and def.fn_reload or def[1]
             table.insert(ret, def.pos or #ret + 1,
               string.format("<%s> to %s",
                 utils.ansi_from_hl(opts.hls.header_bind, k),
@@ -844,11 +874,12 @@ M.convert_reload_actions = function(reload_cmd, opts)
         v.fn(items, opts)
       end, v.field_index == false and "" or v.field_index or "{+}", opts.debug)
       opts.keymap.fzf[k] = {
-        string.format("%s%sexecute-silent(%s)+reload(%s)",
+        string.format("%s%sexecute-silent(%s)+reload(%s)%s",
           type(v.prefix) == "string" and v.prefix or "",
           unbind and (unbind .. "+") or "",
           shell_action,
-          reload_cmd),
+          reload_cmd,
+          type(v.postfix) == "string" and v.postfix or ""),
         desc = config.get_action_helpstr(v.fn)
       }
       opts.actions[k] = nil
@@ -873,9 +904,10 @@ M.convert_exec_silent_actions = function(opts)
         v.fn(items, opts)
       end, v.field_index == false and "" or v.field_index or "{+}", opts.debug)
       opts.keymap.fzf[k] = {
-        string.format("%sexecute-silent(%s)",
+        string.format("%sexecute-silent(%s)%s",
           type(v.prefix) == "string" and v.prefix or "",
-          shell_action),
+          shell_action,
+          type(v.postfix) == "string" and v.postfix or ""),
         desc = config.get_action_helpstr(v.fn)
       }
       opts.actions[k] = nil

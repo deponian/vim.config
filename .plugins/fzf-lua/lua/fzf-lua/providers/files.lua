@@ -39,7 +39,7 @@ local get_files_cmd = function(opts)
 end
 
 M.files = function(opts)
-  opts = config.normalize_opts(opts, config.globals.files)
+  opts = config.normalize_opts(opts, "files")
   if not opts then return end
   if opts.ignore_current_file then
     local curbuf = vim.api.nvim_buf_get_name(0)
@@ -50,14 +50,15 @@ M.files = function(opts)
         "^" .. utils.lua_regex_escape(curbuf) .. "$")
     end
   end
+  opts.__ACT_TO = opts.__ACT_TO or M.files
   opts.cmd = get_files_cmd(opts)
   local contents = core.mt_cmd_wrapper(opts)
-  opts = core.set_header(opts, opts.headers or { "cwd" })
+  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
   return core.fzf_exec(contents, opts)
 end
 
 M.args = function(opts)
-  opts = config.normalize_opts(opts, config.globals.args)
+  opts = config.normalize_opts(opts, "args")
   if not opts then return end
 
   opts.__fn_reload = opts.__fn_reload or function(_)

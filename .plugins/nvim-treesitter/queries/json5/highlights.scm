@@ -1,9 +1,9 @@
 [
-    "true"
-    "false"
+  (true)
+  (false)
 ] @boolean
 
-"null" @constant
+(null) @constant
 
 (string) @string
 
@@ -13,5 +13,3 @@
 
 (member
     name: (_) @keyword)
-
-(ERROR) @error

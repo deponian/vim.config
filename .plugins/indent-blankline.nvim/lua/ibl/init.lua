@@ -25,24 +25,23 @@ local clear_buffer = function(bufnr)
     for _, fn in pairs(hooks.get(bufnr, hooks.type.CLEAR)) do
         fn(bufnr)
     end
+    global_buffer_state[bufnr] = nil
 end
 
 ---@param config ibl.config.full
 local setup = function(config)
-    M.initialized = true
-
     if not config.enabled then
         for bufnr, _ in pairs(global_buffer_state) do
-            clear_buffer(bufnr)
+            if not conf.get_config(bufnr).enabled then
+                clear_buffer(bufnr)
+            end
         end
-        global_buffer_state = {}
-        inlay_hints.clear()
-        return
     end
 
     inlay_hints.setup()
     highlights.setup()
     autocmds.setup()
+    M.initialized = true
     M.refresh_all()
 end
 
@@ -161,7 +160,7 @@ M.refresh = function(bufnr)
     end
 
     for _, fn in
-        pairs(hooks.get(bufnr, hooks.type.ACTIVE) --[[ @as ibl.hooks.cb.active[] ]])
+        pairs(hooks.get(bufnr, hooks.type.ACTIVE) --[=[@as ibl.hooks.cb.active[]]=])
     do
         if not fn(bufnr) then
             clear_buffer(bufnr)
@@ -170,7 +169,7 @@ M.refresh = function(bufnr)
     end
 
     local left_offset, top_offset, win_end, win_height = utils.get_offset(bufnr)
-    if top_offset >= win_end then
+    if top_offset > win_end then
         return
     end
 
@@ -178,7 +177,7 @@ M.refresh = function(bufnr)
 
     local scope_disabled = false
     for _, fn in
-        pairs(hooks.get(bufnr, hooks.type.SCOPE_ACTIVE) --[[ @as ibl.hooks.cb.scope_active[] ]])
+        pairs(hooks.get(bufnr, hooks.type.SCOPE_ACTIVE) --[=[@as ibl.hooks.cb.scope_active[]]=])
     do
         if not fn(bufnr) then
             scope_disabled = true
@@ -242,23 +241,33 @@ M.refresh = function(bufnr)
         scope_row_start, scope_col_start, scope_row_end, scope_col_end = scope:range()
         scope_row_start, scope_col_start, scope_row_end = scope_row_start + 1, scope_col_start + 1, scope_row_end + 1
     end
+    local exact_scope_col_start = scope_col_start
 
+    ---@type ibl.indent.whitespace[]
     local last_whitespace_tbl = {}
+    ---@type table<integer, boolean>
+    local line_skipped = {}
+    ---@type ibl.hooks.cb.skip_line[]
+    local skip_line_hooks = hooks.get(bufnr, hooks.type.SKIP_LINE)
+    for i, line in ipairs(lines) do
+        local row = i + offset
+        for _, fn in pairs(skip_line_hooks) do
+            if fn(buffer_state.tick, bufnr, row - 1, line) then
+                line_skipped[i] = true
+                break
+            end
+        end
+    end
 
     for i, line in ipairs(lines) do
         local row = i + offset
-        local whitespace = utils.get_whitespace(line)
-        local foldclosed = vim.fn.foldclosed(row)
-
-        for _, fn in
-            pairs(hooks.get(bufnr, hooks.type.SKIP_LINE) --[[ @as ibl.hooks.cb.skip_line[] ]])
-        do
-            if fn(buffer_state.tick, bufnr, row - 1, line) then
-                vt.clear_buffer(bufnr, row)
-                goto continue
-            end
+        if line_skipped[i] then
+            vt.clear_buffer(bufnr, row)
+            goto continue
         end
 
+        local whitespace = utils.get_whitespace(line)
+        local foldclosed = vim.fn.foldclosed(row)
         if is_current_buffer and foldclosed == row then
             local foldtext = vim.fn.foldtextresult(row)
             local foldtext_whitespace = utils.get_whitespace(foldtext)
@@ -273,12 +282,9 @@ M.refresh = function(bufnr)
             goto continue
         end
 
-        local blankline = line:len() == 0
-        local whitespace_only = not blankline and line == whitespace
+        ---@type ibl.indent.whitespace[]
         local whitespace_tbl
-        local scope_active = row >= scope_row_start and row <= scope_row_end
-        local scope_start = row == scope_row_start
-        local scope_end = row == scope_row_end
+        local blankline = line:len() == 0
 
         -- #### calculate indent ####
         if not blankline then
@@ -291,10 +297,13 @@ M.refresh = function(bufnr)
                 whitespace_tbl = {}
             else
                 local j = i + 1
-                while j < #lines and lines[j]:len() == 0 do
+                while j < #lines and (lines[j]:len() == 0 or line_skipped[j]) do
+                    if not line_skipped[j] then
+                        empty_line_counter = empty_line_counter + 1
+                    end
                     j = j + 1
-                    empty_line_counter = empty_line_counter + 1
                 end
+
                 local j_whitespace = utils.get_whitespace(lines[j])
                 whitespace_tbl, indent_state = indent.get(j_whitespace, indent_opts, indent_state)
 
@@ -315,6 +324,28 @@ M.refresh = function(bufnr)
             next_whitespace_tbl = whitespace_tbl
         end
 
+        local scope_active = row >= scope_row_start and row <= scope_row_end
+        if
+            scope_active
+            and scope_col_start_single > -1
+            and (whitespace_tbl[scope_col_start_single + 1] or blankline)
+            and not indent.is_indent(whitespace_tbl[scope_col_start_single + 1])
+        then
+            local ref = whitespace_tbl[scope_col_start_single + 1] or last_whitespace_tbl[scope_col_start_single + 1]
+            if ref then
+                if indent.is_space_indent(ref) then
+                    whitespace_tbl[scope_col_start_single + 1] = indent.whitespace.INDENT
+                else
+                    whitespace_tbl[scope_col_start_single + 1] = indent.whitespace.TAB_START
+                end
+                local k = scope_col_start_single
+                while not whitespace_tbl[k] and k >= 0 do
+                    whitespace_tbl[k] = indent.whitespace.SPACE
+                    k = k - 1
+                end
+            end
+        end
+
         -- remove blankline trail
         if blankline and config.whitespace.remove_blankline_trail then
             while #whitespace_tbl > 0 do
@@ -333,7 +364,7 @@ M.refresh = function(bufnr)
         end
 
         for _, fn in
-            pairs(hooks.get(bufnr, hooks.type.WHITESPACE) --[[ @as ibl.hooks.cb.whitespace[] ]])
+            pairs(hooks.get(bufnr, hooks.type.WHITESPACE) --[=[@as ibl.hooks.cb.whitespace[]]=])
         do
             whitespace_tbl = fn(buffer_state.tick, bufnr, row - 1, whitespace_tbl)
         end
@@ -341,6 +372,8 @@ M.refresh = function(bufnr)
         last_whitespace_tbl = whitespace_tbl
 
         -- #### make virtual text ####
+        local scope_start = row == scope_row_start
+        local scope_end = row == scope_row_end
         if scope_start and scope then
             scope_col_start = #whitespace
             scope_col_start_single = #whitespace_tbl
@@ -348,12 +381,13 @@ M.refresh = function(bufnr)
                 return indent.is_indent(w)
             end, whitespace_tbl) + 1
             for _, fn in
-                pairs(hooks.get(bufnr, hooks.type.SCOPE_HIGHLIGHT) --[[ @as ibl.hooks.cb.scope_highlight[] ]])
+                pairs(hooks.get(bufnr, hooks.type.SCOPE_HIGHLIGHT) --[=[@as ibl.hooks.cb.scope_highlight[]]=])
             do
                 scope_index = fn(buffer_state.tick, bufnr, scope, scope_index)
             end
         end
 
+        local whitespace_only = not blankline and line == whitespace
         local char_map = vt.get_char_map(config, listchars, whitespace_only, blankline)
         local virt_text, scope_hl =
             vt.get(config, char_map, whitespace_tbl, scope_active, scope_index, scope_end, scope_col_start_single)
@@ -361,9 +395,18 @@ M.refresh = function(bufnr)
         -- #### set virtual text ####
         vt.clear_buffer(bufnr, row)
 
+        -- Show exact scope
+        local scope_col_start_draw = #whitespace
+        local scope_show_end_cond = #whitespace_tbl > scope_col_start_single
+
+        if config.scope.show_exact_scope then
+            scope_col_start_draw = exact_scope_col_start - 1
+            scope_show_end_cond = #whitespace_tbl >= scope_col_start_single
+        end
+
         -- Scope start
         if config.scope.show_start and scope_start then
-            vim.api.nvim_buf_set_extmark(bufnr, namespace, row - 1, #whitespace, {
+            vim.api.nvim_buf_set_extmark(bufnr, namespace, row - 1, scope_col_start_draw, {
                 end_col = #line,
                 hl_group = scope_hl.underline,
                 priority = config.scope.priority,
@@ -373,7 +416,7 @@ M.refresh = function(bufnr)
         end
 
         -- Scope end
-        if config.scope.show_end and scope_end and #whitespace_tbl > scope_col_start_single then
+        if config.scope.show_end and scope_end and scope_show_end_cond then
             vim.api.nvim_buf_set_extmark(bufnr, namespace, row - 1, scope_col_start, {
                 end_col = scope_col_end,
                 hl_group = scope_hl.underline,
@@ -384,7 +427,7 @@ M.refresh = function(bufnr)
         end
 
         for _, fn in
-            pairs(hooks.get(bufnr, hooks.type.VIRTUAL_TEXT) --[[ @as ibl.hooks.cb.virtual_text[] ]])
+            pairs(hooks.get(bufnr, hooks.type.VIRTUAL_TEXT) --[=[@as ibl.hooks.cb.virtual_text[]]=])
         do
             virt_text = fn(buffer_state.tick, bufnr, row - 1, virt_text)
         end

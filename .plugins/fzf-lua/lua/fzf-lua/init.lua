@@ -25,7 +25,7 @@ do
   -- fixed $NVIM_LISTEN_ADDRESS, different neovim instances will use the same path
   -- as their address and messages won't be received on older instances
   if not vim.g.fzf_lua_server then
-    vim.g.fzf_lua_server = vim.fn.serverstart()
+    vim.g.fzf_lua_server = vim.fn.serverstart("fzf-lua." .. os.time())
   end
 end
 
@@ -195,6 +195,7 @@ do
     git_commits = { "fzf-lua.providers.git", "commits" },
     git_bcommits = { "fzf-lua.providers.git", "bcommits" },
     git_branches = { "fzf-lua.providers.git", "branches" },
+    git_tags = { "fzf-lua.providers.git", "tags" },
     oldfiles = { "fzf-lua.providers.oldfiles", "oldfiles" },
     quickfix = { "fzf-lua.providers.quickfix", "quickfix" },
     quickfix_stack = { "fzf-lua.providers.quickfix", "quickfix_stack" },
@@ -293,11 +294,6 @@ M.get_last_query = function()
   return M.config.__resume_data and M.config.__resume_data.last_query
 end
 
-M.set_last_query = function(query)
-  M.config.__resume_data = M.config.__resume_data or {}
-  M.config.__resume_data.last_query = query
-end
-
 M.setup_fzfvim_cmds = function(...)
   local fn = loadstring("return require'fzf-lua.profiles.fzf-vim'.fn_load")()
   return fn(...)
@@ -326,10 +322,6 @@ M._excluded_meta = {
   "fzf_exec",
   "fzf_live",
   "fzf_complete",
-  "complete_path",
-  "complete_file",
-  "complete_line",
-  "complete_bline",
   "defaults",
   "_excluded_meta",
   "_excluded_metamap",
@@ -338,7 +330,6 @@ M._excluded_meta = {
   "get_info",
   "set_info",
   "get_last_query",
-  "set_last_query",
 }
 
 for _, m in ipairs(M._exported_modules) do
@@ -353,7 +344,8 @@ for _, t in pairs({ M._excluded_meta, M._exported_modules }) do
 end
 
 M.builtin = function(opts)
-  if not opts then opts = {} end
+  opts = config.normalize_opts(opts, "builtin")
+  if not opts then return end
   opts.metatable = M
   opts.metatable_exclude = M._excluded_metamap
   return require "fzf-lua.providers.module".metatable(opts)

@@ -148,7 +148,7 @@ M.vimcmd_file = function(vimcmd, selected, opts)
       -- make sure we have valid column
       -- 'nvim-dap' for example sets columns to 0
       entry.col = entry.col and entry.col > 0 and entry.col or 1
-      vim.api.nvim_win_set_cursor(0, { tonumber(entry.line), tonumber(entry.col) - 1 })
+      pcall(vim.api.nvim_win_set_cursor, 0, { tonumber(entry.line), tonumber(entry.col) - 1 })
     end
     if not is_term and not opts.no_action_zz then vim.cmd("norm! zvzz") end
     ::continue::
@@ -195,14 +195,18 @@ local sel_to_qf = function(selected, opts, is_loclist)
   end
   local title = string.format("[FzfLua] %s%s",
     opts.__INFO and opts.__INFO.cmd .. ": " or "",
-    opts.__resume_data.last_query)
+    utils.resume_get("query", opts) or "")
   if is_loclist then
     vim.fn.setloclist(0, {}, " ", {
       nr = "$",
       items = qf_list,
       title = title,
     })
-    vim.cmd(opts.lopen or "lopen")
+    if type(opts.lopen) == "function" then
+      opts.lopen(selected, opts)
+    elseif opts.lopen ~= false then
+      vim.cmd(opts.lopen or "botright lopen")
+    end
   else
     -- Set the quickfix title to last query and
     -- append a new list to end of the stack (#635)
@@ -212,7 +216,11 @@ local sel_to_qf = function(selected, opts, is_loclist)
       title = title,
       -- nr = nr,
     })
-    vim.cmd(opts.copen or "copen")
+    if type(opts.copen) == "function" then
+      opts.copen(selected, opts)
+    elseif opts.copen ~= false then
+      vim.cmd(opts.copen or "botright copen")
+    end
   end
 end
 
@@ -569,7 +577,9 @@ M.git_switch = function(selected, opts)
     utils.err(unpack(output))
   else
     utils.info(unpack(output))
-    vim.cmd("edit!")
+    if #vim.api.nvim_buf_get_name(0) > 0 then
+      vim.cmd("edit!")
+    end
   end
 end
 
@@ -600,7 +610,9 @@ M.git_checkout = function(selected, opts)
       utils.err(unpack(output))
     else
       utils.info(unpack(output))
-      vim.cmd("edit!")
+      if #vim.api.nvim_buf_get_name(0) > 0 then
+        vim.cmd("edit!")
+      end
     end
   end
 end
@@ -727,59 +739,39 @@ M.arg_del = function(selected, opts)
 end
 
 M.grep_lgrep = function(_, opts)
-  -- 'MODULE' is set on 'grep' and 'live_grep' calls
-  assert(opts.__MODULE__
-    and type(opts.__MODULE__.grep) == "function"
-    or type(opts.__MODULE__.live_grep) == "function")
-
-  local o = vim.tbl_extend("keep", {
-    search = false,
+  opts.__ACT_TO({
     resume = true,
-    resume_search_default = "",
+    -- different lookup key for grep|lgrep_curbuf
+    __resume_key = opts.__resume_key,
     rg_glob = opts.rg_glob or opts.__call_opts.rg_glob,
     -- globs always require command processing with 'multiprocess'
     requires_processing = opts.rg_glob or opts.__call_opts.rg_glob,
-    -- grep has both search string and query prompt, when switching
-    -- from live_grep to grep we want to restore both:
-    --   * we save the last query prompt when exiting grep
-    --   * we set query to the last known when entering grep
-    __prev_query = not opts.fn_reload and opts.__resume_data.last_query,
-    query = opts.fn_reload and opts.__call_opts.__prev_query,
     -- when used with tags pass the resolved ctags_file from tags-option as
     -- `tagfiles()` might not return the correct file called from the float (#700)
     ctags_file = opts.ctags_file,
-  }, opts.__call_opts or {})
-
-  -- 'fn_reload' is set only on 'live_grep' calls
-  if opts.fn_reload then
-    opts.__MODULE__.grep(o)
-  else
-    opts.__MODULE__.live_grep(o)
-  end
+  })
 end
 
 M.sym_lsym = function(_, opts)
-  assert(opts.__MODULE__
-    and type(opts.__MODULE__.workspace_symbols) == "function"
-    or type(opts.__MODULE__.live_workspace_symbols) == "function")
+  opts.__ACT_TO({ resume = true })
+end
 
-  local o = vim.tbl_extend("keep", {
-    resume = true,
-    lsp_query = false,
-    -- ws has both search string and query prompt, when
-    -- switching from live_ws to ws we want to restore both:
-    --   * we save the last query prompt when exiting ws
-    --   * we set query to the last known when entering ws
-    __prev_query = not opts.fn_reload and opts.__resume_data.last_query,
-    query = opts.fn_reload and opts.__call_opts.__prev_query,
-  }, opts.__call_opts or {})
-
-  -- 'fn_reload' is set only on 'live_xxx' calls
-  if opts.fn_reload then
-    opts.__MODULE__.workspace_symbols(o)
-  else
-    opts.__MODULE__.live_workspace_symbols(o)
+M.toggle_ignore = function(_, opts)
+  local o = { resume = true }
+  local flag = opts.toggle_ignore_flag or "--no-ignore"
+  if not flag:match("^%s") then
+    -- flag must be preceded by whitespace
+    flag = " " .. flag
   end
+  if opts.cmd:match(utils.lua_regex_escape(flag)) then
+    o._hdr_to = false
+    o.cmd = opts.cmd:gsub(utils.lua_regex_escape(flag), "")
+  else
+    -- signals "core.set_header" to set the correct "to" header
+    o._hdr_to = true
+    o.cmd = opts.cmd .. flag
+  end
+  opts.__ACT_TO(o)
 end
 
 M.tmux_buf_set_reg = function(selected, opts)
@@ -821,20 +813,21 @@ M.apply_profile = function(selected, opts)
   end
 end
 
-M.complete_insert = function(selected, opts)
-  local line = vim.api.nvim_get_current_line()
-  local before = opts.cmp_string_col > 1 and line:sub(1, opts.cmp_string_col - 1) or ""
-  local after = line:sub(opts.cmp_string_col + (opts.cmp_string and #opts.cmp_string or 0))
-  local entry = selected[1]
-  if opts.cmp_is_file then
-    entry = path.relative(path.entry_to_file(selected[1], opts).path, opts.cwd)
-  elseif opts.cmp_is_line then
-    entry = selected[1]:match("^.*:%d+:%s(.*)")
+M.complete = function(selected, opts)
+  -- cusror col is 0-based
+  local col = opts.__CTX.cursor[2] + 1
+  local newline, newcol
+  if type(opts.complete) == "function" then
+    newline, newcol = opts.complete(selected, opts, opts.__CTX.line, col)
+  else
+    local line = opts.__CTX.line
+    local after = #line > col and line:sub(col + 1) or ""
+    newline = line:sub(1, col) .. selected[1] .. after
+    newcol = col + #selected[1]
   end
-  local subst = (opts.cmp_prefix or "") .. entry
-  vim.api.nvim_set_current_line(before .. subst .. after)
-  vim.api.nvim_win_set_cursor(0, { opts.cmp_string_row, opts.cmp_string_col + #subst - 2 })
-  if opts.cmp_mode == "i" then
+  vim.api.nvim_set_current_line(newline or opts.__CTX.line)
+  vim.api.nvim_win_set_cursor(0, { opts.__CTX.cursor[1], newcol or col })
+  if opts.__CTX.mode == "i" then
     vim.cmd [[noautocmd lua vim.api.nvim_feedkeys('a', 'n', true)]]
   end
 end

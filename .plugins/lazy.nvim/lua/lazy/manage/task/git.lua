@@ -1,6 +1,6 @@
+local Config = require("lazy.core.config")
 local Git = require("lazy.manage.git")
 local Lock = require("lazy.manage.lock")
-local Config = require("lazy.core.config")
 local Util = require("lazy.util")
 
 ---@type table<string, LazyTaskDef>
@@ -42,7 +42,14 @@ M.log = {
         error("no target commit found")
       end
       assert(target.commit, self.plugin.name .. " " .. target.branch)
-      if not Git.eq(info, target) then
+      if Git.eq(info, target) then
+        if Config.options.checker.check_pinned then
+          local last_commit = Git.get_commit(self.plugin.dir, target.branch, true)
+          if not Git.eq(info, { commit = last_commit }) then
+            self.plugin._.outdated = true
+          end
+        end
+      else
         self.plugin._.updates = { from = info, to = target }
       end
       table.insert(args, info.commit .. ".." .. target.commit)
@@ -153,6 +160,40 @@ M.origin = {
     end
     require("lazy.manage.task.fs").clean.run(self, opts)
     M.clone.run(self, opts)
+  end,
+}
+
+M.status = {
+  skip = function(plugin)
+    return not plugin._.installed or plugin._.is_local
+  end,
+  run = function(self)
+    self:spawn("git", {
+      args = { "ls-files", "-d", "-m" },
+      cwd = self.plugin.dir,
+      on_exit = function(ok, output)
+        if ok then
+          local lines = vim.split(output, "\n")
+          lines = vim.tbl_filter(function(line)
+            -- Fix doc/tags being marked as modified
+            if line:gsub("[\\/]", "/") == "doc/tags" then
+              local Process = require("lazy.manage.process")
+              Process.exec({ "git", "checkout", "--", "doc/tags" }, { cwd = self.plugin.dir })
+              return false
+            end
+            return line ~= ""
+          end, lines)
+          if #lines > 0 then
+            self.error = "You have local changes in `" .. self.plugin.dir .. "`:\n"
+            for _, line in ipairs(lines) do
+              self.error = self.error .. "  * " .. line .. "\n"
+            end
+            self.error = self.error .. "Please remove them to update.\n"
+            self.error = self.error .. "You can also press `x` to remove the plugin and then `I` to install it again."
+          end
+        end
+      end,
+    })
   end,
 }
 

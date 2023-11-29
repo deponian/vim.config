@@ -13,25 +13,14 @@ local git = require "nvim-tree.git"
 local filters = require "nvim-tree.explorer.filters"
 local modified = require "nvim-tree.modified"
 local find_file = require "nvim-tree.actions.tree.find-file"
-local open = require "nvim-tree.actions.tree.open"
 local events = require "nvim-tree.events"
-
-local function notify_once(msg, level)
-  vim.schedule(function()
-    vim.notify_once(msg, level or vim.log.levels.WARN, { title = "NvimTree" })
-  end)
-end
+local notify = require "nvim-tree.notify"
 
 local _config = {}
 
 local M = {
   init_root = "",
 }
-
-function M.focus()
-  open.fn()
-  view.focus()
-end
 
 --- Update the tree root to a directory or the directory containing
 --- @param path string relative or absolute
@@ -223,10 +212,7 @@ local function setup_autocommands(opts)
   create_nvim_tree_autocmd("BufReadPost", {
     callback = function(data)
       -- update opened file buffers
-      if
-        (filters.config.filter_no_buffer or renderer.config.highlight_opened_files ~= "none")
-        and vim.bo[data.buf].buftype == ""
-      then
+      if (filters.config.filter_no_buffer or renderer.config.highlight_opened_files ~= "none") and vim.bo[data.buf].buftype == "" then
         utils.debounce("Buf:filter_buffer", opts.view.debounce_delay, function()
           reloaders.reload_explorer()
         end)
@@ -237,10 +223,7 @@ local function setup_autocommands(opts)
   create_nvim_tree_autocmd("BufUnload", {
     callback = function(data)
       -- update opened file buffers
-      if
-        (filters.config.filter_no_buffer or renderer.config.highlight_opened_files ~= "none")
-        and vim.bo[data.buf].buftype == ""
-      then
+      if (filters.config.filter_no_buffer or renderer.config.highlight_opened_files ~= "none") and vim.bo[data.buf].buftype == "" then
         utils.debounce("Buf:filter_buffer", opts.view.debounce_delay, function()
           reloaders.reload_explorer(nil, data.buf)
         end)
@@ -294,8 +277,8 @@ local function setup_autocommands(opts)
   create_nvim_tree_autocmd("BufEnter", {
     pattern = "NvimTree_*",
     callback = function()
-      if opts.reload_on_bufenter and not opts.filesystem_watchers.enable then
-        if utils.is_nvim_tree_buf(0) then
+      if utils.is_nvim_tree_buf(0) then
+        if vim.fn.getcwd() ~= core.get_cwd() or (opts.reload_on_bufenter and not opts.filesystem_watchers.enable) then
           reloaders.reload_explorer()
         end
       end
@@ -507,6 +490,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     show_on_open_dirs = true,
     disable_for_dirs = {},
     timeout = 400,
+    cygwin_support = false,
   },
   diagnostics = {
     enable = false,
@@ -598,10 +582,14 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     threshold = vim.log.levels.INFO,
     absolute_path = true,
   },
+  help = {
+    sort_by = "key",
+  },
   ui = {
     confirm = {
       remove = true,
       trash = true,
+      default_yes = false,
     },
   },
   experimental = {},
@@ -642,9 +630,11 @@ local ACCEPTED_TYPES = {
       "table",
       min = { "string", "function", "number" },
       max = { "string", "function", "number" },
+      padding = { "function", "number" },
     },
   },
   renderer = {
+    group_empty = { "boolean", "function" },
     root_folder_label = { "function", "string", "boolean" },
   },
   actions = {
@@ -675,6 +665,9 @@ local ACCEPTED_STRINGS = {
       diagnostics_placement = { "before", "after", "signcolumn" },
       bookmarks_placement = { "before", "after", "signcolumn" },
     },
+  },
+  help = {
+    sort_by = { "key", "desc" },
   },
 }
 
@@ -729,7 +722,7 @@ local function validate_options(conf)
           if msg then
             msg = string.format("%s\n%s", msg, invalid)
           else
-            msg = string.format("[NvimTree]\n%s", invalid)
+            msg = invalid
           end
           user[k] = nil
         else
@@ -742,7 +735,7 @@ local function validate_options(conf)
   validate(conf, DEFAULT_OPTS, ACCEPTED_STRINGS, ACCEPTED_TYPES, "")
 
   if msg then
-    notify_once(msg .. "\n\nsee :help nvim-tree-opts for available configuration options")
+    notify.warn(msg .. "\n\nsee :help nvim-tree-opts for available configuration options")
   end
 end
 
@@ -759,13 +752,13 @@ function M.purge_all_state()
   view.abandon_all_windows()
   if core.get_explorer() ~= nil then
     git.purge_state()
-    TreeExplorer = nil
+    core.reset_explorer()
   end
 end
 
 function M.setup(conf)
   if vim.fn.has "nvim-0.8" == 0 then
-    notify_once "nvim-tree.lua requires Neovim 0.8 or higher"
+    notify.warn "nvim-tree.lua requires Neovim 0.8 or higher"
     return
   end
 
@@ -804,6 +797,7 @@ function M.setup(conf)
   require("nvim-tree.diagnostics").setup(opts)
   require("nvim-tree.explorer").setup(opts)
   require("nvim-tree.git").setup(opts)
+  require("nvim-tree.git.utils").setup(opts)
   require("nvim-tree.view").setup(opts)
   require("nvim-tree.lib").setup(opts)
   require("nvim-tree.renderer").setup(opts)
