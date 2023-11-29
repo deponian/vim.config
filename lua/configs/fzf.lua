@@ -143,14 +143,18 @@ M.keys = {
   -- (mnemonic: find)
   { "<Leader>f",
     function()
-      require("deponian.fzf-lua").live_grep()
+      require("deponian.fzf-lua").live_grep({ prompt=" " })
     end },
-    { "<Leader>f",
-      function()
-        require('deponian.fzf-lua').live_grep({ search = require('deponian.general').get_oneline_selection(), no_esc = true })
-      end,
-      mode = "x",
-      silent = true },
+  { "<Leader>f",
+    function()
+      require('deponian.fzf-lua').live_grep({
+        search = require('deponian.general').get_oneline_selection(),
+        prompt=" ",
+        no_esc = true
+      })
+    end,
+    mode = "x",
+    silent = true },
 
   -- <Leader>g -- git commands
   -- mnemonic: [g]it [l]s-files
