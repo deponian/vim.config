@@ -2,6 +2,7 @@ local M = { "nvim-treesitter/nvim-treesitter" }
 
 M.config = function()
   require("nvim-treesitter.configs").setup({
+    sync_install = true,
     -- A list of parser names, or "all"
     ensure_installed = "all",
     -- List of parsers to ignore installing
