@@ -53,6 +53,7 @@ M.config = function ()
 
   -- servers
   require("lspconfig").ansiblels.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
@@ -79,18 +80,21 @@ M.config = function ()
   })
 
   require("lspconfig").bashls.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").gopls.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").jsonls.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     cmd = { "vscode-json-languageserver", "--stdio"},
     handlers = handlers,
@@ -98,12 +102,14 @@ M.config = function ()
   })
 
   require("lspconfig").pyright.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").lua_ls.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
@@ -138,12 +144,14 @@ M.config = function ()
   })
 
   require("lspconfig").terraformls.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").tsserver.setup({
+    enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,

@@ -1,7 +1,11 @@
--- use plugins from .plugins if .../lazy doesn't exist
+-- if .../lazy doesn't exist we activate so called "server mode"
+-- in this mode we use .plugins as the source of plugins
+-- also tree-sitter and LSP configuration are disabled
 local plugins_path = vim.fn.stdpath("data") .. "/lazy"
+vim.g.server_mode = false
 if vim.fn.isdirectory(plugins_path) == 0 then
   plugins_path = vim.fn.stdpath("config") .. "/.plugins"
+  vim.g.server_mode = true
 end
 local lazypath = plugins_path .. "/lazy.nvim"
 
