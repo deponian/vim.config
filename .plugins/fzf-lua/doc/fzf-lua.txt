@@ -1,4 +1,4 @@
-*fzf-lua.txt*         For Neovim >= 0.5.0        Last change: 2023 November 26
+*fzf-lua.txt*         For Neovim >= 0.5.0         Last change: 2024 January 30
 
 ==============================================================================
 Table of Contents                                  *fzf-lua-table-of-contents*
@@ -777,12 +777,13 @@ open an issue and I'll be more than happy to help.**
           args            = nil,
         },
         git_diff = {
+          -- if required, use `{file}` for argument positioning
+          -- e.g. `cmd_modified = "git diff --color HEAD {file} | cut -c -30"`
           cmd_deleted     = "git diff --color HEAD --",
           cmd_modified    = "git diff --color HEAD",
           cmd_untracked   = "git diff --color --no-index /dev/null",
-          -- uncomment if you wish to use git-delta as pager
-          -- can also be set under 'git.status.preview_pager'
-          -- pager        = "delta --width=$FZF_PREVIEW_COLUMNS",
+          -- git-delta is automatically detected as pager, set `pager=false`
+          -- to disable, can also be set under 'git.status.preview_pager'
         },
         man = {
           -- NOTE: remove the `-c` flag when using man-db
@@ -813,8 +814,8 @@ open an issue and I'll be more than happy to help.**
             -- neovim terminal only supports `viu` block output
             ["png"]       = { "viu", "-b" },
             -- by default the filename is added as last argument
-            -- if required, use `<file>` for argument positioning
-            ["svg"]       = { "chafa", "<file>" },
+            -- if required, use `{file}` for argument positioning
+            ["svg"]       = { "chafa", "{file}" },
             ["jpg"]       = { "ueberzug" },
           },
           -- if using `ueberzug` in the above extensions map
@@ -826,6 +827,19 @@ open an issue and I'll be more than happy to help.**
           -- Custom filetype autocmds aren't triggered on
           -- the preview buffer, define them here instead
           -- ext_ft_override = { ["ksql"] = "sql", ... },
+        },
+        -- Code Action previewers, default is "codeaction" (set via `lsp.code_actions.previewer`)
+        -- "codeaction_native" uses fzf's native previewer, recommended when combined with git-delta
+        codeaction = {
+          -- options for vim.diff(): https://neovim.io/doc/user/lua.html#vim.diff()
+          diff_opts = { ctxlen = 3 },
+        },
+        codeaction_native = {
+          diff_opts = { ctxlen = 3 },
+          -- git-delta is automatically detected as pager, set `pager=false`
+          -- to disable, can also be set under 'lsp.code_actions.preview_pager'
+          -- recommended styling for delta
+          --pager = [[delta --width=$COLUMNS --hunk-header-style="omit" --file-style="omit"]],
         },
       },
       -- PROVIDERS SETUP
@@ -865,11 +879,12 @@ open an issue and I'll be more than happy to help.**
         actions = {
           -- inherits from 'actions.files', here we can override
           -- or set bind to 'false' to disable a default action
+          -- action to toggle `--no-ignore`, requires fd or rg installed
+          ["ctrl-g"]         = { actions.toggle_ignore },
+          -- uncomment to override `actions.file_edit_or_qf`
           --   ["default"]   = actions.file_edit,
           -- custom actions are available too
           --   ["ctrl-y"]    = function(selected) print(selected[1]) end,
-          -- action to toggle `--no-ignore`, requires fd or rg installed
-          --   ["ctrl-g"]    = { actions.toggle_ignore },
         }
       },
       git = {
@@ -887,12 +902,13 @@ open an issue and I'll be more than happy to help.**
         status = {
           prompt        = 'GitStatus❯ ',
           cmd           = "git -c color.status=false status -su",
+          multiprocess  = true,           -- run command in a separate process
           file_icons    = true,
           git_icons     = true,
           color_icons   = true,
           previewer     = "git_diff",
-          -- uncomment if you wish to use git-delta as pager
-          --preview_pager = "delta --width=$FZF_PREVIEW_COLUMNS",
+          -- git-delta is automatically detected as pager, uncomment to disable
+          -- preview_pager = false,
           actions = {
             -- actions inherit from 'actions.files' and merge
             ["right"]  = { fn = actions.git_unstage, reload = true },
@@ -911,9 +927,9 @@ open an issue and I'll be more than happy to help.**
         commits = {
           prompt        = 'Commits❯ ',
           cmd           = "git log --color --pretty=format:'%C(yellow)%h%Creset %Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset'",
-          preview       = "git show --pretty='%Cred%H%n%Cblue%an <%ae>%n%C(yellow)%cD%n%Cgreen%s' --color {1}",
-          -- uncomment if you wish to use git-delta as pager
-          --preview_pager = "delta --width=$FZF_PREVIEW_COLUMNS",
+          preview       = "git show --color {1}",
+          -- git-delta is automatically detected as pager, uncomment to disable
+          -- preview_pager = false,
           actions = {
             ["default"] = actions.git_checkout,
             -- remove `exec_silent` or set to `false` to exit after yank
@@ -924,13 +940,13 @@ open an issue and I'll be more than happy to help.**
           prompt        = 'BCommits❯ ',
           -- default preview shows a git diff vs the previous commit
           -- if you prefer to see the entire commit you can use:
-          --   git show --color {1} --rotate-to=<file>
+          --   git show --color {1} --rotate-to={file}
           --   {1}    : commit SHA (fzf field index expression)
-          --   <file> : filepath placement within the commands
-          cmd           = "git log --color --pretty=format:'%C(yellow)%h%Creset %Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset' <file>",
-          preview       = "git diff --color {1}^! -- <file>",
-          -- uncomment if you wish to use git-delta as pager
-          --preview_pager = "delta --width=$FZF_PREVIEW_COLUMNS",
+          --   {file} : filepath placement within the commands
+          cmd           = "git log --color --pretty=format:'%C(yellow)%h%Creset %Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset' {file}",
+          preview       = "git show --color {1} -- {file}",
+          -- git-delta is automatically detected as pager, uncomment to disable
+          -- preview_pager = false,
           actions = {
             ["default"] = actions.git_buf_edit,
             ["ctrl-s"]  = actions.git_buf_split,
@@ -1017,6 +1033,8 @@ open an issue and I'll be more than happy to help.**
           -- actions inherit from 'actions.files' and merge
           -- this action toggles between 'grep' and 'live_grep'
           ["ctrl-g"]      = { actions.grep_lgrep }
+          -- uncomment to enable '.gitignore' toggle for grep
+          -- ["ctrl-r"]   = { actions.toggle_ignore }
         },
         no_header             = false,    -- hide grep|cwd header?
         no_header_i           = false,    -- hide interactive header?
@@ -1236,11 +1254,10 @@ open an issue and I'll be more than happy to help.**
         code_actions = {
             prompt            = 'Code Actions> ',
             async_or_timeout  = 5000,
-            winopts = {
-                row           = 0.40,
-                height        = 0.35,
-                width         = 0.60,
-            },
+            -- when git-delta is installed use "codeaction_native" for beautiful diffs
+            -- try it out with `:FzfLua lsp_code_actions previewer=codeaction_native`
+            -- scroll up to `previewers.codeaction{_native}` for more previewer options
+            previewer        = "codeaction",
         },
         finder = {
             prompt      = "LSP Finder> ",
@@ -1365,6 +1382,7 @@ temporarily overridden by its corresponding `winopts` option:
 |FzfLuaBufFlagAlt  |*CadetBlue1       |`hls.buf_flag_alt`  |Buffer line (`buffers`)|
 |FzfLuaTabTitle    |*LightSkyBlue1    |`hls.tab_title`     |Tab title (`tabs`)|
 |FzfLuaTabMarker   |*BlanchedAlmond   |`hls.tab_marker`    |Tab marker (`tabs`)|
+|FzfLuaDirIcon     |Directory         |`hls.dir_icon`      |Paths directory icon|
 
 <sup><sub>&ast;Not a highlight group, RGB color from
 `nvim_get_color_map`</sub></sup>

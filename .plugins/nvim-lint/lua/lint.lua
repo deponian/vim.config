@@ -1,17 +1,12 @@
 local uv = vim.loop
 local api = vim.api
-local notify
-if vim.notify_once then
-  notify = vim.notify_once
-else
-  notify = vim.notify
-end
+local notify = vim.notify_once or vim.notify
 local M = {}
 
 
 ---@class lint.Parser
 ---@field on_chunk fun(chunk: string)
----@field on_done fun(publish: fun(diagnostics: Diagnostic[]), bufnr: number, linter_cwd: string)
+---@field on_done fun(publish: fun(diagnostics: vim.Diagnostic[]), bufnr: number, linter_cwd: string)
 
 
 ---@class lint.Linter
@@ -24,7 +19,7 @@ local M = {}
 ---@field ignore_exitcode? boolean if exit code != 1 should be ignored or result in a warning. Defaults to false
 ---@field env? table
 ---@field cwd? string
----@field parser lint.Parser|fun(output:string, bufnr:number, linter_cwd:string):Diagnostic[]
+---@field parser lint.Parser|fun(output:string, bufnr:number, linter_cwd:string):vim.Diagnostic[]
 
 
 ---@class lint.LintProc
@@ -166,9 +161,48 @@ function LintProc:cancel()
 end
 
 
+--- Return the namespace for a given linter.
+---
+--- Can be used to configure diagnostics for a given linter. For example:
+---
+--- ```lua
+--- local ns = require("lint").get_namespace("my_linter_name")
+--- vim.diagnostic.config({ virtual_text = true }, ns)
+---
+--- ```
+---
+---@param name string linter
+function M.get_namespace(name)
+  return namespaces[name]
+end
+
+
 --- Running processes by buffer -> by linter name
 ---@type table<integer, table<string, lint.LintProc>> bufnr: {linter: handle}
 local running_procs_by_buf = {}
+
+
+--- Returns the names of the running linters
+---
+---@param bufnr? integer buffer for which to get the running linters. nil=all buffers
+---@return string[]
+function M.get_running(bufnr)
+  local linters = {}
+  if bufnr then
+    bufnr = bufnr == 0 and api.nvim_get_current_buf() or bufnr
+    local running_procs = (running_procs_by_buf[bufnr] or {})
+    for linter_name, _ in pairs(running_procs) do
+      table.insert(linters, linter_name)
+    end
+  else
+    for _, running_procs in pairs(running_procs_by_buf) do
+      for linter_name, _ in pairs(running_procs) do
+        table.insert(linters, linter_name)
+      end
+    end
+  end
+  return linters
+end
 
 
 ---@param names? string|string[] name of the linter
@@ -237,6 +271,12 @@ function M.lint(linter, opts)
   local pid_or_err
   local args = {}
   local bufnr = api.nvim_get_current_buf()
+  if vim.fn.has("win32") == 1 then
+    linter = vim.tbl_extend("force", linter, {
+      cmd = "cmd.exe",
+      args = { "/C", linter.cmd, unpack(linter.args or {}) },
+    })
+  end
   opts = opts or {}
   if linter.args then
     vim.list_extend(args, vim.tbl_map(eval_fn_or_id, linter.args))
@@ -267,7 +307,8 @@ function M.lint(linter, opts)
     if handle and not handle:is_closing() then
       local procs = (running_procs_by_buf[bufnr] or {})
       -- Only cleanup if there has not been another procs in between
-      if handle == procs[linter.name] then
+      local proc = procs[linter.name] or {}
+      if handle == proc.handle then
         procs[linter.name] = nil
         if not next(procs) then
           running_procs_by_buf[bufnr] = nil

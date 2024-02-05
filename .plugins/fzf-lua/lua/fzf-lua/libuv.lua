@@ -260,12 +260,12 @@ M.async_spawn = coroutinify(M.spawn)
 M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess)
   assert(not fn_transform or type(fn_transform) == "function")
 
-  if fn_preprocess and type(fn_preprocess) == "function" then
-    -- run the preprocessing fn
-    fn_preprocess(opts)
-  end
-
   return function(_, fzf_cb, _)
+    if fn_preprocess and type(fn_preprocess) == "function" then
+      -- run the preprocessing fn
+      fn_preprocess(opts)
+    end
+
     local function on_finish(_, _)
       fzf_cb(nil)
     end
@@ -473,14 +473,17 @@ M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess)
   assert(opts and type(opts) == "string")
   assert(not fn_transform or type(fn_transform) == "string")
   local nvim_bin = os.getenv("FZF_LUA_NVIM_BIN") or vim.v.progpath
+  local nvim_runtime = os.getenv("FZF_LUA_NVIM_BIN") and ""
+      or string.format("VIMRUNTIME=%s ", M.shellescape(vim.env.VIMRUNTIME))
   local call_args = opts
   for _, fn in ipairs({ fn_transform, fn_preprocess }) do
     if type(fn) == "string" then
       call_args = ("%s,[[%s]]"):format(call_args, fn)
     end
   end
-  local cmd_str = ("%s -n --headless --clean --cmd %s"):format(
-    vim.fn.shellescape(nvim_bin),
+  local cmd_str = ("%s%s -n --headless --clean --cmd %s"):format(
+    nvim_runtime,
+    M.shellescape(nvim_bin),
     M.shellescape(("lua loadfile([[%s]])().spawn_stdio(%s)")
       :format(__FILE__, call_args)))
   return cmd_str

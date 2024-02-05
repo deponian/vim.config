@@ -23,7 +23,7 @@
 --- 'smartcase' is also set, f, F, t, T will only match lowercase
 --- characters case-insensitively.
 ---
---- # Setup~
+--- # Setup ~
 ---
 --- This module needs a setup with `require('mini.jump').setup({})`
 --- (replace `{}` with your `config` table). It will create global Lua table
@@ -38,13 +38,13 @@
 ---
 --- To stop module from showing non-error feedback, set `config.silent = true`.
 ---
---- # Highlight groups~
+--- # Highlight groups ~
 ---
 --- * `MiniJump` - all possible cursor positions.
 ---
 --- To change any highlight group, modify it directly with |:highlight|.
 ---
---- # Disabling~
+--- # Disabling ~
 ---
 --- To disable core functionality, set `vim.g.minijump_disable` (globally) or
 --- `vim.b.minijump_disable` (for a buffer) to `true`. Considering high number of
@@ -346,8 +346,9 @@ H.create_default_hl = function() vim.api.nvim_set_hl(0, 'MiniJump', { default = 
 
 H.is_disabled = function() return vim.g.minijump_disable == true or vim.b.minijump_disable == true end
 
-H.get_config =
-  function(config) return vim.tbl_deep_extend('force', MiniJump.config, vim.b.minijump_config or {}, config or {}) end
+H.get_config = function(config)
+  return vim.tbl_deep_extend('force', MiniJump.config, vim.b.minijump_config or {}, config or {})
+end
 
 -- Mappings -------------------------------------------------------------------
 H.make_expr_jump = function(backward, till)

@@ -158,10 +158,10 @@ end
 local strip_borderchars_hl = function(border)
   local default = nil
   if type(border) == "string" then
-    default = config.globals.winopts._borderchars[border]
+    default = config.globals.__WINOPTS.borderchars[border]
   end
   if not default then
-    default = config.globals.winopts._borderchars["rounded"]
+    default = config.globals.__WINOPTS.borderchars["rounded"]
   end
   if not border or type(border) ~= "table" or #border < 8 then
     return default
@@ -250,7 +250,7 @@ local normalize_winopts = function(o)
   if vim.o.ambiwidth == "double" and type(winopts.border) == "table" then
     local topleft = winopts.border[1]
     winopts.border = topleft
-        and config.globals.winopts._border2string[topleft] or "rounded"
+        and config.globals.__WINOPTS.border2string[topleft] or "rounded"
   end
 
   -- We only allow 'none|single|double|rounded'
@@ -258,8 +258,8 @@ local normalize_winopts = function(o)
     -- save the original string so we can pass it
     -- to the main fzf window 'nvim_open_win' (#364)
     winopts._border = winopts.border
-    winopts.border = config.globals.winopts._borderchars[winopts.border] or
-        config.globals.winopts._borderchars["rounded"]
+    winopts.border = config.globals.__WINOPTS.borderchars[winopts.border] or
+        config.globals.__WINOPTS.borderchars["rounded"]
   end
 
   -- Store a version of borderchars with no highlights
@@ -838,6 +838,8 @@ function FzfWin:create()
   -- save sending bufnr/winid
   self.src_bufnr = vim.api.nvim_get_current_buf()
   self.src_winid = vim.api.nvim_get_current_win()
+  -- save current window layout cmd
+  self.winrestcmd = vim.fn.winrestcmd()
 
   if self.winopts.split then
     vim.cmd(self.winopts.split)
@@ -935,6 +937,23 @@ function FzfWin:close(fzf_bufnr)
       and self.src_winid ~= vim.api.nvim_get_current_win()
       and vim.api.nvim_win_is_valid(self.src_winid) then
     vim.api.nvim_set_current_win(self.src_winid)
+  end
+  if self.winopts.split then
+    -- remove all windows from the restore cmd that have been closed in the meantime
+    -- if we're not doing this the result might be all over the place
+    local winnrs = vim.tbl_map(function(win)
+      return vim.api.nvim_win_get_number(win) .. ""
+    end, vim.api.nvim_tabpage_list_wins(0))
+
+    local cmd = {}
+    for cmd_part in string.gmatch(self.winrestcmd, "[^|]+") do
+      local winnr = cmd_part:match("(.)resize")
+      if vim.tbl_contains(winnrs, winnr) then
+        table.insert(cmd, cmd_part)
+      end
+    end
+
+    vim.cmd(table.concat(cmd, "|"))
   end
   if self.hls_on_close then
     -- restore search highlighting if we disabled it

@@ -3,6 +3,7 @@ local view = require "nvim-tree.view"
 local core = require "nvim-tree.core"
 local utils = require "nvim-tree.utils"
 local events = require "nvim-tree.events"
+local explorer_node = require "nvim-tree.explorer.node"
 
 ---@class LibOpenOpts
 ---@field path string|nil path
@@ -13,6 +14,7 @@ local M = {
   target_winid = nil,
 }
 
+---@return Node|nil
 function M.get_node_at_cursor()
   if not core.get_explorer() then
     return
@@ -23,7 +25,7 @@ function M.get_node_at_cursor()
     return
   end
 
-  local cursor = vim.api.nvim_win_get_cursor(view.get_winnr())
+  local cursor = vim.api.nvim_win_get_cursor(winnr)
   local line = cursor[1]
 
   if line == 1 and view.is_root_folder_visible(core.get_cwd()) then
@@ -34,8 +36,8 @@ function M.get_node_at_cursor()
 end
 
 ---Create a sanitized partial copy of a node, populating children recursively.
----@param node table
----@return table|nil cloned node
+---@param node Node|nil
+---@return Node|nil cloned node
 local function clone_node(node)
   if not node then
     node = core.get_explorer()
@@ -68,19 +70,53 @@ local function clone_node(node)
 end
 
 ---Api.tree.get_nodes
+---@return Node[]|nil
 function M.get_nodes()
   return clone_node(core.get_explorer())
 end
 
 -- If node is grouped, return the last node in the group. Otherwise, return the given node.
+---@param node Node
+---@return Node
 function M.get_last_group_node(node)
-  local next_node = node
-  while next_node.group_next do
-    next_node = next_node.group_next
+  while node and node.group_next do
+    node = node.group_next
   end
-  return next_node
+
+  ---@diagnostic disable-next-line: return-type-mismatch -- it can't be nil
+  return node
 end
 
+---Group empty folders
+-- Recursively group nodes
+---@param node Node
+---@return Node[]
+function M.group_empty_folders(node)
+  local is_root = not node.parent
+  local child_folder_only = explorer_node.has_one_child_folder(node) and node.nodes[1]
+  if M.group_empty and not is_root and child_folder_only then
+    node.group_next = child_folder_only
+    local ns = M.group_empty_folders(child_folder_only)
+    node.nodes = ns or {}
+    return ns
+  end
+  return node.nodes
+end
+
+---Ungroup empty folders
+-- If a node is grouped, ungroup it: put node.group_next to the node.nodes and set node.group_next to nil
+---@param node Node
+function M.ungroup_empty_folders(node)
+  local cur = node
+  while cur and cur.group_next do
+    cur.nodes = { cur.group_next }
+    cur.group_next = nil
+    cur = cur.nodes[1]
+  end
+end
+
+---@param node Node
+---@return Node[]
 function M.get_all_nodes_in_group(node)
   local next_node = utils.get_parent_of_group(node)
   local nodes = {}
@@ -91,7 +127,21 @@ function M.get_all_nodes_in_group(node)
   return nodes
 end
 
-function M.expand_or_collapse(node)
+-- Toggle group empty folders
+---@param head_node Node
+local function toggle_group_folders(head_node)
+  local is_grouped = head_node.group_next ~= nil
+
+  if is_grouped then
+    M.ungroup_empty_folders(head_node)
+  else
+    M.group_empty_folders(head_node)
+  end
+end
+
+---@param node Node
+function M.expand_or_collapse(node, toggle_group)
+  toggle_group = toggle_group or false
   if node.has_children then
     node.has_children = false
   end
@@ -100,9 +150,20 @@ function M.expand_or_collapse(node)
     core.get_explorer():expand(node)
   end
 
-  local open = not M.get_last_group_node(node).open
-  for _, n in ipairs(M.get_all_nodes_in_group(node)) do
-    n.open = open
+  local head_node = utils.get_parent_of_group(node)
+  if toggle_group then
+    toggle_group_folders(head_node)
+  end
+
+  local open = M.get_last_group_node(node).open
+  local next_open
+  if toggle_group then
+    next_open = open
+  else
+    next_open = not open
+  end
+  for _, n in ipairs(M.get_all_nodes_in_group(head_node)) do
+    n.open = next_open
   end
 
   renderer.draw()
@@ -119,6 +180,7 @@ function M.set_target_win()
   M.target_winid = id
 end
 
+---@param cwd string
 local function handle_buf_cwd(cwd)
   if M.respect_buf_cwd and cwd ~= core.get_cwd() then
     require("nvim-tree.actions.root.change-dir").fn(cwd)
@@ -144,7 +206,13 @@ local function should_hijack_current_buf()
   return should_hijack_dir or should_hijack_unnamed
 end
 
-function M.prompt(prompt_input, prompt_select, items_short, items_long, callback)
+---@param prompt_input string
+---@param prompt_select string
+---@param items_short string[]
+---@param items_long string[]
+---@param kind string|nil
+---@param callback fun(item_short: string)
+function M.prompt(prompt_input, prompt_select, items_short, items_long, kind, callback)
   local function format_item(short)
     for i, s in ipairs(items_short) do
       if short == s then
@@ -155,7 +223,7 @@ function M.prompt(prompt_input, prompt_select, items_short, items_long, callback
   end
 
   if M.select_prompts then
-    vim.ui.select(items_short, { prompt = prompt_select, format_item = format_item }, function(item_short)
+    vim.ui.select(items_short, { prompt = prompt_select, kind = kind, format_item = format_item }, function(item_short)
       callback(item_short)
     end)
   else
@@ -198,6 +266,7 @@ function M.setup(opts)
   M.hijack_directories = opts.hijack_directories
   M.respect_buf_cwd = opts.respect_buf_cwd
   M.select_prompts = opts.select_prompts
+  M.group_empty = opts.renderer.group_empty
 end
 
 return M

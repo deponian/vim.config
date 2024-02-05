@@ -74,7 +74,7 @@
 ---       some edge cases, but **requires** tree-sitter parser.
 ---     - Doesn't work inside comments or strings.
 ---
---- # Disabling~
+--- # Disabling ~
 ---
 --- To disable, set `g:minisplitjoin_disable` (globally) or `b:minisplitjoin_disable`
 --- (for a buffer) to `v:true`. Considering high number of different scenarios
@@ -981,8 +981,7 @@ H.get_neighborhood = function()
   end
 
   -- Convert 2d region to 1d span
-  local region_to_span =
-    function(region) return { from = pos_to_offset(region.from), to = pos_to_offset(region.to) } end
+  local region_to_span = function(region) return { from = pos_to_offset(region.from), to = pos_to_offset(region.to) } end
 
   -- Convert 1d span to 2d region
   local span_to_region = function(span) return { from = offset_to_pos(span.from), to = offset_to_pos(span.to) } end

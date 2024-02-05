@@ -1,10 +1,13 @@
 local utils = require "nvim-tree.utils"
+local marks = require "nvim-tree.marks"
 
 local M = {
   ignore_list = {},
   exclude_list = {},
 }
 
+---@param path string
+---@return boolean
 local function is_excluded(path)
   for _, node in ipairs(M.exclude_list) do
     if path:match(node) then
@@ -44,16 +47,15 @@ end
 ---Check if the given path has no listed buffer
 ---@param path string Absolute path
 ---@param bufinfo table vim.fn.getbufinfo { buflisted = 1 }
----@param unloaded_bufnr number optional bufnr recently unloaded via BufUnload event
 ---@return boolean
-local function buf(path, bufinfo, unloaded_bufnr)
+local function buf(path, bufinfo)
   if not M.config.filter_no_buffer or type(bufinfo) ~= "table" then
     return false
   end
 
   -- filter files with no open buffer and directories containing no open buffers
   for _, b in ipairs(bufinfo) do
-    if b.name == path or b.name:find(path .. "/", 1, true) and b.bufnr ~= unloaded_bufnr then
+    if b.name == path or b.name:find(path .. "/", 1, true) then
       return false
     end
   end
@@ -61,10 +63,20 @@ local function buf(path, bufinfo, unloaded_bufnr)
   return true
 end
 
+---@param path string
+---@return boolean
 local function dotfile(path)
   return M.config.filter_dotfiles and utils.path_basename(path):sub(1, 1) == "."
 end
 
+---@param path string
+---@param bookmarks table<string, boolean> absolute paths bookmarked
+local function bookmark(path, bookmarks)
+  return M.config.filter_no_bookmark and not bookmarks[path]
+end
+
+---@param path string
+---@return boolean
 local function custom(path)
   if not M.config.filter_custom then
     return false
@@ -92,20 +104,23 @@ end
 
 ---Prepare arguments for should_filter. This is done prior to should_filter for efficiency reasons.
 ---@param git_status table|nil optional results of git.load_project_status(...)
----@param unloaded_bufnr number|nil optional bufnr recently unloaded via BufUnload event
 ---@return table
 --- git_status: reference
---- unloaded_bufnr: copy
 --- bufinfo: empty unless no_buffer set: vim.fn.getbufinfo { buflisted = 1 }
-function M.prepare(git_status, unloaded_bufnr)
+--- bookmarks: absolute paths to boolean
+function M.prepare(git_status)
   local status = {
     git_status = git_status or {},
-    unloaded_bufnr = unloaded_bufnr,
     bufinfo = {},
+    bookmarks = {},
   }
 
   if M.config.filter_no_buffer then
     status.bufinfo = vim.fn.getbufinfo { buflisted = 1 }
+  end
+
+  for _, node in pairs(marks.get_marks()) do
+    status.bookmarks[node.absolute_path] = true
   end
 
   return status
@@ -121,7 +136,7 @@ function M.should_filter(path, status)
     return false
   end
 
-  return git(path, status.git_status) or buf(path, status.bufinfo, status.unloaded_bufnr) or dotfile(path) or custom(path)
+  return git(path, status.git_status) or buf(path, status.bufinfo) or dotfile(path) or custom(path) or bookmark(path, status.bookmarks)
 end
 
 function M.setup(opts)
@@ -131,6 +146,7 @@ function M.setup(opts)
     filter_git_ignored = opts.filters.git_ignored,
     filter_git_clean = opts.filters.git_clean,
     filter_no_buffer = opts.filters.no_buffer,
+    filter_no_bookmark = opts.filters.no_bookmark,
   }
 
   M.ignore_list = {}

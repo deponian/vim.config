@@ -121,6 +121,17 @@ M.setup_devicon_term_hls = function()
   end
 end
 
+-- cache directory icon coloring escape sequence
+M.__DIR_ICON = nil
+M.__DIR_ICON_HL = "FzfLuaDirIcon"
+
+M.setup_directory_icon = function()
+  M.__DIR_ICON = config.globals.dir_icon
+  -- `M._diricon_escseq` cab be nil if hlgroup is cleared or non-existent
+  local escseq = M._diricon_escseq or config._diricon_escseq and config._diricon_escseq()
+  utils.cache_ansi_escseq(M.__DIR_ICON_HL, escseq)
+end
+
 local function load_devicons()
   if config and config._has_devicons then
     -- file was called from the primary instance
@@ -130,6 +141,7 @@ local function load_devicons()
     -- file was called from a headless instance
     -- load nvim-web-devicons via the RPC to the main instance
     M._devicons_map = load_config_section("_devicons_geticons()", "table")
+    M._diricon_escseq = load_config_section("_diricon_escseq()", "string")
   end
   if not M._devicons and not M._devicons_map
       and M._devicons_path and vim.loop.fs_stat(M._devicons_path) then
@@ -168,6 +180,7 @@ local function load_devicons()
   end
   -- Setup devicon terminal ansi color codes
   M.setup_devicon_term_hls()
+  M.setup_directory_icon()
 end
 
 -- Load remote config and devicons
@@ -176,6 +189,7 @@ pcall(load_devicons)
 if not config then
   local _config = { globals = { git = {}, files = {}, grep = {} } }
   _config.globals.git.icons = load_config_section("globals.git.icons", "table") or {}
+  _config.globals.dir_icon = load_config_section("globals.dir_icon", "string")
   _config.globals.file_icon_colors = load_config_section("globals.file_icon_colors", "table") or {}
   _config.globals.file_icon_padding = load_config_section("globals.file_icon_padding", "string")
   _config.globals.files.git_status_cmd = load_config_section("globals.files.git_status_cmd", "table")
@@ -193,7 +207,9 @@ end
 
 M.get_devicon = function(file, ext)
   local icon, hl
-  if M._devicons then
+  if path.ends_with_separator(file) then
+    icon, hl = M.__DIR_ICON, M.__DIR_ICON_HL
+  elseif M._devicons then
     icon, hl = M._devicons.get_icon(file, ext:lower(), { default = true })
   elseif M._devicons_map then
     -- Lookup first by name, then by ext (devicons `strict=true`)
@@ -296,6 +312,11 @@ end
 M.preprocess = function(opts)
   if opts.cwd_only and not opts.cwd then
     opts.cwd = vim.loop.cwd()
+  end
+
+  if opts.file_icons then
+    -- refersh the directory icon hlgroup
+    M.setup_directory_icon()
   end
 
   if opts.git_icons then
@@ -463,7 +484,7 @@ M.tag = function(x, opts)
     text = text:gsub([[\]] .. s, s)
   end
   -- different alignment fmt if string contains ansi coloring
-  -- from rg/grep output when using `tags_grep_xxx` 
+  -- from rg/grep output when using `tags_grep_xxx`
   local align = utils.has_ansi_coloring(name) and 47 or 30
   local line, tag = text:match("(%d-);?(/.*/)")
   line = line and #line > 0 and tonumber(line)
@@ -474,6 +495,43 @@ M.tag = function(x, opts)
     not line and "" or ":" .. utils.ansi_codes.green(tostring(line)),
     utils.ansi_codes.blue(tag)
   ), line
+end
+
+M.git_status = function(x, opts)
+  local function git_iconify(icon, staged)
+    local git_icon = config.globals.git.icons[icon]
+    if git_icon then
+      icon = git_icon.icon
+      if opts.color_icons then
+        icon = utils.ansi_codes[staged and "green" or git_icon.color or "dark_grey"](icon)
+      end
+    end
+    return icon
+  end
+  -- unrecognizable format, return
+  if not x or #x < 4 then return x end
+  -- strip ansi coloring or the pattern matching fails
+  -- when git config has `color.status=always` (#706)
+  x = utils.strip_ansi_coloring(x)
+  -- `man git-status`
+  -- we are guaranteed format of: XY <text>
+  -- spaced files are wrapped with quotes
+  -- remove both git markers and quotes
+  local f1, f2 = x:sub(4):gsub([["]], ""), nil
+  -- renames separate files with '->'
+  if f1:match("%s%->%s") then
+    f1, f2 = f1:match("(.*)%s%->%s(.*)")
+  end
+  f1 = f1 and M.file(f1, opts)
+  -- accomodate 'file_ignore_patterns'
+  if not f1 then return end
+  f2 = f2 and M.file(f2, opts)
+  local staged = git_iconify(x:sub(1, 1):gsub("?", " "), true)
+  local unstaged = git_iconify(x:sub(2, 2))
+  local entry = ("%s%s%s%s%s"):format(
+    staged, utils.nbsp, unstaged, utils.nbsp .. utils.nbsp,
+    (f2 and ("%s -> %s"):format(f1, f2) or f1))
+  return entry
 end
 
 return M

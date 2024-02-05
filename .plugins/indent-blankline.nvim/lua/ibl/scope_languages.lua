@@ -173,6 +173,9 @@ local M = {
         get_body = true,
         set_body = true,
     },
+    git_config = {
+        section = true,
+    },
     gleam = {
         function_body = true,
         case_clause = true,
@@ -416,6 +419,13 @@ local M = {
     re2c = {
         body = true,
     },
+    risor = {
+        function_declaration = true,
+        if_statement = true,
+        block = true,
+        switch_statement = true,
+        for_statement = true,
+    },
     ron = {
         array = true,
         map = true,
@@ -490,7 +500,6 @@ local M = {
         catch_statement = true,
     },
     starlark = {
-        module = true,
         function_definition = true,
         dictionary_comprehension = true,
         list_comprehension = true,
@@ -618,7 +627,6 @@ local M = {
         block = true,
     },
     yaml = {
-        stream = true,
         block_node = true,
     },
     yuck = {
@@ -643,7 +651,7 @@ M.cpp = vim.tbl_extend("keep", M.c, {
     catch_clause = true,
     requires_expression = true,
 })
-M.arduion = M.cpp
+M.arduino = M.cpp
 M.cuda = M.cpp
 M.astro = M.html
 M.glsl = M.c

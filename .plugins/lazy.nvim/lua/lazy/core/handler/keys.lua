@@ -41,6 +41,11 @@ function M.parse(value, mode)
   ret.mode = mode or "n"
   ret.id = vim.api.nvim_replace_termcodes(ret.lhs, true, true, true)
 
+  if ret.ft then
+    local ft = type(ret.ft) == "string" and { ret.ft } or ret.ft --[[@as string[] ]]
+    ret.id = ret.id .. " (" .. table.concat(ft, ", ") .. ")"
+  end
+
   if ret.mode ~= "n" then
     ret.id = ret.id .. " (" .. ret.mode .. ")"
   end
@@ -123,6 +128,9 @@ function M:_add(keys)
         self:_set(keys, buf)
       end
 
+      if keys.mode:sub(-1) == 'a' then
+        lhs = lhs .. '<C-]>'
+      end
       local feed = vim.api.nvim_replace_termcodes("<Ignore>" .. lhs, true, true, true)
       -- insert instead of append the lhs
       vim.api.nvim_feedkeys(feed, "i", false)
@@ -158,7 +166,11 @@ end
 -- mapping when needed
 ---@param keys LazyKeys
 function M:_del(keys)
-  pcall(vim.keymap.del, keys.mode, keys.lhs)
+  pcall(vim.keymap.del, keys.mode, keys.lhs, {
+    -- NOTE: for buffer-local mappings, we only delete the mapping for the current buffer
+    -- So the mapping could still exist in other buffers
+    buffer = keys.ft and true or nil,
+  })
   -- make sure to create global mappings when needed
   -- buffer-local mappings are managed by lazy
   if not keys.ft then

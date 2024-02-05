@@ -1,4 +1,5 @@
 local M = {}
+local has_repeat = vim.fn.has "nvim-0.10" == 1
 
 ---@param line string?
 M.get_whitespace = function(line)
@@ -18,6 +19,74 @@ M.validate = function(opt, input, path)
             error(string.format("'%s' is not a valid key of %s", key, path))
         end
     end
+end
+
+--- copy of vim.tbl_contains without vim.validate
+---
+---@param t table Table to check
+---@param value any Value to compare or predicate function reference
+---@param opts table? Keyword arguments |kwargs|:
+---       - predicate: (boolean) `value` is a function reference to be checked (default false)
+---@return boolean `true` if `t` contains `value`
+M.tbl_contains = function(t, value, opts)
+    local pred
+    if opts and opts.predicate then
+        vim.validate { value = { value, "c" } }
+        pred = value
+    else
+        pred = function(v)
+            return v == value
+        end
+    end
+
+    for _, v in pairs(t) do
+        if pred(v) then
+            return true
+        end
+    end
+    return false
+end
+
+--- copy of vim.tbl_count without vim.validate
+---
+---@param t table Table
+---@return integer Number of non-nil values in table
+M.tbl_count = function(t)
+    local count = 0
+    for _ in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
+--- copy of vim.tbl_map without vim.validate
+---
+---@generic T
+---@param func fun(value: T): any (function) Function
+---@param t table<any, T> (table) Table
+---@return table Table of transformed values
+M.tbl_map = function(func, t)
+    local rettab = {}
+    for k, v in pairs(t) do
+        rettab[k] = func(v)
+    end
+    return rettab
+end
+
+--- copy of vim.tbl_filter without vim.validate
+---
+---@generic T
+---@param func fun(value: T): boolean (function) Function
+---@param t table<any, T> (table) Table
+---@return T[] (table) Table of filtered values
+M.tbl_filter = function(func, t)
+    local rettab = {}
+    for _, entry in pairs(t) do
+        if func(entry) then
+            table.insert(rettab, entry)
+        end
+    end
+    return rettab
 end
 
 ---@param codepoint integer
@@ -170,6 +239,7 @@ M.has_end = function(line)
 end
 
 ---@param bufnr number
+---@return number, number, number, number
 M.get_offset = function(bufnr)
     local win
     local win_view
@@ -199,16 +269,52 @@ M.get_offset = function(bufnr)
 end
 
 ---@param bufnr number
+---@param row number
+---@return number
+M.get_foldclosed = function(bufnr, row)
+    if bufnr == vim.api.nvim_get_current_buf() then
+        return vim.fn.foldclosed(row) or -1
+    else
+        local win = M.get_win(bufnr)
+        if not win then
+            return -1
+        end
+        return vim.api.nvim_win_call(win, function()
+            ---@diagnostic disable-next-line: redundant-return-value
+            return vim.fn.foldclosed(row) or -1
+        end)
+    end
+end
+
+---@param bufnr number
+---@param row number
+---@return string
+M.get_foldtextresult = function(bufnr, row)
+    if bufnr == vim.api.nvim_get_current_buf() then
+        return vim.fn.foldtextresult(row) or ""
+    else
+        local win = M.get_win(bufnr)
+        if not win then
+            return ""
+        end
+        return vim.api.nvim_win_call(win, function()
+            ---@diagnostic disable-next-line: redundant-return-value
+            return vim.fn.foldtextresult(row) or ""
+        end)
+    end
+end
+
+---@param bufnr number
 ---@param config ibl.config
 M.is_buffer_active = function(bufnr, config)
     for _, filetype in ipairs(M.get_filetypes(bufnr)) do
-        if vim.tbl_contains(config.exclude.filetypes, filetype) then
+        if M.tbl_contains(config.exclude.filetypes, filetype) then
             return false
         end
     end
 
     local buftype = vim.api.nvim_get_option_value("buftype", { buf = bufnr })
-    if vim.tbl_contains(config.exclude.buftypes, buftype) then
+    if M.tbl_contains(config.exclude.buftypes, buftype) then
         return false
     end
 
@@ -241,6 +347,53 @@ end
 ---@return T
 M.tbl_get_index = function(list, i)
     return list[((i - 1) % #list) + 1]
+end
+
+---@param whitespace_tbl ibl.indent.whitespace[]
+---@param left_offset number
+---@return ibl.indent.whitespace[]
+M.fix_horizontal_scroll = function(whitespace_tbl, left_offset)
+    local current_left_offset = left_offset
+    while #whitespace_tbl > 0 and current_left_offset > 0 do
+        table.remove(whitespace_tbl, 1)
+        current_left_offset = current_left_offset - 1
+    end
+    return whitespace_tbl
+end
+
+---@param bufnr number
+---@param config ibl.config
+---@return boolean
+M.has_repeat_indent = function(bufnr, config)
+    if not config.indent.repeat_linebreak then
+        return false
+    end
+    if not has_repeat then
+        return false
+    end
+
+    local win = M.get_win(bufnr)
+    if not vim.api.nvim_get_option_value("breakindent", { win = win }) then
+        return false
+    end
+
+    local raw_value = vim.api.nvim_get_option_value("breakindentopt", { win = win })
+    for _, key_value_str in ipairs(vim.split(raw_value, ",")) do
+        local key, value = unpack(vim.split(key_value_str, ":"))
+        key = vim.trim(key)
+
+        if key == "column" then
+            return false
+        end
+        if key == "sbr" then
+            return false
+        end
+        if key == "shift" and (tonumber(value) or 0) < 0 then
+            return false
+        end
+    end
+
+    return true
 end
 
 return M

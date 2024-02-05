@@ -13,6 +13,13 @@ M.__HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
 M.__HAS_NVIM_09 = vim.fn.has("nvim-0.9") == 1
 M.__HAS_NVIM_010 = vim.fn.has("nvim-0.10") == 1
 
+
+-- limit devicons support to nvim >=0.8, although official support is >=0.7
+-- running setup on 0.7 errs with "W18: Invalid character in group name"
+if M.__HAS_NVIM_08 then
+  M.__HAS_DEVICONS = pcall(require, "nvim-web-devicons")
+end
+
 function M.__FILE__() return debug.getinfo(2, "S").source end
 
 function M.__LINE__() return debug.getinfo(2, "l").currentline end
@@ -27,6 +34,11 @@ function M.__FNCREF__() return debug.getinfo(2, "f").func end
 -- out of `utils.__FNCREF2__`, second out of calling function
 function M.__FNCREF2__()
   local dbginfo = debug.getinfo(3, "f")
+  return dbginfo and dbginfo.func
+end
+
+function M.__FNCREF3__()
+  local dbginfo = debug.getinfo(4, "f")
   return dbginfo and dbginfo.func
 end
 
@@ -131,10 +143,6 @@ function M.err(msg)
   fast_event_aware_notify(msg, vim.log.levels.ERROR, {})
 end
 
-function M.shell_error()
-  return vim.v.shell_error ~= 0
-end
-
 function M.is_darwin()
   return vim.loop.os_uname().sysname == "Darwin"
 end
@@ -236,8 +244,8 @@ M.perl_file_is_binary = function(filepath)
   end
   -- can also use '-T' to test for text files
   -- `perldoc -f -x` to learn more about '-B|-T'
-  M.io_system({ "perl", "-E", "exit((-B $ARGV[0])?0:1);", filepath })
-  return not M.shell_error()
+  local _, rc = M.io_system({ "perl", "-E", "exit((-B $ARGV[0])?0:1);", filepath })
+  return rc == 0
 end
 
 M.read_file = function(filepath)
@@ -445,9 +453,23 @@ function M.hexcol_from_hl(hlgroup, what)
     if col then
       -- format as 6 digit hex for hex2rgb()
       hexcol = ("#%06x"):format(col)
+    else
+      -- some colorschemes set fg=fg/bg or bg=fg/bg which have no value
+      -- in the colormap, in this case reset `hexcol` to prevent fzf to
+      -- err with "invalid color specification: bg:bg" (#976)
+      -- TODO: should we extract `fg|bg` from `Normal` hlgroup?
+      hexcol = ""
     end
   end
   return hexcol
+end
+
+function M.ansi_from_rgb(rgb, s)
+  local r, g, b = hex2rgb(rgb)
+  if r and g and b then
+    return string.format("[38;2;%d;%d;%dm%s%s", r, g, b, s, M.ansi_escseq.clear)
+  end
+  return s
 end
 
 function M.ansi_from_hl(hl, s)
@@ -499,11 +521,6 @@ function M.has_ansi_coloring(str)
   return str:match("%[[%d;]-m")
 end
 
-function M.ansi_col_len(str)
-  local match = M.has_ansi_coloring(str)
-  return match and #match or 0
-end
-
 function M.strip_ansi_coloring(str)
   if not str then return str end
   -- remove escape sequences of the following formats:
@@ -511,6 +528,11 @@ function M.strip_ansi_coloring(str)
   -- 2. ^[[0;34m
   -- 3. ^[[m
   return str:gsub("%[[%d;]-m", "")
+end
+
+function M.ansi_escseq_len(str)
+  local stripped = M.strip_ansi_coloring(str)
+  return #str - #stripped
 end
 
 function M.mode_is_visual()
@@ -838,46 +860,27 @@ function M.keymap_set(mode, lhs, rhs, opts)
   end
 end
 
--- speed up exteral commands (issue #126)
-local _use_lua_io = false
-function M.set_lua_io(b)
-  _use_lua_io = b
-  if _use_lua_io then
-    M.warn("using experimental feature 'lua_io'")
-  end
-end
-
-function M.io_systemlist(cmd, use_lua_io)
-  if not use_lua_io then use_lua_io = _use_lua_io end
-  -- only supported with string cmds (no tables)
-  if use_lua_io and cmd == "string" then
-    local rc = 0
-    local stdout = ""
-    local handle = io.popen(cmd .. " 2>&1; echo $?", "r")
-    if handle then
-      stdout = {}
-      for h in handle:lines() do
-        stdout[#stdout + 1] = h
-      end
-      -- last line contains the exit status
-      rc = tonumber(stdout[#stdout])
-      stdout[#stdout] = nil
-      handle:close()
-    end
-    return stdout, rc
+---@param cmd string[]
+---@return string[] lines in the stdout or stderr, separated by '\n'
+---@return integer exit_code (0: success)
+function M.io_systemlist(cmd)
+  if vim.system ~= nil then -- nvim 0.10+
+    local proc = vim.system(cmd):wait()
+    local output = proc.code == 0 and proc.stdout or proc.stderr
+    return vim.split(output, "\n", { trimempty = true }), proc.code
   else
     return vim.fn.systemlist(cmd), vim.v.shell_error
   end
 end
 
-function M.io_system(cmd, use_lua_io)
-  if not use_lua_io then use_lua_io = _use_lua_io end
-  if use_lua_io then
-    local stdout, rc = M.io_systemlist(cmd, true)
-    if type(stdout) == "table" then
-      stdout = table.concat(stdout, "\n")
-    end
-    return stdout, rc
+---@param cmd string[]
+---@return string stdout or stderr
+---@return integer exit_code (0: success)
+function M.io_system(cmd)
+  if vim.system ~= nil then -- nvim 0.10+
+    local proc = vim.system(cmd):wait()
+    local output = proc.code == 0 and proc.stdout or proc.stderr
+    return output, proc.code
   else
     return vim.fn.system(cmd), vim.v.shell_error
   end
@@ -931,6 +934,7 @@ function M.neovim_bind_to_fzf(key)
 end
 
 function M.fzf_version(opts)
+  opts = opts or {}
   -- temp unset "FZF_DEFAULT_OPTS" as it might fail `--version`
   -- if it contains options aren't compatible with fzf's version
   local FZF_DEFAULT_OPTS = vim.env.FZF_DEFAULT_OPTS

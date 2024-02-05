@@ -13,6 +13,7 @@ M.setup = function()
     })
     vim.api.nvim_create_autocmd({
         "CursorMoved",
+        "CursorMovedI",
         "BufWinEnter",
         "CompleteChanged",
         "FileChangedShellPost",
@@ -28,7 +29,7 @@ M.setup = function()
     })
     vim.api.nvim_create_autocmd("OptionSet", {
         group = group,
-        pattern = "list,listchars,shiftwidth,tabstop,vartabstop",
+        pattern = "list,listchars,shiftwidth,tabstop,vartabstop,breakindent,breakindentopt",
         callback = function(opts)
             ibl.debounced_refresh(opts.buf)
         end,

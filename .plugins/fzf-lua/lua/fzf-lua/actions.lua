@@ -110,6 +110,7 @@ M.vimcmd_file = function(vimcmd, selected, opts)
     if vimcmd == "e"
         and curbuf ~= fullpath
         and not vim.o.hidden
+        and not vim.o.autowriteall
         and utils.buffer_is_dirty(nil, false, true) then
       -- confirm with user when trying to switch
       -- from a dirty buffer when `:set nohidden`
@@ -283,6 +284,7 @@ M.vimcmd_buf = function(vimcmd, selected, opts)
     if vimcmd == "b"
         and curbuf ~= entry.bufnr
         and not vim.o.hidden
+        and not vim.o.autowriteall
         and utils.buffer_is_dirty(nil, false, true) then
       -- confirm with user when trying to switch
       -- from a dirty buffer when `:set nohidden`
@@ -572,8 +574,8 @@ M.git_switch = function(selected, opts)
     table.insert(cmd, "--detach")
   end
   table.insert(cmd, branch)
-  local output = utils.io_systemlist(cmd)
-  if utils.shell_error() then
+  local output, rc = utils.io_systemlist(cmd)
+  if rc ~= 0 then
     utils.err(unpack(output))
   else
     utils.info(unpack(output))
@@ -593,8 +595,15 @@ end
 
 M.git_yank_commit = function(selected, opts)
   local commit_hash = match_commit_hash(selected[1], opts)
+  if vim.o.clipboard == "unnamed" then
+    vim.fn.setreg([[*]], commit_hash)
+  elseif vim.o.clipboard == "unnamedplus" then
+    vim.fn.setreg([[+]], commit_hash)
+  else
+    vim.fn.setreg([["]], commit_hash)
+  end
+  -- copy to the yank register regardless
   vim.fn.setreg([[0]], commit_hash)
-  vim.fn.setreg([["]], commit_hash)
 end
 
 M.git_checkout = function(selected, opts)
@@ -605,8 +614,8 @@ M.git_checkout = function(selected, opts)
     local current_commit = utils.io_systemlist(cmd_cur_commit)
     if (commit_hash == current_commit) then return end
     table.insert(cmd_checkout, commit_hash)
-    local output = utils.io_systemlist(cmd_checkout)
-    if utils.shell_error() then
+    local output, rc = utils.io_systemlist(cmd_checkout)
+    if rc ~= 0 then
       utils.err(unpack(output))
     else
       utils.info(unpack(output))
@@ -623,11 +632,11 @@ local git_exec = function(selected, opts, cmd, silent)
     local file = path.relative(path.entry_to_file(e, opts).path, opts.cwd)
     local _cmd = vim.deepcopy(cmd)
     table.insert(_cmd, file)
-    local output = utils.io_systemlist(_cmd)
-    success = not utils.shell_error()
-    if not success and not silent then
-      utils.err(unpack(output) or string.format("exit code %d", vim.v.shell_error))
+    local output, rc = utils.io_systemlist(_cmd)
+    if rc ~= 0 and not silent then
+      utils.err(unpack(output) or string.format("exit code %d", rc))
     end
+    success = rc == 0
   end
   return success
 end
@@ -757,27 +766,28 @@ M.sym_lsym = function(_, opts)
 end
 
 M.toggle_ignore = function(_, opts)
-  local o = { resume = true }
+  local o = { resume = true, cwd = opts.cwd }
   local flag = opts.toggle_ignore_flag or "--no-ignore"
   if not flag:match("^%s") then
     -- flag must be preceded by whitespace
     flag = " " .. flag
   end
-  if opts.cmd:match(utils.lua_regex_escape(flag)) then
-    o._hdr_to = false
-    o.cmd = opts.cmd:gsub(utils.lua_regex_escape(flag), "")
+  -- grep|live_grep sets `opts._cmd` to the original
+  -- command without the search argument
+  local cmd = opts._cmd or opts.cmd
+  if cmd:match(utils.lua_regex_escape(flag)) then
+    o.cmd = cmd:gsub(utils.lua_regex_escape(flag), "")
   else
-    -- signals "core.set_header" to set the correct "to" header
-    o._hdr_to = true
-    o.cmd = opts.cmd .. flag
+    local bin, args = cmd:match("([^%s]+)(.*)$")
+    o.cmd = string.format("%s%s%s", bin, flag, args)
   end
-  opts.__ACT_TO(o)
+  opts.__call_fn(o)
 end
 
 M.tmux_buf_set_reg = function(selected, opts)
   local buf = selected[1]:match("^%[(.-)%]")
-  local data = vim.fn.system({ "tmux", "show-buffer", "-b", buf })
-  if not utils.shell_error() and data and #data > 0 then
+  local data, rc = utils.io_system({ "tmux", "show-buffer", "-b", buf })
+  if rc ~= 0 and data and #data > 0 then
     opts.register = opts.register or [["]]
     local ok, err = pcall(vim.fn.setreg, opts.register, data)
     if ok then

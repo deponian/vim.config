@@ -29,6 +29,7 @@ M.default_config = {
         highlight = "IblIndent",
         smart_indent_cap = true,
         priority = 1,
+        repeat_linebreak = true,
     },
     whitespace = {
         highlight = "IblWhitespace",
@@ -88,7 +89,7 @@ M.default_config = {
 local validate_char = function(char)
     if type(char) == "string" then
         local length = vim.fn.strdisplaywidth(char)
-        return length <= 1, string.format("'%s' has a dispaly width of %d", char, length)
+        return length <= 1, string.format("'%s' has a display width of %d", char, length)
     else
         if #char == 0 then
             return false, "table is empty"
@@ -133,6 +134,7 @@ local validate_config = function(config)
             highlight = { config.indent.highlight, { "string", "table" }, true },
             smart_indent_cap = { config.indent.smart_indent_cap, "boolean", true },
             priority = { config.indent.priority, "number", true },
+            repeat_linebreak = { config.indent.repeat_linebreak, "boolean", true },
         }, config.indent, "ibl.config.indent")
         if config.indent.char then
             vim.validate {

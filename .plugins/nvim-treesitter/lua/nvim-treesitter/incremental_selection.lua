@@ -5,6 +5,7 @@ local ts_utils = require "nvim-treesitter.ts_utils"
 local locals = require "nvim-treesitter.locals"
 local parsers = require "nvim-treesitter.parsers"
 local queries = require "nvim-treesitter.query"
+local utils = require "nvim-treesitter.utils"
 
 local M = {}
 
@@ -23,8 +24,8 @@ end
 -- The range starts with 1 and the ending is inclusive.
 ---@return integer, integer, integer, integer
 local function visual_selection_range()
-  local _, csrow, cscol, _ = unpack(vim.fn.getpos "'<") ---@type integer, integer, integer, integer
-  local _, cerow, cecol, _ = unpack(vim.fn.getpos "'>") ---@type integer, integer, integer, integer
+  local _, csrow, cscol, _ = unpack(vim.fn.getpos "v") ---@type integer, integer, integer, integer
+  local _, cerow, cecol, _ = unpack(vim.fn.getpos ".") ---@type integer, integer, integer, integer
 
   local start_row, start_col, end_row, end_col ---@type integer, integer, integer, integer
 
@@ -138,24 +139,14 @@ function M.attach(bufnr)
   local config = configs.get_module "incremental_selection"
   for funcname, mapping in pairs(config.keymaps) do
     if mapping then
-      ---@type string, string|function
-      local mode, rhs
-      if funcname == "init_selection" then
-        mode = "n"
-        ---@type function
-        rhs = M[funcname]
+      local mode = funcname == "init_selection" and "n" or "x"
+      local rhs = M[funcname] ---@type function
+
+      if not rhs then
+        utils.notify("Unknown keybinding: " .. funcname .. debug.traceback(), vim.log.levels.ERROR)
       else
-        mode = "x"
-        -- We need to move to command mode to access marks '< (visual area start) and '> (visual area end) which are not
-        -- properly accessible in visual mode.
-        rhs = string.format(":lua require'nvim-treesitter.incremental_selection'.%s()<CR>", funcname)
+        vim.keymap.set(mode, mapping, rhs, { buffer = bufnr, silent = true, desc = FUNCTION_DESCRIPTIONS[funcname] })
       end
-      vim.keymap.set(
-        mode,
-        mapping,
-        rhs,
-        { buffer = bufnr, silent = true, noremap = true, desc = FUNCTION_DESCRIPTIONS[funcname] }
-      )
     end
   end
 end
@@ -164,10 +155,10 @@ function M.detach(bufnr)
   local config = configs.get_module "incremental_selection"
   for f, mapping in pairs(config.keymaps) do
     if mapping then
-      if f == "init_selection" then
-        vim.keymap.del("n", mapping, { buffer = bufnr })
-      else
-        vim.keymap.del("x", mapping, { buffer = bufnr })
+      local mode = f == "init_selection" and "n" or "x"
+      local ok, err = pcall(vim.keymap.del, mode, mapping, { buffer = bufnr })
+      if not ok then
+        utils.notify(string.format('%s "%s" for mode %s', err, mapping, mode), vim.log.levels.ERROR)
       end
     end
   end

@@ -155,7 +155,7 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd)
       buficon = fn(buficon)
     end
   end
-  local max_bufnr_w = 26 + #tostring(max_bufnr)
+  local max_bufnr_w = 3 + #tostring(max_bufnr) + utils.ansi_escseq_len(bufnrstr)
   local item_str = string.format("%s%s%s%s%s%s%s%s",
     utils._if(opts._prefix, opts._prefix, ""),
     string.format("%-" .. tostring(max_bufnr_w) .. "s", bufnrstr),
@@ -371,11 +371,12 @@ M.tabs = function(opts)
           return msg, hl
         end
 
+        local tab_cwd_tilde = path.HOME_to_tilde(tab_cwd)
         local title, fn_title_hl = opt_hl("tab_title",
           function(s)
             return string.format("%s%s#%d%s", s, utils.nbsp, t,
               (vim.loop.cwd() == tab_cwd and ""
-                or string.format(": %s", path.HOME_to_tilde(tab_cwd))))
+                or string.format(": %s", tab_cwd_tilde)))
           end,
           utils.ansi_codes[opts.hls.tab_title])
 
@@ -383,8 +384,11 @@ M.tabs = function(opts)
           function(s) return s end,
           utils.ansi_codes[opts.hls.tab_marker])
 
+        local tab_cwd_tilde_base64 = vim.base64
+            and vim.base64.encode(tab_cwd_tilde)
+            or tab_cwd_tilde
         if not opts.current_tab_only then
-          cb(string.format("%d)%s%s\t%s", t, utils.nbsp,
+          cb(string.format("%d)%s:%s%s\t%s", t, tab_cwd_tilde_base64, utils.nbsp,
             fn_title_hl(title),
             (t == core.CTX().tabnr) and fn_marker_hl(marker) or ""))
         end
@@ -395,7 +399,8 @@ M.tabs = function(opts)
         end
 
         opts.sort_lastused = false
-        opts._prefix = ("%d)%s%s%s"):format(t, utils.nbsp, utils.nbsp, utils.nbsp)
+        opts._prefix = string.format("%d)%s:%s%s%s",
+          t, tab_cwd_tilde_base64, utils.nbsp, utils.nbsp, utils.nbsp)
         local tabh = vim.api.nvim_list_tabpages()[t]
         local buffers = populate_buffer_entries(opts, bufnrs_flat, tabh)
         for _, bufinfo in pairs(buffers) do

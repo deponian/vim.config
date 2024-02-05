@@ -61,10 +61,9 @@ function M.setup_highlights(override)
     { "FzfLuaBufLineNr",         "buf_linenr",     { default = default, fg = "MediumSpringGreen" } },
     { "FzfLuaBufFlagCur",        "buf_flag_cur",   { default = default, fg = "Brown1" } },
     { "FzfLuaBufFlagAlt",        "buf_flag_alt",   { default = default, fg = "CadetBlue1" } },
-    { "FzfLuaTabTitle", "tab_title",
-      { default = default, fg = "LightSkyBlue1", bold = true } },
-    { "FzfLuaTabMarker", "tab_marker",
-      { default = default, fg = "BlanchedAlmond", bold = true } },
+    { "FzfLuaTabTitle",          "tab_title",      { default = default, fg = "LightSkyBlue1", bold = true } },
+    { "FzfLuaTabMarker",         "tab_marker",     { default = default, fg = "BlanchedAlmond", bold = true } },
+    { "FzfLuaDirIcon",           "dir_icon",       { default = default, link = "Directory" } },
   }
   for _, a in ipairs(highlights) do
     local hl_name, _, hl_def = a[1], a[2], a[3]
@@ -94,7 +93,7 @@ function M.setup_highlights(override)
         -- reset any invalid hl, this will cause our 'winhighlight'
         -- string to look something akin to `Normal:,FloatBorder:`
         -- which uses terminal fg|bg colors instead
-        utils.map_set(config.globals, "__HLS." .. opt_name, "")
+        utils.map_set(config.setup_opts, "__HLS." .. opt_name, "")
       end
     end
   end
@@ -125,36 +124,27 @@ function M.setup(opts, do_not_reset_defaults)
       opts = vim.tbl_deep_extend("keep", opts, profile_opts)
     end
   end
-  -- Reset to defaults and merge with user options
-  if not do_not_reset_defaults then
-    config.reset_defaults()
+  if do_not_reset_defaults then
+    -- no defaults reset requested, merge with previous setup options
+    opts = vim.tbl_deep_extend("keep", opts, config.setup_opts or {})
   end
-  -- Make sure opts is a table or override
-  local globals = vim.tbl_deep_extend("keep", opts, config.globals)
-  -- do not merge, override the bind tables
-  for t, v in pairs({
-    ["keymap"]  = { "fzf", "builtin" },
-    ["actions"] = { "files", "buffers" },
-  }) do
-    for _, k in ipairs(v) do
-      if opts[t] and opts[t][k] then
-        globals[t][k] = opts[t][k]
-      end
+  -- backward compat `global_{git|gile|color}_icons`
+  -- converts `global_file_icons` to `defaults.file_icons`, etc
+  for _, o in ipairs({ "file_icons", "git_icons", "color_icons" }) do
+    local gopt = "global_" .. o
+    if opts[gopt] ~= nil then
+      opts.defaults = opts.defaults or {}
+      opts.defaults[o] = opts[gopt]
+      opts[gopt] = nil
     end
   end
-  -- set lua_io if caller requested
-  utils.set_lua_io(globals.lua_io)
   -- set custom &nbsp if caller requested
-  if globals.nbsp then utils.nbsp = globals.nbsp end
-  -- reset our globals based on user opts
-  -- this doesn't happen automatically
-  config.globals = globals
-  config.DEFAULTS.globals = globals
+  if opts.nbsp then utils.nbsp = opts.nbsp end
+  -- store the setup options
+  config.setup_opts = opts
   -- setup highlights
   M.setup_highlights()
 end
-
-M.defaults = config.globals
 
 M.redraw = function()
   local winobj = require "fzf-lua".win.__SELF()
@@ -298,6 +288,9 @@ M.setup_fzfvim_cmds = function(...)
   local fn = loadstring("return require'fzf-lua.profiles.fzf-vim'.fn_load")()
   return fn(...)
 end
+
+-- export the defaults module and deref
+M.defaults = require("fzf-lua.defaults").defaults
 
 -- exported modules
 M._exported_modules = {

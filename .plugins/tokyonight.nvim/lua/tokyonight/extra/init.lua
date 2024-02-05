@@ -7,7 +7,7 @@ M.extras = {
   kitty = {ext = "conf", url = "https://sw.kovidgoyal.net/kitty/conf.html", label = "Kitty"},
   fish = {ext = "fish", url = "https://fishshell.com/docs/current/index.html", label = "Fish"},
   fish_themes = {ext = "theme", url = "https://fishshell.com/docs/current/interactive.html#syntax-highlighting", label = "Fish Themes"},
-  alacritty = {ext = "yml", url = "https://github.com/alacritty/alacritty", label = "Alacritty"},
+  alacritty = {ext = "toml", url = "https://github.com/alacritty/alacritty", label = "Alacritty"},
   wezterm = {ext = "toml", url = "https://wezfurlong.org/wezterm/config/files.html", label = "WezTerm"},
   tmux = {ext = "tmux", url = "https://github.com/tmux/tmux/wiki", label = "Tmux"},
   xresources = {ext = "Xresources", url = "https://wiki.archlinux.org/title/X_resources", label = "Xresources"},
@@ -25,6 +25,7 @@ M.extras = {
   dunst = {ext = "dunstrc", url = "https://dunst-project.org/", label = "Dunst"},
   gitui = {ext = "ron", url = "https://github.com/extrawurst/gitui", label = "GitUI"},
   helix = { ext = "toml", url = "https://helix-editor.com/", label = "Helix"},
+  fzf = { ext = "zsh", url = "https://github.com/junegunn/fzf", label = "Fzf"},
 }
 
 local function write(str, fileName)

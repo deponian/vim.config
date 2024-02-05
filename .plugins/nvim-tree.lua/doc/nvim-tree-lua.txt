@@ -46,9 +46,12 @@ CONTENTS                                                           *nvim-tree*
   7. Mappings                                 |nvim-tree-mappings|
   7.1  Mappings: Default                        |nvim-tree-mappings-default|
   8. Highlight                                |nvim-tree-highlight|
+  8.1  Highlight Default                        |nvim-tree-highlight-default|
+  8.2  Highlight Overhaul                       |nvim-tree-highlight-overhaul|
   9. Events                                   |nvim-tree-events|
- 10. OS Specific Restrictions                 |nvim-tree-os-specific|
- 11. Netrw                                    |nvim-tree-netrw|
+ 10. Prompts                                  |nvim-tree-prompts|
+ 11. OS Specific Restrictions                 |nvim-tree-os-specific|
+ 12. Netrw                                    |nvim-tree-netrw|
 
 ==============================================================================
  1. INTRODUCTION                                      *nvim-tree-introduction*
@@ -112,7 +115,7 @@ Setup the plugin in your `init.lua` >
   vim.g.loaded_netrw = 1
   vim.g.loaded_netrwPlugin = 1
 
-  -- set termguicolors to enable highlight groups
+  -- optionally enable 24-bit colour
   vim.opt.termguicolors = true
 
   -- empty setup using defaults
@@ -155,7 +158,7 @@ Show the mappings:  `g?`
 `<`               Previous Sibling           |nvim-tree-api.node.navigate.sibling.prev()|
 `.`               Run Command                |nvim-tree-api.node.run.cmd()|
 `-`               Up                         |nvim-tree-api.tree.change_root_to_parent()|
-`a`               Create                     |nvim-tree-api.fs.create()|
+`a`               Create File Or Directory   |nvim-tree-api.fs.create()|
 `bd`              Delete Bookmarked          |nvim-tree-api.marks.bulk.delete()|
 `bt`              Trash Bookmarked           |nvim-tree-api.marks.bulk.trash()|
 `bmv`             Move Bookmarked            |nvim-tree-api.marks.bulk.move()|
@@ -170,14 +173,16 @@ Show the mappings:  `g?`
 `e`               Rename: Basename           |nvim-tree-api.fs.rename_basename()|
 `]e`              Next Diagnostic            |nvim-tree-api.node.navigate.diagnostics.next()|
 `[e`              Prev Diagnostic            |nvim-tree-api.node.navigate.diagnostics.prev()|
-`F`               Clean Filter               |nvim-tree-api.live_filter.clear()|
-`f`               Filter                     |nvim-tree-api.live_filter.start()|
+`F`               Live Filter: Clear         |nvim-tree-api.live_filter.clear()|
+`f`               Live Filter: Start         |nvim-tree-api.live_filter.start()|
 `g?`              Help                       |nvim-tree-api.tree.toggle_help()|
 `gy`              Copy Absolute Path         |nvim-tree-api.fs.copy.absolute_path()|
 `H`               Toggle Filter: Dotfiles    |nvim-tree-api.tree.toggle_hidden_filter()|
 `I`               Toggle Filter: Git Ignore  |nvim-tree-api.tree.toggle_gitignore_filter()|
 `J`               Last Sibling               |nvim-tree-api.node.navigate.sibling.last()|
 `K`               First Sibling              |nvim-tree-api.node.navigate.sibling.first()|
+`L`               Toggle Group Empty         |nvim-tree-api.node.open.toggle_group_empty()|
+`M`               Toggle Filter: No Bookmark |nvim-tree-api.tree.toggle_no_bookmark_filter()|
 `m`               Toggle Bookmark            |nvim-tree-api.marks.toggle()|
 `o`               Open                       |nvim-tree-api.node.open.edit()|
 `O`               Open: No Window Picker     |nvim-tree-api.node.open.no_window_picker()|
@@ -385,8 +390,8 @@ Following is the default configuration. See |nvim-tree-opts| for details.
         indent_width = 2,
         special_files = { "Cargo.toml", "Makefile", "README.md", "readme.md" },
         symlink_destination = true,
-        highlight_git = false,
-        highlight_diagnostics = false,
+        highlight_git = "none",
+        highlight_diagnostics = "none",
         highlight_opened_files = "none",
         highlight_modified = "none",
         highlight_bookmarks = "none",
@@ -502,6 +507,7 @@ Following is the default configuration. See |nvim-tree-opts| for details.
         dotfiles = false,
         git_clean = false,
         no_buffer = false,
+        no_bookmark = false,
         custom = {},
         exclude = {},
       },
@@ -786,8 +792,9 @@ Use nvim-tree in a floating window.
 ==============================================================================
  5.3 OPTS: RENDERER                                  *nvim-tree-opts-renderer*
 
-Highlight precedence:
-  clipboard > diagnostics > bookmarked > modified > opened > git
+Highlight precedence, additive:
+  git < opened < modified < bookmarked < diagnostics < copied < cut
+Neovim <= 0.8 will only show the highest.
 
 *nvim-tree.renderer.add_trailing*
 Appends a trailing slash to folder names.
@@ -829,18 +836,20 @@ Whether to show the destination of the symlink.
   Type: `boolean`, Default: `true`
 
 *nvim-tree.renderer.highlight_git*
-Enable highlight for git attributes using `NvimTreeGit*` highlight groups.
+Enable highlight for git attributes using `NvimTreeGit*HL` highlight groups.
 Requires |nvim-tree.git.enable|
-  Type: `boolean`, Default: `false`
+Value can be `"none"`, `"icon"`, `"name"` or `"all"`.
+  Type: `string`, Default: `"none"`
 
 *nvim-tree.renderer.highlight_diagnostics*
-Enable highlight for diagnostics using `LspDiagnosticsError*Text` highlight groups.
+Enable highlight for diagnostics using `NvimTreeDiagnostic*HL` highlight groups.
 Requires |nvim-tree.diagnostics.enable|
-  Type: `boolean`, Default: `false`
+Value can be `"none"`, `"icon"`, `"name"` or `"all"`.
+  Type: `string`, Default: `"none"`
 
 *nvim-tree.renderer.highlight_opened_files*
 Highlight icons and/or names for |bufloaded()| files using the
-`NvimTreeOpenedFile` highlight group.
+`NvimTreeOpenedHL` highlight group.
 See |nvim-tree-api.navigate.opened.next()| and |nvim-tree-api.navigate.opened.prev()|
 Value can be `"none"`, `"icon"`, `"name"` or `"all"`.
   Type: `string`, Default: `"none"`
@@ -889,8 +898,8 @@ Configuration options for tree indent markers.
 *nvim-tree.renderer.icons*
 Configuration options for icons.
 
-Icon sign column precedence:
-  diagnostics > modified > git > bookmarked
+Icon order and sign column precedence:
+  git < modified < bookmarked < diagnostics
 
     *nvim-tree.renderer.icons.web_devicons*
     Configure optional plugin `"nvim-tree/nvim-web-devicons"`
@@ -904,7 +913,7 @@ Icon sign column precedence:
               Type: `boolean`, Default: `true`
 
             *nvim-tree.renderer.icons.web_devicons.file.color*
-            Use icon colors for files.
+            Use icon colors for files. Overrides highlight groups.
               Type: `boolean`, Default: `true`
 
         *nvim-tree.renderer.icons.web_devicons.folder*
@@ -916,7 +925,7 @@ Icon sign column precedence:
               Type: `boolean`, Default: `false`
 
             *nvim-tree.renderer.icons.web_devicons.folder.color*
-            Use icon colors for folders.
+            Use icon colors for folders. Overrides highlight groups.
               Type: `boolean`, Default: `true`
 
     *nvim-tree.renderer.icons.git_placement*
@@ -1221,6 +1230,12 @@ Do not show files that have no |buflisted()| buffer.
 Toggle via |nvim-tree-api.tree.toggle_no_buffer_filter()|, default `B`
 For performance reasons this may not immediately update on buffer
 delete/wipe. A reload or filesystem event will result in an update.
+  Type: `boolean`, Default: `false`
+
+*nvim-tree.filters.no_bookmark*
+Do not show files that are not bookarked.
+Toggle via |nvim-tree-api.tree.toggle_no_bookmark_filter()|, default `M`
+Enabling this is not useful as there is no means yet to persist bookmarks.
   Type: `boolean`, Default: `false`
 
 *nvim-tree.filters.custom*
@@ -1666,6 +1681,10 @@ tree.toggle_git_clean_filter()
 tree.toggle_no_buffer_filter()
     Toggle |nvim-tree.filters.no_buffer| filter.
 
+                              *nvim-tree-api.tree.toggle_no_bookmark_filter()*
+tree.toggle_no_bookmark_filter()
+    Toggle |nvim-tree.filters.no_bookmark| filter.
+
                                    *nvim-tree-api.tree.toggle_custom_filter()*
 tree.toggle_custom_filter()
     Toggle |nvim-tree.filters.custom| filter.
@@ -1716,6 +1735,7 @@ tree.winid({opts})                              *nvim-tree-api.tree.winid()*
 
 fs.create({node})                                  *nvim-tree-api.fs.create()*
     Prompt to create a file or directory. Use a trailing `/` for a directory.
+    Multiple directories/files may be created e.g. `foo/bar/baz`
 
     Parameters: ~
       • {node} (Node) parent, uses the parent of a file.
@@ -1829,6 +1849,12 @@ node.open.vertical()                      *nvim-tree-api.node.open.vertical()*
 node.open.horizontal()                  *nvim-tree-api.node.open.horizontal()*
     |nvim-tree-api.node.edit()|, file will be opened in a new horizontal split.
 
+                                *nvim-tree-api.node.open.toggle_group_empty()*
+node.open.toggle_group_empty()
+    Toggle |nvim-tree.renderer.group_empty| for a specific folder.
+    Does nothing on files.
+    Needs |nvim-tree.renderer.group_empty| set.
+
 node.open.drop()                              *nvim-tree-api.node.open.drop()*
     Switch to window with selected file if it exists.
     Open file otherwise.
@@ -1861,16 +1887,48 @@ node.open.preview_no_picker()    *nvim-tree-api.node.open.preview_no_picker()*
 node.navigate.git.next()              *nvim-tree-api.node.navigate.git.next()*
     Navigate to the next item showing git status.
 
+                            *nvim-tree-api.node.navigate.git.next_recursive()*
+node.navigate.git.next_recursive()
+    Alternative to |nvim-tree-api.node.navigate.git.next()| that navigates to
+    the next file showing git status, recursively.
+    Needs |nvim-tree.git.show_on_dirs| set.
+
+                      *nvim-tree-api.node.navigate.git.next_skip_gitignored()*
+node.navigate.git.next_skip_gitignored()
+    Same as |node.navigate.git.next()|, but skips gitignored files.
+
 node.navigate.git.prev()              *nvim-tree-api.node.navigate.git.prev()*
     Navigate to the previous item showing git status.
+
+                      *nvim-tree-api.node.navigate.git.prev_recursive()*
+node.navigate.git.prev_recursive()
+    Alternative to |nvim-tree-api.node.navigate.git.prev()| that navigates to
+    the previous file showing git status, recursively.
+    Needs |nvim-tree.git.show_on_dirs| set.
+
+                      *nvim-tree-api.node.navigate.git.prev_skip_gitignored()*
+node.navigate.git.prev_skip_gitignored()
+    Same as |node.navigate.git.prev()|, but skips gitignored files.
 
                               *nvim-tree-api.node.navigate.diagnostics.next()*
 node.navigate.diagnostics.next()
     Navigate to the next item showing diagnostic status.
 
+                    *nvim-tree-api.node.navigate.diagnostics.next_recursive()*
+node.navigate.diagnostics.next_recursive()
+    Alternative to |nvim-tree-api.node.navigate.diagnostics.next()| that
+    navigates to the next file showing diagnostic status, recursively.
+    Needs |nvim-tree.diagnostics.show_on_dirs| set.
+
                               *nvim-tree-api.node.navigate.diagnostics.prev()*
 node.navigate.diagnostics.prev()
     Navigate to the next item showing diagnostic status.
+
+                    *nvim-tree-api.node.navigate.diagnostics.prev_recursive()*
+node.navigate.diagnostics.prev_recursive()
+    Alternative to |nvim-tree-api.node.navigate.diagnostics.prev()| that
+    navigates to the previous file showing diagnostic status, recursively.
+    Needs |nvim-tree.diagnostics.show_on_dirs| set.
 
                                    *nvim-tree-api.node.navigate.opened.next()*
 node.navigate.opened.next()
@@ -2122,7 +2180,7 @@ You are encouraged to copy these to your own |nvim-tree.on_attach| function.
   vim.keymap.set('n', '<',       api.node.navigate.sibling.prev,      opts('Previous Sibling'))
   vim.keymap.set('n', '.',       api.node.run.cmd,                    opts('Run Command'))
   vim.keymap.set('n', '-',       api.tree.change_root_to_parent,      opts('Up'))
-  vim.keymap.set('n', 'a',       api.fs.create,                       opts('Create'))
+  vim.keymap.set('n', 'a',       api.fs.create,                       opts('Create File Or Directory'))
   vim.keymap.set('n', 'bd',      api.marks.bulk.delete,               opts('Delete Bookmarked'))
   vim.keymap.set('n', 'bt',      api.marks.bulk.trash,                opts('Trash Bookmarked'))
   vim.keymap.set('n', 'bmv',     api.marks.bulk.move,                 opts('Move Bookmarked'))
@@ -2137,14 +2195,16 @@ You are encouraged to copy these to your own |nvim-tree.on_attach| function.
   vim.keymap.set('n', 'e',       api.fs.rename_basename,              opts('Rename: Basename'))
   vim.keymap.set('n', ']e',      api.node.navigate.diagnostics.next,  opts('Next Diagnostic'))
   vim.keymap.set('n', '[e',      api.node.navigate.diagnostics.prev,  opts('Prev Diagnostic'))
-  vim.keymap.set('n', 'F',       api.live_filter.clear,               opts('Clean Filter'))
-  vim.keymap.set('n', 'f',       api.live_filter.start,               opts('Filter'))
+  vim.keymap.set('n', 'F',       api.live_filter.clear,               opts('Live Filter: Clear'))
+  vim.keymap.set('n', 'f',       api.live_filter.start,               opts('Live Filter: Start'))
   vim.keymap.set('n', 'g?',      api.tree.toggle_help,                opts('Help'))
   vim.keymap.set('n', 'gy',      api.fs.copy.absolute_path,           opts('Copy Absolute Path'))
   vim.keymap.set('n', 'H',       api.tree.toggle_hidden_filter,       opts('Toggle Filter: Dotfiles'))
   vim.keymap.set('n', 'I',       api.tree.toggle_gitignore_filter,    opts('Toggle Filter: Git Ignore'))
   vim.keymap.set('n', 'J',       api.node.navigate.sibling.last,      opts('Last Sibling'))
   vim.keymap.set('n', 'K',       api.node.navigate.sibling.first,     opts('First Sibling'))
+  vim.keymap.set('n', 'L',       api.node.open.toggle_group_empty,    opts('Toggle Group Empty'))
+  vim.keymap.set('n', 'M',       api.tree.toggle_no_bookmark_filter,  opts('Toggle Filter: No Bookmark'))
   vim.keymap.set('n', 'm',       api.marks.toggle,                    opts('Toggle Bookmark'))
   vim.keymap.set('n', 'o',       api.node.open.edit,                  opts('Open'))
   vim.keymap.set('n', 'O',       api.node.open.no_window_picker,      opts('Open: No Window Picker'))
@@ -2190,42 +2250,30 @@ groups.
 Example |:highlight| >
     :hi NvimTreeSymlink guifg=blue gui=bold,underline
 <
-You should have 'termguicolors' enabled, otherwise, colors will not be
-applied.
+It is recommended to enable 'termguicolors' for the more pleasant 24-bit
+colours.
 
 To view the active highlight groups run `:so $VIMRUNTIME/syntax/hitest.vim`
 as per |:highlight|
 
-Default linked group follows name.
+The `*HL` groups are additive as per |nvim-tree-opts-renderer| precedence.
+Only present attributes will clobber each other.
+In this example a modified, opened file will have magenta text, with cyan
+undercurl: >
+    :hi NvimTreeOpenedHL       guifg=magenta guisp=red  gui=underline
+    :hi NvimTreeModifiedFileHL               guisp=cyan gui=undercurl
+<
+To prevent usage of a highlight:
+- Before setup: link the group to `Normal` e.g.
+    `:hi NvimTreeExecFile Normal`
+- After setup: link it to `NONE`, to override the default link e.g.
+    `:hi! link NvimTreeExecFile NONE`
 
-File Text: >
-    NvimTreeSymlink
-    NvimTreeExecFile
-    NvimTreeOpenedFile
-    NvimTreeModifiedFile
-    NvimTreeSpecialFile
-    NvimTreeImageFile
-<
-Folder Text: >
-    NvimTreeFolderName          Directory
-    NvimTreeEmptyFolderName     Directory
-    NvimTreeOpenedFolderName    Directory
-    NvimTreeSymlinkFolderName   Directory
-    NvimTreeRootFolder
-<
-Icon: >
-    NvimTreeFileIcon
-    NvimTreeOpenedFileIcon      NvimTreeOpenedFile
-    NvimTreeSymlinkIcon
-    NvimTreeFolderIcon
-    NvimTreeOpenedFolderIcon    NvimTreeFolderIcon
-    NvimTreeClosedFolderIcon    NvimTreeFolderIcon
-    NvimTreeFolderArrowClosed   NvimTreeIndentMarker
-    NvimTreeFolderArrowOpen     NvimTreeIndentMarker
-<
-Indent: >
-    NvimTreeIndentMarker
-<
+==============================================================================
+ 8.1 HIGHLIGHT DEFAULT                           *nvim-tree-highlight-default*
+
+|:highlight-link| `default` or |:highlight-default| define the groups on setup:
+
 Standard: >
     NvimTreeNormal              Normal
     NvimTreeNormalFloat         NormalFloat
@@ -2244,67 +2292,172 @@ Standard: >
     NvimTreeStatusLine          StatusLine
     NvimTreeStatusLineNC        StatusLineNC
 <
+File Text: >
+    NvimTreeExecFile            SpellCap
+    NvimTreeImageFile           SpellCap
+    NvimTreeSpecialFile         SpellCap
+    NvimTreeSymlink             SpellCap
+<
+Folder Text: >
+    NvimTreeRootFolder          Title
+    NvimTreeFolderName          Directory
+    NvimTreeEmptyFolderName     Directory
+    NvimTreeOpenedFolderName    Directory
+    NvimTreeSymlinkFolderName   Directory
+<
+File Icons: >
+    NvimTreeFileIcon            NvimTreeNormal
+    NvimTreeSymlinkIcon         NvimTreeNormal
+<
+Folder Icons: >
+    NvimTreeFolderIcon          guifg=#8094b4 ctermfg=Blue
+    NvimTreeOpenedFolderIcon    NvimTreeFolderIcon
+    NvimTreeClosedFolderIcon    NvimTreeFolderIcon
+    NvimTreeFolderArrowClosed   NvimTreeIndentMarker
+    NvimTreeFolderArrowOpen     NvimTreeIndentMarker
+<
+Indent: >
+    NvimTreeIndentMarker        NvimTreeFileIcon
+<
+Picker: >
+    NvimTreeWindowPicker        guifg=#ededed guibg=#4493c8 gui=bold ctermfg=White ctermbg=Cyan
+<
+Live Filter: >
+    NvimTreeLiveFilterPrefix    PreProc
+    NvimTreeLiveFilterValue     ModeMsg
+<
 Clipboard: >
     NvimTreeCopiedHL            SpellRare
     NvimTreeCutHL               SpellBad
 <
-Bookmark Icon: >
-    NvimTreeBookmark
-<
-Bookmark Highlight: >
+Bookmarks: >
+    NvimTreeBookmarkIcon        NvimTreeFolderIcon
     NvimTreeBookmarkHL          SpellLocal
 <
-Picker: >
-    NvimTreeWindowPicker
+Modified: >
+    NvimTreeModifiedIcon        Type
+    NvimTreeModifiedFileHL      NvimTreeModifiedIcon
+    NvimTreeModifiedFolderHL    NvimTreeModifiedIcon
 <
-Live Filter: >
-    NvimTreeLiveFilterPrefix
-    NvimTreeLiveFilterValue
+Opened: >
+    NvimTreeOpenedHL            Special
 <
 Git Icon: >
-    NvimTreeGitDirty
-    NvimTreeGitStaged
-    NvimTreeGitMerge
-    NvimTreeGitRenamed
-    NvimTreeGitNew
-    NvimTreeGitDeleted
-    NvimTreeGitIgnored                  Comment
+    NvimTreeGitDeletedIcon      Statement
+    NvimTreeGitDirtyIcon        Statement
+    NvimTreeGitIgnoredIcon      Comment
+    NvimTreeGitMergeIcon        Constant
+    NvimTreeGitNewIcon          PreProc
+    NvimTreeGitRenamedIcon      PreProc
+    NvimTreeGitStagedIcon       Constant
 <
-Git File Text: >
-    NvimTreeFileDirty                   NvimTreeGitDirty
-    NvimTreeFileStaged                  NvimTreeGitStaged
-    NvimTreeFileMerge                   NvimTreeGitMerge
-    NvimTreeFileRenamed                 NvimTreeGitRenamed
-    NvimTreeFileNew                     NvimTreeGitNew
-    NvimTreeFileDeleted                 NvimTreeGitDeleted
-    NvimTreeFileIgnored                 NvimTreeGitIgnored
+Git File File Highlight: >
+    NvimTreeGitFileDeletedHL    NvimTreeGitDeletedIcon
+    NvimTreeGitFileDirtyHL      NvimTreeGitDirtyIcon
+    NvimTreeGitFileIgnoredHL    NvimTreeGitIgnoredIcon
+    NvimTreeGitFileMergeHL      NvimTreeGitMergeIcon
+    NvimTreeGitFileNewHL        NvimTreeGitNewIcon
+    NvimTreeGitFileRenamedHL    NvimTreeGitRenamedIcon
+    NvimTreeGitFileStagedHL     NvimTreeGitStagedIcon
 <
-Git Folder Text: >
-    NvimTreeFolderDirty                 NvimTreeFileDirty
-    NvimTreeFolderStaged                NvimTreeFileStaged
-    NvimTreeFolderMerge                 NvimTreeFileMerge
-    NvimTreeFolderRenamed               NvimTreeFileRenamed
-    NvimTreeFolderNew                   NvimTreeFileNew
-    NvimTreeFolderDeleted               NvimTreeFileDeleted
-    NvimTreeFolderIgnored               NvimTreeFileIgnored
+Git Folder Folder Highlight: >
+    NvimTreeGitFolderDeletedHL  NvimTreeGitFileDeletedHL
+    NvimTreeGitFolderDirtyHL    NvimTreeGitFileDirtyHL
+    NvimTreeGitFolderIgnoredHL  NvimTreeGitFileIgnoredHL
+    NvimTreeGitFolderMergeHL    NvimTreeGitFileMergeHL
+    NvimTreeGitFolderNewHL      NvimTreeGitFileNewHL
+    NvimTreeGitFolderRenamedHL  NvimTreeGitFileRenamedHL
+    NvimTreeGitFolderStagedHL   NvimTreeGitFileStagedHL
 <
 Diagnostics Icon: >
-    NvimTreeLspDiagnosticsError             DiagnosticError
-    NvimTreeLspDiagnosticsWarning           DiagnosticWarn
-    NvimTreeLspDiagnosticsInformation       DiagnosticInfo
-    NvimTreeLspDiagnosticsHint              DiagnosticHint
+    NvimTreeDiagnosticErrorIcon         DiagnosticError
+    NvimTreeDiagnosticWarnIcon          DiagnosticWarn
+    NvimTreeDiagnosticInfoIcon          DiagnosticInfo
+    NvimTreeDiagnosticHintIcon          DiagnosticHint
 <
-Diagnostics File Text: >
-    NvimTreeLspDiagnosticsErrorText         NvimTreeLspDiagnosticsError
-    NvimTreeLspDiagnosticsWarningText       NvimTreeLspDiagnosticsWarning
-    NvimTreeLspDiagnosticsInfoText          NvimTreeLspDiagnosticsInformation
-    NvimTreeLspDiagnosticsHintText          NvimTreeLspDiagnosticsHint
+Diagnostics File Highlight: >
+    NvimTreeDiagnosticErrorFileHL       DiagnosticUnderlineError
+    NvimTreeDiagnosticWarnFileHL        DiagnosticUnderlineWarn
+    NvimTreeDiagnosticInfoFileHL        DiagnosticUnderlineInfo
+    NvimTreeDiagnosticHintFileHL        DiagnosticUnderlineHint
 <
-Diagnostics Folder Text: >
-    NvimTreeLspDiagnosticsErrorFolderText   NvimTreeLspDiagnosticsErrorText
-    NvimTreeLspDiagnosticsWarningFolderText NvimTreeLspDiagnosticsWarningText
-    NvimTreeLspDiagnosticsInfoFolderText    NvimTreeLspDiagnosticsInfoText
-    NvimTreeLspDiagnosticsHintFolderText    NvimTreeLspDiagnosticsHintText
+Diagnostics Folder Highlight: >
+    NvimTreeDiagnosticErrorFolderHL     NvimTreeDiagnosticErrorFileHL
+    NvimTreeDiagnosticWarnFolderHL      NvimTreeDiagnosticWarnFileHL
+    NvimTreeDiagnosticInfoFolderHL      NvimTreeDiagnosticInfoFileHL
+    NvimTreeDiagnosticHintFolderHL      NvimTreeDiagnosticHintFileHL
+<
+==============================================================================
+ 8.1 HIGHLIGHT OVERHAUL                         *nvim-tree-highlight-overhaul*
+
+2024-01-20: significant highlighting changes, some breaking:
+
+- Full cterm support.
+- Standard vim highlight groups such |DiagnosticUnderlineError| are now the
+  defaults.
+- Highlight groups named consistently.
+- All `highlight_xxx` e.g. |nvim-tree.renderer.highlight_git| are granular,
+  allowing  `"none"`, `"icon"`, `"name"` or `"all"`
+- `highlight_xxx` has highlight groups for both File and Folder
+- `highlight_xxx` is additive instead of overwriting. See
+  |nvim-tree-opts-renderer| for precedence.
+
+2024-01-29: disambiguate default highlights sharing groups:
+
+- NvimTreeRootFolder   PreProc   -> Title
+- NvimTreeModified*    Constant  -> Type
+- NvimTreeOpenedHL     Constant  -> Special
+- NvimTreeBookmarkIcon Constant  -> NvimTreeFolderIcon
+- NvimTreeExecFile     Constant  -> SpellCap
+- NvimTreeImageFile    PreProc   -> SpellCap
+- NvimTreeSpecialFile  PreProc   -> SpellCap
+- NvimTreeSymlink      Statement -> SpellCap
+
+Legacy highlight group are still obeyed when they are defined and the current
+highlight group is not, hard linking as follows: >
+
+    NvimTreeModifiedIcon        NvimTreeModifiedFile
+    NvimTreeOpenedHL            NvimTreeOpenedFile
+    NvimTreeBookmarkIcon        NvimTreeBookmark
+
+    NvimTreeGitDeletedIcon      NvimTreeGitDeleted
+    NvimTreeGitDirtyIcon        NvimTreeGitDirty
+    NvimTreeGitIgnoredIcon      NvimTreeGitIgnored
+    NvimTreeGitMergeIcon        NvimTreeGitMerge
+    NvimTreeGitNewIcon          NvimTreeGitNew
+    NvimTreeGitRenamedIcon      NvimTreeGitRenamed
+    NvimTreeGitStagedIcon       NvimTreeGitStaged
+
+    NvimTreeGitFileDeletedHL    NvimTreeFileDeleted
+    NvimTreeGitFileDirtyHL      NvimTreeFileDirty
+    NvimTreeGitFileIgnoredHL    NvimTreeFileIgnored
+    NvimTreeGitFileMergeHL      NvimTreeFileMerge
+    NvimTreeGitFileNewHL        NvimTreeFileNew
+    NvimTreeGitFileRenamedHL    NvimTreeFileRenamed
+    NvimTreeGitFileStagedHL     NvimTreeFileStaged
+
+    NvimTreeGitFolderDeletedHL  NvimTreeFolderDeleted
+    NvimTreeGitFolderDirtyHL    NvimTreeFolderDirty
+    NvimTreeGitFolderIgnoredHL  NvimTreeFolderIgnored
+    NvimTreeGitFolderMergeHL    NvimTreeFolderMerge
+    NvimTreeGitFolderNewHL      NvimTreeFolderNew
+    NvimTreeGitFolderRenamedHL  NvimTreeFolderRenamed
+    NvimTreeGitFolderStagedHL   NvimTreeFolderStaged
+
+    NvimTreeLspDiagnosticsError                 NvimTreeDiagnosticErrorIcon
+    NvimTreeLspDiagnosticsWarning               NvimTreeDiagnosticWarnIcon
+    NvimTreeLspDiagnosticsInformation           NvimTreeDiagnosticInfoIcon
+    NvimTreeLspDiagnosticsHint                  NvimTreeDiagnosticHintIcon
+
+    NvimTreeLspDiagnosticsErrorText             NvimTreeDiagnosticErrorFileHL
+    NvimTreeLspDiagnosticsWarningText           NvimTreeDiagnosticWarnFileHL
+    NvimTreeLspDiagnosticsInformationText       NvimTreeDiagnosticInfoFileHL
+    NvimTreeLspDiagnosticsHintText              NvimTreeDiagnosticHintFileHL
+
+    NvimTreeLspDiagnosticsErrorFolderText       NvimTreeDiagnosticErrorFolderHL 
+    NvimTreeLspDiagnosticsWarningFolderText     NvimTreeDiagnosticWarnFolderHL
+    NvimTreeLspDiagnosticsInformationFolderText NvimTreeDiagnosticInfoFolderHL
+    NvimTreeLspDiagnosticsHintFolderText        NvimTreeDiagnosticHintFolderHL
 <
 ==============================================================================
  9. EVENTS                                                  *nvim-tree-events*
@@ -2420,7 +2573,32 @@ Example subscription: >
   })
 <
 ==============================================================================
- 10. OS SPECIFIC RESTRICTIONS                          *nvim-tree-os-specific*
+ 10. PROMPTS                                               *nvim-tree-prompts*
+
+Some NvimTree actions use the builtin |vim.ui.select| prompt API for
+confirmations when the |nvim_tree.select_prompts| option is set.
+
+The API accepts the optional `kind` key as part of the {opts} parameter, which
+can can be used to identify the type of prompt, to allow user side
+configurations for different types of prompts.
+
+- `nvimtree_overwrite_rename`
+    overwrite or rename during |nvim-tree-api.fs.paste()|
+
+- `nvimtree_remove`
+    delete during |nvim-tree-api.fs.remove()|
+
+- `nvimtree_trash`
+    send to trash during |nvim-tree-api.fs.trash()|
+
+- `nvimtree_bulk_delete`
+    delete all bookmarked during |nvim-tree-api.marks.bulk.delete()|
+
+- `nvimtree_bulk_trash`
+    send all bookmarked to trash during |nvim-tree-api.marks.bulk.trash()|
+
+==============================================================================
+ 11. OS SPECIFIC RESTRICTIONS                          *nvim-tree-os-specific*
 
 macOS
 - Rename to different case is not possible when using a case insensitive file
@@ -2433,7 +2611,7 @@ Windows WSL and PowerShell
 - Some filesystem watcher error related to permissions will not be reported
 
 ==============================================================================
- 11. NETRW                                                  *nvim-tree-netrw*
+ 12. NETRW                                                  *nvim-tree-netrw*
 
 |netrw| is a standard neovim plugin that is enabled by default. It provides,
 amongst other functionality, a file/directory browser.

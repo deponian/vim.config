@@ -5,7 +5,7 @@ local previewers = require "fzf-lua.previewer"
 
 local M = {}
 
-M._has_devicons = pcall(require, "nvim-web-devicons")
+M._has_devicons = utils.__HAS_DEVICONS
 
 function M._default_previewer_fn()
   local previewer = M.globals.default_previewer or M.globals.winopts.preview.default
@@ -14,6 +14,10 @@ function M._default_previewer_fn()
   -- the workaround is to define the previewer as a function instead
   -- https://github.com/ibhagwan/fzf-lua/issues/677
   return type(previewer) == "function" and previewer() or previewer
+end
+
+function M._preview_pager_fn()
+  return vim.fn.executable("delta") == 1 and "delta --width=$FZF_PREVIEW_COLUMNS" or nil
 end
 
 M.defaults = {
@@ -56,26 +60,6 @@ M.defaults = {
         -- >0 to prevent scrolling issues (#500)
         scrolloff      = 1,
       },
-    },
-    _borderchars   = {
-      ["none"]    = { " ", " ", " ", " ", " ", " ", " ", " " },
-      ["solid"]   = { " ", " ", " ", " ", " ", " ", " ", " " },
-      ["single"]  = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
-      ["double"]  = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
-      ["rounded"] = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
-      ["thicc"]   = { "┏", "━", "┓", "┃", "┛", "━", "┗", "┃" },
-      ["thiccc"]  = { "▛", "▀", "▜", "▐", "▟", "▄", "▙", "▌" },
-      ["thicccc"] = { "█", "█", "█", "█", "█", "█", "█", "█" },
-    },
-    -- border chars reverse lookup for ambiwidth="double"
-    _border2string = {
-      [" "] = "solid",
-      ["┌"] = "single",
-      ["╔"] = "double",
-      ["╭"] = "rounded",
-      ["┏"] = "double",
-      ["▛"] = "double",
-      ["█"] = "double",
     },
     on_create      = function()
       -- vim.cmd("set winhl=Normal:Normal,FloatBorder:Normal")
@@ -141,17 +125,18 @@ M.defaults = {
       _ctor = previewers.fzf.cmd,
     },
     bat = {
-      cmd   = "bat",
+      -- reduce startup time by deferring executable check to previewer constructor (#970)
+      cmd   = function() return vim.fn.executable("batcat") == 1 and "batcat" or "bat" end,
       args  = "--color=always --style=numbers,changes",
       _ctor = previewers.fzf.bat_async,
     },
     bat_native = {
-      cmd   = "bat",
+      cmd   = function() return vim.fn.executable("batcat") == 1 and "batcat" or "bat" end,
       args  = "--color=always --style=numbers,changes",
       _ctor = previewers.fzf.bat,
     },
     bat_async = {
-      cmd   = "bat",
+      cmd   = function() return vim.fn.executable("batcat") == 1 and "batcat" or "bat" end,
       args  = "--color=always --style=numbers,changes",
       _ctor = previewers.fzf.bat_async,
     },
@@ -161,6 +146,7 @@ M.defaults = {
       _ctor = previewers.fzf.head,
     },
     git_diff = {
+      pager         = M._preview_pager_fn,
       cmd_deleted   = "git diff --color HEAD --",
       cmd_modified  = "git diff --color HEAD",
       cmd_untracked = "git diff --color --no-index /dev/null",
@@ -191,6 +177,15 @@ M.defaults = {
       title_fnamemodify = function(s) return path.tail(s) end,
       _ctor             = previewers.builtin.buffer_or_file,
     },
+    codeaction = {
+      _ctor     = previewers.builtin.codeaction,
+      diff_opts = { ctxlen = 3 },
+    },
+    codeaction_native = {
+      _ctor     = previewers.fzf.codeaction,
+      diff_opts = { ctxlen = 3 },
+      pager     = M._preview_pager_fn,
+    },
   },
 }
 
@@ -206,13 +201,14 @@ M.defaults.files = {
   cwd_prompt_shorten_len = 32,
   cwd_prompt_shorten_val = 1,
   fzf_opts               = { ["--info"] = "default", },
-  git_status_cmd         = { "git", "-c", "color.status=false", "status", "-s" },
+  git_status_cmd         = {
+    "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
   find_opts              = [[-type f -not -path '*/\.git/*' -printf '%P\n']],
   rg_opts                = "--color=never --files --hidden --follow -g '!.git'",
   fd_opts                = "--color=never --type f --hidden --follow --exclude .git",
   toggle_ignore_flag     = "--no-ignore",
   _actions               = function() return M.globals.actions.files end,
-  -- actions                = { ["ctrl-g"] = { actions.toggle_ignore } },
+  actions                = { ["ctrl-g"] = { actions.toggle_ignore } },
   winopts                = { preview = { winopts = { cursorline = false } } },
 }
 
@@ -231,16 +227,17 @@ M.defaults.git = {
     winopts      = { preview = { winopts = { cursorline = false } } },
   },
   status = {
-    prompt      = "GitStatus> ",
+    prompt       = "GitStatus> ",
     -- override `color.status=always`, techincally not required
     -- since we now also call `utils.strip_ansi_coloring` (#706)
-    cmd         = "git -c color.status=false status -su",
-    previewer   = "git_diff",
-    file_icons  = true and M._has_devicons,
-    color_icons = true,
-    git_icons   = true,
-    _actions    = function() return M.globals.actions.files end,
-    actions     = {
+    cmd          = "git -c color.status=false --no-optional-locks status --porcelain=v1 -u",
+    previewer    = "git_diff",
+    multiprocess = true,
+    file_icons   = true and M._has_devicons,
+    color_icons  = true,
+    git_icons    = true,
+    _actions     = function() return M.globals.actions.files end,
+    actions      = {
       ["right"]  = { fn = actions.git_unstage, reload = true },
       ["left"]   = { fn = actions.git_stage, reload = true },
       ["ctrl-x"] = { fn = actions.git_reset, reload = true },
@@ -253,8 +250,8 @@ M.defaults.git = {
     prompt   = "Commits> ",
     cmd      = "git log --color --pretty=format:'%C(yellow)%h%Creset "
         .. "%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset'",
-    preview  = "git show --pretty='%Cred%H%n%Cblue%an <%ae>%n%C(yellow)%cD%n%Cgreen%s'"
-        .. " --color {1}",
+    preview  = "git show --color {1}",
+    preview_pager = M._preview_pager_fn,
     actions  = {
       ["default"] = actions.git_checkout,
       ["ctrl-y"]  = { fn = actions.git_yank_commit, exec_silent = true },
@@ -264,8 +261,9 @@ M.defaults.git = {
   bcommits = {
     prompt   = "BCommits> ",
     cmd      = "git log --color --pretty=format:'%C(yellow)%h%Creset "
-        .. "%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset' <file>",
-    preview  = "git diff --color {1}^! -- <file>",
+        .. "%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset' {file}",
+    preview  = "git show --color {1} -- {file}",
+    preview_pager = M._preview_pager_fn,
     actions  = {
       ["default"] = actions.git_buf_edit,
       ["ctrl-s"]  = actions.git_buf_split,
@@ -433,7 +431,7 @@ M.defaults.tabs = {
   },
   fzf_opts    = {
     ["--delimiter"] = "'[\\):]'",
-    ["--with-nth"]  = "2..",
+    ["--with-nth"]  = "3..",
   },
   _cached_hls = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker" },
 }
@@ -636,7 +634,7 @@ M.defaults.lsp.symbols = {
     -- to = function(s, _)
     --   local file, text = s:match("^(.+:.+:.+:)%s(.*)")
     --   -- fzf has alignment issues with ansi colorings of differnt escape length
-    --   local align = 56 + utils.ansi_col_len(text)
+    --   local align = 56 + utils.ansi_escseq_len(text)
     --   return string.format("%-" .. align .. "s%s%s", text, utils.nbsp, file)
     -- end,
     from = function(s, _)
@@ -687,11 +685,8 @@ M.defaults.lsp.finder = {
 M.defaults.lsp.code_actions = {
   prompt           = "Code Actions> ",
   async_or_timeout = 5000,
-  winopts          = {
-    row    = 0.40,
-    height = 0.35,
-    width  = 0.60,
-  },
+  previewer        = "codeaction",
+  -- previewer        = "codeaction_native",
 }
 
 M.defaults.diagnostics = {
@@ -743,6 +738,12 @@ M.defaults.marks = {
   previewer = {
     _ctor = previewers.builtin.marks,
   },
+}
+
+M.defaults.changes = {
+  cmd = "changes",
+  prompt = "Changes> ",
+  h1 = "change",
 }
 
 M.defaults.jumps = {
@@ -889,8 +890,11 @@ M.defaults.dap = {
 }
 
 M.defaults.complete_path = {
-  cmd     = nil, -- default: auto detect fd|rg|find
-  actions = { ["default"] = actions.complete },
+  cmd         = nil, -- default: auto detect fd|rg|find
+  file_icons  = false,
+  git_icons   = false,
+  color_icons = true,
+  actions     = { ["default"] = actions.complete },
 }
 
 M.defaults.complete_file = {
@@ -910,6 +914,9 @@ M.defaults.complete_line = { complete = true }
 M.defaults.file_icon_padding = ""
 
 M.defaults.file_icon_colors = {}
+
+M.defaults.dir_icon  = ""
+M.defaults.dir_icon_color = "#519aba"
 
 M.defaults.__HLS = {
   normal         = "FzfLuaNormal",
@@ -937,6 +944,30 @@ M.defaults.__HLS = {
   buf_flag_alt   = "FzfLuaBufFlagAlt",
   tab_title      = "FzfLuaTabTitle",
   tab_marker     = "FzfLuaTabMarker",
+  dir_icon       = "FzfLuaDirIcon",
+}
+
+M.defaults.__WINOPTS = {
+  borderchars   = {
+    ["none"]    = { " ", " ", " ", " ", " ", " ", " ", " " },
+    ["solid"]   = { " ", " ", " ", " ", " ", " ", " ", " " },
+    ["single"]  = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
+    ["double"]  = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
+    ["rounded"] = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+    ["thicc"]   = { "┏", "━", "┓", "┃", "┛", "━", "┗", "┃" },
+    ["thiccc"]  = { "▛", "▀", "▜", "▐", "▟", "▄", "▙", "▌" },
+    ["thicccc"] = { "█", "█", "█", "█", "█", "█", "█", "█" },
+  },
+  -- border chars reverse lookup for ambiwidth="double"
+  _border2string = {
+    [" "] = "solid",
+    ["┌"] = "single",
+    ["╔"] = "double",
+    ["╭"] = "rounded",
+    ["┏"] = "double",
+    ["▛"] = "double",
+    ["█"] = "double",
+  },
 }
 
 return M

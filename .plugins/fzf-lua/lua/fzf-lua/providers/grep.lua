@@ -20,6 +20,11 @@ local get_grep_cmd = function(opts, search_query, no_esc)
     command = string.format("grep %s", opts.grep_opts)
   end
 
+  -- save a copy of the command for `actions.toggle_ignore`
+  -- TODO: both `get_grep_cmd` and `get_files_cmd` need to
+  -- be reworked into a table of arguments
+  opts._cmd = command
+
   if opts.rg_glob and not command:match("^rg") then
     opts.rg_glob = false
     utils.warn("'--glob|iglob' flags require 'rg', ignoring 'rg_glob' option.")
@@ -130,15 +135,21 @@ local function normalize_live_grep_opts(opts)
   opts = config.normalize_opts(opts, "grep")
   if not opts then return end
 
-  -- we need this for 'actions.grep_lgrep`
+  -- we need this for `actions.grep_lgrep`
   opts.__ACT_TO = opts.__ACT_TO or M.grep
+
+  -- used by `actions.toggle_ignore', normalize_opts sets `__call_fn`
+  -- to the calling function  which will resolve to this fn), we need
+  -- to deref one level up to get to `live_grep_{mt|st}`
+  opts.__call_fn = utils.__FNCREF2__()
 
   -- NOT NEEDED SINCE RESUME DATA REFACTOR
   -- (was used by `make_entry.set_config_section`
   -- opts.__module__ = opts.__module__ or "grep"
 
   -- prepend prompt with "*" to indicate "live" query
-  opts.prompt = opts.prompt and opts.prompt:match("^%*") or "*" .. opts.prompt
+  opts.prompt = type(opts.prompt) == "string" and opts.prompt or ""
+  opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
 
   -- when using live_grep there is no "query", the prompt input
   -- is a regex expression and should be saved as last "search"
@@ -147,6 +158,9 @@ local function normalize_live_grep_opts(opts)
     if what == "query" then
       config.resume_set("search", val, { __resume_key = o.__resume_key })
       config.resume_set("no_esc", true, { __resume_key = o.__resume_key })
+      utils.map_set(config, "__resume_data.last_query", val)
+      -- also store query for `fzf_resume` (#963)
+      utils.map_set(config, "__resume_data.opts.query", val)
     else
       config.resume_set(what, val, { __resume_key = o.__resume_key })
     end
@@ -340,13 +354,17 @@ end
 
 M.grep_cword = function(opts)
   if not opts then opts = {} end
-  opts.search = vim.fn.expand("<cword>")
+  opts.no_esc = true
+  -- match whole words only (#968)
+  opts.search = [[\b]] .. utils.rg_escape(vim.fn.expand("<cword>")) .. [[\b]]
   return M.grep(opts)
 end
 
 M.grep_cWORD = function(opts)
   if not opts then opts = {} end
-  opts.search = vim.fn.expand("<cWORD>")
+  opts.no_esc = true
+  -- match neovim's WORD, match only surrounding space|SOL|EOL
+  opts.search = [[(^|\s)]] .. utils.rg_escape(vim.fn.expand("<cWORD>")) .. [[($|\s)]]
   return M.grep(opts)
 end
 

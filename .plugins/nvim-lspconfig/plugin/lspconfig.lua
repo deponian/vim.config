@@ -1,14 +1,14 @@
-local api, lsp = vim.api, vim.lsp
-
 if vim.g.lspconfig ~= nil then
   return
 end
 vim.g.lspconfig = 1
 
-if vim.fn.has 'nvim-0.7' ~= 1 then
+local api, lsp = vim.api, vim.lsp
+
+if vim.fn.has 'nvim-0.8' ~= 1 then
   local version_info = vim.version()
   local warning_str = string.format(
-    '[lspconfig] requires neovim 0.7 or later. Detected neovim version: 0.%s.%s',
+    '[lspconfig] requires neovim 0.8 or later. Detected neovim version: 0.%s.%s',
     version_info.minor,
     version_info.patch
   )
@@ -40,12 +40,12 @@ end
 local get_clients_from_cmd_args = function(arg)
   local result = {}
   for id in (arg or ''):gmatch '(%d+)' do
-    result[id] = lsp.get_client_by_id(tonumber(id))
+    result[#result + 1] = lsp.get_client_by_id(tonumber(id))
   end
-  if vim.tbl_isempty(result) then
+  if #result == 0 then
     return require('lspconfig.util').get_managed_clients()
   end
-  return vim.tbl_values(result)
+  return result
 end
 
 for group, hi in pairs {

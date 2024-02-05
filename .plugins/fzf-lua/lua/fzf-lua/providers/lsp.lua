@@ -1,4 +1,5 @@
 local core = require "fzf-lua.core"
+local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local config = require "fzf-lua.config"
 local actions = require "fzf-lua.actions"
@@ -47,6 +48,9 @@ local function check_capabilities(handler, silent)
     return num_clients
   end
 
+  -- UI won't open, reset the CTX
+  core.__CTX = nil
+
   if utils.tbl_isempty(clients) then
     if not silent then
       utils.info("LSP: no client attached")
@@ -91,11 +95,21 @@ local function location_handler(opts, cb, _, result, ctx, _)
       return true
     end, result)
   end
+  local items = {}
+  -- Although `make_entry.file` filters for `cwd_only` we filter
+  -- here to accurately determine `jump_to_single_result` (#980)
+  result = vim.tbl_filter(function(x)
+    local item = vim.lsp.util.locations_to_items({ x }, encoding)[1]
+    table.insert(items, item)
+    if opts.cwd_only and not path.is_relative(item.filename, opts.cwd) then
+      return false
+    end
+    return true
+  end, result)
   -- Jump immediately if there is only one location
   if opts.jump_to_single_result and #result == 1 then
     jump_to_location(opts, result[1], encoding)
   end
-  local items = vim.lsp.util.locations_to_items(result, encoding)
   if opts.filter and type(opts.filter) == "function" then
     items = opts.filter(items)
   end
@@ -177,6 +191,12 @@ local function symbol_handler(opts, cb, _, result, _, _)
     if (not opts.current_buffer_only or core.CTX().bname == entry.filename) and
         (not opts.regex_filter or entry.text:match(opts.regex_filter)) then
       local mbicon_align = 0
+      if opts.fn_reload and type(opts.query) == "string" and #opts.query > 0 then
+        -- highlight exact matches with `live_workspace_symbols` (#1028)
+        local sym, text = entry.text:match("^(.+%])(.*)$")
+        entry.text = sym .. text:gsub(utils.lua_regex_escape(opts.query),
+          utils.ansi_codes.red(opts.query))
+      end
       if M._sym2style then
         local kind = entry.text:match("%[(.-)%]")
         local styled = kind and M._sym2style[kind]
@@ -197,7 +217,7 @@ local function symbol_handler(opts, cb, _, result, _, _)
       entry = make_entry.lcol(entry, opts)
       entry = make_entry.file(entry, opts)
       if entry then
-        local align = 52 + mbicon_align + utils.ansi_col_len(symbol)
+        local align = 48 + mbicon_align + utils.ansi_escseq_len(symbol)
         entry = string.format("%-" .. align .. "s%s%s", symbol, utils.nbsp, entry)
         cb(opts._fmt and opts._fmt.to and opts._fmt.to(entry, opts) or entry)
       end
@@ -548,7 +568,10 @@ local function fzf_lsp_locations(opts, fn_contents)
   if opts.force_uri == nil then opts.force_uri = true end
   opts = core.set_fzf_field_index(opts)
   opts = fn_contents(opts)
-  if not opts.__contents then return end
+  if not opts.__contents then
+    core.__CTX = nil
+    return
+  end
   return core.fzf_exec(opts.__contents, opts)
 end
 
@@ -622,6 +645,7 @@ M.finder = function(opts)
   end
   if #contents == 0 then
     utils.info("LSP: no locations found")
+    core.__CTX = nil
     return
   end
   opts = core.set_fzf_field_index(opts)
@@ -688,7 +712,10 @@ M.document_symbols = function(opts)
     opts.fn_pre_fzf()
   end
   opts = gen_lsp_contents(opts)
-  if not opts.__contents then return end
+  if not opts.__contents then
+    core.__CTX = nil
+    return
+  end
   return core.fzf_exec(opts.__contents, opts)
 end
 
@@ -702,7 +729,10 @@ M.workspace_symbols = function(opts)
   opts = core.set_fzf_field_index(opts)
   if opts.force_uri == nil then opts.force_uri = true end
   opts = gen_lsp_contents(opts)
-  if not opts.__contents then return end
+  if not opts.__contents then
+    core.__CTX = nil
+    return
+  end
   if opts.symbol_style or opts.symbol_fmt then
     opts.fn_pre_fzf = function() gen_sym2style_map(opts) end
     opts.fn_post_fzf = function() M._sym2style = nil end
@@ -719,7 +749,8 @@ M.live_workspace_symbols = function(opts)
   opts.__ACT_TO = opts.__ACT_TO or M.workspace_symbols
 
   -- prepend prompt with "*" to indicate "live" query
-  opts.prompt = opts.prompt and opts.prompt:match("^%*") or "*" .. opts.prompt
+  opts.prompt = type(opts.prompt) == "string" and opts.prompt or ""
+  opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
 
   -- when using live_workspace_symbols there is no "query"
   -- the prompt input is the LSP query, store as "lsp_query"
@@ -727,6 +758,9 @@ M.live_workspace_symbols = function(opts)
     config.resume_set(
       what == "query" and "lsp_query" or what, val,
       { __resume_key = o.__resume_key })
+    utils.map_set(config, "__resume_data.last_query", val)
+    -- also store query for `fzf_resume` (#963)
+    utils.map_set(config, "__resume_data.opts.query", val)
   end
   opts.__resume_get = function(what, o)
     return config.resume_get(
@@ -750,6 +784,7 @@ M.live_workspace_symbols = function(opts)
   -- use our own
   opts.func_async_callback = false
   opts.fn_reload = function(query)
+    opts.query = query
     opts.lsp_params = { query = query or "" }
     opts = gen_lsp_contents(opts)
     return opts.__contents
@@ -839,7 +874,6 @@ M.code_actions = function(opts)
     if not has_code_actions then return end
   end
 
-  opts.previewer = false
   opts.actions = opts.actions or {}
   opts.actions.default = nil
   -- only dereg if we aren't registered

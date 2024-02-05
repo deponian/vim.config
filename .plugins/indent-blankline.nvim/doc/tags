@@ -20,6 +20,7 @@ ibl.config.indent	indent_blankline.txt	/*ibl.config.indent*
 ibl.config.indent.char	indent_blankline.txt	/*ibl.config.indent.char*
 ibl.config.indent.highlight	indent_blankline.txt	/*ibl.config.indent.highlight*
 ibl.config.indent.priority	indent_blankline.txt	/*ibl.config.indent.priority*
+ibl.config.indent.repeat_linebreak	indent_blankline.txt	/*ibl.config.indent.repeat_linebreak*
 ibl.config.indent.smart_indent_cap	indent_blankline.txt	/*ibl.config.indent.smart_indent_cap*
 ibl.config.indent.tab_char	indent_blankline.txt	/*ibl.config.indent.tab_char*
 ibl.config.scope	indent_blankline.txt	/*ibl.config.scope*

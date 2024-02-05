@@ -1,5 +1,6 @@
 import vim
 import datetime
+import glob
 import sys
 import os
 import json
@@ -62,19 +63,47 @@ def make_http_options(options):
         'enable_auth': bool(int(options['enable_auth'])),
     }
 
-def render_text_chunks(chunks):
+# During text manipulation in Vim's visual mode, we utilize "normal! c" command. This command deletes the highlighted text,
+# immediately followed by entering insert mode where it generates desirable text.
+
+# Normally, Vim contemplates the position of the first character in selection to decide whether to place the entered text
+# before or after the cursor. For instance, if the given line is "abcd", and "abc" is selected for deletion and "1234" is
+# written in its place, the result is as expected "1234d" rather than "d1234". However, if "bc" is chosen for deletion, the
+# achieved output is "a1234d", whereas "1234ad" is not.
+
+# Despite this, post Vim script's execution of "normal! c", it takes an exit immediately returning to the normal mode. This
+# might trigger a potential misalignment issue especially when the most extreme left character is the line’s second character.
+
+# To avoid such pitfalls, the method "need_insert_before_cursor" checks not only the selection status, but also the character
+# at the first position of the highlighting. If the selection is off or the first position is not the second character in the line,
+# it determines no need for prefixing the cursor.
+def need_insert_before_cursor(is_selection):
+    if is_selection == False:
+        return False
+    pos = vim.eval("getpos(\"'<\")[1:2]")
+    if not isinstance(pos, list) or len(pos) != 2:
+        raise ValueError("Unexpected getpos value, it should be a list with two elements")
+    return pos[1] == "1" # determines if visual selection starts on the first window column
+
+def render_text_chunks(chunks, is_selection):
     generating_text = False
     full_text = ''
+    insert_before_cursor = need_insert_before_cursor(is_selection)
     for text in chunks:
         if not text.strip() and not generating_text:
             continue # trim newlines from the beginning
         generating_text = True
-        vim.command("normal! a" + text)
+        if insert_before_cursor:
+            vim.command("normal! i" + text)
+            insert_before_cursor = False
+        else:
+            vim.command("normal! a" + text)
         vim.command("undojoin")
         vim.command("redraw")
         full_text += text
     if not full_text.strip():
         print_info_message('Empty response received. Tip: You can try modifying the prompt and retry.')
+
 
 def parse_chat_messages(chat_content):
     lines = chat_content.splitlines()
@@ -86,6 +115,9 @@ def parse_chat_messages(chat_content):
         if line.startswith(">>> user"):
             messages.append({"role": "user", "content": ""})
             continue
+        if line.startswith(">>> include"):
+            messages.append({"role": "include", "content": ""})
+            continue
         if line.startswith("<<< assistant"):
             messages.append({"role": "assistant", "content": ""})
             continue
@@ -96,6 +128,37 @@ def parse_chat_messages(chat_content):
     for message in messages:
         # strip newlines from the content as it causes empty responses
         message["content"] = message["content"].strip()
+
+        if message["role"] == "include":
+            message["role"] = "user"
+            paths = message["content"].split("\n")
+            message["content"] = ""
+
+            pwd = vim.eval("getcwd()")
+            for i in range(len(paths)):
+                path = os.path.expanduser(paths[i])
+                if not os.path.isabs(path):
+                    path = os.path.join(pwd, path)
+
+                paths[i] = path
+
+                if '**' in path:
+                    paths[i] = None
+                    paths.extend(glob.glob(path, recursive=True))
+
+            for path in paths:
+                if path is None:
+                    continue
+
+                if os.path.isdir(path):
+                    continue
+
+                try:
+                    with open(path, "r") as file:
+                        message["content"] += f"\n\n==> {path} <==\n" + file.read()
+                except UnicodeDecodeError:
+                    message["content"] += "\n\n" + f"==> {path} <=="
+                    message["content"] += "\n" + "Binary file, cannot display"
 
     return messages
 

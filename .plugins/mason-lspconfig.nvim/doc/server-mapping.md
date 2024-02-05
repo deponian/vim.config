@@ -20,6 +20,7 @@
 | [bright_script](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#bright_script) | [brighterscript](https://mason-registry.dev/registry/list#brighterscript) |
 | [bsl_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#bsl_ls) | [bsl-language-server](https://mason-registry.dev/registry/list#bsl-language-server) |
 | [bufls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#bufls) | [buf-language-server](https://mason-registry.dev/registry/list#buf-language-server) |
+| [bzl](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#bzl) | [bzl](https://mason-registry.dev/registry/list#bzl) |
 | [cairo_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#cairo_ls) | [cairo-language-server](https://mason-registry.dev/registry/list#cairo-language-server) |
 | [clangd](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#clangd) | [clangd](https://mason-registry.dev/registry/list#clangd) |
 | [clarity_lsp](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#clarity_lsp) | [clarity-lsp](https://mason-registry.dev/registry/list#clarity-lsp) |
@@ -67,11 +68,13 @@
 | [graphql](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#graphql) | [graphql-language-service-cli](https://mason-registry.dev/registry/list#graphql-language-service-cli) |
 | [groovyls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#groovyls) | [groovy-language-server](https://mason-registry.dev/registry/list#groovy-language-server) |
 | [haxe_language_server](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#haxe_language_server) | [haxe-language-server](https://mason-registry.dev/registry/list#haxe-language-server) |
+| [hdl_checker](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#hdl_checker) | [hdl-checker](https://mason-registry.dev/registry/list#hdl-checker) |
 | [helm_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#helm_ls) | [helm-ls](https://mason-registry.dev/registry/list#helm-ls) |
 | [hls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#hls) | [haskell-language-server](https://mason-registry.dev/registry/list#haskell-language-server) |
 | [hoon_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#hoon_ls) | [hoon-language-server](https://mason-registry.dev/registry/list#hoon-language-server) |
 | [html](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#html) | [html-lsp](https://mason-registry.dev/registry/list#html-lsp) |
 | [htmx](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#htmx) | [htmx-lsp](https://mason-registry.dev/registry/list#htmx-lsp) |
+| [hydra_lsp](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#hydra_lsp) | [hydra-lsp](https://mason-registry.dev/registry/list#hydra-lsp) |
 | [intelephense](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#intelephense) | [intelephense](https://mason-registry.dev/registry/list#intelephense) |
 | [java_language_server](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#java_language_server) | [java-language-server](https://mason-registry.dev/registry/list#java-language-server) |
 | [jdtls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#jdtls) | [jdtls](https://mason-registry.dev/registry/list#jdtls) |
@@ -86,6 +89,7 @@
 | [ltex](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#ltex) | [ltex-ls](https://mason-registry.dev/registry/list#ltex-ls) |
 | [lua_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#lua_ls) | [lua-language-server](https://mason-registry.dev/registry/list#lua-language-server) |
 | [luau_lsp](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#luau_lsp) | [luau-lsp](https://mason-registry.dev/registry/list#luau-lsp) |
+| [lwc_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#lwc_ls) | [lwc-language-server](https://mason-registry.dev/registry/list#lwc-language-server) |
 | [marksman](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#marksman) | [marksman](https://mason-registry.dev/registry/list#marksman) |
 | [matlab_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#matlab_ls) | [matlab-language-server](https://mason-registry.dev/registry/list#matlab-language-server) |
 | [mdx_analyzer](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#mdx_analyzer) | [mdx-analyzer](https://mason-registry.dev/registry/list#mdx-analyzer) |
@@ -133,6 +137,7 @@
 | [serve_d](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#serve_d) | [serve-d](https://mason-registry.dev/registry/list#serve-d) |
 | [slint_lsp](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#slint_lsp) | [slint-lsp](https://mason-registry.dev/registry/list#slint-lsp) |
 | [smithy_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#smithy_ls) | [smithy-language-server](https://mason-registry.dev/registry/list#smithy-language-server) |
+| [snyk_ls](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#snyk_ls) | [snyk-ls](https://mason-registry.dev/registry/list#snyk-ls) |
 | [solang](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#solang) | [solang](https://mason-registry.dev/registry/list#solang) |
 | [solargraph](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#solargraph) | [solargraph](https://mason-registry.dev/registry/list#solargraph) |
 | [solc](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#solc) | [solidity](https://mason-registry.dev/registry/list#solidity) |

@@ -55,9 +55,15 @@ nvim-tree-api.marks.navigate.select()	nvim-tree-lua.txt	/*nvim-tree-api.marks.na
 nvim-tree-api.marks.toggle()	nvim-tree-lua.txt	/*nvim-tree-api.marks.toggle()*
 nvim-tree-api.node	nvim-tree-lua.txt	/*nvim-tree-api.node*
 nvim-tree-api.node.navigate.diagnostics.next()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.next()*
+nvim-tree-api.node.navigate.diagnostics.next_recursive()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.next_recursive()*
 nvim-tree-api.node.navigate.diagnostics.prev()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.prev()*
+nvim-tree-api.node.navigate.diagnostics.prev_recursive()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.prev_recursive()*
 nvim-tree-api.node.navigate.git.next()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.next()*
+nvim-tree-api.node.navigate.git.next_recursive()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.next_recursive()*
+nvim-tree-api.node.navigate.git.next_skip_gitignored()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.next_skip_gitignored()*
 nvim-tree-api.node.navigate.git.prev()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.prev()*
+nvim-tree-api.node.navigate.git.prev_recursive()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.prev_recursive()*
+nvim-tree-api.node.navigate.git.prev_skip_gitignored()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.git.prev_skip_gitignored()*
 nvim-tree-api.node.navigate.opened.next()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.opened.next()*
 nvim-tree-api.node.navigate.opened.prev()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.opened.prev()*
 nvim-tree-api.node.navigate.parent()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.parent()*
@@ -75,6 +81,7 @@ nvim-tree-api.node.open.preview_no_picker()	nvim-tree-lua.txt	/*nvim-tree-api.no
 nvim-tree-api.node.open.replace_tree_buffer()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.replace_tree_buffer()*
 nvim-tree-api.node.open.tab()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.tab()*
 nvim-tree-api.node.open.tab_drop()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.tab_drop()*
+nvim-tree-api.node.open.toggle_group_empty()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.toggle_group_empty()*
 nvim-tree-api.node.open.vertical()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.vertical()*
 nvim-tree-api.node.run.cmd()	nvim-tree-lua.txt	/*nvim-tree-api.node.run.cmd()*
 nvim-tree-api.node.run.system()	nvim-tree-lua.txt	/*nvim-tree-api.node.run.system()*
@@ -103,11 +110,14 @@ nvim-tree-api.tree.toggle_git_clean_filter()	nvim-tree-lua.txt	/*nvim-tree-api.t
 nvim-tree-api.tree.toggle_gitignore_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_gitignore_filter()*
 nvim-tree-api.tree.toggle_help()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_help()*
 nvim-tree-api.tree.toggle_hidden_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_hidden_filter()*
+nvim-tree-api.tree.toggle_no_bookmark_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_no_bookmark_filter()*
 nvim-tree-api.tree.toggle_no_buffer_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_no_buffer_filter()*
 nvim-tree-api.tree.winid()	nvim-tree-lua.txt	/*nvim-tree-api.tree.winid()*
 nvim-tree-commands	nvim-tree-lua.txt	/*nvim-tree-commands*
 nvim-tree-events	nvim-tree-lua.txt	/*nvim-tree-events*
 nvim-tree-highlight	nvim-tree-lua.txt	/*nvim-tree-highlight*
+nvim-tree-highlight-default	nvim-tree-lua.txt	/*nvim-tree-highlight-default*
+nvim-tree-highlight-overhaul	nvim-tree-lua.txt	/*nvim-tree-highlight-overhaul*
 nvim-tree-introduction	nvim-tree-lua.txt	/*nvim-tree-introduction*
 nvim-tree-mappings	nvim-tree-lua.txt	/*nvim-tree-mappings*
 nvim-tree-mappings-default	nvim-tree-lua.txt	/*nvim-tree-mappings-default*
@@ -134,6 +144,7 @@ nvim-tree-opts-ui	nvim-tree-lua.txt	/*nvim-tree-opts-ui*
 nvim-tree-opts-update-focused-file	nvim-tree-lua.txt	/*nvim-tree-opts-update-focused-file*
 nvim-tree-opts-view	nvim-tree-lua.txt	/*nvim-tree-opts-view*
 nvim-tree-os-specific	nvim-tree-lua.txt	/*nvim-tree-os-specific*
+nvim-tree-prompts	nvim-tree-lua.txt	/*nvim-tree-prompts*
 nvim-tree-quickstart	nvim-tree-lua.txt	/*nvim-tree-quickstart*
 nvim-tree-quickstart-custom-mappings	nvim-tree-lua.txt	/*nvim-tree-quickstart-custom-mappings*
 nvim-tree-quickstart-help	nvim-tree-lua.txt	/*nvim-tree-quickstart-help*
@@ -178,6 +189,7 @@ nvim-tree.filters.dotfiles	nvim-tree-lua.txt	/*nvim-tree.filters.dotfiles*
 nvim-tree.filters.exclude	nvim-tree-lua.txt	/*nvim-tree.filters.exclude*
 nvim-tree.filters.git_clean	nvim-tree-lua.txt	/*nvim-tree.filters.git_clean*
 nvim-tree.filters.git_ignored	nvim-tree-lua.txt	/*nvim-tree.filters.git_ignored*
+nvim-tree.filters.no_bookmark	nvim-tree-lua.txt	/*nvim-tree.filters.no_bookmark*
 nvim-tree.filters.no_buffer	nvim-tree-lua.txt	/*nvim-tree.filters.no_buffer*
 nvim-tree.git.cygwin_support	nvim-tree-lua.txt	/*nvim-tree.git.cygwin_support*
 nvim-tree.git.disable_for_dirs	nvim-tree-lua.txt	/*nvim-tree.git.disable_for_dirs*

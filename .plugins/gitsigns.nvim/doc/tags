@@ -9,6 +9,7 @@ gitsigns	gitsigns.txt	/*gitsigns*
 gitsigns-command	gitsigns.txt	/*gitsigns-command*
 gitsigns-config	gitsigns.txt	/*gitsigns-config*
 gitsigns-config-attach_to_untracked	gitsigns.txt	/*gitsigns-config-attach_to_untracked*
+gitsigns-config-auto_attach	gitsigns.txt	/*gitsigns-config-auto_attach*
 gitsigns-config-base	gitsigns.txt	/*gitsigns-config-base*
 gitsigns-config-count_chars	gitsigns.txt	/*gitsigns-config-count_chars*
 gitsigns-config-current_line_blame	gitsigns.txt	/*gitsigns-config-current_line_blame*

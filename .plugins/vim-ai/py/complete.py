@@ -1,3 +1,5 @@
+import vim
+
 # import utils
 plugin_root = vim.eval("s:plugin_root")
 vim.command(f"py3file {plugin_root}/py/utils.py")
@@ -9,6 +11,7 @@ openai_options = make_openai_options(config_options)
 http_options = make_http_options(config_options)
 
 prompt = vim.eval("l:prompt").strip()
+is_selection = vim.eval("l:is_selection")
 
 def complete_engine(prompt):
     request = {
@@ -51,7 +54,7 @@ try:
         print('Completing...')
         vim.command("redraw")
         text_chunks = engines[engine](prompt)
-        render_text_chunks(text_chunks)
+        render_text_chunks(text_chunks, is_selection)
         clear_echo_message()
 except BaseException as error:
     handle_completion_error(error)

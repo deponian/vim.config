@@ -30,7 +30,7 @@ M.defaults = {
     filter = true,
   },
   dev = {
-    -- directory where you store your local plugin projects
+    ---@type string | fun(plugin: LazyPlugin): string directory where you store your local plugin projects
     path = "~/projects",
     ---@type string[] plugins that match these patterns will use your local versions instead of being fetched from GitHub
     patterns = {}, -- For example {"folke"}
@@ -177,7 +177,7 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "10.15.1" -- x-release-please-version
+M.version = "10.16.0" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
@@ -213,7 +213,9 @@ function M.setup(opts)
   table.insert(M.options.install.colorscheme, "habamax")
 
   M.options.root = Util.norm(M.options.root)
-  M.options.dev.path = Util.norm(M.options.dev.path)
+  if type(M.options.dev.path) == "string" then
+    M.options.dev.path = Util.norm(M.options.dev.path)
+  end
   M.options.lockfile = Util.norm(M.options.lockfile)
   M.options.readme.root = Util.norm(M.options.readme.root)
 

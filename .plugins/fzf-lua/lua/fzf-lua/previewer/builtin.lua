@@ -425,8 +425,8 @@ end
 function Previewer.buffer_or_file:start_ueberzug()
   if self._ueberzug_fifo then return self._ueberzug_fifo end
   local fifo = ("fzf-lua-%d-ueberzug"):format(vim.fn.getpid())
-  self._ueberzug_fifo = vim.fn.systemlist({ "mktemp", "--dry-run", "--suffix", fifo })[1]
-  vim.fn.system({ "mkfifo", self._ueberzug_fifo })
+  self._ueberzug_fifo = utils.io_systemlist({ "mktemp", "--dry-run", "--suffix", fifo })[1]
+  utils.io_system({ "mkfifo", self._ueberzug_fifo })
   self._ueberzug_job = vim.fn.jobstart({ "sh", "-c",
     ("tail --follow %s | ueberzug layer --parser json")
         :format(vim.fn.shellescape(self._ueberzug_fifo))
@@ -520,10 +520,10 @@ function Previewer.buffer_or_file:populate_terminal_cmd(tmpbuf, cmd, entry)
       end)
     end
   else
-    -- replace `<file>` placeholder with the filename
+    -- replace `{file}` placeholder with the filename
     local add_file = true
     for i, arg in ipairs(cmd) do
-      if arg == "<file>" then
+      if type(arg) == "string" and arg:match("[<{]file[}>]") then
         cmd[i] = entry.path
         add_file = false
       end

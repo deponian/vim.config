@@ -10,12 +10,37 @@ local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
 
-local ACTION_DEFINITIONS = {
+M.ACTION_DEFINITIONS = {
   -- list of supported actions with labels to be displayed in the headers
   -- no pos implies an append to header array
-  [actions.toggle_ignore]     = { "Disable .gitignore", fn_reload = "Respect .gitignore" },
-  [actions.grep_lgrep]        = { "Regex Search", fn_reload = "Fuzzy Search" },
-  [actions.sym_lsym]          = { "Live Query", fn_reload = "Fuzzy Search" },
+  [actions.toggle_ignore]     = {
+    function(o)
+      local flag = o.toggle_ignore_flag or "--no-ignore"
+      if o.cmd:match(utils.lua_regex_escape(flag)) then
+        return "Respect .gitignore"
+      else
+        return "Disable .gitignore"
+      end
+    end,
+  },
+  [actions.grep_lgrep]        = {
+    function(o)
+      if o.fn_reload then
+        return "Fuzzy Search"
+      else
+        return "Regex Search"
+      end
+    end,
+  },
+  [actions.sym_lsym]          = {
+    function(o)
+      if o.fn_reload then
+        return "Fuzzy Search"
+      else
+        return "Live Query"
+      end
+    end,
+  },
   [actions.buf_del]           = { "close" },
   [actions.arg_del]           = { "delete" },
   [actions.git_reset]         = { "reset" },
@@ -252,8 +277,6 @@ M.fzf = function(contents, opts)
     config.__resume_data = config.__resume_data or {}
     config.__resume_data.opts = utils.deepcopy(opts)
     config.__resume_data.contents = contents and utils.deepcopy(contents) or nil
-    -- save a ref to resume data for 'grep_lgrep'
-    opts.__resume_data = config.__resume_data
   end
   -- update context and save a copy in options (for actions)
   -- call before creating the window or fzf_winobj is not nil
@@ -694,7 +717,7 @@ M.set_header = function(opts, hdr_tbl)
       opts.prompt = path.shorten(opts.prompt, tonumber(opts.cwd_prompt_shorten_val) or 1)
     end
     if not path.ends_with_separator(opts.prompt) then
-      opts.prompt = opts.prompt .. path.separator()
+      opts.prompt = opts.prompt .. path.SEPARATOR
     end
   end
   if opts.no_header or opts.headers == false then
@@ -746,15 +769,18 @@ M.set_header = function(opts, hdr_tbl)
     actions = {
       hdr_txt_opt = "interactive_header_txt",
       hdr_txt_str = "",
-      val = function()
+      val = function(o)
         if opts.no_header_i then return end
-        local defs = ACTION_DEFINITIONS
+        local defs = M.ACTION_DEFINITIONS
         local ret = {}
         for k, v in pairs(opts.actions) do
           local action = type(v) == "function" and v or type(v) == "table" and (v.fn or v[1])
           if type(action) == "function" and defs[action] then
             local def = defs[action]
-            local to = (opts.fn_reload or opts._hdr_to) and def.fn_reload or def[1]
+            local to = def[1]
+            if type(to) == "function" then
+              to = to(o)
+            end
             table.insert(ret, def.pos or #ret + 1,
               string.format("<%s> to %s",
                 utils.ansi_from_hl(opts.hls.header_bind, k),
@@ -768,7 +794,7 @@ M.set_header = function(opts, hdr_tbl)
             table.insert(t, i)
           end
           t[1] = (opts.header_prefix or ":: ") .. t[1]
-          return table.concat(t, opts.header_separator or "")
+          return table.concat(t, opts.header_separator or "|")
         end)() or nil
       end,
     },
@@ -791,7 +817,7 @@ M.set_header = function(opts, hdr_tbl)
   for _, h in ipairs(opts.headers) do
     assert(definitions[h])
     local def = definitions[h]
-    local txt = def.val()
+    local txt = def.val(opts)
     if def and txt then
       hdr_str = not hdr_str and "" or (hdr_str .. ", ")
       hdr_str = ("%s%s%s"):format(hdr_str, def.hdr_txt_str,

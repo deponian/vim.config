@@ -12,6 +12,9 @@ function Previewer.base:new(o, opts)
   o = o or {}
   self.type = "cmd";
   self.cmd = o.cmd;
+  if type(self.cmd) == "function" then
+    self.cmd = self.cmd()
+  end
   self.args = o.args or "";
   self.opts = opts;
   return self
@@ -39,7 +42,6 @@ function Previewer.base:preview_offset()
 end
 
 function Previewer.base:fzf_delimiter()
-  if not self.opts.line_field_index then return end
   -- set delimiter to ':'
   -- entry format is 'file:line:col: text'
   local delim = self.opts.fzf_opts and self.opts.fzf_opts["--delimiter"]
@@ -47,7 +49,7 @@ function Previewer.base:fzf_delimiter()
     delim = "[:]"
   elseif not delim:match(":") then
     if delim:match("%[.*%]") then
-      delim = delim:match("(%[.*)%]") .. ":]"
+      delim = delim:gsub("%]", ":]")
     else
       -- remove surrounding quotes
       delim = delim:match("^'?(.*)'$?") or delim
@@ -159,8 +161,8 @@ local grep_tag = function(file, tag)
   local cmd = utils.tbl_deep_clone(grep_cmd)
   table.insert(cmd, pattern)
   table.insert(cmd, filepath)
-  local out = utils.io_system(cmd)
-  if not utils.shell_error() then
+  local out, rc = utils.io_system(cmd)
+  if rc == 0 then
     line = tonumber(out:match("[^:]+")) or 1
   else
     utils.warn(("previewer: unable to find pattern '%s' in file '%s'"):format(pattern, file))
@@ -246,7 +248,10 @@ function Previewer.git_diff:new(o, opts)
   self.cmd_deleted = path.git_cwd(o.cmd_deleted, opts)
   self.cmd_modified = path.git_cwd(o.cmd_modified, opts)
   self.cmd_untracked = path.git_cwd(o.cmd_untracked, opts)
-  self.pager = o.pager or opts.preview_pager
+  self.pager = opts.preview_pager == nil and o.pager or opts.preview_pager
+  if type(self.pager) == "function" then
+    self.pager = self.pager()
+  end
   do
     -- populate the icon mappings
     local icons_overrides = o._fn_git_icons and o._fn_git_icons()
@@ -310,10 +315,14 @@ function Previewer.git_diff:cmdline(o)
     -- }
     -- we use ':format' directly on the user's command, see
     -- issue #392 for more info (limiting diff output width)
-    if not cmd:match("%%s") then
-      cmd = cmd .. " %s"
+    local fname_escaped = vim.fn.shellescape(file.path)
+    if cmd:match("[<{]file[}>]") then
+      cmd = cmd:gsub("[<{]file[}>]", fname_escaped)
+    elseif cmd:match("%%s") then
+      cmd = cmd:format(fname_escaped)
+    else
+      cmd = string.format("%s %s", cmd, fname_escaped)
     end
-    cmd = cmd:format(vim.fn.shellescape(file.path))
     cmd = ("LINES=%d;COLUMNS=%d;FZF_PREVIEW_LINES=%d;FZF_PREVIEW_COLUMNS=%d;%s %s")
         :format(fzf_lines, fzf_columns, fzf_lines, fzf_columns, cmd, pager)
     cmd = "sh -c " .. vim.fn.shellescape(cmd)

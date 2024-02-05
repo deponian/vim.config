@@ -23,6 +23,7 @@ biome                                     biome
 brighterscript                            bright_script
 bsl-language-server                       bsl_ls
 buf-language-server                       bufls
+bzl                                       bzl
 cairo-language-server                     cairo_ls
 clangd                                    clangd
 clarity-lsp                               clarity_lsp
@@ -70,11 +71,13 @@ grammarly-languageserver                  grammarly
 graphql-language-service-cli              graphql
 groovy-language-server                    groovyls
 haxe-language-server                      haxe_language_server
+hdl-checker                               hdl_checker
 helm-ls                                   helm_ls
 haskell-language-server                   hls
 hoon-language-server                      hoon_ls
 html-lsp                                  html
 htmx-lsp                                  htmx
+hydra-lsp                                 hydra_lsp
 intelephense                              intelephense
 java-language-server                      java_language_server
 jdtls                                     jdtls
@@ -89,6 +92,7 @@ lemminx                                   lemminx
 ltex-ls                                   ltex
 lua-language-server                       lua_ls
 luau-lsp                                  luau_lsp
+lwc-language-server                       lwc_ls
 marksman                                  marksman
 matlab-language-server                    matlab_ls
 mdx-analyzer                              mdx_analyzer
@@ -136,6 +140,7 @@ salt-lsp                                  salt_ls
 serve-d                                   serve_d
 slint-lsp                                 slint_lsp
 smithy-language-server                    smithy_ls
+snyk-ls                                   snyk_ls
 solang                                    solang
 solargraph                                solargraph
 solidity                                  solc
