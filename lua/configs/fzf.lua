@@ -25,9 +25,6 @@ M.opts = {
     },
   },
   previewers = {
-    git_diff = {
-      pager = "delta --width=$FZF_PREVIEW_COLUMNS",
-    },
     builtin = {
       treesitter = { enable = true, disable = {"yaml"} },
       extensions = {
@@ -68,8 +65,17 @@ M.opts = {
       prompt = 'Stash: ',
     },
   },
-  -- configured later, see config() above
-  grep = {},
+  grep = {
+    prompt = ' ',
+    rg_opts = "--column --line-number --glob='!.git/' --no-heading --color=always --no-ignore --hidden --fixed-strings --smart-case --max-columns=4096 -e",
+    no_header_i = true,
+    rg_glob = true,
+    exec_empty_query = true,
+    actions = {
+      ["ctrl-i"] = { require("deponian.fzf-lua").rg_toggle_flag("--hidden") },
+      ["ctrl-r"] = { require("deponian.fzf-lua").rg_toggle_flag("--fixed-strings") },
+    },
+  },
   args = {
     prompt = 'Args: ',
   },
@@ -126,8 +132,6 @@ M.opts = {
 M.config = function(_, opts)
   -- setup plugin settings
   require("fzf-lua").setup(opts)
-  -- setup my grep settings
-  require("deponian.fzf-lua").setup_grep()
 end
 
 M.keys = {
@@ -143,13 +147,12 @@ M.keys = {
   -- (mnemonic: find)
   { "<Leader>f",
     function()
-      require("deponian.fzf-lua").live_grep({ prompt=" " })
+      require("fzf-lua").live_grep({})
     end },
   { "<Leader>f",
     function()
-      require('deponian.fzf-lua').live_grep({
-        search = require('deponian.general').get_oneline_selection(),
-        prompt=" ",
+      require("fzf-lua").live_grep({
+        search = require("deponian.general").get_oneline_selection(),
         no_esc = true
       })
     end,

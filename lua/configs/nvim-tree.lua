@@ -45,7 +45,7 @@ local function on_attach(bufnr)
     else
       dir = vim.fn.fnamemodify(node.absolute_path, ":.:h")
     end
-    require("deponian.fzf-lua").live_grep({cwd = dir,prompt=" "})
+    require("fzf-lua").live_grep({cwd = dir})
   end, opts('ripgrep'))
 
   vim.keymap.set('n', 'F', function()
