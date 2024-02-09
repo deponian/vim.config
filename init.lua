@@ -24,7 +24,7 @@ end
 -- place where plugin manager lives
 vim.opt.rtp:prepend(plugins_path .. "/lazy.nvim")
 
--- evertything we need before initialization of plugins
+-- everything we need before initialization of plugins
 require("options")
 require("settings")
 require("autocmd")
