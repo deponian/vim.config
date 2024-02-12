@@ -192,6 +192,11 @@ M.fzf_wrap = function(opts, contents, fn_selected)
       xpcall(function()
         opts.fn_selected(selected, opts)
       end, function(err)
+        -- ignore existing swap file error, the choices dialog will still be
+        -- displayed to user to make a selection once fzf-lua exits (#1011)
+        if err:match("Vim%(edit%):E325") then
+          return
+        end
         utils.err("fn_selected threw an error: " .. debug.traceback(err, 1))
       end)
     end
@@ -497,7 +502,7 @@ M.build_fzf_cli = function(opts)
   if opts.fzf_opts["--preview-window"] == nil then
     opts.fzf_opts["--preview-window"] = M.preview_window(opts)
   end
-  if opts.preview_offset and #opts.preview_offset > 0 then
+  if opts.fzf_opts["--preview-window"] and opts.preview_offset and #opts.preview_offset > 0 then
     opts.fzf_opts["--preview-window"] =
         opts.fzf_opts["--preview-window"] .. ":" .. opts.preview_offset
   end

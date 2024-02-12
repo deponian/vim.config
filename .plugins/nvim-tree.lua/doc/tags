@@ -5,6 +5,7 @@
 :NvimTreeFindFile	nvim-tree-lua.txt	/*:NvimTreeFindFile*
 :NvimTreeFindFileToggle	nvim-tree-lua.txt	/*:NvimTreeFindFileToggle*
 :NvimTreeFocus	nvim-tree-lua.txt	/*:NvimTreeFocus*
+:NvimTreeHiTest	nvim-tree-lua.txt	/*:NvimTreeHiTest*
 :NvimTreeOpen	nvim-tree-lua.txt	/*:NvimTreeOpen*
 :NvimTreeRefresh	nvim-tree-lua.txt	/*:NvimTreeRefresh*
 :NvimTreeResize	nvim-tree-lua.txt	/*:NvimTreeResize*
@@ -17,6 +18,8 @@ nvim-tree-api.config	nvim-tree-lua.txt	/*nvim-tree-api.config*
 nvim-tree-api.config.mappings.default_on_attach()	nvim-tree-lua.txt	/*nvim-tree-api.config.mappings.default_on_attach()*
 nvim-tree-api.config.mappings.get_keymap()	nvim-tree-lua.txt	/*nvim-tree-api.config.mappings.get_keymap()*
 nvim-tree-api.config.mappings.get_keymap_default()	nvim-tree-lua.txt	/*nvim-tree-api.config.mappings.get_keymap_default()*
+nvim-tree-api.diagnostics	nvim-tree-lua.txt	/*nvim-tree-api.diagnostics*
+nvim-tree-api.diagnostics.hi_test()	nvim-tree-lua.txt	/*nvim-tree-api.diagnostics.hi_test()*
 nvim-tree-api.events	nvim-tree-lua.txt	/*nvim-tree-api.events*
 nvim-tree-api.events.Event	nvim-tree-lua.txt	/*nvim-tree-api.events.Event*
 nvim-tree-api.events.subscribe()	nvim-tree-lua.txt	/*nvim-tree-api.events.subscribe()*
@@ -148,6 +151,7 @@ nvim-tree-prompts	nvim-tree-lua.txt	/*nvim-tree-prompts*
 nvim-tree-quickstart	nvim-tree-lua.txt	/*nvim-tree-quickstart*
 nvim-tree-quickstart-custom-mappings	nvim-tree-lua.txt	/*nvim-tree-quickstart-custom-mappings*
 nvim-tree-quickstart-help	nvim-tree-lua.txt	/*nvim-tree-quickstart-help*
+nvim-tree-quickstart-highlight	nvim-tree-lua.txt	/*nvim-tree-quickstart-highlight*
 nvim-tree-quickstart-setup	nvim-tree-lua.txt	/*nvim-tree-quickstart-setup*
 nvim-tree-setup	nvim-tree-lua.txt	/*nvim-tree-setup*
 nvim-tree.actions.change_dir	nvim-tree-lua.txt	/*nvim-tree.actions.change_dir*
