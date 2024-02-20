@@ -31,7 +31,10 @@ M.config = function ()
   vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave", "BufEnter", "CursorHold", "CursorHoldI" }, {
     callback = function()
       require("lint").try_lint()
-      require("lint").try_lint("codespell")
+      -- do not run codespell in server mode
+      if not vim.g.server_mode then
+        require("lint").try_lint("codespell")
+      end
     end,
   })
 end
