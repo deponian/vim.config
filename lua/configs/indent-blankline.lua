@@ -27,10 +27,8 @@ M.opts = {
       "IndentBlanklineIndentContext5",
       "IndentBlanklineIndentContext6",
     },
-    include = {
-      node_type = {
-        yaml = { "*" },
-      },
+    exclude = {
+      language = { "yaml" },
     },
   },
 }
