@@ -4,6 +4,7 @@ M.opts = {
   formatters_by_ft = {
     terraform = { "terraform_fmt" },
     hcl = { "terragrunt_hclfmt" },
+    go = { "gofmt" },
   },
   format_on_save = {
     -- These options will be passed to conform.format()

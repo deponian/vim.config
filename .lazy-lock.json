@@ -47,7 +47,6 @@
   "vim-commentary": { "branch": "master", "commit": "f67e3e67ea516755005e6cccb178bc8439c6d402" },
   "vim-fugitive": { "branch": "master", "commit": "9f92ff14d9d1169e08f197a2250fcaea88e9c767" },
   "vim-git": { "branch": "master", "commit": "105fd5559bd9df3f1204ecdcac2a587614e1a4be" },
-  "vim-go": { "branch": "master", "commit": "76cab3355fee04e750f69ccd34787b2570c6de7a" },
   "vim-helm": { "branch": "master", "commit": "86cc6766db60b8cc5731068d0c2111dee1f2b328" },
   "vim-illuminate": { "branch": "master", "commit": "305bf07b919ac526deb5193280379e2f8b599926" },
   "vim-log-highlighting": { "branch": "master", "commit": "1037e26f3120e6a6a2c0c33b14a84336dee2a78f" },

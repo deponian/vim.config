@@ -69,14 +69,6 @@ return {
   },
 
   {
-    "fatih/vim-go",
-    lazy = false,
-    init = function()
-      vim.g.go_fmt_fail_silently = 1
-    end
-  },
-
-  {
     "pearofducks/ansible-vim",
     init = function()
       vim.g.ansible_ftdetect_filename_regex = [[\v(playbook|site|local|requirements)\.ya?ml$]]

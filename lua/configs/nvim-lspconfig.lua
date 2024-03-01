@@ -91,6 +91,18 @@ M.config = function ()
     capabilities = capabilities,
     handlers = handlers,
     on_attach = on_attach,
+    cmd = {"gopls"},
+    filetypes = { "go", "gomod", "gowork", "gotmpl" },
+    root_dir = require("lspconfig.util").root_pattern("go.work", "go.mod", ".git"),
+    settings = {
+      gopls = {
+        completeUnimported = true,
+        usePlaceholders = true,
+        analyses = {
+          unusedparams = true,
+        },
+      },
+    },
   })
 
   require("lspconfig").jsonls.setup({
