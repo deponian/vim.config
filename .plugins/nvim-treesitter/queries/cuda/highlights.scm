@@ -1,4 +1,5 @@
 ; inherits: cpp
+
 [
   "<<<"
   ">>>"
@@ -10,6 +11,6 @@
   "__global__"
   "__forceinline__"
   "__noinline__"
-] @keyword.storage
+] @keyword.modifier
 
-"__launch_bounds__" @type.qualifier
+"__launch_bounds__" @keyword.modifier

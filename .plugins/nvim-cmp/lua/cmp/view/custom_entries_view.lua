@@ -118,6 +118,8 @@ end
 
 custom_entries_view.open = function(self, offset, entries)
   local completion = config.get().window.completion
+  assert(completion, 'config.get() must resolve window.completion with defaults')
+
   self.offset = offset
   self.entries = {}
   self.column_width = { abbr = 0, kind = 0, menu = 0 }
@@ -199,7 +201,7 @@ custom_entries_view.open = function(self, offset, entries)
   end
 
   -- Apply window options (that might be changed) on the custom completion menu.
-  self.entries_win:option('winblend', vim.o.pumblend)
+  self.entries_win:option('winblend', completion.winblend)
   self.entries_win:option('winhighlight', completion.winhighlight)
   self.entries_win:option('scrolloff', completion.scrolloff)
   self.entries_win:open({
@@ -212,7 +214,14 @@ custom_entries_view.open = function(self, offset, entries)
     border = completion.border,
     zindex = completion.zindex or 1001,
   })
-  -- always set cursor when starting. It will be adjusted on the call to _select
+
+  -- Don't set the cursor if the entries_win:open function fails
+  -- due to the window's width or height being less than 1
+  if self.entries_win.win == nil then
+    return
+  end
+
+  -- Always set cursor when starting. It will be adjusted on the call to _select
   vim.api.nvim_win_set_cursor(self.entries_win.win, { 1, 0 })
   if preselect_index > 0 and config.get().preselect == types.cmp.PreselectMode.Item then
     self:_select(preselect_index, { behavior = types.cmp.SelectBehavior.Select, active = false })

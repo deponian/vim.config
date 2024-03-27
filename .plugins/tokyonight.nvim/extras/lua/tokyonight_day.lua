@@ -236,6 +236,9 @@ local highlights = {
   ["@lsp.type.namespace"] = {
     link = "@module"
   },
+  ["@lsp.type.namespace.python"] = {
+    link = "@variable"
+  },
   ["@lsp.type.number"] = {
     link = "@number"
   },
@@ -619,7 +622,8 @@ local highlights = {
     fg = "#b15c00"
   },
   Bold = {
-    bold = true
+    bold = true,
+    fg = "#3760bf"
   },
   BufferAlternate = {
     bg = "#a8aecb",
@@ -1240,6 +1244,7 @@ local highlights = {
     nocombine = true
   },
   Italic = {
+    fg = "#3760bf",
     italic = true
   },
   Keyword = {
@@ -2296,6 +2301,14 @@ local highlights = {
   TelescopeNormal = {
     bg = "#e9e9ec",
     fg = "#3760bf"
+  },
+  TelescopePromptBorder = {
+    bg = "#e9e9ec",
+    fg = "#b15c00"
+  },
+  TelescopePromptTitle = {
+    bg = "#e9e9ec",
+    fg = "#b15c00"
   },
   Title = {
     bold = true,

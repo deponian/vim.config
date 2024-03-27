@@ -172,14 +172,14 @@
   "view"
   "payable"
   (immutable)
-] @type.qualifier
+] @keyword.modifier
 
 [
   "memory"
   "storage"
   "calldata"
   "constant"
-] @keyword.storage
+] @keyword.modifier
 
 [
   "for"

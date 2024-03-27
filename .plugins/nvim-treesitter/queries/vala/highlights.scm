@@ -208,7 +208,7 @@
   "owned"
   "weak"
   "unowned"
-] @type.qualifier
+] @keyword.modifier
 
 [
   "case"
@@ -229,7 +229,7 @@
   "protected"
   "public"
   "static"
-] @keyword.storage
+] @keyword.modifier
 
 [
   "and"

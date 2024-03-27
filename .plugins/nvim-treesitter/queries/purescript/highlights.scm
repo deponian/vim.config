@@ -58,15 +58,15 @@
   "="
   "|"
   "::"
-  "∷"
+  ; "∷"
   "=>"
-  "⇒"
+  ; "⇒"
   "<="
-  "⇐"
+  ; "⇐"
   "->"
-  "→"
+  ; "→"
   "<-"
-  "←"
+  ; "←"
   "\\"
   "`"
   "@"
@@ -102,7 +102,7 @@
   "do"
   "ado"
   "forall"
-  "∀"
+  ; "∀" ; utf-8 is not cross-platform safe
   "infix"
   "infixl"
   "infixr"
@@ -113,7 +113,7 @@
 
 (type_role_declaration
   "role" @keyword
-  role: (type_role) @type.qualifier)
+  role: (type_role) @keyword.modifier)
 
 (hole) @character.special
 

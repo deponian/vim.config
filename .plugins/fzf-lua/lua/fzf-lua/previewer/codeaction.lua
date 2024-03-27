@@ -13,7 +13,7 @@ local function get_lines(bufnr)
 end
 
 local function get_eol(bufnr)
-  local ff = vim.api.nvim_buf_get_option(bufnr, "fileformat")
+  local ff = vim.bo[bufnr].fileformat
   if ff == "dos" then
     return "\r\n"
   elseif ff == "unix" then
@@ -68,7 +68,10 @@ local function diff_workspace_edit(workspace_edit, offset_encoding, diff_opts)
         local path = vim.fn.fnamemodify(vim.uri_to_fname(change.uri), ":.")
 
         table.insert(diff, string.format("diff --code-actions a/%s b/%s", path, path))
-        table.insert(diff, "new file")
+        -- delta needs file mode
+        table.insert(diff, "new file mode 100644")
+        -- diff-so-fancy needs index
+        table.insert(diff, "index 0000000..fffffff")
         table.insert(diff, "")
       elseif change.kind == "delete" then
         local path = vim.fn.fnamemodify(vim.uri_to_fname(change.uri), ":.")
@@ -139,55 +142,93 @@ local function diff_tuple(err, tuple, diff_opts)
 end
 
 -- https://github.com/neovim/neovim/blob/v0.9.4/runtime/lua/vim/lsp/buf.lua#L666
-local function preview_action_tuple(tuple, diff_opts, callback)
+local function preview_action_tuple(self, idx, callback)
+  local tuple = self.opts._items[idx]
   -- neovim changed the ui.select params with 0.10.0 (#947)
   -- { client_id, action } ==> { ctx = <LSP context>, action = <action> }
   if tuple.ctx then
     tuple = { tuple.ctx.client_id, tuple.action }
   end
-  local client = assert(vim.lsp.get_client_by_id(tuple[1]))
+  -- First check our resolved action cache, if "codeAction/resolve" failed, ignore
+  -- the error (we already alerted the user about it in `handle_resolved_response`)
+  -- and display the default "unsupported" message from the original action
+  if self._resolved_actions[idx] then
+    local resolved = self._resolved_actions[idx]
+    return diff_tuple(nil, not resolved.err and resolved.tuple or tuple, self.diff_opts)
+  end
+  -- Not found in cache, check if the client supports code action resolving
+  local client_id = tuple[1]
+  local client = assert(vim.lsp.get_client_by_id(client_id))
   local action = tuple[2]
-  if
-      not action.edit
-      and client
-      and vim.tbl_get(client.server_capabilities, "codeActionProvider", "resolveProvider")
-  then
-    local function on_result(diff_callback, err, resolved_action)
+  local supports_resolve = utils.__HAS_NVIM_010
+      -- runtime/lua/lsp/buf.lua:on_user_choice
+      and (function()
+        ---@var choice {action: lsp.Command|lsp.CodeAction, ctx: lsp.HandlerContext}
+        local ms = require("vim.lsp.protocol").Methods
+        local choice = self.opts._items[idx]
+        local bufnr = assert(choice.ctx.bufnr, "Must have buffer number")
+        local reg = client.dynamic_capabilities:get(ms.textDocument_codeAction, { bufnr = bufnr })
+        return vim.tbl_get(reg or {}, "registerOptions", "resolveProvider")
+            or client.supports_method(ms.codeAction_resolve)
+      end)()
+      -- prior to nvim 0.10 we could check `client.server_capabilities`
+      or vim.tbl_get(client.server_capabilities, "codeActionProvider", "resolveProvider")
+  if not action.edit and client and supports_resolve then
+    -- Action is not a worksapce edit, attempt to resolve the code action
+    -- in case it resolves to a workspace edit
+    local function handle_resolved_response(err, resolved_action)
       if err then
-        return diff_callback(err, tuple, diff_opts)
-      else
-        return diff_callback(err, { tuple[1], resolved_action }, diff_opts)
+        -- alert the user "codeAction/resolve" request  failed
+        utils.warn(diff_tuple(err, nil, self.diff_opts)[1])
       end
+      local resolved = {
+        err = err,
+        -- Due to a bug in `typescript-tools.nvim` only the first call to `codeAction/resolve`
+        -- returns a valid action (non-nil), return nil tuple if the action is nil (#949)
+        tuple = resolved_action and { client_id, resolved_action } or nil
+      }
+      self._resolved_actions[idx] = resolved
+      -- HACK: due to upstream bug with jdtls calling resolve messes
+      -- errs the workspace edit with "-32603: Internal error." (#1007)
+      if not err and client.name == "jdtls" then
+        if utils.__HAS_NVIM_010 then
+          self.opts._items[idx].action = resolved_action
+        else
+          self.opts._items[idx][2] = resolved_action
+        end
+      end
+      return resolved.tuple
     end
-
     if callback then
       client.request("codeAction/resolve", action, function(err, resolved_action)
-        on_result(callback, err, resolved_action)
+        local resolved_tuple = handle_resolved_response(err, resolved_action)
+        callback(nil, not err and resolved_tuple or tuple)
       end)
       return { string.format("Resolving action (%s)...", action.kind) }
     else
       local res = client.request_sync("codeAction/resolve", action)
       local err, resolved_action = res and res.err, res and res.result
-      if type(err) == "table" or type(resolved_action) == "table" then
-        return on_result(diff_tuple, err, resolved_action)
-      else
-        -- display the default "unsupported" message
-        return diff_tuple(nil, tuple, diff_opts)
-      end
+      local resolved_tuple = handle_resolved_response(err, resolved_action)
+      return diff_tuple(nil, not err and resolved_tuple or tuple, self.diff_opts)
     end
   else
-    return diff_tuple(nil, tuple, diff_opts)
+    return diff_tuple(nil, tuple, self.diff_opts)
   end
 end
 
 
 M.builtin = builtin.base:extend()
+M.builtin.preview_action_tuple = preview_action_tuple
 
 function M.builtin:new(o, opts, fzf_win)
   assert(opts._ui_select and opts._ui_select.kind == "codeaction")
   M.builtin.super.new(self, o, opts, fzf_win)
   setmetatable(self, M.builtin)
   self.diff_opts = o.diff_opts
+  self._resolved_actions = {}
+  for i, _ in ipairs(self.opts._items) do
+    self._resolved_actions[i] = false
+  end
   return self
 end
 
@@ -204,8 +245,7 @@ function M.builtin:populate_preview_buf(entry_str)
   if not self.win or not self.win:validate_preview() then return end
   local idx = tonumber(entry_str:match("^%d+%."))
   assert(type(idx) == "number")
-  local tuple = self.opts._items[idx]
-  local lines = preview_action_tuple(tuple, self.diff_opts,
+  local lines = self:preview_action_tuple(idx,
     -- use the async version for "codeAction/resolve"
     function(err, resolved_tuple)
       if vim.api.nvim_buf_is_valid(self.tmpbuf) then
@@ -215,13 +255,14 @@ function M.builtin:populate_preview_buf(entry_str)
     end)
   self.tmpbuf = self:get_tmp_buffer()
   vim.api.nvim_buf_set_lines(self.tmpbuf, 0, -1, false, lines)
-  vim.api.nvim_buf_set_option(self.tmpbuf, "filetype", "git")
+  vim.bo[self.tmpbuf].filetype = "git"
   self:set_preview_buf(self.tmpbuf)
   self.win:update_title(string.format(" Action #%d ", idx))
   self.win:update_scrollbar()
 end
 
 M.native = native.base:extend()
+M.native.preview_action_tuple = preview_action_tuple
 
 function M.native:new(o, opts, fzf_win)
   assert(opts._ui_select and opts._ui_select.kind == "codeaction")
@@ -232,6 +273,10 @@ function M.native:new(o, opts, fzf_win)
     self.pager = self.pager()
   end
   self.diff_opts = o.diff_opts
+  self._resolved_actions = {}
+  for i, _ in ipairs(self.opts._items) do
+    self._resolved_actions[i] = false
+  end
   return self
 end
 
@@ -240,12 +285,11 @@ function M.native:cmdline(o)
   local act = shell.raw_action(function(entries, _, _)
     local idx = tonumber(entries[1]:match("^%d+%."))
     assert(type(idx) == "number")
-    local tuple = self.opts._items[idx]
-    local lines = preview_action_tuple(tuple, self.diff_opts)
+    local lines = self:preview_action_tuple(idx)
     return table.concat(lines, "\r\n")
   end, "{}", self.opts.debug)
   if self.pager and #self.pager > 0 and vim.fn.executable(self.pager:match("[^%s]+")) == 1 then
-    act = act .. " | " .. self.pager
+    act = act .. " | " .. utils._if_win_normalize_vars(self.pager)
   end
   return act
 end

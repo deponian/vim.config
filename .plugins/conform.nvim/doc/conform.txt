@@ -6,7 +6,6 @@ CONTENTS                                                        *conform-content
   1. Options                                                 |conform-options|
   2. Api                                                         |conform-api|
   3. Formatters                                           |conform-formatters|
-  4. Self argument migration                               |conform-self-args|
 
 --------------------------------------------------------------------------------
 OPTIONS                                                          *conform-options*
@@ -56,7 +55,7 @@ OPTIONS                                                          *conform-option
       formatters = {
         my_formatter = {
           -- This can be a string or a function that returns a string.
-          -- When defining a new formatter, this is the only field that is *required*
+          -- When defining a new formatter, this is the only field that is required
           command = "my_cmd",
           -- A list of strings, or a function that returns a list of strings
           -- Return a single string instead of a list to run the command in a shell
@@ -73,6 +72,8 @@ OPTIONS                                                          *conform-option
           cwd = require("conform.util").root_file({ ".editorconfig", "package.json" }),
           -- When cwd is not found, don't run the formatter (default false)
           require_cwd = true,
+          -- When stdin=false, use this template to generate the temporary file that gets formatted
+          tmpfile_format = ".conform.$RANDOM.$FILENAME",
           -- When returns false, the formatter will not be used
           condition = function(ctx)
             return vim.fs.basename(ctx.filename) ~= "README.md"
@@ -200,12 +201,14 @@ FORMATTERS                                                    *conform-formatter
 `buf` - A new way of working with Protocol Buffers.
 `buildifier` - buildifier is a tool for formatting bazel BUILD and .bzl files
              with a standard convention.
+`cabal_fmt` - Format cabal files with cabal-fmt
 `cbfmt` - A tool to format codeblocks inside markdown and org documents.
 `clang_format` - Tool to format C/C++/… code according to a set of rules and
                heuristics.
 `cljstyle` - Formatter for Clojure code.
 `cmake_format` - Parse cmake listfiles and format them nicely.
 `codespell` - Check code for common misspellings.
+`crystal` - Format Crystal code.
 `csharpier` - The opinionated C# code formatter.
 `cue_fmt` - Format CUE files using `cue fmt` command.
 `darker` - Run black only on changed lines.
@@ -224,6 +227,7 @@ FORMATTERS                                                    *conform-formatter
              lang.org/docs/style-guide).
 `erb_format` - Format ERB files with speed and precision.
 `eslint_d` - Like ESLint, but faster.
+`fantomas` - F# source code formatter.
 `fish_indent` - Indent or otherwise prettify a piece of fish code.
 `fixjson` - JSON Fixer for Humans using (relaxed) JSON5.
 `fnlfmt` - A formatter for Fennel code.
@@ -231,6 +235,8 @@ FORMATTERS                                                    *conform-formatter
 `gci` - GCI, a tool that controls Go package import order and makes it always
       deterministic.
 `gdformat` - A formatter for Godot's gdscript.
+`gersemi` - A formatter to make your CMake code the real treasure.
+`gleam` - ⭐️ A friendly language for building type-safe, scalable systems!
 `gn` - gn build system.
 `gofmt` - Formats go programs.
 `gofumpt` - Enforce a stricter format than gofmt, while being backwards
@@ -256,6 +262,7 @@ FORMATTERS                                                    *conform-formatter
 `ktlint` - An anti-bikeshedding Kotlin linter with built-in formatter.
 `latexindent` - A perl script for formatting LaTeX files that is generally
               included in major TeX distributions.
+`liquidsoap-prettier` - A binary to format Liquidsoap scripts
 `markdown-toc` - API and CLI for generating a markdown TOC (table of contents)
                for a README or any markdown files.
 `markdownlint` - A Node.js style checker and lint tool for Markdown/CommonMark
@@ -267,10 +274,13 @@ FORMATTERS                                                    *conform-formatter
 `mdslw` - Prepare your markdown for easy diff'ing by adding line breaks after
         every sentence.
 `mix` - Format Elixir files using the mix format command.
+`nimpretty` - nimpretty is a Nim source code beautifier that follows the
+            official style guide.
 `nixfmt` - nixfmt is a formatter for Nix code, intended to apply a uniform
          style.
 `nixpkgs_fmt` - nixpkgs-fmt is a Nix code formatter for nixpkgs.
 `ocamlformat` - Auto-formatter for OCaml code.
+`ocp-indent` - Automatic indentation of OCaml source files.
 `opa_fmt` - Format Rego files using `opa fmt` command.
 `packer_fmt` - The packer fmt Packer command is used to format HCL2
              configuration files to a canonical format and style.
@@ -291,7 +301,10 @@ FORMATTERS                                                    *conform-formatter
 `prettierd` - prettier, as a daemon, for ludicrous formatting speed.
 `pretty-php` - The opinionated PHP code formatter.
 `puppet-lint` - Check that your Puppet manifests conform to the style guide.
+`purs-tidy` - A syntax tidy-upper for PureScript.
 `reorder-python-imports` - Rewrites source to reorder python imports
+`rescript-format` - The built-in ReScript formatter.
+`roc` - A fast, friendly, functional language.
 `rubocop` - Ruby static code analyzer and formatter, based on the community Ruby
           style guide.
 `rubyfmt` - Ruby Autoformatter! (Written in Rust)
@@ -308,6 +321,8 @@ FORMATTERS                                                    *conform-formatter
 `sql_formatter` - A whitespace formatter for different query languages.
 `sqlfluff` - A modular SQL linter and auto-formatter with support for multiple
            dialects and templated code.
+`sqlfmt` - sqlfmt formats your dbt SQL files so you don't have to. It is similar
+         in nature to Black, gofmt, and rustfmt (but for SQL)
 `squeeze_blanks` - Squeeze repeated blank lines into a single blank line via
                  `cat -s`.
 `standardjs` - JavaScript Standard style guide, linter, and formatter.
@@ -327,8 +342,11 @@ FORMATTERS                                                    *conform-formatter
 `terragrunt_hclfmt` - Format hcl files into a canonical format.
 `tlint` - Tighten linter for Laravel conventions with support for auto-
         formatting.
+`tofu_fmt` - The tofu-fmt command rewrites OpenTofu configuration files to a
+           canonical format and style.
 `trim_newlines` - Trim new lines with awk.
 `trim_whitespace` - Trim whitespaces with awk.
+`twig-cs-fixer` - Automatically fix Twig Coding Standards issues
 `typos` - Source code spell checker
 `typstfmt` - Basic formatter for the Typst language with a future!
 `uncrustify` - A source code beautifier for C, C++, C#, ObjectiveC, D, Java,
@@ -345,29 +363,6 @@ FORMATTERS                                                    *conform-formatter
 `yq` - YAML/JSON processor
 `zigfmt` - Reformat Zig source into canonical form.
 `zprint` - Formatter for Clojure and EDN.
-
---------------------------------------------------------------------------------
-SELF ARGUMENT MIGRATION                                        *conform-self-args*
-
-The function arguments for formatter config functions have changed. Previously,
-they took a single `ctx` argument.
->lua
-    {
-        command = "phpcbf",
-        args = function(ctx)
-            return { "-q", "--stdin-path=" .. ctx.filename, "-" }
-        end
-    }
-<Now, they take `self` as the first argument, and `ctx` as the second.
->lua
-    {
-        command = "phpcbf",
-        args = function(self, ctx)
-            return { "-q", "--stdin-path=" .. ctx.filename, "-" }
-        end
-    }
-<The config values that can be defined as functions are: `command`, `args`,
-`range_args`, `cwd`, `env`, and `condition`.
 
 ================================================================================
 vim:tw=80:ts=2:ft=help:norl:syntax=help:

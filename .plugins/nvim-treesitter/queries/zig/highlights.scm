@@ -154,14 +154,14 @@ field_constant: (IDENTIFIER) @constant
   "volatile"
   "allowzero"
   "noalias"
-] @type.qualifier
+] @keyword.modifier
 
 [
   "addrspace"
   "align"
   "callconv"
   "linksection"
-] @keyword.storage
+] @keyword.modifier
 
 [
   "comptime"

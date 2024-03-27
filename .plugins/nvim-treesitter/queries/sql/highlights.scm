@@ -21,14 +21,16 @@
 (field
   name: (identifier) @variable.member)
 
+(column_definition
+  name: (identifier) @variable.member)
+
 (term
   alias: (identifier) @variable)
 
 (term
-  value:
-    (cast
-      name: (keyword_cast) @function.call
-      parameter: (literal)?))
+  value: (cast
+    name: (keyword_cast) @function.call
+    parameter: (literal)?))
 
 (literal) @string
 
@@ -95,7 +97,7 @@
   (keyword_jsonfile)
   (keyword_sequencefile)
   (keyword_volatile)
-] @keyword.storage
+] @keyword.modifier
 
 [
   (keyword_case)
@@ -333,7 +335,7 @@
   (keyword_statistics)
   (keyword_maxvalue)
   (keyword_minvalue)
-] @type.qualifier
+] @keyword.modifier
 
 [
   (keyword_int)

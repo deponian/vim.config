@@ -2,8 +2,17 @@
 -- https://github.com/vijaymarupudi/nvim-fzf/blob/master/action_helper.lua
 local uv = vim.loop
 
+local _is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+
+---@return string
+local function windows_pipename()
+  local tmpname = vim.fn.tempname()
+  tmpname = string.gsub(tmpname, "\\", "")
+  return ([[\\.\pipe\%s]]):format(tmpname)
+end
+
 local function get_preview_socket()
-  local tmp = vim.fn.tempname()
+  local tmp = _is_win and windows_pipename() or vim.fn.tempname()
   local socket = uv.new_pipe(false)
   uv.pipe_bind(socket, tmp)
   return socket, tmp
@@ -21,7 +30,7 @@ uv.listen(preview_socket, 100, function(_)
       uv.close(preview_receive_socket)
       uv.close(preview_socket)
       vim.schedule(function()
-        vim.cmd [[qall]]
+        vim.cmd([[qall]])
       end)
       return
     end
@@ -29,13 +38,17 @@ uv.listen(preview_socket, 100, function(_)
   end)
 end)
 
-
 local function rpc_nvim_exec_lua(opts)
   local success, errmsg = pcall(function()
     -- fzf selection is unpacked as the argument list
     local fzf_selection = {}
-    for i = 1, vim.fn.argc() do
-      table.insert(fzf_selection, vim.fn.argv(i - 1))
+    local nargs = vim.fn.argc()
+    for i = 0, nargs - 1 do
+      -- On Windows, vim.fn.argv() normalizes the path (replaces bslash with fslash)
+      -- while vim.v.argv provides access to the raw argument, however, vim.v.argv
+      -- contains the headless wrapper arguments so we need to index backwards
+      table.insert(fzf_selection,
+        _is_win and vim.v.argv[#vim.v.argv - nargs + 1 + i] or vim.fn.argv(i))
     end
     -- for skim compatibility
     local preview_lines = vim.env.FZF_PREVIEW_LINES or vim.env.LINES
@@ -55,7 +68,7 @@ local function rpc_nvim_exec_lua(opts)
       preview_socket_path,
       fzf_selection,
       tonumber(preview_lines),
-      tonumber(preview_cols)
+      tonumber(preview_cols),
     })
     vim.fn.chanclose(chan_id)
   end)
@@ -67,17 +80,25 @@ local function rpc_nvim_exec_lua(opts)
     for i = 1, #vim.v.argv do
       io.stderr:write(("[DEBUG]\targv[%d] = %s\n"):format(i, vim.v.argv[i]))
     end
-    for i = 1, vim.fn.argc() do
-      io.stderr:write(("[DEBUG]\targ[%d] = %s\n"):format(i, vim.fn.argv(i - 1)))
+    local nargs = vim.fn.argc()
+    for i = 0, nargs - 1 do
+      io.stderr:write(("[DEBUG]\targv[%d] = %s\n"):format(i, vim.fn.argv(i)))
+    end
+    for i = 0, nargs - 1 do
+      local argv_idx = #vim.v.argv - nargs + 1 + i
+      io.stderr:write(("[DEBUG]\tv:arg[%d:%d] = %s\n"):format(i, argv_idx, vim.v.argv[argv_idx]))
+    end
+    for _, var in ipairs({ "LINES", "COLUMNS" }) do
+      io.stderr:write(("[DEBUG]\t$%s = %s\n"):format(var, os.getenv(var) or "<null>"))
     end
   end
 
   if not success then
     io.stderr:write(("FzfLua Error: %s\n"):format(errmsg or "<null>"))
-    vim.cmd [[qall]]
+    vim.cmd([[qall]])
   end
 end
 
 return {
-  rpc_nvim_exec_lua = rpc_nvim_exec_lua
+  rpc_nvim_exec_lua = rpc_nvim_exec_lua,
 }

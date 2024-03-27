@@ -34,12 +34,12 @@
   (parameter_modifier)
   (inheritance_modifier)
   (mutation_modifier)
-] @type.qualifier
+] @keyword.modifier
 
 (function_declaration
   (simple_identifier) @function.method)
 
-(function_declaration
+(init_declaration
   "init" @constructor)
 
 (throws) @keyword
@@ -80,6 +80,11 @@
   "convenience"
   "required"
   "some"
+  "any"
+  "weak"
+  "unowned"
+  "didSet"
+  "willSet"
 ] @keyword
 
 [
@@ -114,6 +119,15 @@
 
 (enum_entry
   "case" @keyword)
+
+; Attributes
+(modifiers
+  (attribute) @attribute.builtin)
+
+(modifiers
+  (attribute
+    (user_type
+      (type_identifier) @attribute.builtin)))
 
 ; Function calls
 (call_expression
@@ -275,6 +289,9 @@
   "++"
   "--"
   "&"
+  "&&"
+  "|"
+  "||"
   "~"
   "%="
   "!="

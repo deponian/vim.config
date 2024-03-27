@@ -97,9 +97,8 @@
   function: (operator_identifier) @function.call)
 
 (call_expression
-  function:
-    (field_expression
-      field: (identifier) @function.method.call))
+  function: (field_expression
+    field: (identifier) @function.method.call))
 
 ((call_expression
   function: (identifier) @constructor)
@@ -161,13 +160,13 @@
   "$" @punctuation.special)
 
 ; keywords
-(opaque_modifier) @type.qualifier
+(opaque_modifier) @keyword.modifier
 
 (infix_modifier) @keyword
 
-(transparent_modifier) @type.qualifier
+(transparent_modifier) @keyword.modifier
 
-(open_modifier) @type.qualifier
+(open_modifier) @keyword.modifier
 
 [
   "case"
@@ -201,9 +200,9 @@
   "sealed"
   "private"
   "protected"
-] @type.qualifier
+] @keyword.modifier
 
-(inline_modifier) @keyword.storage
+(inline_modifier) @keyword.modifier
 
 (null_literal) @constant.builtin
 

@@ -297,6 +297,7 @@ function M.select_download_commands(repo, project_name, cache_folder, revision, 
             "clone",
             repo.url,
             project_name,
+            "--filter=blob:none",
           },
           cwd = cache_folder,
         },
@@ -328,7 +329,7 @@ function M.make_directory_change_for_command(dir, command)
       return string.format("pushd %s ; %s ; popd", cmdpath(dir), command)
     end
   else
-    return string.format("cd %s;\n %s", dir, command)
+    return string.format("cd %s;\n%s", dir, command)
   end
 end
 

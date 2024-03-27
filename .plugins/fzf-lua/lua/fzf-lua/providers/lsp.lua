@@ -101,7 +101,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
   result = vim.tbl_filter(function(x)
     local item = vim.lsp.util.locations_to_items({ x }, encoding)[1]
     table.insert(items, item)
-    if opts.cwd_only and not path.is_relative(item.filename, opts.cwd) then
+    if opts.cwd_only and not path.is_relative_to(item.filename, opts.cwd) then
       return false
     end
     return true
@@ -200,7 +200,7 @@ local function symbol_handler(opts, cb, _, result, _, _)
           end)
         ) .. "]+"
         entry.text = sym .. text:gsub(pattern, function(x)
-          return utils.ansi_codes.red(x)
+          return utils.ansi_codes[opts.hls.live_sym](x)
         end)
       end
       if M._sym2style then
@@ -672,9 +672,9 @@ local function gen_sym2style_map(opts)
     -- style==2: "<icon>"
     -- style==3: "<kind>"
     local s = nil
-    if tonumber(opts.symbol_style) == 1 and config._has_devicons then
+    if tonumber(opts.symbol_style) == 1 then
       s = ("%s %s"):format(icon, kind)
-    elseif tonumber(opts.symbol_style) == 2 and config._has_devicons then
+    elseif tonumber(opts.symbol_style) == 2 then
       s = icon
     elseif tonumber(opts.symbol_style) == 3 then
       s = kind
@@ -761,7 +761,9 @@ M.live_workspace_symbols = function(opts)
 
   -- prepend prompt with "*" to indicate "live" query
   opts.prompt = type(opts.prompt) == "string" and opts.prompt or ""
-  opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
+  if opts.live_ast_prefix ~= false then
+    opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
+  end
 
   -- when using live_workspace_symbols there is no "query"
   -- the prompt input is the LSP query, store as "lsp_query"
@@ -772,6 +774,8 @@ M.live_workspace_symbols = function(opts)
     utils.map_set(config, "__resume_data.last_query", val)
     -- also store query for `fzf_resume` (#963)
     utils.map_set(config, "__resume_data.opts.query", val)
+    -- store in opts for convinience in action callbacks
+    o.last_query = val
   end
   opts.__resume_get = function(what, o)
     return config.resume_get(

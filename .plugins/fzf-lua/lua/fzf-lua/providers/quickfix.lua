@@ -15,7 +15,10 @@ local quickfix_run = function(opts, cfg, locations)
   if not opts.cwd then opts.cwd = vim.loop.cwd() end
 
   for _, entry in ipairs(locations) do
-    table.insert(results, make_entry.lcol(entry, opts))
+    if entry.valid == 1 or not opts.only_valid then
+      entry.text = entry.text:gsub("\r?\n", " ")
+      table.insert(results, make_entry.lcol(entry, opts))
+    end
   end
 
   local contents = function(cb)

@@ -1,5 +1,7 @@
 local uv = vim.loop
 
+local _is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+
 local M = {}
 
 -- path to current file
@@ -11,6 +13,9 @@ local __FILE__ = debug.getinfo(1, "S").source:gsub("^@", "")
 -- effects (as 'vim.g.fzf_lua_directory=nil'). Run an additional
 -- check if we are running headless with 'vim.api.nvim_list_uis'
 if not vim.g.fzf_lua_directory and #vim.api.nvim_list_uis() == 0 then
+  -- global var indicating a headless instance
+  vim.g.fzf_lua_is_headless = true
+
   -- prepend this folder first, so our modules always get first
   -- priority over some unknown random module with the same name
   package.path = (";%s/?.lua;"):format(vim.fn.fnamemodify(__FILE__, ":h"))
@@ -40,25 +45,40 @@ if not vim.g.fzf_lua_directory and #vim.api.nvim_list_uis() == 0 then
   end
 end
 
+local base64 = require("fzf-lua.lib.base64")
+local serpent = require("fzf-lua.lib.serpent")
+
 -- save to upvalue for performance reasons
 local string_byte = string.byte
 local string_sub = string.sub
 
-local function find_last_newline(str)
+local function find_last(str, bytecode)
   for i = #str, 1, -1 do
-    if string_byte(str, i) == 10 then
+    if string_byte(str, i) == bytecode then
       return i
     end
   end
 end
 
-local function find_next_newline(str, start_idx)
+local function find_next(str, bytecode, start_idx)
+  local bytecodes = type(bytecode) == "table" and bytecode or { bytecode }
   for i = start_idx or 1, #str do
-    if string_byte(str, i) == 10 then
-      return i
+    for _, b in ipairs(bytecodes) do
+      if string_byte(str, i) == b then
+        return i, string.char(b)
+      end
     end
   end
 end
+
+local function find_last_newline(str)
+  return find_last(str, 10)
+end
+
+local function find_next_newline(str, start_idx)
+  return find_next(str, 10, start_idx)
+end
+
 
 local function process_kill(pid, signal)
   if not pid or not tonumber(pid) then return false end
@@ -97,6 +117,9 @@ local function coroutinify(fn)
   end
 end
 
+---@param opts {cwd: string, cmd: string|table, env: table?, cb_finish: function, cb_write: function, cb_err: function, cb_pid: function, fn_transform: function?}
+---@param fn_transform function?
+---@param fn_done function?
 M.spawn = function(opts, fn_transform, fn_done)
   local output_pipe = uv.new_pipe(false)
   local error_pipe = uv.new_pipe(false)
@@ -119,10 +142,24 @@ M.spawn = function(opts, fn_transform, fn_done)
 
   -- https://github.com/luvit/luv/blob/master/docs.md
   -- uv.spawn returns tuple: handle, pid
-  local handle, pid = uv.spawn("sh", {
-    args = { "-c", opts.cmd },
+  local shell = _is_win and "cmd" or "sh"
+  local args = _is_win and { "/d", "/e:off", "/f:off", "/v:on", "/c" } or { "-c" }
+  if type(opts.cmd) == "table" then
+    if _is_win then
+      ---@diagnostic disable-next-line: deprecated
+      table.move(opts.cmd, 1, #opts.cmd, #args + 1, args)
+    else
+      table.insert(args, table.concat(opts.cmd, " "))
+    end
+  else
+    table.insert(args, tostring(opts.cmd))
+  end
+  local handle, pid = uv.spawn(shell, {
+    args = args,
     stdio = { nil, output_pipe, error_pipe },
-    cwd = opts.cwd
+    cwd = opts.cwd,
+    env = opts.env,
+    verbatim = _is_win,
   }, function(code, signal)
     output_pipe:read_stop()
     error_pipe:read_stop()
@@ -256,7 +293,9 @@ end
 
 M.async_spawn = coroutinify(M.spawn)
 
-
+---@param opts {cmd: string, cwd: string, cb_pid: function, cb_finish: function, cb_write: function}
+---@param fn_transform function?
+---@param fn_preprocess function?
 M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess)
   assert(not fn_transform or type(fn_transform) == "function")
 
@@ -292,7 +331,21 @@ M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess)
   end
 end
 
-M.spawn_stdio = function(opts, fn_transform, fn_preprocess)
+---@param opts table
+---@param fn_transform_str string
+---@param fn_preprocess_str string
+M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
+  -- attempt base64 decoding on all params
+  ---@param str string|table
+  ---@return string|table
+  local base64_conditional_decode = function(str)
+    if opts._base64 == false or type(str) ~= "string" then return str end
+    local ok, decoded = pcall(base64.decode, str)
+    return ok and decoded or str
+  end
+
+  ---@param fn_str string
+  ---@return function?
   local function load_fn(fn_str)
     if type(fn_str) ~= "string" then return end
     local fn_loaded = nil
@@ -302,6 +355,17 @@ M.spawn_stdio = function(opts, fn_transform, fn_preprocess)
       fn_loaded = nil
     end
     return fn_loaded
+  end
+
+  -- conditionally base64 decode, if not a base64 string, returns original value
+  opts = base64_conditional_decode(opts)
+  fn_transform_str = base64_conditional_decode(fn_transform_str)
+  fn_preprocess_str = base64_conditional_decode(fn_preprocess_str)
+
+  -- opts must be a table, if opts is a string deserialize
+  if type(opts) == "string" then
+    _, opts = serpent.load(opts)
+    assert(type(opts) == "table")
   end
 
   -- stdin/stdout are already buffered, not stderr. This means
@@ -318,14 +382,27 @@ M.spawn_stdio = function(opts, fn_transform, fn_preprocess)
     opts.stderr_to_stdout = true
   end
 
-  fn_transform = load_fn(fn_transform)
-  fn_preprocess = load_fn(fn_preprocess)
+  -- setup global vars
+  for k, v in pairs(opts.g or {}) do
+    _G[k] = v
+    if opts.debug == "v" or opts.debug == "verbose" then
+      io.stdout:write(string.format("[DEBUGV]: %s=%s\n", k, v))
+    end
+  end
+
+  local fn_transform = load_fn(fn_transform_str)
+  local fn_preprocess = load_fn(fn_preprocess_str)
 
   -- run the preprocessing fn
   if fn_preprocess then fn_preprocess(opts) end
 
-
-  if opts.debug then
+  if opts.debug == "v" or opts.debug == "verbose" then
+    for k, v in pairs(opts) do
+      io.stdout:write(string.format("[DEBUGV]: %s=%s\n", k, v))
+    end
+    io.stdout:write(string.format("[DEBUGV]: fn_transform=%s\n", fn_transform_str))
+    io.stdout:write(string.format("[DEBUGV]: fn_preprocess=%s\n", fn_preprocess_str))
+  elseif opts.debug then
     io.stdout:write("[DEBUG]: " .. opts.cmd .. "\n")
   end
 
@@ -434,6 +511,19 @@ M.spawn_stdio = function(opts, fn_transform, fn_preprocess)
     end)
 end
 
+
+M.is_escaped = function(s, is_win)
+  local m
+  -- test spec override
+  if is_win == nil then is_win = _is_win end
+  if is_win then
+    m = s:match([[^".*"$]]) or s:match([[^%^".*%^"$]])
+  else
+    m = s:match([[^'.*'$]]) or s:match([[^".*"$]])
+  end
+  return m ~= nil
+end
+
 -- our own version of vim.fn.shellescape compatibile with fish shells
 --   * don't double-escape '\' (#340)
 --   * if possible, replace surrounding single quote with double
@@ -441,9 +531,116 @@ end
 --    If 'shell' contains "fish" in the tail, the "\" character will
 --    be escaped because in fish it is used as an escape character
 --    inside single quotes.
+--
+-- for windows, we assume we want to keep all quotes as literals
+-- to avoid the quotes being stripped when run from fzf actions
+-- we therefore have to escape the quotes with blackslashes and
+-- for nested quotes we double the blackslashes due to windows
+-- quirks, further reading:
+-- https://stackoverflow.com/questions/6714165/powershell-stripping-double-quotes-from-command-line-arguments
+-- https://learn.microsoft.com/en-us/archive/blogs/twistylittlepassagesallalike/everyone-quotes-command-line-arguments-the-wrong-way
+--
 -- this function is a better fit for utils but we're
 -- trying to avoid having any 'require' in this file
-M.shellescape = function(s)
+M.shellescape = function(s, win_style)
+  if _is_win or win_style then
+    if tonumber(win_style) == 1 then
+      --
+      -- "classic" CommandLineToArgvW backslash escape
+      --
+      s = s:gsub([[\-"]], function(x)
+        -- Quotes found in string. From the above stackoverflow link:
+        --
+        -- (2n) + 1 backslashes followed by a quotation mark again produce n backslashes
+        -- followed by a quotation mark literal ("). This does not toggle the "in quotes"
+        -- mode.
+        --
+        -- to produce (2n)+1 backslashes we use the following `string.rep` calc:
+        -- (#x-1) * 2 + 1 - (#x-1) == #x
+        -- which translates to prepending the string with number of escape chars
+        -- (\) equal to its own length, this in turn is an **always odd** number
+        --
+        -- "     ->  \"          (0->1)
+        -- \"    ->  \\\"        (1->3)
+        -- \\"   ->  \\\\\"      (2->5)
+        -- \\\"  ->  \\\\\\\"    (3->7)
+        -- \\\\" ->  \\\\\\\\\"  (4->9)
+        --
+        x = string.rep([[\]], #x) .. x
+        return x
+      end)
+      s = s:gsub([[\+$]], function(x)
+        -- String ends with backslashes. From the above stackoverflow link:
+        --
+        -- 2n backslashes followed by a quotation mark again produce n backslashes
+        -- followed by a begin/end quote. This does not become part of the parsed
+        -- argument but toggles the "in quotes" mode.
+        --
+        --   c:\foo\  -> "c:\foo\"    // WRONG
+        --   c:\foo\  -> "c:\foo\\"   // RIGHT
+        --   c:\foo\\ -> "c:\foo\\"   // WRONG
+        --   c:\foo\\ -> "c:\foo\\\\" // RIGHT
+        --
+        -- To produce equal number of backslashes without converting the ending quote
+        -- to a quote literal, double the backslashes (2n), **always even** number
+        x = string.rep([[\]], #x * 2)
+        return x
+      end)
+      return [["]] .. s .. [["]]
+    else
+      --
+      -- CMD.exe caret+backslash escape, after lot of trial and error
+      -- this seems to be the winning logic, a combination of v1 above
+      -- and caret escaping special chars
+      --
+      -- The logic is as follows
+      --   (1) all escaped quotes end up the same \^"
+      --   (1) if quote was prepended with backslash or backslash+caret
+      --       the resulting number of backslashes will be 2n + 1
+      --   (2) if caret exists between the backslash/quote combo, move it
+      --       before the backslash(s)
+      --   (4) all cmd special chars are escaped with ^
+      --
+      --   NOTE: explore "tests/libuv_spec.lua" to see examples of quoted
+      --      combinations and their expecetd results
+      --
+      local escape_inner = function(inner)
+        inner = inner:gsub([[\-%^?"]], function(x)
+          -- although we currently only transfer 1 caret, the below
+          -- can handle any number of carets with the regex [[\-%^-"]]
+          local carets = x:match("%^+") or ""
+          x = carets .. string.rep([[\]], #x - #(carets)) .. x:gsub("%^+", "")
+          return x
+        end)
+        -- escape all windows metacharacters but quotes
+        -- ( ) % ! ^ < > & | "
+        -- TODO: should % be escaped with ^ or %?
+        inner = inner:gsub('[%(%)%%!%^<>&|%s"]', function(x)
+          return "^" .. x
+        end)
+        -- escape backslashes at the end of the string
+        inner = inner:gsub([[\+$]], function(x)
+          x = string.rep([[\]], #x * 2)
+          return x
+        end)
+        return inner
+      end
+      s = escape_inner(s)
+      if s:match("!") and tonumber(win_style) == 2 then
+        --
+        -- https://ss64.com/nt/syntax-esc.html
+        -- This changes slightly if you are running with DelayedExpansion of variables:
+        -- if any part of the command line includes an '!' then CMD will escape a second
+        -- time, so ^^^^ will become ^
+        --
+        -- NOTE: we only do this on demand (currently only used in "libuv_spec.lua")
+        --
+        s = escape_inner(s)
+      end
+      s = [[^"]] .. s .. [[^"]]
+      return s
+    end
+  end
   local shell = vim.o.shell
   if not shell or not shell:match("fish$") then
     return vim.fn.shellescape(s)
@@ -469,23 +666,58 @@ M.shellescape = function(s)
   end
 end
 
+-- Windows fzf oddities, fzf's {q} will send escaped blackslahes,
+-- but only when the backslash prefixes another character which
+-- isn't a backslash
+M.unescape_fzf = function(s, is_win)
+  if is_win == nil then is_win = _is_win end
+  if not is_win then return s end
+  local ret = s:gsub("\\+[^\\]", function(x)
+    local bslash_num = #x:match([[\+]])
+    return string.rep([[\]],
+      bslash_num == 1 and bslash_num or bslash_num / 2) .. x:sub(-1)
+  end)
+  return ret
+end
+
+-- with live_grep, we use a modified "reload" command as our
+-- FZF_DEFAULT_COMMAND and due to the above oddity with fzf
+-- doing weird extra escaping with {q},  we use this to simulate
+-- {q} being sent via the reload action as the initial command
+-- TODO: better solution for these stupid hacks (upstream issues?)
+M.escape_fzf = function(s, is_win)
+  if is_win == nil then is_win = _is_win end
+  if not is_win then return s end
+  local ret = s:gsub("\\+[^\\]", function(x)
+    local bslash_num = #x:match([[\+]])
+    return string.rep([[\]], bslash_num * 2) .. x:sub(-1)
+  end)
+  return ret
+end
+
+---@param opts string
+---@param fn_transform string?
+---@param fn_preprocess string?
+---@return string
 M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess)
   assert(opts and type(opts) == "string")
   assert(not fn_transform or type(fn_transform) == "string")
   local nvim_bin = os.getenv("FZF_LUA_NVIM_BIN") or vim.v.progpath
   local nvim_runtime = os.getenv("FZF_LUA_NVIM_BIN") and ""
-      or string.format("VIMRUNTIME=%s ", M.shellescape(vim.env.VIMRUNTIME))
-  local call_args = opts
-  for _, fn in ipairs({ fn_transform, fn_preprocess }) do
-    if type(fn) == "string" then
-      call_args = ("%s,[[%s]]"):format(call_args, fn)
-    end
-  end
+      or string.format(
+        _is_win and [[set VIMRUNTIME=%s& ]] or "VIMRUNTIME=%s ",
+        _is_win and vim.fs.normalize(vim.env.VIMRUNTIME) or M.shellescape(vim.env.VIMRUNTIME)
+      )
+  local lua_cmd = ("lua vim.g.did_load_filetypes=1; loadfile([[%s]])().spawn_stdio(%s,%s,%s)")
+      :format(
+        _is_win and vim.fs.normalize(__FILE__) or __FILE__,
+        opts, fn_transform, fn_preprocess
+      )
   local cmd_str = ("%s%s -n --headless --clean --cmd %s"):format(
     nvim_runtime,
-    M.shellescape(nvim_bin),
-    M.shellescape(("lua loadfile([[%s]])().spawn_stdio(%s)")
-      :format(__FILE__, call_args)))
+    M.shellescape(_is_win and vim.fs.normalize(nvim_bin) or nvim_bin),
+    M.shellescape(lua_cmd)
+  )
   return cmd_str
 end
 

@@ -67,7 +67,7 @@
   "public"
   "static"
   "synchronized"
-] @type.qualifier
+] @keyword.modifier
 
 (comment) @comment @spell
 
@@ -215,9 +215,8 @@
   function: (identifier) @function)
 
 (function_call
-  function:
-    (dotted_identifier
-      (identifier) @function .))
+  function: (dotted_identifier
+    (identifier) @function .))
 
 (function_call
   (argument_list
@@ -228,9 +227,8 @@
   function: (identifier) @function)
 
 (juxt_function_call
-  function:
-    (dotted_identifier
-      (identifier) @function .))
+  function: (dotted_identifier
+    (identifier) @function .))
 
 (juxt_function_call
   (argument_list

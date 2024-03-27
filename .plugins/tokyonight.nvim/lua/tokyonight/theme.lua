@@ -137,8 +137,8 @@ function M.setup()
     Debug = { fg = c.orange }, --    debugging statements
 
     Underlined = { underline = true }, -- (preferred) text that stands out, HTML links
-    Bold = { bold = true },
-    Italic = { italic = true },
+    Bold = { bold = true, fg = c.fg }, -- (preferred) any bold text
+    Italic = { italic = true, fg = c.fg }, -- (preferred) any italic text
 
     -- ("Ignore", below, may be invisible...)
     -- Ignore = { }, -- (preferred) left blank, hidden  |hl-Ignore|
@@ -367,6 +367,9 @@ function M.setup()
     -- NOTE: maybe add these with distinct highlights?
     -- ["@lsp.typemod.variable.globalScope"] (global variables)
 
+    -- Python
+    ["@lsp.type.namespace.python"] = { link = "@variable" },
+
     -- ts-rainbow
     rainbowcol1 = { fg = c.red },
     rainbowcol2 = { fg = c.yellow },
@@ -460,6 +463,8 @@ function M.setup()
     -- Telescope
     TelescopeBorder = { fg = c.border_highlight, bg = c.bg_float },
     TelescopeNormal = { fg = c.fg, bg = c.bg_float },
+    TelescopePromptBorder = { fg = c.orange, bg = c.bg_float },
+    TelescopePromptTitle = { fg = c.orange, bg = c.bg_float },
 
     -- NvimTree
     NvimTreeNormal = { fg = c.fg_sidebar, bg = c.bg_sidebar },

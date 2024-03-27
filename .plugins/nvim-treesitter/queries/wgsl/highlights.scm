@@ -44,13 +44,13 @@
   "storage"
   "uniform"
   "workgroup"
-] @keyword.storage
+] @keyword.modifier
 
 [
   "read"
   "read_write"
   "write"
-] @type.qualifier
+] @keyword.modifier
 
 "fn" @keyword.function
 

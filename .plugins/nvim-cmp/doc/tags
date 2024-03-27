@@ -59,6 +59,7 @@ cmp-config.window.documentation.max_height	cmp.txt	/*cmp-config.window.documenta
 cmp-config.window.documentation.max_width	cmp.txt	/*cmp-config.window.documentation.max_width*
 cmp-config.window.{completion,documentation}.border	cmp.txt	/*cmp-config.window.{completion,documentation}.border*
 cmp-config.window.{completion,documentation}.scrolloff	cmp.txt	/*cmp-config.window.{completion,documentation}.scrolloff*
+cmp-config.window.{completion,documentation}.winblend	cmp.txt	/*cmp-config.window.{completion,documentation}.winblend*
 cmp-config.window.{completion,documentation}.winhighlight	cmp.txt	/*cmp-config.window.{completion,documentation}.winhighlight*
 cmp-config.window.{completion,documentation}.zindex	cmp.txt	/*cmp-config.window.{completion,documentation}.zindex*
 cmp-contents	cmp.txt	/*cmp-contents*

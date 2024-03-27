@@ -34,7 +34,14 @@
   (#any-of? @variable.builtin "arguments" "module" "console" "window" "document"))
 
 ((identifier) @type.builtin
-  (#any-of? @type.builtin "Object" "Function" "Boolean" "Symbol" "Number" "Math" "Date" "String" "RegExp" "Map" "Set" "WeakMap" "WeakSet" "Promise" "Array" "Int8Array" "Uint8Array" "Uint8ClampedArray" "Int16Array" "Uint16Array" "Int32Array" "Uint32Array" "Float32Array" "Float64Array" "ArrayBuffer" "DataView" "Error" "EvalError" "InternalError" "RangeError" "ReferenceError" "SyntaxError" "TypeError" "URIError"))
+  (#any-of? @type.builtin
+    "Object" "Function" "Boolean" "Symbol" "Number" "Math" "Date" "String" "RegExp" "Map" "Set"
+    "WeakMap" "WeakSet" "Promise" "Array" "Int8Array" "Uint8Array" "Uint8ClampedArray" "Int16Array"
+    "Uint16Array" "Int32Array" "Uint32Array" "Float32Array" "Float64Array" "ArrayBuffer" "DataView"
+    "Error" "EvalError" "InternalError" "RangeError" "ReferenceError" "SyntaxError" "TypeError"
+    "URIError"))
+
+(statement_identifier) @label
 
 ; Function and method definitions
 ;--------------------------------
@@ -51,11 +58,10 @@
   name: (identifier) @function)
 
 (method_definition
-  name:
-    [
-      (property_identifier)
-      (private_property_identifier)
-    ] @function.method)
+  name: [
+    (property_identifier)
+    (private_property_identifier)
+  ] @function.method)
 
 (method_definition
   name: (property_identifier) @constructor
@@ -70,15 +76,13 @@
   value: (arrow_function))
 
 (assignment_expression
-  left:
-    (member_expression
-      property: (property_identifier) @function.method)
+  left: (member_expression
+    property: (property_identifier) @function.method)
   right: (arrow_function))
 
 (assignment_expression
-  left:
-    (member_expression
-      property: (property_identifier) @function.method)
+  left: (member_expression
+    property: (property_identifier) @function.method)
   right: (function_expression))
 
 (variable_declarator
@@ -103,13 +107,11 @@
   function: (identifier) @function.call)
 
 (call_expression
-  function:
-    (member_expression
-      property:
-        [
-          (property_identifier)
-          (private_property_identifier)
-        ] @function.method.call))
+  function: (member_expression
+    property: [
+      (property_identifier)
+      (private_property_identifier)
+    ] @function.method.call))
 
 ; Builtins
 ;---------
@@ -117,7 +119,9 @@
   (#eq? @module.builtin "Intl"))
 
 ((identifier) @function.builtin
-  (#any-of? @function.builtin "eval" "isFinite" "isNaN" "parseFloat" "parseInt" "decodeURI" "decodeURIComponent" "encodeURI" "encodeURIComponent" "require"))
+  (#any-of? @function.builtin
+    "eval" "isFinite" "isNaN" "parseFloat" "parseInt" "decodeURI" "decodeURIComponent" "encodeURI"
+    "encodeURIComponent" "require"))
 
 ; Constructor
 ;------------
@@ -204,23 +208,12 @@
 
 ; Punctuation
 ;------------
-";" @punctuation.delimiter
-
-"." @punctuation.delimiter
-
-"," @punctuation.delimiter
-
-(pair
-  ":" @punctuation.delimiter)
-
-(pair_pattern
-  ":" @punctuation.delimiter)
-
-(switch_case
-  ":" @punctuation.delimiter)
-
-(switch_default
-  ":" @punctuation.delimiter)
+[
+  ";"
+  "."
+  ","
+  ":"
+] @punctuation.delimiter
 
 [
   "--"

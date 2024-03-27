@@ -8,17 +8,14 @@ end
 
 local M = {}
 
+M.__HAS_NVIM_06 = vim.fn.has("nvim-0.6") == 1
 M.__HAS_NVIM_07 = vim.fn.has("nvim-0.7") == 1
 M.__HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
 M.__HAS_NVIM_09 = vim.fn.has("nvim-0.9") == 1
 M.__HAS_NVIM_010 = vim.fn.has("nvim-0.10") == 1
-
-
--- limit devicons support to nvim >=0.8, although official support is >=0.7
--- running setup on 0.7 errs with "W18: Invalid character in group name"
-if M.__HAS_NVIM_08 then
-  M.__HAS_DEVICONS = pcall(require, "nvim-web-devicons")
-end
+M.__IS_WINDOWS = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+-- `:help shellslash` (for more info see #1055)
+M.__WIN_HAS_SHELLSLASH = M.__IS_WINDOWS and vim.fn.exists("+shellslash")
 
 function M.__FILE__() return debug.getinfo(2, "S").source end
 
@@ -83,10 +80,62 @@ M._if = function(bool, a, b)
   end
 end
 
+M._if_win = function(a, b)
+  if M.__IS_WINDOWS then
+    return a
+  else
+    return b
+  end
+end
+
+
+-- Substitute unix style $VAR with
+--   Style 1: %VAR%
+--   Style 2: !VAR!
+M._if_win_normalize_vars = function(cmd, style)
+  if not M.__IS_WINDOWS then return cmd end
+  local expander = style == 2 and "!" or "%"
+  cmd = cmd:gsub("%$[^%s]+", function(x) return expander .. x:sub(2) .. expander end)
+  if style == 2 then
+    -- also sub %VAR% for !VAR!
+    cmd = cmd:gsub("%%[^%s]+%%", function(x) return "!" .. x:sub(2, #x - 1) .. "!" end)
+  end
+  return cmd
+end
+
+M.shell_nop = function()
+  return M._if_win("break", "true")
+end
+
+---@param vars table
+---@return table
+M.shell_setenv_str = function(vars)
+  local ret = {}
+  for k, v in pairs(vars or {}) do
+    table.insert(ret, M._if_win(
+      string.format([[set %s=%s&&]], tostring(k), tostring(v)),
+      string.format("%s=%s;", tostring(k), tostring(v))
+    ))
+  end
+  return ret
+end
+
+---@param inputstr string
+---@param sep string
+---@return string[]
 M.strsplit = function(inputstr, sep)
   local t = {}
-  for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
-    table.insert(t, str)
+  if #sep == 1 then
+    for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
+      table.insert(t, str)
+    end
+  else
+    local s, m, r = inputstr, nil, nil
+    repeat
+      m, r = s:match("^(.-)" .. sep .. "(.*)$")
+      s = r and r or s
+      table.insert(t, m or s)
+    until not m
   end
   return t
 end
@@ -101,6 +150,9 @@ M.find_last_char = function(str, c)
   end
 end
 
+---@param str string
+---@param c integer
+---@param start_idx integer
 M.find_next_char = function(str, c, start_idx)
   for i = start_idx or 1, #str do
     if string_byte(str, i) == c then
@@ -147,13 +199,16 @@ function M.is_darwin()
   return vim.loop.os_uname().sysname == "Darwin"
 end
 
+---@param str string
+---@return string
 function M.rg_escape(str)
   if not str then return str end
   --  [(~'"\/$?'`*&&||;[]<>)]
   --  escape "\~$?*|[()^-."
-  return str:gsub("[\\~$?*|{\\[()^%-%.%+]", function(x)
+  local ret = str:gsub("[\\~$?*|{\\[()^%-%.%+]", function(x)
     return "\\" .. x
   end)
+  return ret
 end
 
 function M.sk_escape(str)
@@ -181,7 +236,7 @@ end
 
 function M.glob_escape(str)
   if not str then return str end
-  return str:gsub("[\\%{}[%]]", function(x)
+  return str:gsub("[%{}[%]]", function(x)
     return [[\]] .. x
   end)
 end
@@ -282,7 +337,6 @@ M.read_file_async = function(filepath, callback)
   end)
 end
 
-
 -- deepcopy can fail with: "Cannot deepcopy object of type userdata" (#353)
 -- this can happen when copying items/on_choice params of vim.ui.select
 -- run in a pcall and fallback to our poor man's clone
@@ -322,7 +376,10 @@ function M.tbl_isempty(T)
 end
 
 function M.tbl_extend(t1, t2)
-  return table.move(t2, 1, #t2, #t1 + 1, t1)
+  for _, v in ipairs(t2) do
+    table.insert(t1, v)
+  end
+  return t1
 end
 
 -- Get map value from string key
@@ -345,6 +402,10 @@ end
 -- Set map value for string key
 -- e.g. `map_set(m, "key.sub1.sub2", value)`
 -- if need be, build map tree as we go along
+---@param m table?
+---@param k string
+---@param v unknown
+---@return table<string, unknown>
 function M.map_set(m, k, v)
   m = m or {}
   local keys = M.strsplit(k, ".")
@@ -361,6 +422,8 @@ function M.map_set(m, k, v)
   return m
 end
 
+---@param m table<string, unknown>?
+---@return table<string, unknown>?
 function M.map_tolower(m)
   if not m then
     return
@@ -371,6 +434,60 @@ function M.map_tolower(m)
   end
   return ret
 end
+
+local function hex2rgb(hexcol)
+  local r, g, b = hexcol:match("#(%x%x)(%x%x)(%x%x)")
+  if not r or not g or not b then return end
+  r, g, b = tonumber(r, 16), tonumber(g, 16), tonumber(b, 16)
+  return r, g, b
+end
+
+-- auto genreate ansi escape sequence from RGB or neovim highlights
+--[[ M.ansi_auto = setmetatable({}, {
+  -- __index metamethod only gets called when the item does not exist
+  -- we use this to auto-cache the ansi escape sequence
+  __index = function(self, k)
+    print("get", k)
+    local escseq
+    -- if not an existing highlight group lookup
+    -- in the neovim colormap and convert to RGB
+    if not k:match("^#") and vim.fn.hlexists(k) ~= 1 then
+      local col = M.COLORMAP()[k:sub(1, 1):upper() .. k:sub(2):lower()]
+      if col then
+        -- format as 6 digit hex for hex2rgb()
+        k = ("#%06x"):format(col)
+      end
+    end
+    if k:match("#%x%x%x%x%x%x") then -- index is RGB
+      -- cache the sequence as all lowercase
+      k = k:lower()
+      local v = rawget(self, k)
+      if v then return v end
+      local r, g, b = hex2rgb(k)
+      escseq = string.format("[38;2;%d;%d;%dm", r, g, b)
+    else -- index is neovim hl
+      _, escseq = M.ansi_from_hl(k, "foo")
+      print("esc", k, escseq)
+    end
+    -- We always set the item, if not RGB and hl isn't valid
+    -- create a dummy function that returns the string instead
+    local v = type(escseq) == "string" and #escseq > 0
+        and function(s)
+          if type(s) ~= "string" or #s == 0 then return "" end
+          return escseq .. s .. M.ansi_escseq.clear
+        end
+        or function(s) return s end
+    rawset(self, k, v)
+    return v
+  end,
+  __newindex = function(self, k, v)
+    assert(false,
+      string.format("modifying the ansi cache directly isn't allowed [index: %s]", k))
+    -- rawset doesn't trigger __new_index, otherwise stack overflow
+    -- we never get here but this masks the "unused local" warnings
+    rawset(self, k, v)
+  end
+}) ]]
 
 M.ansi_codes = {}
 M.ansi_escseq = {
@@ -406,13 +523,6 @@ for color, escseq in pairs(M.ansi_escseq) do
   M.cache_ansi_escseq(color, escseq)
 end
 
-local function hex2rgb(hexcol)
-  local r, g, b = hexcol:match("#(..)(..)(..)")
-  if not r or not g or not b then return end
-  r, g, b = tonumber(r, 16), tonumber(g, 16), tonumber(b, 16)
-  return r, g, b
-end
-
 -- Helper func to test for invalid (cleared) highlights
 function M.is_hl_cleared(hl)
   -- `vim.api.nvim_get_hl_by_name` is deprecated since v0.9.0
@@ -422,6 +532,7 @@ function M.is_hl_cleared(hl)
       return true
     end
   else
+    ---@diagnostic disable-next-line: deprecated
     local ok, hl_def = pcall(vim.api.nvim_get_hl_by_name, hl, true)
     -- Not sure if this is the right way but it seems that cleared
     -- highlights return 'hl_def[true] == 6' (?) and 'hl_def[true]'
@@ -467,7 +578,7 @@ end
 function M.ansi_from_rgb(rgb, s)
   local r, g, b = hex2rgb(rgb)
   if r and g and b then
-    return string.format("[38;2;%d;%d;%dm%s%s", r, g, b, s, M.ansi_escseq.clear)
+    return string.format("[38;2;%d;%d;%dm%s%s", r, g, b, s, "[0m")
   end
   return s
 end
@@ -565,10 +676,11 @@ function M.get_visual_selection()
       -- visual line doesn't provide columns
       cscol, cecol = 0, 999
     end
+    -- NOTE: not required since commit: e8b2093
     -- exit visual mode
-    vim.api.nvim_feedkeys(
-      vim.api.nvim_replace_termcodes("<Esc>",
-        true, false, true), "n", true)
+    -- vim.api.nvim_feedkeys(
+    --   vim.api.nvim_replace_termcodes("<Esc>",
+    --     true, false, true), "n", true)
   else
     -- otherwise, use the last known visual position
     _, csrow, cscol, _ = unpack(vim.fn.getpos("'<"))
@@ -619,14 +731,14 @@ function M.reset_info()
   pcall(loadstring("require'fzf-lua'.set_info(nil)"))
 end
 
-function M.setup_highlights()
-  pcall(loadstring("require'fzf-lua'.setup_highlights()"))
+function M.setup_highlights(override)
+  pcall(loadstring(string.format(
+    "require'fzf-lua'.setup_highlights(%s)", override and "true" or "")))
 end
 
-function M.setup_devicon_term_hls()
-  pcall(loadstring("require'fzf-lua.make_entry'.setup_devicon_term_hls()"))
-end
-
+---@param fname string
+---@param name string|nil
+---@param silent boolean
 function M.load_profile(fname, name, silent)
   local profile = name or fname:match("([^%p]+)%.lua$") or "<unknown>"
   local ok, res = pcall(dofile, fname)
@@ -830,9 +942,7 @@ end
 
 -- Close a buffer without triggering an autocmd
 function M.nvim_buf_delete(bufnr, opts)
-  if not vim.api.nvim_buf_is_valid(bufnr) then
-    return
-  end
+  if not vim.api.nvim_buf_is_valid(bufnr) then return end
   local save_ei = vim.o.eventignore
   vim.o.eventignore = "all"
   vim.api.nvim_buf_delete(bufnr, opts)
@@ -928,6 +1038,7 @@ function M.neovim_bind_to_fzf(key)
     ["c"] = "ctrl",
     ["s"] = "shift",
   }
+
   key            = key:lower():gsub("[<>]", "")
   for k, v in pairs(conv_map) do
     key = key:gsub(k .. "%-", v .. "-")
@@ -955,6 +1066,13 @@ end
 function M.find_version()
   local out, rc = M.io_systemlist({ "find", "--version" })
   return rc == 0 and tonumber(out[1]:match("(%d+.%d+)")) or nil
+end
+
+---@return string
+function M.windows_pipename()
+  local tmpname = vim.fn.tempname()
+  tmpname = string.gsub(tmpname, "\\", "")
+  return ([[\\.\pipe\%s]]):format(tmpname)
 end
 
 return M

@@ -2,7 +2,10 @@
   (#set! injection.language "cpp"))
 
 ((comment) @injection.content
-  (#lua-match? @injection.content "/[*][!<*][^a-zA-Z]")
+  (#set! injection.language "comment"))
+
+((comment) @injection.content
+  (#lua-match? @injection.content "/[*\/][!*\/]<?[^a-zA-Z]")
   (#set! injection.language "doxygen"))
 
 (raw_string_literal

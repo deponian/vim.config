@@ -5,9 +5,9 @@
   (impl_item)
   (for_expression)
   (struct_expression)
-  (match_expression)
+  (struct_pattern)
+  (tuple_struct_pattern)
   (tuple_expression)
-  (match_arm)
   (match_block)
   (call_expression)
   (assignment_expression)
@@ -21,6 +21,7 @@
   (enum_variant_list)
   (parameters)
   (token_tree)
+  (token_repetition)
   (macro_definition)
 ] @indent.begin
 
@@ -30,9 +31,20 @@
 (ERROR
   .
   "macro_rules!"
-  "(" @indent.begin
+  [
+    "("
+    "{"
+    "["
+  ] @indent.begin
   (#set! indent.immediate)
   (#set! indent.start_at_same_line))
+
+(macro_definition
+  [
+    ")"
+    "}"
+    "]"
+  ] @indent.end)
 
 (trait_item
   body: (_) @indent.begin)
@@ -44,34 +56,38 @@
   "}" @indent.end)
 
 (enum_item
-  body:
-    (enum_variant_list
-      "}" @indent.end))
+  body: (enum_variant_list
+    "}" @indent.end))
 
 (impl_item
-  body:
-    (declaration_list
-      "}" @indent.end))
+  body: (declaration_list
+    "}" @indent.end))
 
 (match_expression
-  body:
-    (match_block
-      "}" @indent.end))
+  body: (match_block
+    "}" @indent.end))
 
 (mod_item
-  body:
-    (declaration_list
-      "}" @indent.end))
+  body: (declaration_list
+    "}" @indent.end))
 
 (struct_item
-  body:
-    (field_declaration_list
-      "}" @indent.end))
+  body: (field_declaration_list
+    "}" @indent.end))
+
+(struct_expression
+  body: (field_initializer_list
+    "}" @indent.end))
+
+(struct_pattern
+  "}" @indent.end)
+
+(tuple_struct_pattern
+  ")" @indent.end)
 
 (trait_item
-  body:
-    (declaration_list
-      "}" @indent.end))
+  body: (declaration_list
+    "}" @indent.end))
 
 (impl_item
   (where_clause) @indent.dedent)

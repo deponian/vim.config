@@ -3,6 +3,7 @@ local notify = require "nvim-tree.notify"
 
 local M = {}
 
+-- silently move, please add to help nvim-tree-legacy-opts
 local function refactored(opts)
   -- 2022/06/20
   utils.move_missing_val(opts, "update_focused_file", "update_cwd", opts, "update_focused_file", "update_root", true)
@@ -51,6 +52,14 @@ local function refactored(opts)
   if type(opts.renderer) == "table" and type(opts.renderer.highlight_git) == "boolean" then
     opts.renderer.highlight_git = opts.renderer.highlight_git and "name" or "none"
   end
+
+  -- 2024/02/15
+  if type(opts.update_focused_file) == "table" then
+    if type(opts.update_focused_file.update_root) ~= "table" then
+      opts.update_focused_file.update_root = { enable = opts.update_focused_file.update_root }
+    end
+  end
+  utils.move_missing_val(opts, "update_focused_file", "ignore_list", opts, "update_focused_file.update_root", "ignore_list", true)
 end
 
 local function deprecated(opts)
@@ -61,12 +70,12 @@ end
 
 local function removed(opts)
   if opts.auto_close then
-    notify.warn "auto close feature has been removed, see note in the README (tips & reminder section)"
+    notify.warn "auto close feature has been removed: https://github.com/nvim-tree/nvim-tree.lua/wiki/Auto-Close"
     opts.auto_close = nil
   end
 
   if opts.focus_empty_on_setup then
-    notify.warn "focus_empty_on_setup has been removed and will be replaced by a new startup configuration. Please remove this option. See https://bit.ly/3yJch2T"
+    notify.warn "focus_empty_on_setup has been removed: https://github.com/nvim-tree/nvim-tree.lua/wiki/Open-At-Startup"
     opts.focus_empty_on_setup = nil
   end
 

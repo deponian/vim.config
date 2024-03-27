@@ -50,6 +50,7 @@ function M.setup()
     Util.track()
   end
   Config.mapleader = vim.g.mapleader
+  Config.maplocalleader = vim.g.maplocalleader
 
   -- report any warnings & errors
   Config.spec:report()
@@ -471,7 +472,7 @@ function M.add_to_rtp(plugin)
   table.insert(rtp, idx_dir or (#rtp + 1), plugin.dir)
 
   local after = plugin.dir .. "/after"
-  if vim.loop.fs_stat(after) then
+  if vim.uv.fs_stat(after) then
     table.insert(rtp, idx_after or (#rtp + 1), after)
   end
 
@@ -494,7 +495,7 @@ function M.colorscheme(name)
     if not plugin._.loaded then
       for _, ext in ipairs({ "lua", "vim" }) do
         local path = plugin.dir .. "/colors/" .. name .. "." .. ext
-        if vim.loop.fs_stat(path) then
+        if vim.uv.fs_stat(path) then
           return M.load(plugin, { colorscheme = name })
         end
       end

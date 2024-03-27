@@ -17,11 +17,9 @@
   (#lua-match? @constant.builtin "^__[a-zA-Z0-9_]*__$"))
 
 ((identifier) @constant.builtin
-  ; format-ignore
-  (#any-of? @constant.builtin 
+  (#any-of? @constant.builtin
     ; https://docs.python.org/3/library/constants.html
-    "NotImplemented" "Ellipsis" 
-    "quit" "exit" "copyright" "credits" "license"))
+    "NotImplemented" "Ellipsis" "quit" "exit" "copyright" "credits" "license"))
 
 ((attribute
   attribute: (identifier) @variable.member)
@@ -35,9 +33,8 @@
 
 ((assignment
   left: (identifier) @type.definition
-  right:
-    (call
-      function: (identifier) @_func))
+  right: (call
+    function: (identifier) @_func))
   (#any-of? @_func "TypeVar" "NewType"))
 
 ; Decorators
@@ -68,14 +65,14 @@
 ; Builtin functions
 ((call
   function: (identifier) @function.builtin)
-  ; format-ignore
   (#any-of? @function.builtin
-    "abs" "all" "any" "ascii" "bin" "bool" "breakpoint" "bytearray" "bytes" "callable" "chr" "classmethod"
-    "compile" "complex" "delattr" "dict" "dir" "divmod" "enumerate" "eval" "exec" "fail" "filter" "float" "format"
-    "frozenset" "getattr" "globals" "hasattr" "hash" "help" "hex" "id" "input" "int" "isinstance" "issubclass"
-    "iter" "len" "list" "locals" "map" "max" "memoryview" "min" "next" "object" "oct" "open" "ord" "pow"
-    "print" "property" "range" "repr" "reversed" "round" "set" "setattr" "slice" "sorted" "staticmethod" "str"
-    "struct" "sum" "super" "tuple" "type" "vars" "zip" "__import__"))
+    "abs" "all" "any" "ascii" "bin" "bool" "breakpoint" "bytearray" "bytes" "callable" "chr"
+    "classmethod" "compile" "complex" "delattr" "dict" "dir" "divmod" "enumerate" "eval" "exec"
+    "fail" "filter" "float" "format" "frozenset" "getattr" "globals" "hasattr" "hash" "help" "hex"
+    "id" "input" "int" "isinstance" "issubclass" "iter" "len" "list" "locals" "map" "max"
+    "memoryview" "min" "next" "object" "oct" "open" "ord" "pow" "print" "property" "range" "repr"
+    "reversed" "round" "set" "setattr" "slice" "sorted" "staticmethod" "str" "struct" "sum" "super"
+    "tuple" "type" "vars" "zip" "__import__"))
 
 ; Function definitions
 (function_definition
@@ -90,30 +87,30 @@
 
 ((call
   function: (identifier) @_isinstance
-  arguments:
-    (argument_list
-      (_)
-      (identifier) @type))
+  arguments: (argument_list
+    (_)
+    (identifier) @type))
   (#eq? @_isinstance "isinstance"))
 
 ((identifier) @type.builtin
-  ; format-ignore
   (#any-of? @type.builtin
     ; https://docs.python.org/3/library/exceptions.html
-    "ArithmeticError" "BufferError" "LookupError" "AssertionError" "AttributeError"
-    "EOFError" "FloatingPointError" "ModuleNotFoundError" "IndexError" "KeyError"
-    "KeyboardInterrupt" "MemoryError" "NameError" "NotImplementedError" "OSError" "OverflowError" "RecursionError"
-    "ReferenceError" "RuntimeError" "StopIteration" "StopAsyncIteration" "SyntaxError" "IndentationError" "TabError"
-    "SystemError" "SystemExit" "TypeError" "UnboundLocalError" "UnicodeError" "UnicodeEncodeError" "UnicodeDecodeError"
-    "UnicodeTranslateError" "ValueError" "ZeroDivisionError" "EnvironmentError" "IOError" "WindowsError"
-    "BlockingIOError" "ChildProcessError" "ConnectionError" "BrokenPipeError" "ConnectionAbortedError"
-    "ConnectionRefusedError" "ConnectionResetError" "FileExistsError" "FileNotFoundError" "InterruptedError"
-    "IsADirectoryError" "NotADirectoryError" "PermissionError" "ProcessLookupError" "TimeoutError" "Warning"
-    "UserWarning" "DeprecationWarning" "PendingDeprecationWarning" "SyntaxWarning" "RuntimeWarning"
-    "FutureWarning" "UnicodeWarning" "BytesWarning" "ResourceWarning"
+    "ArithmeticError" "BufferError" "LookupError" "AssertionError" "AttributeError" "EOFError"
+    "FloatingPointError" "ModuleNotFoundError" "IndexError" "KeyError" "KeyboardInterrupt"
+    "MemoryError" "NameError" "NotImplementedError" "OSError" "OverflowError" "RecursionError"
+    "ReferenceError" "RuntimeError" "StopIteration" "StopAsyncIteration" "SyntaxError"
+    "IndentationError" "TabError" "SystemError" "SystemExit" "TypeError" "UnboundLocalError"
+    "UnicodeError" "UnicodeEncodeError" "UnicodeDecodeError" "UnicodeTranslateError" "ValueError"
+    "ZeroDivisionError" "EnvironmentError" "IOError" "WindowsError" "BlockingIOError"
+    "ChildProcessError" "ConnectionError" "BrokenPipeError" "ConnectionAbortedError"
+    "ConnectionRefusedError" "ConnectionResetError" "FileExistsError" "FileNotFoundError"
+    "InterruptedError" "IsADirectoryError" "NotADirectoryError" "PermissionError"
+    "ProcessLookupError" "TimeoutError" "Warning" "UserWarning" "DeprecationWarning"
+    "PendingDeprecationWarning" "SyntaxWarning" "RuntimeWarning" "FutureWarning" "UnicodeWarning"
+    "BytesWarning" "ResourceWarning"
     ; https://docs.python.org/3/library/stdtypes.html
-    "bool" "int" "float" "complex" "list" "tuple" "range" "str"
-    "bytes" "bytearray" "memoryview" "set" "frozenset" "dict" "type"))
+    "bool" "int" "float" "complex" "list" "tuple" "range" "str" "bytes" "bytearray" "memoryview"
+    "set" "frozenset" "dict" "type"))
 
 ; Normal parameters
 (parameters
@@ -191,11 +188,10 @@
     (string) @string.documentation @spell))
 
 (function_definition
-  body:
-    (block
-      .
-      (expression_statement
-        (string) @string.documentation @spell)))
+  body: (block
+    .
+    (expression_statement
+      (string) @string.documentation @spell)))
 
 ; Tokens
 [
@@ -272,9 +268,8 @@
 
 ((call
   function: (identifier) @keyword.import
-  arguments:
-    (argument_list
-      (string) @string))
+  arguments: (argument_list
+    (string) @string))
   (#eq? @keyword.import "load"))
 
 [
@@ -324,10 +319,9 @@
 ; Struct definitions
 ((call
   function: (identifier) @_func
-  arguments:
-    (argument_list
-      (keyword_argument
-        name: (identifier) @variable.member)))
+  arguments: (argument_list
+    (keyword_argument
+      name: (identifier) @variable.member)))
   (#eq? @_func "struct"))
 
 ; Function calls
@@ -335,16 +329,14 @@
   function: (identifier) @function.call)
 
 (call
-  function:
-    (attribute
-      attribute: (identifier) @function.method.call))
+  function: (attribute
+    attribute: (identifier) @function.method.call))
 
 ((call
   function: (identifier) @constructor)
   (#lua-match? @constructor "^[A-Z]"))
 
 ((call
-  function:
-    (attribute
-      attribute: (identifier) @constructor))
+  function: (attribute
+    attribute: (identifier) @constructor))
   (#lua-match? @constructor "^[A-Z]"))

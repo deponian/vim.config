@@ -9,10 +9,9 @@
   ")"
 ] @punctuation.bracket
 
-[
-  ":"
-  ","
-] @punctuation.delimiter
+"," @punctuation.delimiter
+
+(eq) @operator
 
 ([
   "\""
@@ -31,7 +30,7 @@
 
 (slot) @type
 
-(variation) @type.qualifier
+(variation) @attribute
 
 (alias) @keyword.directive
 

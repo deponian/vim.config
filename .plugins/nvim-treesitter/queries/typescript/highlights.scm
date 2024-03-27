@@ -1,4 +1,5 @@
 ; inherits: ecma
+
 "require" @keyword.import
 
 (import_require_clause
@@ -40,7 +41,7 @@
   "protected"
   "public"
   "readonly"
-] @type.qualifier
+] @keyword.modifier
 
 ; types
 (type_identifier) @type
@@ -196,11 +197,10 @@
 ; property signatures
 (property_signature
   name: (property_identifier) @function.method
-  type:
-    (type_annotation
-      [
-        (union_type
-          (parenthesized_type
-            (function_type)))
-        (function_type)
-      ]))
+  type: (type_annotation
+    [
+      (union_type
+        (parenthesized_type
+          (function_type)))
+      (function_type)
+    ]))

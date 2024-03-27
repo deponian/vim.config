@@ -65,9 +65,8 @@
 ; ------------------
 (manifest
   (let
-    name:
-      ((identifier) @constant.builtin
-        (#any-of? @constant.builtin "builddir" "ninja_required_version"))))
+    name: ((identifier) @constant.builtin
+      (#any-of? @constant.builtin "builddir" "ninja_required_version"))))
 
 ; Rules bindings
 ; -----------------
@@ -75,7 +74,9 @@
   (body
     (let
       name: (identifier) @constant.builtin
-      (#not-any-of? @constant.builtin "command" "depfile" "deps" "msvc_deps_prefix" "description" "dyndep" "generator" "in" "in_newline" "out" "restat" "rspfile" "rspfile_content" "pool"))))
+      (#not-any-of? @constant.builtin
+        "command" "depfile" "deps" "msvc_deps_prefix" "description" "dyndep" "generator" "in"
+        "in_newline" "out" "restat" "rspfile" "rspfile_content" "pool"))))
 
 ;
 ; Expansion

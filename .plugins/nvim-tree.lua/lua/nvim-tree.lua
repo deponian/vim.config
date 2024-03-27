@@ -27,7 +27,7 @@ function M.change_root(path, bufnr)
   -- skip if current file is in ignore_list
   if type(bufnr) == "number" then
     local ft = vim.api.nvim_buf_get_option(bufnr, "filetype") or ""
-    for _, value in pairs(_config.update_focused_file.ignore_list) do
+    for _, value in pairs(_config.update_focused_file.update_root.ignore_list) do
       if utils.str_find(path, value) or utils.str_find(ft, value) then
         return
       end
@@ -105,8 +105,8 @@ function M.open_on_directory()
 end
 
 function M.place_cursor_on_node()
-  local search = vim.fn.searchcount()
-  if search and search.exact_match == 1 then
+  local ok, search = pcall(vim.fn.searchcount)
+  if ok and search and search.exact_match == 1 then
     return
   end
 
@@ -149,7 +149,7 @@ function M.change_dir(name)
     actions.root.change_dir.fn(name)
   end
 
-  if _config.update_focused_file.enable then
+  if _config.update_focused_file.update_root.enable then
     actions.tree.find_file.fn()
   end
 end
@@ -247,7 +247,11 @@ local function setup_autocommands(opts)
   end
   if opts.update_focused_file.enable then
     create_nvim_tree_autocmd("BufEnter", {
-      callback = function()
+      callback = function(event)
+        local exclude = opts.update_focused_file.exclude
+        if type(exclude) == "function" and exclude(event) then
+          return
+        end
         utils.debounce("BufEnter:find_file", opts.view.debounce_delay, function()
           actions.tree.find_file.fn()
         end)
@@ -462,8 +466,11 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
   },
   update_focused_file = {
     enable = false,
-    update_root = false,
-    ignore_list = {},
+    update_root = {
+      enable = false,
+      ignore_list = {},
+    },
+    exclude = false,
   },
   system_open = {
     cmd = "",
@@ -499,6 +506,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     show_on_open_dirs = true,
   },
   filters = {
+    enable = true,
     git_ignored = true,
     dotfiles = false,
     git_clean = false,
@@ -622,6 +630,9 @@ local ACCEPTED_TYPES = {
   renderer = {
     group_empty = { "boolean", "function" },
     root_folder_label = { "function", "string", "boolean" },
+  },
+  update_focused_file = {
+    exclude = { "function" },
   },
   filters = {
     custom = { "function" },

@@ -651,6 +651,7 @@ M.cpp = vim.tbl_extend("keep", M.c, {
     catch_clause = true,
     requires_expression = true,
 })
+M.angular = M.html
 M.arduino = M.cpp
 M.cuda = M.cpp
 M.astro = M.html
@@ -669,7 +670,11 @@ M.luau = M.lua
 M.nqc = M.c
 M.objc = M.c
 M.ocaml_interface = M.ocaml
+M.svelte = M.html
 M.tsx = vim.tbl_extend("keep", M.ecma, { jsx_element = true })
 M.typescript = M.ecma
+M.vue = vim.tbl_extend("keep", M.html, {
+    template_element = true,
+})
 
 return M

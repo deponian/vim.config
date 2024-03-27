@@ -1,4 +1,5 @@
 ; inherits: cpp
+
 [
   "in"
   "out"
@@ -23,7 +24,7 @@
   "triangleadj"
   "lineadj"
   "triangle"
-] @type.qualifier
+] @keyword.modifier
 
 ((identifier) @variable.builtin
   (#lua-match? @variable.builtin "^SV_"))

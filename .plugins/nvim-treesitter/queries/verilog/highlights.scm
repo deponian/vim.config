@@ -140,7 +140,7 @@
 
 (edge_identifier) @attribute
 
-(port_direction) @keyword.storage
+(port_direction) @keyword.modifier
 
 (port_identifier
   (simple_identifier) @variable)
@@ -154,7 +154,7 @@
 [
   "signed"
   "unsigned"
-] @type.qualifier
+] @keyword.modifier
 
 (data_type
   (simple_identifier) @type)
@@ -237,7 +237,7 @@
 (net_declaration
   (simple_identifier) @type)
 
-(lifetime) @label
+(lifetime) @keyword.modifier
 
 (function_identifier
   (function_identifier
@@ -263,7 +263,7 @@
 ;(parameter_identifier) @variable.member))
 (type_declaration
   (data_type
-    "packed" @type.qualifier))
+    "packed" @keyword.modifier))
 
 (struct_union) @type
 

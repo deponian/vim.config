@@ -1,4 +1,5 @@
 ; inherits: c
+
 ; Preprocs
 (preproc_undef
   name: (_) @constant) @keyword.directive
@@ -20,7 +21,7 @@
   "__covariant"
   "__contravariant"
   (visibility_specification)
-] @type.qualifier
+] @keyword.modifier
 
 ; Storageclasses
 [
@@ -29,7 +30,7 @@
   "@dynamic"
   "volatile"
   (protocol_qualifier)
-] @keyword.storage
+] @keyword.modifier
 
 ; Keywords
 [
@@ -173,12 +174,12 @@
     "__unsafe_unretained"
     "__unused"
     "__weak"
-  ]) @function.macro.builtin
+  ]) @function.macro
 
 [
   "__real"
   "__imag"
-] @function.macro.builtin
+] @function.macro
 
 ((call_expression
   function: (identifier) @function.macro)
@@ -243,12 +244,10 @@
   declarator: (identifier) @variable.parameter)
 
 (parameter_declaration
-  declarator:
-    (function_declarator
-      declarator:
-        (parenthesized_declarator
-          (block_pointer_declarator
-            declarator: (identifier) @variable.parameter))))
+  declarator: (function_declarator
+    declarator: (parenthesized_declarator
+      (block_pointer_declarator
+        declarator: (identifier) @variable.parameter))))
 
 "..." @variable.parameter.builtin
 

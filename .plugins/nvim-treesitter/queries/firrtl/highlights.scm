@@ -38,13 +38,13 @@
 ] @keyword
 
 ; Qualifiers
-(qualifier) @type.qualifier
+(qualifier) @keyword.modifier
 
 ; Storageclasses
 [
   "input"
   "output"
-] @keyword.storage
+] @keyword.modifier
 
 ; Conditionals
 [
@@ -87,7 +87,7 @@
   "reader"
   "writer"
   "readwriter"
-] @variable.member.builtin
+] @variable.member
 
 ((field_id) @variable.member
   (#set! "priority" 105))

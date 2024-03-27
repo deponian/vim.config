@@ -2,6 +2,8 @@ local M = {}
 
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
+local libuv = require "fzf-lua.libuv"
+local devicons = require "fzf-lua.devicons"
 local config = nil
 
 -- attempt to load the current config
@@ -11,19 +13,12 @@ do
   if ok then config = module end
 end
 
--- These globals are set by spawn.fn_transform loadstring
----@diagnostic disable-next-line: undefined-field
-M._fzf_lua_server = _G._fzf_lua_server
----@diagnostic disable-next-line: undefined-field
-M._devicons_path = _G._devicons_path
----@diagnostic disable-next-line: undefined-field
-M._devicons_setup = _G._devicons_setup
-
 local function load_config_section(s, datatype, optional)
   if config then
     local val = utils.map_get(config, s)
     return type(val) == datatype and val or nil
-  elseif M._fzf_lua_server then
+    ---@diagnostic disable-next-line: undefined-field
+  elseif _G._fzf_lua_server then
     -- load config from our running instance
     local res = nil
     local is_bytecode = false
@@ -37,7 +32,8 @@ local function load_config_section(s, datatype, optional)
       exec_str = ("return require'fzf-lua'.config.%s"):format(s)
     end
     local ok, errmsg = pcall(function()
-      local chan_id = vim.fn.sockconnect("pipe", M._fzf_lua_server, { rpc = true })
+      ---@diagnostic disable-next-line: undefined-field
+      local chan_id = vim.fn.sockconnect("pipe", _G._fzf_lua_server, { rpc = true })
       res = vim.rpcrequest(chan_id, "nvim_exec_lua", exec_str, exec_opts)
       vim.fn.chanclose(chan_id)
     end)
@@ -53,146 +49,12 @@ local function load_config_section(s, datatype, optional)
   end
 end
 
--- NOT NEEDED SINCE RESUME DATA REFACTOR
--- local function set_config_section(s, data)
---   if M._fzf_lua_server then
---     -- save config in our running instance
---     local ok, errmsg = pcall(function()
---       local chan_id = vim.fn.sockconnect("pipe", M._fzf_lua_server, { rpc = true })
---       vim.rpcrequest(chan_id, "nvim_exec_lua", ([[
---         local data = select(1, ...)
---         require'fzf-lua'.config.%s = data
---       ]]):format(s), { data })
---       vim.fn.chanclose(chan_id)
---     end)
---     if not ok then
---       io.stderr:write(("Error setting remote config section '%s': %s\n")
---         :format(s, errmsg))
---     end
---     return ok
---   elseif config then
---     local keys = utils.strsplit(s, ".")
---     local iter = config
---     for i = 1, #keys do
---       iter = iter[keys[i]]
---       if not iter then break end
---       if i == #keys - 1 then
---         iter[keys[i + 1]] = data
---         return iter
---       end
---     end
---   end
--- end
-
--- Setup the terminal colors codes for nvim-web-devicons colors
-M.setup_devicon_term_hls = function()
-  if M.__HL_BG and vim.o.bg == M.__HL_BG then
-    -- already setup for the current `bg`, do nothing (#893)
-    -- this was already taken care of for multiprocess in
-    -- `config._devicons_geticons` in #855
-    return
-  end
-  local icons = M._devicons and M._devicons.get_icons() or M._devicons_map
-  if not icons then
-    return
-  end
-  -- save the current neovim background
-  M.__HL_BG = vim.o.bg
-
-  local function hex(hexstr)
-    local r, g, b = hexstr:match(".(..)(..)(..)")
-    r, g, b = tonumber(r, 16), tonumber(g, 16), tonumber(b, 16)
-    return r, g, b
-  end
-
-  for k, info in pairs(icons) do
-    -- info.name can be missing (#817)
-    local name = info.name or type(k) == "string" and k
-    if name then
-      local hlgroup = "DevIcon" .. name
-      -- some devicons customizations remove `info.color`
-      -- retrieve the color from the highlight group (#801)
-      local hexcol = info.color or utils.hexcol_from_hl(hlgroup, "fg")
-      if hexcol and #hexcol > 0 then
-        local r, g, b = hex(hexcol)
-        utils.cache_ansi_escseq(hlgroup, string.format("[38;2;%s;%s;%sm", r, g, b))
-      end
-    end
-  end
-end
-
--- cache directory icon coloring escape sequence
-M.__DIR_ICON = nil
-M.__DIR_ICON_HL = "FzfLuaDirIcon"
-
-M.setup_directory_icon = function()
-  M.__DIR_ICON = config.globals.dir_icon
-  -- `M._diricon_escseq` cab be nil if hlgroup is cleared or non-existent
-  local escseq = M._diricon_escseq or config._diricon_escseq and config._diricon_escseq()
-  utils.cache_ansi_escseq(M.__DIR_ICON_HL, escseq)
-end
-
-local function load_devicons()
-  if config and config._has_devicons then
-    -- file was called from the primary instance
-    -- acquire nvim-web-devicons from config
-    M._devicons = config._devicons
-  elseif M._fzf_lua_server and load_config_section("_has_devicons", "boolean") then
-    -- file was called from a headless instance
-    -- load nvim-web-devicons via the RPC to the main instance
-    M._devicons_map = load_config_section("_devicons_geticons()", "table")
-    M._diricon_escseq = load_config_section("_diricon_escseq()", "string")
-  end
-  if not M._devicons and not M._devicons_map
-      and M._devicons_path and vim.loop.fs_stat(M._devicons_path) then
-    -- file was called from a headless instance
-    -- fallback load nvim-web-devicons manually
-    -- add nvim-web-devicons path to `package.path`
-    -- so `require("nvim-web-devicons")` can find it
-    package.path = (";%s/?.lua;"):format(vim.fn.fnamemodify(M._devicons_path, ":h"))
-        .. package.path
-    M._devicons = require("nvim-web-devicons")
-    -- WE NO LONGER USE THIS, LEFT FOR DOCUMENTATION
-    -- loading with 'require' is needed, 'loadfile'
-    -- cannot load a custom setup function as it's
-    -- considered a separate instance and the inner
-    -- 'require' in the setup file will create an
-    -- additional 'nvim-web-devicons' instance
-    --[[ local file = loadfile(M._devicons_path)
-    M._devicons = file and file() ]]
-    -- did caller specify a custom setup function?
-    -- must be called before the next step as `setup`
-    -- is ignored when called the second time
-    M._devicons_setup = M._devicons_setup and vim.fn.expand(M._devicons_setup)
-    if M._devicons and M._devicons_setup and vim.loop.fs_stat(M._devicons_setup) then
-      local file = loadfile(M._devicons_setup)
-      if file then file() end
-    end
-  end
-  if M._devicons and M._devicons.setup and not M._devicons.has_loaded() then
-    -- if the caller has devicons lazy loaded
-    -- running without calling setup will generate an error:
-    --  nvim-web-devicons.lua:972: E5560:
-    --  nvim_command must not be called in a lua loop callback
-    -- running in a pcall to avoid panic with neovim <= 0.6
-    -- due to usage of new highlighting API introduced with v0.7
-    pcall(M._devicons.setup)
-  end
-  -- Setup devicon terminal ansi color codes
-  M.setup_devicon_term_hls()
-  M.setup_directory_icon()
-end
-
--- Load remote config and devicons
-pcall(load_devicons)
-
 if not config then
   local _config = { globals = { git = {}, files = {}, grep = {} } }
   _config.globals.git.icons = load_config_section("globals.git.icons", "table") or {}
-  _config.globals.dir_icon = load_config_section("globals.dir_icon", "string")
-  _config.globals.file_icon_colors = load_config_section("globals.file_icon_colors", "table") or {}
-  _config.globals.file_icon_padding = load_config_section("globals.file_icon_padding", "string")
-  _config.globals.files.git_status_cmd = load_config_section("globals.files.git_status_cmd", "table")
+  _config.globals.files.git_status_cmd =
+      load_config_section("globals.files.git_status_cmd", "table")
+      or { "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" }
 
   -- prioritize `opts.rg_glob_fn` over globals
   _config.globals.grep.rg_glob_fn =
@@ -203,38 +65,6 @@ if not config then
   if _config.globals.nbsp then utils.nbsp = _config.globals.nbsp end
 
   config = _config
-end
-
-M.get_devicon = function(file, ext)
-  local icon, hl
-  if path.ends_with_separator(file) then
-    icon, hl = M.__DIR_ICON, M.__DIR_ICON_HL
-  elseif M._devicons then
-    icon, hl = M._devicons.get_icon(file, ext:lower(), { default = true })
-  elseif M._devicons_map then
-    -- Lookup first by name, then by ext (devicons `strict=true`)
-    -- "<default>" is added by fzf-lua and is thus guaranteed
-    local info = M._devicons_map[file:lower()]
-        or M._devicons_map[ext:lower()]
-        or M._devicons_map["<default>"]
-    icon, hl = info.icon, "DevIcon" .. info.name
-  else
-    icon, hl = "", "dark_grey"
-  end
-
-  -- allow user override of the color
-  local override = config.globals.file_icon_colors
-      and config.globals.file_icon_colors[ext]
-  if override then
-    hl = override
-  end
-
-  if config.globals.file_icon_padding and
-      #config.globals.file_icon_padding > 0 then
-    icon = icon .. config.globals.file_icon_padding
-  end
-
-  return icon, hl
 end
 
 M.get_diff_files = function(opts)
@@ -259,6 +89,10 @@ M.get_diff_files = function(opts)
   return diff_files
 end
 
+---@param query string
+---@param opts table
+---@return string search_query
+---@return string? glob_args
 M.glob_parse = function(query, opts)
   if not query or not query:find(opts.glob_separator) then
     return query, nil
@@ -270,14 +104,17 @@ M.glob_parse = function(query, opts)
   local glob_args = ""
   local search_query, glob_str = query:match("(.*)" .. opts.glob_separator .. "(.*)")
   for _, s in ipairs(utils.strsplit(glob_str, "%s")) do
-    glob_args = glob_args .. ("%s %s ")
-        :format(opts.glob_flag, vim.fn.shellescape(s))
+    glob_args = glob_args .. ("%s %s "):format(opts.glob_flag, libuv.shellescape(s))
   end
   return search_query, glob_args
 end
 
 -- reposition args before ` -e <pattern>` or ` -- <pattern>`
 -- enables "-e" and "--fixed-strings --" in `rg_opts` (#781, #794)
+---@param cmd string
+---@param args string
+---@param relocate_pattern string?
+---@return string
 M.rg_insert_args = function(cmd, args, relocate_pattern)
   local patterns = {}
   for _, a in ipairs({
@@ -310,48 +147,53 @@ M.rg_insert_args = function(cmd, args, relocate_pattern)
 end
 
 M.preprocess = function(opts)
-  if opts.cwd_only and not opts.cwd then
-    opts.cwd = vim.loop.cwd()
-  end
-
-  if opts.file_icons then
-    -- refersh the directory icon hlgroup
-    M.setup_directory_icon()
-  end
-
-  if opts.git_icons then
-    opts.diff_files = M.get_diff_files(opts)
-  end
-
   local argv = function(i, debug)
     -- argv1 is actually the 7th argument if we count
     -- arguments already supplied by 'wrap_spawn_stdio'.
     -- If no index was supplied use the last argument
     local idx = tonumber(i) and tonumber(i) + 6 or #vim.v.argv
-    if debug then
-      io.stdout:write(("[DEBUG]: argv(%d) = %s\n")
-        :format(idx, vim.fn.shellescape(vim.v.argv[idx])))
+    local arg = vim.v.argv[idx]
+    if debug == "v" or debug == "verbose" then
+      io.stdout:write(("[DEBUGV]: raw_argv(%d) = %s\n"):format(idx, arg))
     end
-    return vim.v.argv[idx]
+    if utils.__IS_WINDOWS then
+      arg = libuv.unescape_fzf(arg)
+    end
+    if debug == "v" or debug == "verbose" then
+      io.stdout:write(("[DEBUGV]: esc_argv(%d) = %s\n"):format(idx, libuv.shellescape(arg)))
+    end
+    return arg
   end
 
   -- live_grep replace pattern with last argument
   local argvz = "{argvz}"
-  local has_argvz = opts.cmd and opts.cmd:match(argvz)
+  if opts.cmd and opts.cmd:match(argvz) then
+    -- The NEQ condition on Windows turned out to be a real pain in the butt
+    -- so I decided to move the empty query test into our cmd proxy wrapper
+    -- For obvious reasons this cannot work with `live_grep_native` and thus
+    -- the NEQ condition remains for the "native" version
+    if not opts.exec_empty_query then
+      -- query is always be the last argument
+      if argv(nil, opts.debug) == "" then
+        opts.cmd = utils.shell_nop()
+        return opts
+      end
+    end
 
-  -- did the caller request rg with glob support?
-  -- manipulation needs to be done before the argv hack
-  if opts.rg_glob and has_argvz then
-    local query = argv()
-    local search_query, glob_args = M.glob_parse(query, opts)
-    if glob_args then
-      -- gsub doesn't like single % on rhs
-      search_query = search_query:gsub("%%", "%%%%")
-      -- reset argvz so it doesn't get replaced again below
-      -- insert glob args before `-- {argvz}` or `-e {argvz}` repositioned
-      -- at the end of the command preceding the search query (#781, #794)
-      opts.cmd = M.rg_insert_args(opts.cmd, glob_args, argvz)
-      opts.cmd = opts.cmd:gsub(argvz, vim.fn.shellescape(search_query))
+    -- did the caller request rg with glob support?
+    -- manipulation needs to be done before the argv replacement
+    if opts.rg_glob then
+      local query = argv(nil, opts.debug)
+      local search_query, glob_args = M.glob_parse(query, opts)
+      if glob_args then
+        -- gsub doesn't like single % on rhs
+        search_query = search_query:gsub("%%", "%%%%")
+        -- reset argvz so it doesn't get replaced again below
+        -- insert glob args before `-- {argvz}` or `-e {argvz}` repositioned
+        -- at the end of the command preceding the search query (#781, #794)
+        opts.cmd = M.rg_insert_args(opts.cmd, glob_args, argvz)
+        opts.cmd = opts.cmd:gsub(argvz, libuv.shellescape(search_query))
+      end
     end
   end
 
@@ -361,8 +203,42 @@ M.preprocess = function(opts)
     opts.cmd = opts.cmd:gsub("{argv.*}",
       function(x)
         local idx = x:match("{argv(.*)}")
-        return vim.fn.shellescape(argv(idx))
+        return libuv.shellescape(argv(idx, not opts.rg_glob and opts.debug))
       end)
+  end
+
+  if utils.__IS_WINDOWS and opts.cmd:match("!") then
+    -- https://ss64.com/nt/syntax-esc.html
+    -- This changes slightly if you are running with DelayedExpansion of variables:
+    -- if any part of the command line includes an '!' then CMD will escape a second
+    -- time, so ^^^^ will become ^
+    -- replace in sections, only double the relevant pipe sections with !
+    local escaped_cmd = {}
+    for _, str in ipairs(utils.strsplit(opts.cmd, "%s+|")) do
+      if str:match("!") then
+        str = str:gsub('[%(%)%%!%^<>&|"]', function(x)
+          return "^" .. x
+        end)
+        -- make sure all ! are escaped at least twice
+        str = str:gsub("[^%^]%^!", function(x)
+          return x:sub(1, 1) .. "^" .. x:sub(2)
+        end)
+      end
+      table.insert(escaped_cmd, str)
+    end
+    opts.cmd = table.concat(escaped_cmd, " |")
+  end
+
+  if opts.cwd_only and not opts.cwd then
+    opts.cwd = vim.loop.cwd()
+  end
+
+  if opts.file_icons then
+    devicons.load()
+  end
+
+  if opts.git_icons then
+    opts.diff_files = M.get_diff_files(opts)
   end
 
   return opts
@@ -384,11 +260,25 @@ end
 
 local COLON_BYTE = string.byte(":")
 
+---@param x string
+---@param opts table
+---@return string? entry
 M.file = function(x, opts)
   opts = opts or {}
   local ret = {}
   local icon, hl
-  local colon_idx = utils.find_next_char(x, COLON_BYTE) or 0
+  local colon_start_idx = 1
+  if utils.__IS_WINDOWS then
+    if string.byte(x, #x) == 13 then
+      -- strip ^M added by the "dir /s/b" command
+      x = x:sub(1, #x - 1)
+    end
+    if path.is_absolute(x) then
+      -- ignore the first colon in the drive spec, e.g c:\
+      colon_start_idx = 3
+    end
+  end
+  local colon_idx = utils.find_next_char(x, COLON_BYTE, colon_start_idx) or 0
   local file_part = colon_idx > 1 and x:sub(1, colon_idx - 1) or x
   local rest_of_line = colon_idx > 1 and x:sub(colon_idx) or nil
   -- strip ansi coloring from path so we can use filters
@@ -401,18 +291,18 @@ M.file = function(x, opts)
   -- fd v8.3 requires adding '--strip-cwd-prefix' to remove
   -- the './' prefix, will not work with '--color=always'
   -- https://github.com/sharkdp/fd/blob/master/CHANGELOG.md
-  if not (opts.strip_cwd_prefix == false) and path.starts_with_cwd(filepath) then
+  if not (opts.strip_cwd_prefix == false) then
     filepath = path.strip_cwd_prefix(filepath)
   end
   -- make path relative
   if opts.cwd and #opts.cwd > 0 then
-    filepath = path.relative(filepath, opts.cwd)
+    filepath = path.relative_to(filepath, opts.cwd)
   end
-  if path.starts_with_separator(filepath) then
+  if path.is_absolute(filepath) then
     -- filter for cwd only
     if opts.cwd_only then
       local cwd = opts.cwd or vim.loop.cwd()
-      if not path.is_relative(filepath, cwd) then
+      if not path.is_relative_to(filepath, cwd) then
         return nil
       end
     end
@@ -432,10 +322,15 @@ M.file = function(x, opts)
   -- save a copy for git indicator and icon lookups
   local origpath = filepath
   if opts.path_shorten then
-    filepath = path.shorten(filepath, tonumber(opts.path_shorten))
+    filepath = path.shorten(filepath, tonumber(opts.path_shorten),
+      -- On Windows we want to shorten using the separator used by the `cwd` arg
+      -- otherwise we might haave issues "lenghening" as in the case of git which
+      -- uses normalized paths (using /) for `rev-parse --show-toplevel` and `ls-files`
+      utils.__IS_WINDOWS and opts.cwd and path.separator(opts.cwd))
   end
   if opts.git_icons then
-    local diff_info = opts.diff_files and opts.diff_files[origpath]
+    local diff_info = opts.diff_files
+        and opts.diff_files[utils._if_win(path.normalize(origpath), origpath)]
     local indicators = diff_info and diff_info[1] or utils.nbsp
     for i = 1, #indicators do
       icon = indicators:sub(i, i)
@@ -453,14 +348,9 @@ M.file = function(x, opts)
     ret[#ret + 1] = utils.nbsp
   end
   if opts.file_icons then
-    local filename = path.tail(origpath)
-    local ext = path.extension(filename)
-    icon, hl = M.get_devicon(filename, ext)
-    if opts.color_icons then
-      -- extra workaround for issue #119 (or similars)
-      -- use default if we can't find the highlight ansi
-      local fn = utils.ansi_codes[hl] or utils.ansi_codes["dark_grey"]
-      icon = fn(icon)
+    icon, hl = devicons.get_devicon(origpath)
+    if hl and opts.color_icons then
+      icon = utils.ansi_from_rgb(hl, icon)
     end
     ret[#ret + 1] = icon
     ret[#ret + 1] = utils.nbsp

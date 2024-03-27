@@ -17,7 +17,8 @@ M.defaults = {
   -- leave nil when passing the spec as the first argument to setup()
   spec = nil, ---@type LazySpec
   lockfile = vim.fn.stdpath("config") .. "/lazy-lock.json", -- lockfile generated after running update.
-  concurrency = jit.os:find("Windows") and (vim.loop.available_parallelism() * 2) or nil, ---@type number limit the maximum amount of concurrent tasks
+  ---@type number? limit the maximum amount of concurrent tasks
+  concurrency = jit.os:find("Windows") and (vim.uv.available_parallelism() * 2) or nil,
   git = {
     -- defaults for the `Lazy log` command
     -- log = { "--since=3 days ago" }, -- show commits from the last 3 days
@@ -48,6 +49,8 @@ M.defaults = {
     wrap = true, -- wrap the lines in the ui
     -- The border to use for the UI window. Accepts same border values as |nvim_open_win()|.
     border = "none",
+    -- The backdrop opacity. 0 is fully opaque, 100 is fully transparent.
+    backdrop = 60,
     title = nil, ---@type string only works when border is not "none"
     title_pos = "center", ---@type "center" | "left" | "right"
     -- Show pills on top of the Lazy window
@@ -177,7 +180,7 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "10.16.0" -- x-release-please-version
+M.version = "10.20.2" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
@@ -198,6 +201,9 @@ M.me = nil
 
 ---@type string
 M.mapleader = nil
+
+---@type string
+M.maplocalleader = nil
 
 function M.headless()
   return #vim.api.nvim_list_uis() == 0
@@ -245,6 +251,7 @@ function M.setup(opts)
   -- disable plugin loading since we do all of that ourselves
   vim.go.loadplugins = false
   M.mapleader = vim.g.mapleader
+  M.maplocalleader = vim.g.maplocalleader
 
   if M.headless() then
     require("lazy.view.commands").setup()

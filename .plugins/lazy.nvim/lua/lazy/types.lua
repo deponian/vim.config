@@ -44,7 +44,7 @@
 ---@field branch? string
 ---@field tag? string
 ---@field commit? string
----@field version? string
+---@field version? string|boolean
 ---@field pin? boolean
 ---@field submodules? boolean Defaults to true
 
@@ -69,7 +69,7 @@
 ---@field event? string[]|string|LazyEventSpec[]|fun(self:LazyPlugin, event:string[]):string[]
 ---@field cmd? string[]|string|fun(self:LazyPlugin, cmd:string[]):string[]
 ---@field ft? string[]|string|fun(self:LazyPlugin, ft:string[]):string[]
----@field keys? string|string[]|LazyKeysSpec[]|fun(self:LazyPlugin, keys:string[]):(string|LazyKeys)[]
+---@field keys? string|string[]|LazyKeysSpec[]|fun(self:LazyPlugin, keys:string[]):((string|LazyKeys)[])
 ---@field module? false
 
 ---@class LazyPluginSpec: LazyPluginBase,LazyPluginSpecHandlers,LazyPluginHooks,LazyPluginRef

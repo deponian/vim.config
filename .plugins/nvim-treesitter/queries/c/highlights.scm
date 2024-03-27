@@ -142,9 +142,6 @@
 
 (char_literal) @character
 
-((preproc_arg) @function.macro
-  (#set! "priority" 90))
-
 (preproc_defined) @function.macro
 
 ((field_expression
@@ -159,21 +156,26 @@
 
 (statement_identifier) @label
 
+(declaration
+  type: (type_identifier) @_type
+  declarator: (identifier) @label
+  (#eq? @_type "__label__"))
+
 [
   (type_identifier)
   (type_descriptor)
 ] @type
 
-(storage_class_specifier) @keyword.storage
+(storage_class_specifier) @keyword.modifier
 
 [
   (type_qualifier)
   (gnu_asm_qualifier)
   "__extension__"
-] @type.qualifier
+] @keyword.modifier
 
 (linkage_specification
-  "extern" @keyword.storage)
+  "extern" @keyword.modifier)
 
 (type_definition
   declarator: (type_identifier) @type.definition)
@@ -258,18 +260,16 @@
   function: (identifier) @function.call)
 
 (call_expression
-  function:
-    (field_expression
-      field: (field_identifier) @function.call))
+  function: (field_expression
+    field: (field_identifier) @function.call))
 
 (function_declarator
   declarator: (identifier) @function)
 
 (function_declarator
-  declarator:
-    (parenthesized_declarator
-      (pointer_declarator
-        declarator: (field_identifier) @function)))
+  declarator: (parenthesized_declarator
+    (pointer_declarator
+      declarator: (field_identifier) @function)))
 
 (preproc_function_def
   name: (identifier) @function.macro)

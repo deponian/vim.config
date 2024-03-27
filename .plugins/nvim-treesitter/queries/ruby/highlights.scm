@@ -1,7 +1,8 @@
 ; Variables
-(identifier) @variable
-
-(global_variable) @variable.global
+[
+  (identifier)
+  (global_variable)
+] @variable
 
 ; Keywords
 [
@@ -61,8 +62,8 @@
 
 (constant) @constant
 
-((identifier) @type.qualifier
-  (#any-of? @type.qualifier "private" "protected" "public"))
+((identifier) @keyword.modifier
+  (#any-of? @keyword.modifier "private" "protected" "public"))
 
 [
   "rescue"
@@ -77,11 +78,10 @@
 
 (call
   receiver: (constant)? @type
-  method:
-    [
-      (identifier)
-      (constant)
-    ] @function.call)
+  method: [
+    (identifier)
+    (constant)
+  ] @function.call)
 
 (program
   (call
@@ -96,18 +96,16 @@
   (identifier) @function)
 
 (method
-  name:
-    [
-      (identifier) @function
-      (constant) @type
-    ])
+  name: [
+    (identifier) @function
+    (constant) @type
+  ])
 
 (singleton_method
-  name:
-    [
-      (identifier) @function
-      (constant) @type
-    ])
+  name: [
+    (identifier) @function
+    (constant) @type
+  ])
 
 (class
   name: (constant) @type)
@@ -125,7 +123,8 @@
 ] @variable.member
 
 ((identifier) @constant.builtin
-  (#any-of? @constant.builtin "__callee__" "__dir__" "__id__" "__method__" "__send__" "__ENCODING__" "__FILE__" "__LINE__"))
+  (#any-of? @constant.builtin
+    "__callee__" "__dir__" "__id__" "__method__" "__send__" "__ENCODING__" "__FILE__" "__LINE__"))
 
 ((constant) @type
   (#not-lua-match? @type "^[A-Z0-9_]+$"))

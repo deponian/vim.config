@@ -38,7 +38,9 @@
 
 ((call_expression
   function: (identifier) @function.builtin)
-  (#any-of? @function.builtin "print" "printd" "printdln" "printf" "println" "sprint" "sprintd" "sprintdln" "sprintf" "sprintln"))
+  (#any-of? @function.builtin
+    "print" "printd" "printdln" "printf" "println" "sprint" "sprintd" "sprintdln" "sprintf"
+    "sprintln"))
 
 ((identifier) @variable.builtin
   (#lua-match? @variable.builtin "^\$+[0-9A-Z_a-z]+\$*$"))
@@ -151,6 +153,6 @@
 
 "@define" @keyword.directive.define
 
-"private" @type.qualifier
+"private" @keyword.modifier
 
-"global" @keyword.storage
+"global" @keyword.modifier

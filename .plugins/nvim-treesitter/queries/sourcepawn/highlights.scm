@@ -23,9 +23,8 @@
   function: (identifier) @function)
 
 (call_expression
-  function:
-    (field_access
-      field: (identifier) @function.method.call))
+  function: (field_access
+    field: (identifier) @function.method.call))
 
 ; Types
 [
@@ -147,9 +146,9 @@
   name: (identifier) @function.method)
 
 ; Non-type Keywords
-(variable_storage_class) @keyword.storage
+(variable_storage_class) @keyword.modifier
 
-(visibility) @type.qualifier
+(visibility) @keyword.modifier
 
 (assertion) @function.builtin
 
@@ -201,6 +200,7 @@
   "~="
   "<<="
   ">>="
+  "..."
   (ignore_argument)
   (scope_access)
   (rest_operator)
@@ -245,8 +245,6 @@
 (string_literal) @string
 
 (array_literal) @punctuation.bracket
-
-(concatenated_string) @punctuation.delimiter
 
 (bool_literal) @boolean
 
@@ -299,4 +297,4 @@
   "static"
   "stock"
   "forward"
-] @type.qualifier
+] @keyword.modifier

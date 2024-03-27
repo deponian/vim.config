@@ -2,7 +2,7 @@
 local M = setmetatable({}, { __index = require("lazy.core.util") })
 
 function M.file_exists(file)
-  return vim.loop.fs_stat(file) ~= nil
+  return vim.uv.fs_stat(file) ~= nil
 end
 
 ---@param opts? LazyFloatOptions
@@ -19,13 +19,15 @@ function M.wo(win, k, v)
   end
 end
 
-function M.open(uri)
-  if M.file_exists(uri) then
+---@param opts? {system?:boolean}
+function M.open(uri, opts)
+  opts = opts or {}
+  if not opts.system and M.file_exists(uri) then
     return M.float({ style = "", file = uri })
   end
   local Config = require("lazy.core.config")
   local cmd
-  if Config.options.ui.browser then
+  if not opts.system and Config.options.ui.browser then
     cmd = { Config.options.ui.browser, uri }
   elseif vim.fn.has("win32") == 1 then
     cmd = { "explorer", uri }
@@ -71,7 +73,7 @@ end
 ---@param fn F
 ---@return F
 function M.throttle(ms, fn)
-  local timer = vim.loop.new_timer()
+  local timer = vim.uv.new_timer()
   local running = false
   local first = true
 
@@ -94,6 +96,36 @@ function M.throttle(ms, fn)
       running = true
     end
   end
+end
+
+--- Creates a weak reference to an object.
+--- Calling the returned function will return the object if it has not been garbage collected.
+---@generic T: table
+---@param obj T
+---@return T|fun():T?
+function M.weak(obj)
+  local weak = { _obj = obj }
+  ---@return table<any, any>
+  local function get()
+    local ret = rawget(weak, "_obj")
+    return ret == nil and error("Object has been garbage collected", 2) or ret
+  end
+  local mt = {
+    __mode = "v",
+    __call = function(t)
+      return rawget(t, "_obj")
+    end,
+    __index = function(_, k)
+      return get()[k]
+    end,
+    __newindex = function(_, k, v)
+      get()[k] = v
+    end,
+    __pairs = function()
+      return pairs(get())
+    end,
+  }
+  return setmetatable(weak, mt)
 end
 
 ---@class LazyCmdOptions: LazyFloatOptions

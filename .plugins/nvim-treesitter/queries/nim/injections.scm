@@ -26,7 +26,7 @@
   (#eq? @_string_prefix "&"))
 
 ; sql in generalized_strings
-; and anyhting you like as long as the function name is the same as the injected language's parser
+; and anything you like as long as the function name is the same as the injected language's parser
 (generalized_string
   function: (identifier) @injection.language
   (string_content) @injection.content
@@ -52,9 +52,8 @@
       (colon_expression
         left: (identifier) @_emit_keyword
         (#eq? @_emit_keyword "emit")
-        right:
-          (_
-            (string_content) @injection.content)))))
+        right: (_
+          (string_content) @injection.content)))))
 
 ; =============================================================================
 ; asm statement

@@ -130,14 +130,14 @@
   "value"
   "volatile"
   (procedure_qualifier)
-] @type.qualifier
+] @keyword.modifier
 
 [
   "common"
   "in"
   "inout"
   "out"
-] @keyword.storage
+] @keyword.modifier
 
 ; Labels
 [

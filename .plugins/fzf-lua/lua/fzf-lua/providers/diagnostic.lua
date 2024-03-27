@@ -51,29 +51,43 @@ M.diagnostics = function(opts)
 
   -- configure signs and highlights
   local signs = vim.diagnostic and {
-    ["Error"] = { severity = 1, default = "E", sign = "DiagnosticSignError" },
-    ["Warn"]  = { severity = 2, default = "W", sign = "DiagnosticSignWarn" },
-    ["Info"]  = { severity = 3, default = "I", sign = "DiagnosticSignInfo" },
-    ["Hint"]  = { severity = 4, default = "H", sign = "DiagnosticSignHint" },
+    ["Error"] = { severity = 1, default = "E", name = "DiagnosticSignError" },
+    ["Warn"]  = { severity = 2, default = "W", name = "DiagnosticSignWarn" },
+    ["Info"]  = { severity = 3, default = "I", name = "DiagnosticSignInfo" },
+    ["Hint"]  = { severity = 4, default = "H", name = "DiagnosticSignHint" },
   } or {
     -- At one point or another, we'll drop support for the old LSP diag
-    ["Error"] = { severity = 1, default = "E", sign = "LspDiagnosticsSignError" },
-    ["Warn"]  = { severity = 2, default = "W", sign = "LspDiagnosticsSignWarning" },
-    ["Info"]  = { severity = 3, default = "I", sign = "LspDiagnosticsSignInformation" },
-    ["Hint"]  = { severity = 4, default = "H", sign = "LspDiagnosticsSignHint" },
+    ["Error"] = { severity = 1, default = "E", name = "LspDiagnosticsSignError" },
+    ["Warn"]  = { severity = 2, default = "W", name = "LspDiagnosticsSignWarning" },
+    ["Info"]  = { severity = 3, default = "I", name = "LspDiagnosticsSignInformation" },
+    ["Hint"]  = { severity = 4, default = "H", name = "LspDiagnosticsSignHint" },
   }
 
   opts.__signs = {}
   for k, v in pairs(signs) do
     opts.__signs[v.severity] = {}
-    local sign_def = vim.fn.sign_getdefined(v.sign)
-    -- can be empty when config set to (#480):
-    -- vim.diagnostic.config({ signs = false })
-    if vim.tbl_isempty(sign_def) then sign_def = nil end
-    opts.__signs[v.severity].text =
-        (not opts.diag_icons or not sign_def or not sign_def[1].text)
-        and v.default or vim.trim(sign_def[1].text)
-    opts.__signs[v.severity].texthl = sign_def and sign_def[1].texthl or nil
+
+    -- from vim.diagnostic
+    if utils.__HAS_NVIM_010 then
+      local sign_confs = vim.diagnostic.config().signs
+      local level = vim.diagnostic.severity[k:upper()]
+      if type(sign_confs) ~= "table" or vim.tbl_isempty(sign_confs) then sign_confs = nil end
+      opts.__signs[v.severity].text =
+          (not opts.diag_icons or not sign_confs or not sign_confs.text or not sign_confs.text[level])
+          and v.default or vim.trim(sign_confs.text[level])
+      opts.__signs[v.severity].texthl = v.name
+    else
+      local sign_def = vim.fn.sign_getdefined(v.name)
+      -- can be empty when config set to (#480):
+      -- vim.diagnostic.config({ signs = false })
+      if vim.tbl_isempty(sign_def) then sign_def = nil end
+      opts.__signs[v.severity].text =
+          (not opts.diag_icons or not sign_def or not sign_def[1].text)
+          and v.default or vim.trim(sign_def[1].text)
+      opts.__signs[v.severity].texthl = sign_def and sign_def[1].texthl or nil
+    end
+
+    -- from user config
     if opts.signs and opts.signs[k] and opts.signs[k].text then
       opts.__signs[v.severity].text = opts.signs[k].text
     end
@@ -178,6 +192,7 @@ M.diagnostics = function(opts)
               local diag_entry = preprocess_diag(diag, bufnr)
               if diag_entry == nil then
                 coroutine.resume(co)
+                return
               end
               local entry = make_entry.lcol(diag_entry, opts)
               entry = make_entry.file(entry, opts)

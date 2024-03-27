@@ -109,6 +109,7 @@ nvim-tree-api.tree.reload()	nvim-tree-lua.txt	/*nvim-tree-api.tree.reload()*
 nvim-tree-api.tree.search_node()	nvim-tree-lua.txt	/*nvim-tree-api.tree.search_node()*
 nvim-tree-api.tree.toggle()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle()*
 nvim-tree-api.tree.toggle_custom_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_custom_filter()*
+nvim-tree-api.tree.toggle_enable_filters()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_enable_filters()*
 nvim-tree-api.tree.toggle_git_clean_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_git_clean_filter()*
 nvim-tree-api.tree.toggle_gitignore_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_gitignore_filter()*
 nvim-tree-api.tree.toggle_help()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_help()*
@@ -121,7 +122,13 @@ nvim-tree-events	nvim-tree-lua.txt	/*nvim-tree-events*
 nvim-tree-highlight	nvim-tree-lua.txt	/*nvim-tree-highlight*
 nvim-tree-highlight-default	nvim-tree-lua.txt	/*nvim-tree-highlight-default*
 nvim-tree-highlight-overhaul	nvim-tree-lua.txt	/*nvim-tree-highlight-overhaul*
+nvim-tree-index	nvim-tree-lua.txt	/*nvim-tree-index*
+nvim-tree-index-api	nvim-tree-lua.txt	/*nvim-tree-index-api*
+nvim-tree-index-opts	nvim-tree-lua.txt	/*nvim-tree-index-opts*
 nvim-tree-introduction	nvim-tree-lua.txt	/*nvim-tree-introduction*
+nvim-tree-legacy	nvim-tree-lua.txt	/*nvim-tree-legacy*
+nvim-tree-legacy-highlight	nvim-tree-lua.txt	/*nvim-tree-legacy-highlight*
+nvim-tree-legacy-opts	nvim-tree-lua.txt	/*nvim-tree-legacy-opts*
 nvim-tree-mappings	nvim-tree-lua.txt	/*nvim-tree-mappings*
 nvim-tree-mappings-default	nvim-tree-lua.txt	/*nvim-tree-mappings-default*
 nvim-tree-netrw	nvim-tree-lua.txt	/*nvim-tree-netrw*
@@ -190,6 +197,7 @@ nvim-tree.filesystem_watchers.enable	nvim-tree-lua.txt	/*nvim-tree.filesystem_wa
 nvim-tree.filesystem_watchers.ignore_dirs	nvim-tree-lua.txt	/*nvim-tree.filesystem_watchers.ignore_dirs*
 nvim-tree.filters.custom	nvim-tree-lua.txt	/*nvim-tree.filters.custom*
 nvim-tree.filters.dotfiles	nvim-tree-lua.txt	/*nvim-tree.filters.dotfiles*
+nvim-tree.filters.enable	nvim-tree-lua.txt	/*nvim-tree.filters.enable*
 nvim-tree.filters.exclude	nvim-tree-lua.txt	/*nvim-tree.filters.exclude*
 nvim-tree.filters.git_clean	nvim-tree-lua.txt	/*nvim-tree.filters.git_clean*
 nvim-tree.filters.git_ignored	nvim-tree-lua.txt	/*nvim-tree.filters.git_ignored*
@@ -293,8 +301,10 @@ nvim-tree.ui.confirm.default_yes	nvim-tree-lua.txt	/*nvim-tree.ui.confirm.defaul
 nvim-tree.ui.confirm.remove	nvim-tree-lua.txt	/*nvim-tree.ui.confirm.remove*
 nvim-tree.ui.confirm.trash	nvim-tree-lua.txt	/*nvim-tree.ui.confirm.trash*
 nvim-tree.update_focused_file.enable	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.enable*
-nvim-tree.update_focused_file.ignore_list	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.ignore_list*
+nvim-tree.update_focused_file.exclude	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.exclude*
 nvim-tree.update_focused_file.update_root	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.update_root*
+nvim-tree.update_focused_file.update_root.enable	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.update_root.enable*
+nvim-tree.update_focused_file.update_root.ignore_list	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.update_root.ignore_list*
 nvim-tree.view.centralize_selection	nvim-tree-lua.txt	/*nvim-tree.view.centralize_selection*
 nvim-tree.view.cursorline	nvim-tree-lua.txt	/*nvim-tree.view.cursorline*
 nvim-tree.view.debounce_delay	nvim-tree-lua.txt	/*nvim-tree.view.debounce_delay*

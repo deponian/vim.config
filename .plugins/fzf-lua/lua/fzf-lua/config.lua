@@ -1,76 +1,9 @@
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local actions = require "fzf-lua.actions"
+local devicons = require "fzf-lua.devicons"
 
 local M = {}
-
-if utils.__HAS_DEVICONS then
-  M._has_devicons, M._devicons = pcall(require, "nvim-web-devicons")
-
-  -- get the devicons module path
-  M._devicons_path = M._has_devicons and M._devicons and M._devicons.setup
-      and debug.getinfo(M._devicons.setup, "S").source:gsub("^@", "")
-end
-
-M._diricon_escseq = function()
-  local hlgroup = utils.map_get(M, "__resume_data.opts.hls.dir_icon") or M.globals.__HLS.dir_icon
-  local _, escseq = utils.ansi_from_hl(hlgroup)
-  return escseq
-end
-
--- get icons proxy for the headless instance
-M._devicons_geticons = function()
-  if not M._has_devicons or not M._devicons or not M._devicons.get_icons then
-    return
-  end
-  -- force refresh if `bg` changed from dark/light (#855)
-  if M.__DEVICONS and vim.o.bg == M.__DEVICONS_BG then
-    return M.__DEVICONS
-  end
-  -- save the current background
-  M.__DEVICONS_BG = vim.o.bg
-  -- rpc request cannot return a table that has mixed elements
-  -- of both indexed items and key value, it will fail with
-  -- "Cannot convert given lua table"
-  -- NOTES:
-  -- (1) devicons.get_icons() returns the default icon in [1]
-  -- (2) we cannot rely on having either .name or .color (#817)
-  local all_devicons = M._devicons.get_icons()
-  if not all_devicons or vim.tbl_isempty(all_devicons) then
-    -- something is wrong with devicons
-    -- can't use `error` due to fast event
-    print("[Fzf-lua] error: devicons.get_icons() is nil or empty!")
-    return
-  end
-  -- We only need the name, icon and color properties
-  local default_icon = all_devicons[1] or {}
-  M.__DEVICONS = {
-    ["<default>"] = {
-      name = default_icon.name or "Default",
-      icon = default_icon.icon or "",
-      color = default_icon.color or "#6d8086",
-    }
-  }
-  for k, v in pairs(all_devicons) do
-    -- skip all indexed (numeric) entries
-    if type(k) == "string" then
-      M.__DEVICONS[k] = {
-        name = v.name or k,
-        icon = v.icon or "",
-        color = v.color or (function()
-          -- some devicons customizations remove `info.color`
-          -- retrieve the color from the highlight group (#801)
-          local hlgroup = "DevIcon" .. (v.name or k)
-          local hexcol = utils.hexcol_from_hl(hlgroup, "fg")
-          if hexcol and #hexcol > 0 then
-            return hexcol
-          end
-        end)(),
-      }
-    end
-  end
-  return M.__DEVICONS
-end
 
 -- set this so that make_entry won't get nil err when setting remotely
 M.__resume_data = {}
@@ -116,10 +49,14 @@ M.resume_set = function(what, val, opts)
   -- backward compatibility for users using `get_last_query`
   if what == "query" then
     utils.map_set(M, "__resume_data.last_query", val)
+    -- store in opts for convinience in action callbacks
+    opts.last_query = val
   end
   -- _G.dump("resume_set", key1, utils.map_get(M, key1))
 end
 
+---@param opts {resume: boolean, __call_opts: table}
+---@return table
 function M.resume_opts(opts)
   assert(opts.resume and opts.__call_opts)
   local __call_opts = M.resume_get(nil, opts)
@@ -191,6 +128,9 @@ do
   m.globals = M.globals
 end
 
+---@param opts table<string, unknown>|fun():table?
+---@param globals string|table?
+---@param __resume_key string?
 function M.normalize_opts(opts, globals, __resume_key)
   if not opts then opts = {} end
 
@@ -236,6 +176,8 @@ function M.normalize_opts(opts, globals, __resume_key)
   end
 
   -- normalize all binds as lowercase or we can have duplicate keys (#654)
+  ---@param m {fzf: table<string, unknown>, builtin: table<string, unknown>}
+  ---@return {fzf: table<string, unknown>, builtin: table<string, unknown>}?
   local keymap_tolower = function(m)
     return m and {
       fzf = utils.map_tolower(m.fzf),
@@ -267,11 +209,26 @@ function M.normalize_opts(opts, globals, __resume_key)
       type(M.globals[k]) == "table" and utils.tbl_deep_clone(M.globals[k]) or {})
   end
 
+  -- backward compat: no-value flags should be set to `true`, in the past these
+  -- would be set to an empty string which would now translate into a shell escaped
+  -- string as we automatically shell escape all fzf_opts
+  for k, v in pairs(opts.fzf_opts) do
+    if v == "" then opts.fzf_opts[k] = true end
+  end
+
+  -- Execlude file icons from the fuzzy matching (#1080)
+  if opts.file_icons and opts._fzf_nth_devicons and not opts.fzf_opts["--delimiter"] then
+    opts.fzf_opts["--nth"] = opts.fzf_opts["--nth"] or "-1.."
+    opts.fzf_opts["--delimiter"] = string.format("[%s]", utils.nbsp)
+  end
+
   -- prioritize fzf-tmux split pane flags over the
   -- popup flag `-p` from fzf-lua defaults (#865)
+  opts._is_fzf_tmux_popup = true
   if type(opts.fzf_tmux_opts) == "table" then
     for _, flag in ipairs({ "-u", "-d", "-l", "-r" }) do
       if opts.fzf_tmux_opts[flag] then
+        opts._is_fzf_tmux_popup = false
         opts.fzf_tmux_opts["-p"] = nil
       end
     end
@@ -300,7 +257,13 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- also check if we need to override 'opts.prompt' from cli args
   -- if we don't override 'opts.prompt' 'FzfWin.save_query' will
   -- fail to remove the prompt part from resume saved query (#434)
-  for _, s in ipairs({ "fzf_args", "fzf_cli_args", "fzf_raw_args" }) do
+  for _, s in ipairs({
+    "fzf_args",
+    "fzf_cli_args",
+    "fzf_raw_args",
+    "file_icon_padding",
+    "dir_icon",
+  }) do
     if opts[s] == nil then
       opts[s] = M.globals[s]
     end
@@ -384,16 +347,6 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- backward compat copy due to the migration of `winopts.hl` -> `hls`
   opts.hls = vim.tbl_deep_extend("keep", opts.hls or {}, M.globals.__HLS)
 
-  -- Cache provider specific highlights so we don't call vim functions
-  -- within a "fast event" (`vim.in_fast_event()`) and err with:
-  -- E5560: vimL function must not be called in a lua loop callback
-  for _, hl_opt in ipairs(opts._cached_hls or {}) do
-    local hlgroup = opts.hls[hl_opt]
-    assert(hlgroup ~= nil) -- must exist
-    local _, escseq = utils.ansi_from_hl(hlgroup)
-    utils.cache_ansi_escseq(hlgroup, escseq)
-  end
-
   if type(opts.previewer) == "function" then
     -- we use a function so the user can override
     -- globals.winopts.preview.default
@@ -413,20 +366,25 @@ function M.normalize_opts(opts, globals, __resume_key)
   end
 
   if opts.cwd and #opts.cwd > 0 then
+    -- NOTE: on Windows, `expand` will replace all backslashes with forward slashes
+    -- i.e. C:/Users -> c:\Users
     opts.cwd = vim.fn.expand(opts.cwd)
     if not vim.loop.fs_stat(opts.cwd) then
       utils.warn(("Unable to access '%s', removing 'cwd' option."):format(opts.cwd))
       opts.cwd = nil
     else
-      -- relative paths in cwd are inaccessible when using multiprocess
-      -- as the external process have no awareness of our current working
-      -- directory so we must convert to full path (#375)
-      if not path.starts_with_separator(opts.cwd) then
+      if not path.is_absolute(opts.cwd) then
+        -- relative paths in cwd are inaccessible when using multiprocess
+        -- as the external process have no awareness of our current working
+        -- directory so we must convert to full path (#375)
         opts.cwd = path.join({ vim.loop.cwd(), opts.cwd })
+      elseif utils.__IS_WINDOWS and opts.cwd:sub(2) == ":" then
+        -- TODO: upstream bug? on Windoows: starting jobs with `cwd = C:` (without separator)
+        -- ignores the cwd argument and starts the job in the current working directory
+        opts.cwd = path.add_trailing(opts.cwd)
       end
     end
   end
-
 
   -- test for valid git_repo
   opts.git_icons = opts.git_icons and path.is_git_repo(opts, true)
@@ -481,19 +439,47 @@ function M.normalize_opts(opts, globals, __resume_key)
     end
   end
 
-  -- are we using fzf-tmux
+  -- are we using fzf-tmux, if so get available columns
   opts._is_fzf_tmux = vim.env.TMUX and opts.fzf_bin:match("fzf%-tmux$")
+  if opts._is_fzf_tmux then
+    local out = utils.io_system({ "tmux", "display-message", "-p", "#{window_width}" })
+    opts._tmux_columns = tonumber(out:match("%d+"))
+    opts.winopts.split = nil
+  end
+
+  -- refresh highlights if background/colorscheme changed (#1092)
+  if not M.__HLS_STATE
+      or M.__HLS_STATE.bg ~= vim.o.bg
+      or M.__HLS_STATE.colorscheme ~= vim.g.colors_name then
+    utils.setup_highlights()
+  end
+
+  -- Cache provider specific highlights so we don't call vim functions
+  -- within a "fast event" (`vim.in_fast_event()`) and err with:
+  -- E5560: vimL function must not be called in a lua loop callback
+  for _, hl_opt in ipairs(opts._cached_hls or {}) do
+    local hlgroup = opts.hls[hl_opt]
+    assert(hlgroup ~= nil) -- must exist
+    local _, escseq = utils.ansi_from_hl(hlgroup)
+    utils.cache_ansi_escseq(hlgroup, escseq)
+  end
+
+
+  if devicons.plugin_loaded() then
+    -- refresh icons, does nothing if "vim.o.bg" didn't change
+    devicons.load({
+      icon_padding = opts.file_icon_padding,
+      dir_icon = { icon = opts.dir_icon, color = utils.hexcol_from_hl(opts.hls.dir_icon, "fg") }
+    })
+  elseif opts.file_icons then
+    -- Disable devicons if not available
+    utils.warn("nvim-web-devicons isn't available, disabling 'file_icons'.")
+    opts.file_icons = nil
+  end
 
   -- libuv.spawn_nvim_fzf_cmd() pid callback
   opts._set_pid = M.set_pid
   opts._get_pid = M.get_pid
-
-  -- setup devicons terminal highlight groups does nothing unless
-  -- neovim `bg` is changed, call via utils/loadstring to prevent
-  -- circular require and also make sure "make_entry.lua" isn't
-  -- loaded before devicons vars are setup by this module
-  -- TODO: cleanup the background update and devicons load logic
-  utils.setup_devicon_term_hls()
 
   -- mark as normalized
   opts._normalized = true
@@ -546,7 +532,6 @@ M._action_to_helpstr = {
   [actions.buf_del]             = "buffer-delete",
   [actions.buf_switch]          = "buffer-switch",
   [actions.buf_switch_or_edit]  = "buffer-switch-or-edit",
-  [actions.colorscheme]         = "set-colorscheme",
   [actions.run_builtin]         = "run-builtin",
   [actions.ex_run]              = "edit-cmd",
   [actions.ex_run_cr]           = "exec-cmd",
@@ -593,6 +578,11 @@ M._action_to_helpstr = {
   [actions.set_qflist]          = "set-{qf|loc}list",
   [actions.apply_profile]       = "apply-profile",
   [actions.complete]            = "complete",
+  [actions.dap_bp_del]          = "dap-bp-delete",
+  [actions.colorscheme]         = "colorscheme-apply",
+  [actions.cs_delete]           = "colorscheme-delete",
+  [actions.cs_update]           = "colorscheme-update",
+  [actions.toggle_bg]           = "toggle-background",
 }
 
 return M

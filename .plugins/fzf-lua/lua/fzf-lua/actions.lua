@@ -16,7 +16,7 @@ M.expect = function(actions)
     end
   end
   if #keys > 0 then
-    return string.format("--expect=%s", table.concat(keys, ","))
+    return table.concat(keys, ",")
   end
   return nil
 end
@@ -96,7 +96,7 @@ M.vimcmd = function(vimcmd, selected, noesc)
   end
 end
 
-M.vimcmd_file = function(vimcmd, selected, opts)
+M.vimcmd_file = function(vimcmd, selected, opts, pcall_vimcmd)
   local curbuf = vim.api.nvim_buf_get_name(0)
   local is_term = utils.is_term_buffer(0)
   for i = 1, #selected do
@@ -104,7 +104,7 @@ M.vimcmd_file = function(vimcmd, selected, opts)
     if entry.path == "<none>" then goto continue end
     entry.ctag = opts._ctag and path.entry_to_ctag(selected[i])
     local fullpath = entry.path or entry.uri and entry.uri:match("^%a+://(.*)")
-    if not path.starts_with_separator(fullpath) then
+    if not path.is_absolute(fullpath) then
       fullpath = path.join({ opts.cwd or opts._cwd or vim.loop.cwd(), fullpath })
     end
     if vimcmd == "e"
@@ -125,15 +125,23 @@ M.vimcmd_file = function(vimcmd, selected, opts)
     -- add current location to jumplist
     if not is_term then vim.cmd("normal! m`") end
     -- only change buffer if we need to (issue #122)
-    if vimcmd ~= "e" or curbuf ~= fullpath then
+    if vimcmd ~= "e" or not path.equals(curbuf, fullpath) then
       if entry.path then
         -- do not run ':<cmd> <file>' for uri entries (#341)
-        local relpath = path.relative(entry.path, vim.loop.cwd())
+        local relpath = path.relative_to(entry.path, vim.loop.cwd())
         if vim.o.autochdir then
           -- force full paths when `autochdir=true` (#882)
           relpath = fullpath
         end
-        vim.cmd(vimcmd .. " " .. vim.fn.fnameescape(relpath))
+        -- we normalize the path or Windows will fail with directories starting
+        -- with special characters, for example "C:\app\(web)" will be traslated
+        -- by neovim to "c:\app(web)" (#1082)
+        local cmd = vimcmd .. " " .. vim.fn.fnameescape(path.normalize(relpath))
+        if pcall_vimcmd then
+          pcall(vim.cmd, cmd)
+        else
+          vim.cmd(cmd)
+        end
       elseif vimcmd ~= "e" then
         -- uri entries only execute new buffers (new|vnew|tabnew)
         vim.cmd(vimcmd)
@@ -188,7 +196,7 @@ local sel_to_qf = function(selected, opts, is_loclist)
     local file = path.entry_to_file(selected[i], opts)
     local text = selected[i]:match(":%d+:%d?%d?%d?%d?:?(.*)$")
     table.insert(qf_list, {
-      filename = file.bufname or file.path,
+      filename = file.bufname or file.path or file.uri,
       lnum = file.line,
       col = file.col,
       text = text,
@@ -245,7 +253,7 @@ M.file_switch = function(selected, opts)
   local bufnr = nil
   local entry = path.entry_to_file(selected[1])
   local fullpath = entry.path
-  if not path.starts_with_separator(fullpath) then
+  if not path.is_absolute(fullpath) then
     fullpath = path.join({ opts.cwd or vim.loop.cwd(), fullpath })
   end
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -299,6 +307,10 @@ M.vimcmd_buf = function(vimcmd, selected, opts)
     -- add current location to jumplist
     if not is_term then vim.cmd("normal! m`") end
     if vimcmd ~= "b" or curbuf ~= entry.bufnr then
+      if vimcmd == "bd" and utils.is_term_bufname(entry.bufname) then
+        -- killing terminal buffers requires ! (#1078)
+        vimcmd = vimcmd .. "!"
+      end
       local cmd = vimcmd .. " " .. entry.bufnr
       local ok, res = pcall(vim.cmd, cmd)
       if not ok then
@@ -383,37 +395,38 @@ M.buf_edit_or_qf = function(selected, opts)
   end
 end
 
-M.colorscheme = function(selected)
-  local colorscheme = selected[1]
-  vim.cmd("colorscheme " .. colorscheme)
-  -- setup fzf-lua's own highlight groups
-  utils.setup_highlights()
+M.colorscheme = function(selected, opts)
+  local dbkey, idx = selected[1]:match("^(.-):(%d+):")
+  if dbkey then
+    opts._apply_awesome_theme(dbkey, idx, opts)
+  else
+    local colorscheme = selected[1]:match("^[^:]+")
+    pcall(function() vim.cmd("colorscheme " .. colorscheme) end)
+  end
 end
 
-M.ensure_insert_mode = function()
-  -- not sure what is causing this, tested with
-  -- 'NVIM v0.6.0-dev+575-g2ef9d2a66'
-  -- vim.cmd("startinsert") doesn't start INSERT mode
-  -- 'mode' returns { blocking = false, mode = "t" }
-  -- manually input 'i' seems to workaround this issue
-  -- **only if fzf term window was succefully opened (#235)
-  -- this is only required after the 'nt' (normal-terminal)
-  -- mode was introduced along with the 'ModeChanged' event
-  -- https://github.com/neovim/neovim/pull/15878
-  -- https://github.com/neovim/neovim/pull/15840
-  -- local has_mode_nt = not vim.tbl_isempty(
-  --   vim.fn.getcompletion('ModeChanged', 'event'))
-  --   or vim.fn.has('nvim-0.6') == 1
-  -- if has_mode_nt then
-  --   local mode = vim.api.nvim_get_mode()
-  --   local wininfo = vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
-  --   if vim.bo.ft == 'fzf'
-  --     and wininfo.terminal == 1
-  --     and mode and mode.mode == 't' then
-  --     vim.cmd[[noautocmd lua vim.api.nvim_feedkeys('i', 'n', true)]]
-  --   end
-  -- end
-  utils.warn("calling 'ensure_insert_mode' is no longer required and can be safely omitted.")
+M.cs_delete = function(selected, opts)
+  for _, s in ipairs(selected) do
+    local dbkey = s:match("^(.-):%d+:")
+    opts._adm:delete(dbkey)
+  end
+end
+
+M.cs_update = function(selected, opts)
+  local dedup = {}
+  for _, s in ipairs(selected) do
+    local dbkey = s:match("^(.-):%d+:")
+    if dbkey then dedup[dbkey] = true end
+  end
+  for k, _ in pairs(dedup) do
+    opts._adm:update(k)
+  end
+end
+
+M.toggle_bg = function(_, _)
+  vim.o.background = vim.o.background == "dark" and "light" or "dark"
+  utils.setup_highlights()
+  utils.info(string.format([[background set to "%s"]], vim.o.background))
 end
 
 M.run_builtin = function(selected)
@@ -507,7 +520,7 @@ M.spell_apply = function(selected)
 end
 
 M.set_filetype = function(selected)
-  vim.api.nvim_buf_set_option(0, "filetype", selected[1])
+  vim.bo.filetype = selected[1]
 end
 
 M.packadd = function(selected)
@@ -538,9 +551,7 @@ M.help_tab = function(selected)
 end
 
 local function mantags(s)
-  return vim.tbl_map(function(x)
-    return x:match("[^[,( ]+")
-  end, s)
+  return vim.tbl_map(require("fzf-lua.providers.manpages").manpage_vim_arg, s)
 end
 
 M.man = function(selected)
@@ -629,7 +640,7 @@ end
 local git_exec = function(selected, opts, cmd, silent)
   local success
   for _, e in ipairs(selected) do
-    local file = path.relative(path.entry_to_file(e, opts).path, opts.cwd)
+    local file = path.relative_to(path.entry_to_file(e, opts).path, opts.cwd)
     local _cmd = vim.deepcopy(cmd)
     table.insert(_cmd, file)
     local output, rc = utils.io_systemlist(_cmd)
@@ -679,7 +690,7 @@ M.git_reset = function(selected, opts)
         or path.git_cwd({ "git", "checkout", "HEAD", "--" }, opts)
     git_exec({ s }, opts, cmd)
     -- trigger autoread or warn the users buffer(s) was changed
-    vim.cmd.checktime()
+    vim.cmd("checktime")
   end
 end
 
@@ -692,7 +703,8 @@ M.git_stash_pop = function(selected, opts)
   if utils.input("Pop " .. #selected .. " stash(es)? [y/n] ") == "y" then
     local cmd = path.git_cwd({ "git", "stash", "pop" }, opts)
     git_exec(selected, opts, cmd)
-    vim.cmd("e!")
+    -- trigger autoread or warn the users buffer(s) was changed
+    vim.cmd("checktime")
   end
 end
 
@@ -700,7 +712,8 @@ M.git_stash_apply = function(selected, opts)
   if utils.input("Apply " .. #selected .. " stash(es)? [y/n] ") == "y" then
     local cmd = path.git_cwd({ "git", "stash", "apply" }, opts)
     git_exec(selected, opts, cmd)
-    vim.cmd("e!")
+    -- trigger autoread or warn the users buffer(s) was changed
+    vim.cmd("checktime")
   end
 end
 
@@ -709,7 +722,7 @@ M.git_buf_edit = function(selected, opts)
   local git_root = path.git_root(opts, true)
   local win = vim.api.nvim_get_current_win()
   local buffer_filetype = vim.bo.filetype
-  local file = path.relative(vim.fn.expand("%:p"), git_root)
+  local file = path.relative_to(path.normalize(vim.fn.expand("%:p")), git_root)
   local commit_hash = match_commit_hash(selected[1], opts)
   table.insert(cmd, commit_hash .. ":" .. file)
   local git_file_contents = utils.io_systemlist(cmd)
@@ -717,10 +730,10 @@ M.git_buf_edit = function(selected, opts)
   local file_name = string.gsub(file, "$", "[" .. commit_hash .. "]")
   vim.api.nvim_buf_set_lines(buf, 0, 0, true, git_file_contents)
   vim.api.nvim_buf_set_name(buf, file_name)
-  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
-  vim.api.nvim_buf_set_option(buf, "filetype", buffer_filetype)
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.bo[buf].buftype = "nofile"
+  vim.bo[buf].bufhidden = "wipe"
+  vim.bo[buf].modifiable = false
+  vim.bo[buf].filetype = buffer_filetype
   vim.api.nvim_win_set_buf(win, buf)
 end
 
@@ -746,7 +759,9 @@ end
 
 M.arg_del = function(selected, opts)
   local vimcmd = "argdel"
-  M.vimcmd_file(vimcmd, selected, opts)
+  -- since we don't dedup argdel can fail if file is added
+  -- more than once into the arglist
+  M.vimcmd_file(vimcmd, selected, opts, true)
 end
 
 M.grep_lgrep = function(_, opts)
@@ -816,9 +831,12 @@ M.set_qflist = function(selected, opts)
   vim.cmd(opts._is_loclist and "lopen" or "copen")
 end
 
+---@param selected string[]
+---@param opts table
 M.apply_profile = function(selected, opts)
-  local fname = selected[1]:match("[^:]+")
-  local profile = selected[1]:match(":([^%s]+)")
+  local entry = path.entry_to_file(selected[1])
+  local fname = entry.path
+  local profile = entry.stripped:sub(#fname + 2):match("[^%s]+")
   local ok = utils.load_profile(fname, profile, opts.silent)
   if ok then
     vim.cmd(string.format([[lua require("fzf-lua").setup({"%s"})]], profile))
@@ -841,6 +859,16 @@ M.complete = function(selected, opts)
   vim.api.nvim_win_set_cursor(0, { opts.__CTX.cursor[1], newcol or col })
   if opts.__CTX.mode == "i" then
     vim.cmd [[noautocmd lua vim.api.nvim_feedkeys('a', 'n', true)]]
+  end
+end
+
+M.dap_bp_del = function(selected, opts)
+  local dap_bps = require("dap.breakpoints")
+  for _, e in ipairs(selected) do
+    local entry = path.entry_to_file(e, opts)
+    if entry.bufnr > 0 and entry.line then
+      dap_bps.remove(entry.bufnr, entry.line)
+    end
   end
 end
 

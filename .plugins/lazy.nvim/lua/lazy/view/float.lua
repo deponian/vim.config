@@ -15,12 +15,16 @@ local ViewConfig = require("lazy.view.config")
 ---@field persistent? boolean
 ---@field ft? string
 ---@field noautocmd? boolean
+---@field backdrop? float
 
 ---@class LazyFloat
 ---@field buf number
 ---@field win number
 ---@field opts LazyFloatOptions
 ---@field win_opts LazyWinOpts
+---@field backdrop_buf number
+---@field backdrop_win number
+---@field id number
 ---@overload fun(opts?:LazyFloatOptions):LazyFloat
 local M = {}
 
@@ -29,6 +33,12 @@ setmetatable(M, {
     return M.new(...)
   end,
 })
+
+local _id = 0
+local function next_id()
+  _id = _id + 1
+  return _id
+end
 
 ---@param opts? LazyFloatOptions
 function M.new(opts)
@@ -39,10 +49,12 @@ end
 ---@param opts? LazyFloatOptions
 function M:init(opts)
   require("lazy.view.colors").setup()
+  self.id = next_id()
   self.opts = vim.tbl_deep_extend("force", {
     size = Config.options.ui.size,
     style = "minimal",
     border = Config.options.ui.border or "none",
+    backdrop = Config.options.ui.backdrop or 60,
     zindex = 50,
   }, opts or {})
 
@@ -61,8 +73,13 @@ function M:init(opts)
     title_pos = self.opts.title and self.opts.title_pos or nil,
   }
   self:mount()
-  self:on_key(ViewConfig.keys.close, self.close)
-  self:on({ "BufDelete", "BufHidden" }, self.close, { once = true })
+  self:on("VimEnter", function()
+    vim.schedule(function()
+      if not self:win_valid() then
+        self:close()
+      end
+    end)
+  end, { buffer = false })
   return self
 end
 
@@ -114,9 +131,33 @@ function M:mount()
     self.buf = vim.api.nvim_create_buf(false, true)
   end
 
+  if self.opts.backdrop and self.opts.backdrop < 100 and vim.o.termguicolors then
+    self.backdrop_buf = vim.api.nvim_create_buf(false, true)
+    self.backdrop_win = vim.api.nvim_open_win(self.backdrop_buf, false, {
+      relative = "editor",
+      width = vim.o.columns,
+      height = vim.o.lines,
+      row = 0,
+      col = 0,
+      style = "minimal",
+      focusable = false,
+      zindex = self.opts.zindex - 1,
+    })
+    vim.api.nvim_set_hl(0, "LazyBackdrop", { bg = "#000000", default = true })
+    Util.wo(self.backdrop_win, "winhighlight", "Normal:LazyBackdrop")
+    Util.wo(self.backdrop_win, "winblend", self.opts.backdrop)
+    vim.bo[self.backdrop_buf].buftype = "nofile"
+  end
+
   self:layout()
   self.win = vim.api.nvim_open_win(self.buf, true, self.win_opts)
+  self:on("WinClosed", function()
+    self:close()
+    self:augroup(true)
+  end, { win = true })
   self:focus()
+  self:on_key(ViewConfig.keys.close, self.close)
+  self:on({ "BufDelete", "BufHidden" }, self.close)
 
   if vim.bo[self.buf].buftype == "" then
     vim.bo[self.buf].buftype = "nofile"
@@ -149,33 +190,52 @@ function M:mount()
       end
       config.style = self.opts.style ~= "" and self.opts.style or nil
       vim.api.nvim_win_set_config(self.win, config)
+
+      if self.backdrop_win and vim.api.nvim_win_is_valid(self.backdrop_win) then
+        vim.api.nvim_win_set_config(self.backdrop_win, {
+          width = vim.o.columns,
+          height = vim.o.lines,
+        })
+      end
+
       opts()
       vim.api.nvim_exec_autocmds("User", { pattern = "LazyFloatResized", modeline = false })
     end,
   })
 end
 
+---@param clear? boolean
+function M:augroup(clear)
+  return vim.api.nvim_create_augroup("trouble.window." .. self.id, { clear = clear == true })
+end
+
 ---@param events string|string[]
----@param fn fun(self?):boolean?
----@param opts? table
+---@param fn fun(self:LazyFloat, event:{buf:number}):boolean?
+---@param opts? vim.api.keyset.create_autocmd | {buffer: false, win?:boolean}
 function M:on(events, fn, opts)
-  if type(events) == "string" then
-    events = { events }
+  opts = opts or {}
+  if opts.win then
+    opts.pattern = self.win .. ""
+    opts.win = nil
+  elseif opts.buffer == nil then
+    opts.buffer = self.buf
+  elseif opts.buffer == false then
+    opts.buffer = nil
   end
-  for _, e in ipairs(events) do
-    local event, pattern = e:match("(%w+) (%w+)")
-    event = event or e
-    vim.api.nvim_create_autocmd(
-      event,
-      vim.tbl_extend("force", {
-        pattern = pattern,
-        buffer = (not pattern) and self.buf or nil,
-        callback = function()
-          return fn(self)
-        end,
-      }, opts or {})
-    )
+  if opts.pattern then
+    opts.buffer = nil
   end
+  local _self = Util.weak(self)
+  opts.callback = function(e)
+    local this = _self()
+    if not this then
+      -- delete the autocmd
+      return true
+    end
+    return fn(this, e)
+  end
+  opts.group = self:augroup()
+  vim.api.nvim_create_autocmd(events, opts)
 end
 
 ---@param key string
@@ -193,6 +253,7 @@ end
 
 ---@param opts? {wipe:boolean}
 function M:close(opts)
+  self:augroup(true)
   local buf = self.buf
   local win = self.win
   local wipe = opts and opts.wipe
@@ -204,7 +265,18 @@ function M:close(opts)
   if wipe then
     self.buf = nil
   end
+  local backdrop_buf = self.backdrop_buf
+  local backdrop_win = self.backdrop_win
+  self.backdrop_buf = nil
+  self.backdrop_win = nil
+
   vim.schedule(function()
+    if backdrop_win and vim.api.nvim_win_is_valid(backdrop_win) then
+      vim.api.nvim_win_close(backdrop_win, true)
+    end
+    if backdrop_buf and vim.api.nvim_buf_is_valid(backdrop_buf) then
+      vim.api.nvim_buf_delete(backdrop_buf, { force = true })
+    end
     if win and vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
     end

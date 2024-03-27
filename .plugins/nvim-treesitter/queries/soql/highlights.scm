@@ -32,7 +32,7 @@
 (alias_expression
   (identifier) @label)
 
-(storage_identifier) @keyword.storage
+(storage_identifier) @keyword.modifier
 
 (_
   function_name: (identifier) @function)
@@ -82,9 +82,10 @@
 
 (string_literal) @string
 
-(date) @variable.readonly
-
-(date_time) @variable.readonly
+[
+  (date)
+  (date_time)
+] @string.special
 
 [
   "TRUE"

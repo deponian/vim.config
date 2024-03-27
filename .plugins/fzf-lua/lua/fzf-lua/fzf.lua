@@ -5,6 +5,9 @@
 -- https://github.com/vijaymarupudi/nvim-fzf/blob/master/lua/fzf.lua
 local uv = vim.loop
 
+local utils = require "fzf-lua.utils"
+local libuv = require "fzf-lua.libuv"
+
 local M = {}
 
 -- workaround to a potential 'tempname' bug? (#222)
@@ -30,6 +33,11 @@ end
 -- contents can be either a table with tostring()able items, or a function that
 -- can be called repeatedly for values. The latter can use coroutines for async
 -- behavior.
+---@param contents string[]|table|function?
+---@param fzf_cli_args string[]
+---@param opts table
+---@return table selected
+---@return integer exit_code
 function M.raw_fzf(contents, fzf_cli_args, opts)
   if not coroutine.running() then
     error("[Fzf-lua] function must be called inside a coroutine.")
@@ -37,8 +45,8 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
 
   if not opts then opts = {} end
   local cwd = opts.fzf_cwd or opts.cwd
-  local cmd = opts.fzf_bin or "fzf"
-  local fifotmpname = tempname()
+  local cmd = { opts.fzf_bin or "fzf" }
+  local fifotmpname = utils.__IS_WINDOWS and utils.windows_pipename() or tempname()
   local outputtmpname = tempname()
 
   -- we use a temporary env $FZF_DEFAULT_COMMAND instead of piping
@@ -48,13 +56,17 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
   -- instance never terminates which hangs fzf on exit
   local FZF_DEFAULT_COMMAND = nil
 
-  if fzf_cli_args then cmd = cmd .. " " .. fzf_cli_args end
-  if opts.fzf_cli_args then cmd = cmd .. " " .. opts.fzf_cli_args end
+  utils.tbl_extend(cmd, fzf_cli_args or {})
+  if type(opts.fzf_cli_args) == "table" then
+    utils.tbl_extend(cmd, opts.fzf_cli_args)
+  elseif type(opts.fzf_cli_args) == "string" then
+    utils.tbl_extend(cmd, { opts.fzf_cli_args })
+  end
 
   if contents then
     if type(contents) == "string" and #contents > 0 then
       if opts.silent_fail ~= false then
-        contents = ("%s || true"):format(contents)
+        contents = contents .. " || " .. utils.shell_nop()
       end
       FZF_DEFAULT_COMMAND = contents
     else
@@ -69,24 +81,39 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
       local bin_is_sk = opts.fzf_bin and opts.fzf_bin:match("sk$")
       local fish_shell = vim.o.shell and vim.o.shell:match("fish$")
       if not fish_shell or bin_is_sk then
-        cmd = ("%s < %s"):format(cmd, vim.fn.shellescape(fifotmpname))
+        table.insert(cmd, "<")
+        table.insert(cmd, libuv.shellescape(fifotmpname))
       else
-        FZF_DEFAULT_COMMAND = string.format("cat %s", vim.fn.shellescape(fifotmpname))
+        FZF_DEFAULT_COMMAND = string.format("cat %s", libuv.shellescape(fifotmpname))
       end
     end
   end
 
-  cmd = ("%s > %s"):format(cmd, vim.fn.shellescape(outputtmpname))
+  table.insert(cmd, ">")
+  table.insert(cmd, libuv.shellescape(outputtmpname))
 
   local fd, output_pipe = nil, nil
   local finish_called = false
   local write_cb_count = 0
+  local windows_pipe_server = nil
+  ---@type function|nil
+  local handle_contents
 
-  -- Create the output pipe
-  -- We use tbl for perf reasons, from ':help system':
-  --  If {cmd} is a List it runs directly (no 'shell')
-  --  If {cmd} is a String it runs in the 'shell'
-  vim.fn.system({ "mkfifo", fifotmpname })
+  if utils.__IS_WINDOWS then
+    windows_pipe_server = uv.new_pipe(false)
+    windows_pipe_server:bind(fifotmpname)
+    windows_pipe_server:listen(16, function()
+      output_pipe = uv.new_pipe(false)
+      windows_pipe_server:accept(output_pipe)
+      handle_contents()
+    end)
+  else
+    -- Create the output pipe
+    -- We use tbl for perf reasons, from ':help system':
+    --  If {cmd} is a List it runs directly (no 'shell')
+    --  If {cmd} is a String it runs in the 'shell'
+    vim.fn.system({ "mkfifo", fifotmpname })
+  end
 
   local function finish(_)
     -- mark finish once called
@@ -147,6 +174,23 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
     end
   end
 
+  handle_contents = vim.schedule_wrap(function()
+    -- this part runs in the background. When the user has selected, it will
+    -- error out, but that doesn't matter so we just break out of the loop.
+    if contents then
+      if type(contents) == "table" then
+        if not vim.tbl_isempty(contents) then
+          write_cb(vim.tbl_map(function(x)
+            return x .. "\n"
+          end, contents))
+        end
+        finish(4)
+      else
+        contents(usr_write_cb(true), usr_write_cb(false), output_pipe)
+      end
+    end
+  end)
+
   -- I'm not sure why this happens (probably a neovim bug) but when pressing
   -- <C-c> in quick successsion immediately after opening the window neovim
   -- hangs the CPU at 100% at the last `coroutine.yield` before returning from
@@ -197,16 +241,29 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
   end
 
   if opts.debug then
-    print("[Fzf-lua]: fzf cmd:", cmd)
+    print("[Fzf-lua]: FZF_DEFAULT_COMMAND:", FZF_DEFAULT_COMMAND)
+    print("[Fzf-lua]: fzf cmd:", table.concat(cmd, " "))
   end
 
   local co = coroutine.running()
   local jobstart = opts.is_fzf_tmux and vim.fn.jobstart or vim.fn.termopen
-  jobstart({ "sh", "-c", cmd }, {
+  local shell_cmd = utils.__IS_WINDOWS
+      and { "cmd", "/d", "/e:off", "/f:off", "/v:off", "/c" }
+      or { "sh", "-c" }
+  if utils.__IS_WINDOWS then
+    utils.tbl_extend(shell_cmd, cmd)
+  else
+    table.insert(shell_cmd, table.concat(cmd, " "))
+  end
+  -- This obscure option makes jobstart fail with: "The syntax of the command is incorrect"
+  -- temporarily set to `false`, for more info see `:help shellslash` (#1055)
+  local nvim_opt_shellslash = utils.__WIN_HAS_SHELLSLASH and vim.o.shellslash
+  if nvim_opt_shellslash then vim.o.shellslash = false end
+  jobstart(shell_cmd, {
     cwd = cwd,
     pty = true,
     env = {
-      ["SHELL"] = "sh",
+      ["SHELL"] = shell_cmd[1],
       ["FZF_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
       ["SKIM_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
     },
@@ -220,7 +277,13 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
         f:close()
       end
       finish(1)
-      vim.fn.delete(fifotmpname)
+      if windows_pipe_server then
+        windows_pipe_server:close()
+      end
+      -- in windows, pipes that are not used are automatically cleaned up
+      if not utils.__IS_WINDOWS then vim.fn.delete(fifotmpname) end
+      -- Windows only, restore `shellslash` if was true before `jobstart`
+      if nvim_opt_shellslash then vim.o.shellslash = nvim_opt_shellslash end
       vim.fn.delete(outputtmpname)
       if #output == 0 then output = nil end
       coroutine.resume(co, output, rc)
@@ -231,26 +294,16 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
   if not opts.is_fzf_tmux then
     vim.cmd [[set ft=fzf]]
 
-    -- terminal behavior seems to have changed after the introduction
-    -- of 'nt' mode (terminal-normal mode) which is included in 0.6
     -- https://github.com/neovim/neovim/pull/15878
-    -- Preferably I'd like to check if the vim patch is included using
-    --   vim.fn.has('patch-8.2.3461')
-    -- but this doesn't work for vim patches > 8.1 as explained in:
-    -- https://github.com/neovim/neovim/issues/9635
-    -- However, since this patch was included in 0.6 we can test
-    -- for neovim version 0.6
-    -- Beats me why 'nvim_get_mode().mode' still returns 'nt' even
-    -- after we're clearly in insert mode or why `:startinsert`
-    -- won't change the mode from 'nt' to 't' so we use feedkeys()
-    -- instead.
-    -- This "retires" 'actions.ensure_insert_mode' and solves the
-    -- issue of calling an fzf-lua mapping from insert mode (#429)
-
-    if vim.fn.has("nvim-0.6") == 1 then
-      vim.cmd([[noautocmd lua vim.api.nvim_feedkeys(]]
-        .. [[vim.api.nvim_replace_termcodes("<Esc>i", true, false, true)]]
-        .. [[, 'n', true)]])
+    -- Since patch-8.2.3461 which was released with 0.6 neovim distinguishes between
+    -- Normal mode and Terminal-Normal mode. However, this seems to have also introduced
+    -- a bug with `startinsert`: When fzf-lua reuses interfaces (e.g. called from "builtin"
+    -- or grep<->live_grep toggle) the current mode will be "t" which is Terminal (INSERT)
+    -- mode but our interface is still opened in NORMAL mode, either `startinsert` is not
+    -- working (as it's technically already in INSERT) or creating a new terminal buffer
+    -- within the same window starts in NORMAL mode while returning the wrong `nvim_get_mode`
+    if utils.__HAS_NVIM_06 and vim.api.nvim_get_mode().mode == "t" then
+      utils.feed_keys_termcodes("i")
     else
       vim.cmd [[startinsert]]
     end
@@ -260,25 +313,16 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
     goto wait_for_fzf
   end
 
-  -- have to open this after there is a reader (termopen)
-  -- otherwise this will block
-  fd = uv.fs_open(fifotmpname, "w", -1)
-  output_pipe = uv.new_pipe(false)
-  output_pipe:open(fd)
-  -- print(output_pipe:getpeername())
-
-  -- this part runs in the background. When the user has selected, it will
-  -- error out, but that doesn't matter so we just break out of the loop.
-  if contents then
-    if type(contents) == "table" then
-      if not vim.tbl_isempty(contents) then
-        write_cb(vim.tbl_map(function(x) return x .. "\n" end, contents))
-      end
-      finish(4)
-    else
-      contents(usr_write_cb(true), usr_write_cb(false), output_pipe)
-    end
+  if not utils.__IS_WINDOWS then
+    -- have to open this after there is a reader (termopen)
+    -- otherwise this will block
+    fd = uv.fs_open(fifotmpname, "w", -1)
+    output_pipe = uv.new_pipe(false)
+    output_pipe:open(fd)
+    -- print(output_pipe:getpeername())
+    handle_contents()
   end
+
 
   ::wait_for_fzf::
   return coroutine.yield()

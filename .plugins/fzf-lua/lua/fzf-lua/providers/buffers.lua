@@ -3,7 +3,9 @@ local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local shell = require "fzf-lua.shell"
 local config = require "fzf-lua.config"
+local base64 = require "fzf-lua.lib.base64"
 local make_entry = require "fzf-lua.make_entry"
+local devicons = require "fzf-lua.devicons"
 
 local M = {}
 
@@ -34,9 +36,9 @@ local filter_buffers = function(opts, unfiltered)
       excluded[b] = true
     elseif opts.no_term_buffers and utils.is_term_buffer(b) then
       excluded[b] = true
-    elseif opts.cwd_only and not path.is_relative(vim.api.nvim_buf_get_name(b), vim.loop.cwd()) then
+    elseif opts.cwd_only and not path.is_relative_to(vim.api.nvim_buf_get_name(b), vim.loop.cwd()) then
       excluded[b] = true
-    elseif opts.cwd and not path.is_relative(vim.api.nvim_buf_get_name(b), opts.cwd) then
+    elseif opts.cwd and not path.is_relative_to(vim.api.nvim_buf_get_name(b), opts.cwd) then
       excluded[b] = true
     end
     if utils.buf_is_qf(b) then
@@ -66,7 +68,7 @@ local populate_buffer_entries = function(opts, bufnrs, tabh)
       bufnr = bufnr,
       flag = flag,
       info = vim.fn.getbufinfo(bufnr)[1],
-      readonly = vim.api.nvim_buf_get_option(bufnr, "readonly")
+      readonly = vim.bo[bufnr].readonly
     }
 
     -- Get the name for missing/quickfix/location list buffers
@@ -118,7 +120,7 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd)
   local flags = hidden .. readonly .. changed
   local leftbr = "["
   local rightbr = "]"
-  local bufname = #buf.info.name > 0 and path.relative(buf.info.name, cwd or vim.loop.cwd())
+  local bufname = #buf.info.name > 0 and path.relative_to(buf.info.name, cwd or vim.loop.cwd())
   if opts.filename_only then
     bufname = path.basename(bufname)
   end
@@ -141,18 +143,11 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd)
   local buficon = ""
   local hl = ""
   if opts.file_icons then
-    if utils.is_term_bufname(buf.info.name) then
-      -- get shell-like icon for terminal buffers
-      buficon, hl = make_entry.get_devicon(buf.info.name, "sh")
-    else
-      local filename = path.tail(buf.info.name)
-      local extension = path.extension(filename)
-      buficon, hl = make_entry.get_devicon(filename, extension)
-    end
-    if opts.color_icons then
-      -- fallback to "grey" color (#817)
-      local fn = utils.ansi_codes[hl] or utils.ansi_codes["dark_grey"]
-      buficon = fn(buficon)
+    buficon, hl = devicons.get_devicon(buf.info.name,
+      -- shell-like icon for terminal buffers
+      utils.is_term_bufname(buf.info.name) and "sh" or nil)
+    if hl and opts.color_icons then
+      buficon = utils.ansi_from_rgb(hl, buficon)
     end
   end
   local max_bufnr_w = 3 + #tostring(max_bufnr) + utils.ansi_escseq_len(bufnrstr)
@@ -258,11 +253,9 @@ M.buffer_lines = function(opts)
           end
           bufname = path.basename(filepath)
           if opts.file_icons then
-            local filename = path.tail(bufname)
-            local extension = path.extension(filename)
-            buficon, hl = make_entry.get_devicon(filename, extension)
-            if opts.color_icons then
-              buficon = utils.ansi_codes[hl](buficon)
+            buficon, hl = devicons.get_devicon(bufname)
+            if hl and opts.color_icons then
+              buficon = utils.ansi_from_rgb(hl, buficon)
             end
           end
           if not bufname or #bufname == 0 then
@@ -297,10 +290,6 @@ M.buffer_lines = function(opts)
       end
       cb(nil)
     end)()
-  end
-
-  if opts.search and #opts.search > 0 then
-    opts.fzf_opts["--query"] = vim.fn.shellescape(opts.search)
   end
 
   opts = core.set_fzf_field_index(opts, "{3}", opts._is_skim and "{}" or "{..-2}")
@@ -384,11 +373,12 @@ M.tabs = function(opts)
           function(s) return s end,
           utils.ansi_codes[opts.hls.tab_marker])
 
-        local tab_cwd_tilde_base64 = vim.base64
-            and vim.base64.encode(tab_cwd_tilde)
-            or tab_cwd_tilde
+        local tab_cwd_tilde_base64 = base64.encode(tab_cwd_tilde)
         if not opts.current_tab_only then
-          cb(string.format("%d)%s:%s%s\t%s", t, tab_cwd_tilde_base64, utils.nbsp,
+          cb(string.format("%s:%d)%s%s\t%s",
+            tab_cwd_tilde_base64,
+            t,
+            utils.nbsp,
             fn_title_hl(title),
             (t == core.CTX().tabnr) and fn_marker_hl(marker) or ""))
         end
@@ -399,8 +389,8 @@ M.tabs = function(opts)
         end
 
         opts.sort_lastused = false
-        opts._prefix = string.format("%d)%s:%s%s%s",
-          t, tab_cwd_tilde_base64, utils.nbsp, utils.nbsp, utils.nbsp)
+        opts._prefix = string.format("%s:%d)%s%s%s",
+          tab_cwd_tilde_base64, t, utils.nbsp, utils.nbsp, utils.nbsp)
         local tabh = vim.api.nvim_list_tabpages()[t]
         local buffers = populate_buffer_entries(opts, bufnrs_flat, tabh)
         for _, bufinfo in pairs(buffers) do

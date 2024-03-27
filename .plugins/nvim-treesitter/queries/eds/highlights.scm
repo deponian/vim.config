@@ -6,7 +6,8 @@
 ] @punctuation.bracket
 
 ((section_name) @variable.builtin
-  (#match? @variable.builtin "\\c^(FileInfo|DeviceInfo|DummyUsage|MandatoryObjects|OptionalObjects)$"))
+  (#match? @variable.builtin
+    "\\c^(FileInfo|DeviceInfo|DummyUsage|MandatoryObjects|OptionalObjects)$"))
 
 ((section_name) @variable.builtin
   (#lua-match? @variable.builtin "^1"))
@@ -26,21 +27,7 @@
   (section_name) @_name
   (statement
     (key) @_key) @type
-  (#match? @_key "\\c^ObjectType$")
-  (#not-match? @_name "\\c^Comments$"))
-
-(section
-  (section_name) @_name
-  (statement
-    (key) @_key) @type
-  (#match? @_key "\\c^DataType$")
-  (#not-match? @_name "\\c^Comments$"))
-
-(section
-  (section_name) @_name
-  (statement
-    (key) @_key) @type.qualifier
-  (#match? @_key "\\c^AccessType$")
+  (#match? @_key "\\c^(ObjectType|DataType|AccessType)$")
   (#not-match? @_name "\\c^Comments$"))
 
 (section

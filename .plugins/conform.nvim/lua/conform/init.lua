@@ -14,6 +14,7 @@ local M = {}
 ---@field cwd? fun(self: conform.JobFormatterConfig, ctx: conform.Context): nil|string
 ---@field require_cwd? boolean When cwd is not found, don't run the formatter (default false)
 ---@field stdin? boolean Send buffer contents to stdin (default true)
+---@field tmpfile_format? string When stdin=false, use this format for temporary files (default ".conform.$RANDOM.$FILENAME")
 ---@field condition? fun(self: conform.JobFormatterConfig, ctx: conform.Context): boolean
 ---@field exit_codes? integer[] Exit codes that indicate success (default {0})
 ---@field env? table<string, any>|fun(self: conform.JobFormatterConfig, ctx: conform.Context): table<string, any>
@@ -623,7 +624,6 @@ end
 ---@param bufnr? integer
 ---@return conform.FormatterInfo
 M.get_formatter_info = function(formatter, bufnr)
-  local util = require("conform.util")
   if not bufnr or bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
@@ -657,21 +657,21 @@ M.get_formatter_info = function(formatter, bufnr)
 
   local command = config.command
   if type(command) == "function" then
-    command = util.compat_call_with_self(formatter, config, command, ctx)
+    ---@cast config conform.JobFormatterConfig
+    command = command(config, ctx)
   end
 
   if vim.fn.executable(command) == 0 then
     available = false
     available_msg = "Command not found"
-  elseif
-    config.condition and not util.compat_call_with_self(formatter, config, config.condition, ctx)
-  then
+  elseif config.condition and not config.condition(config, ctx) then
     available = false
     available_msg = "Condition failed"
   end
   local cwd = nil
   if config.cwd then
-    cwd = util.compat_call_with_self(formatter, config, config.cwd, ctx)
+    ---@cast config conform.JobFormatterConfig
+    cwd = config.cwd(config, ctx)
     if available and not cwd and config.require_cwd then
       available = false
       available_msg = "Root directory not found"
