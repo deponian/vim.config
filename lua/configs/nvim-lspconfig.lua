@@ -14,6 +14,7 @@ M.config = function ()
     vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
     vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
     vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
+    vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = true, silent = true})
   end
 
   -- UI tweaks from https://github.com/neovim/nvim-lspconfig/wiki/UI-customization
