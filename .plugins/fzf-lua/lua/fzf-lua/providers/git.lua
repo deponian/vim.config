@@ -50,9 +50,12 @@ M.status = function(opts)
   local contents
   if opts.multiprocess then
     -- git status does not require preprocessing if not loading devicons
-    opts.__mt_preprocess = opts.file_icons
-        and [[return require("fzf-lua.devicons").load()]]
-        or [[return true]]
+    -- opts.__mt_preprocess = opts.file_icons
+    --     and [[return require("fzf-lua.devicons").load()]]
+    --     or [[return true]]
+    -- 
+    -- preprocess is required since the addition of `path.filename_first`
+    -- will be set by `core.mt_cmd_wrapper` by commenting out the above 
     opts.__mt_transform = [[return require("make_entry").git_status]]
     contents = core.mt_cmd_wrapper(opts)
   else
@@ -137,7 +140,7 @@ M.bcommits = function(opts)
   end
   local git_root = path.git_root(opts)
   if not git_root then return end
-  local file = path.relative_to(vim.fn.expand("%:p"), git_root)
+  local file = libuv.shellescape(path.relative_to(vim.fn.expand("%:p"), git_root))
   local range
   if utils.mode_is_visual() then
     local _, sel = utils.get_visual_selection()
@@ -149,7 +152,7 @@ M.bcommits = function(opts)
     opts.cmd = opts.cmd .. " " .. (range or file)
   end
   if type(opts.preview) == "string" then
-    opts.preview = opts.preview:gsub("[<{]file[}>]", libuv.shellescape(file))
+    opts.preview = opts.preview:gsub("[<{]file[}>]", file)
     opts.preview = path.git_cwd(opts.preview, opts)
     if type(opts.preview_pager) == "function" then
       opts.preview_pager = opts.preview_pager()
@@ -178,6 +181,7 @@ M.branches = function(opts)
       return opts.__preview:gsub("{.*}", branch)
     end, nil, opts.debug)
   end
+  opts.headers = opts.headers or { "cwd", "actions" }
   return git_cmd(opts)
 end
 

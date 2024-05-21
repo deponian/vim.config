@@ -25,20 +25,12 @@ function M.dirname(file)
 end
 
 --- @param path string
---- @param opts {raw: boolean}?
 --- @return string[]
-function M.file_lines(path, opts)
-  opts = opts or {}
-  local file = assert(io.open(path))
+function M.file_lines(path)
+  local file = assert(io.open(path, 'rb'))
   local contents = file:read('*a')
-  local lines = vim.split(contents, '\n', { plain = true })
-  if not opts.raw then
-    -- If contents ends with a newline, then remove the final empty string after the split
-    if lines[#lines] == '' then
-      lines[#lines] = nil
-    end
-  end
-  return lines
+  file:close()
+  return vim.split(contents, '\n')
 end
 
 M.path_sep = package.config:sub(1, 1)
@@ -188,6 +180,15 @@ function M.get_relative_time(timestamp)
     return to_relative_string(elapsed, month_seconds, 'month')
   else
     return to_relative_string(elapsed, year_seconds, 'year')
+  end
+end
+
+--- @param opts vim.api.keyset.redraw
+function M.redraw(opts)
+  if vim.fn.has('nvim-0.10') == 1 then
+    vim.api.nvim__redraw(opts)
+  else
+    vim.api.nvim__buf_redraw_range(opts.buf, opts.range[1], opts.range[2])
   end
 end
 
@@ -344,6 +345,21 @@ function M.list_insert(t, first, last, v)
   -- Fill in new values
   for i = first, last do
     t[i] = v
+  end
+end
+
+--- Run a function once and ignore subsequent calls
+--- @generic F: function
+--- @param fn F
+--- @return F
+function M.once(fn)
+  local called = false
+  return function(...)
+    if called then
+      return
+    end
+    called = true
+    return fn(...)
   end
 end
 

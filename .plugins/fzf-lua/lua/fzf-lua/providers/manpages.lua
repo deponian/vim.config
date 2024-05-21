@@ -16,7 +16,8 @@ end
 --- @param apropos_line string
 --- @return string arg without shellescape
 M.manpage_vim_arg = function(apropos_line)
-  return string.format("%s(%s)", parse_apropos(apropos_line))
+  local page, section = parse_apropos(apropos_line)
+  return string.format("%s(%s)", page, section)
 end
 --- @param apropos_line string
 --- @return string arg with shellescape
@@ -35,7 +36,7 @@ M.manpages = function(opts)
   end
 
   opts.fn_transform = function(x)
-    -- split by first occurence of ' - ' (spaced hyphen)
+    -- split by first occurrence of ' - ' (spaced hyphen)
     local man, desc = x:match("^(.-) %- (.*)$")
     return string.format("%-45s %s", man, desc)
   end

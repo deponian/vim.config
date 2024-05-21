@@ -1,7 +1,7 @@
 :SudaRead	suda.txt	/*:SudaRead*
 :SudaWrite	suda.txt	/*:SudaWrite*
 g:suda#executable	suda.txt	/*g:suda#executable*
-g:suda#nopass	suda.txt	/*g:suda#nopass*
+g:suda#noninteractive	suda.txt	/*g:suda#noninteractive*
 g:suda#prompt	suda.txt	/*g:suda#prompt*
 g:suda_smart_edit	suda.txt	/*g:suda_smart_edit*
 suda	suda.txt	/*suda*

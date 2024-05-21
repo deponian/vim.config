@@ -91,6 +91,7 @@ function M.select_compiler_args(repo, compiler)
       "/Isrc",
       repo.files,
       "-Os",
+      "/utf-8",
       "/LD",
     }
   elseif string.match(compiler, "zig$") or string.match(compiler, "zig.exe$") then
@@ -151,7 +152,7 @@ function M.select_compile_command(repo, cc, compile_location)
       info = "Compiling...",
       err = "Error during compilation",
       opts = {
-        args = vim.tbl_flatten(M.select_compiler_args(repo, cc)),
+        args = require("nvim-treesitter.compat").flatten(M.select_compiler_args(repo, cc)),
         cwd = compile_location,
       },
     }

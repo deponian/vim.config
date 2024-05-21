@@ -37,7 +37,9 @@ local function diff_text_edits(text_edits, bufnr, offset_encoding, diff_opts)
     table.concat(orig_lines, eol) .. eol,
     table.concat(new_lines, eol) .. eol,
     diff_opts)
-  return utils.strsplit(vim.trim(diff), eol)
+  -- Windows: some LSPs use "\n" for EOL (e.g clangd)
+  -- remove both "\n" and "\r\n" (#1172)
+  return utils.strsplit(vim.trim(diff), "\r?\n")
 end
 
 -- based on `vim.lsp.util.apply_text_document_edit`
@@ -100,7 +102,7 @@ local function diff_workspace_edit(workspace_edit, offset_encoding, diff_opts)
   end
 
   local all_changes = workspace_edit.changes
-  if all_changes and not vim.tbl_isempty(all_changes) then
+  if all_changes and not utils.tbl_isempty(all_changes) then
     for uri, changes in pairs(all_changes) do
       local path = vim.fn.fnamemodify(vim.uri_to_fname(uri), ":.")
       local bufnr = vim.uri_to_bufnr(uri)
@@ -168,13 +170,13 @@ local function preview_action_tuple(self, idx, callback)
         local choice = self.opts._items[idx]
         local bufnr = assert(choice.ctx.bufnr, "Must have buffer number")
         local reg = client.dynamic_capabilities:get(ms.textDocument_codeAction, { bufnr = bufnr })
-        return vim.tbl_get(reg or {}, "registerOptions", "resolveProvider")
+        return utils.tbl_get(reg or {}, "registerOptions", "resolveProvider")
             or client.supports_method(ms.codeAction_resolve)
       end)()
       -- prior to nvim 0.10 we could check `client.server_capabilities`
-      or vim.tbl_get(client.server_capabilities, "codeActionProvider", "resolveProvider")
+      or utils.tbl_get(client.server_capabilities, "codeActionProvider", "resolveProvider")
   if not action.edit and client and supports_resolve then
-    -- Action is not a worksapce edit, attempt to resolve the code action
+    -- Action is not a workspace edit, attempt to resolve the code action
     -- in case it resolves to a workspace edit
     local function handle_resolved_response(err, resolved_action)
       if err then

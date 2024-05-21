@@ -5,18 +5,17 @@ local cache = require('gitsigns.cache').cache
 local util = require('gitsigns.util')
 local manager = require('gitsigns.manager')
 local message = require('gitsigns.message')
+local Status = require('gitsigns.status')
 
 local throttle_by_id = require('gitsigns.debounce').throttle_by_id
 
---- @type fun(opts: table): string
-local input = async.wrap(vim.ui.input, 2)
-
 local M = {}
 
+--- @async
 --- @param bufnr integer
 --- @param dbufnr integer
 --- @param base string?
-local bufread = async.void(function(bufnr, dbufnr, base)
+local function bufread(bufnr, dbufnr, base)
   local bcache = cache[bufnr]
   local comp_rev = bcache:get_compare_rev(util.calc_base(base))
   local text --- @type string[]
@@ -28,7 +27,10 @@ local bufread = async.void(function(bufnr, dbufnr, base)
     if err then
       error(err, 2)
     end
-    async.scheduler_if_buf_valid(bufnr)
+    async.scheduler()
+    if not api.nvim_buf_is_valid(bufnr) then
+      return
+    end
   end
 
   vim.bo[dbufnr].fileformat = vim.bo[bufnr].fileformat
@@ -37,21 +39,26 @@ local bufread = async.void(function(bufnr, dbufnr, base)
 
   local modifiable = vim.bo[dbufnr].modifiable
   vim.bo[dbufnr].modifiable = true
+  Status:update(dbufnr, { head = comp_rev })
 
   util.set_lines(dbufnr, 0, -1, text)
 
   vim.bo[dbufnr].modifiable = modifiable
   vim.bo[dbufnr].modified = false
-end)
+  require('gitsigns.attach').attach(dbufnr, nil, 'BufReadCmd')
+end
 
 --- @param bufnr integer
 --- @param dbufnr integer
 --- @param base string?
-local bufwrite = async.void(function(bufnr, dbufnr, base)
+local bufwrite = async.create(3, function(bufnr, dbufnr, base)
   local bcache = cache[bufnr]
   local buftext = util.buf_lines(dbufnr)
   bcache.git_obj:stage_lines(buftext)
-  async.scheduler_if_buf_valid(bufnr)
+  async.scheduler()
+  if not api.nvim_buf_is_valid(bufnr) then
+    return
+  end
   vim.bo[dbufnr].modified = false
   -- If diff buffer base matches the bcache base then also update the
   -- signs.
@@ -61,6 +68,7 @@ local bufwrite = async.void(function(bufnr, dbufnr, base)
   end
 end)
 
+--- @async
 --- Create a gitsigns buffer for a certain revision of a file
 --- @param bufnr integer
 --- @param base string?
@@ -94,7 +102,7 @@ local function create_show_buf(bufnr, base)
       group = 'gitsigns',
       buffer = dbuf,
       callback = function()
-        bufread(bufnr, dbuf, base)
+        async.run(bufread, bufnr, dbuf, base)
       end,
     })
 
@@ -117,6 +125,7 @@ end
 --- @field vertical boolean
 --- @field split string
 
+--- @async
 --- @param base string?
 --- @param opts? Gitsigns.DiffthisOpts
 local function diffthis_rev(base, opts)
@@ -140,7 +149,7 @@ end
 
 --- @param base string?
 --- @param opts Gitsigns.DiffthisOpts
-M.diffthis = async.void(function(base, opts)
+M.diffthis = async.create(2, function(base, opts)
   if vim.wo.diff then
     return
   end
@@ -165,7 +174,7 @@ end)
 
 --- @param bufnr integer
 --- @param base string
-M.show = async.void(function(bufnr, base)
+M.show = async.create(2, function(bufnr, base)
   local bufname = create_show_buf(bufnr, base)
   if not bufname then
     return
@@ -182,7 +191,7 @@ local function should_reload(bufnr)
   end
   local response --- @type string?
   while not vim.tbl_contains({ 'O', 'L' }, response) do
-    response = input({
+    response = async.wait(2, vim.ui.input, {
       prompt = 'Warning: The git index has changed and the buffer was changed as well. [O]K, (L)oad File:',
     })
   end
@@ -191,7 +200,7 @@ end
 
 -- This function needs to be throttled as there is a call to vim.ui.input
 --- @param bufnr integer
-M.update = throttle_by_id(async.void(function(bufnr)
+M.update = throttle_by_id(async.create(1, function(bufnr)
   if not vim.wo.diff then
     return
   end

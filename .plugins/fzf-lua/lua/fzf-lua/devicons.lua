@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 
@@ -69,17 +70,26 @@ M.load_icons = function()
   -- (1) devicons.get_icons() returns the default icon in [1]
   -- (2) we cannot rely on having either .name or .color (#817)
   local ok, all_devicons = pcall(function()
-    M.__DEVICONS_LIB.refresh() -- reloads light|dark theme
+    if M.STATE and M.STATE.icons then
+      M.__DEVICONS_LIB.refresh() -- reloads light|dark theme
+    end
     return M.__DEVICONS_LIB.get_icons()
   end)
-  if not ok or not all_devicons or vim.tbl_isempty(all_devicons) then
+  if not ok or not all_devicons or utils.tbl_isempty(all_devicons) then
     -- something is wrong with devicons
     -- can't use `error` due to fast event
     print("[Fzf-lua] error: devicons.get_icons() is nil or empty!")
     return
   end
   local theme
-  if vim.o.background == "light" then
+  -- Does `devicons` contain https://github.com/nvim-tree/nvim-web-devicons/pull/450?
+  -- fixes overrides that aren't overriding but rather add new extensions/filenames (#1152)
+  if M.__DEVICONS_LIB.get_icons_by_extension then
+    theme = {
+      icons_by_filename = M.__DEVICONS_LIB.get_icons_by_filename(),
+      icons_by_file_extension = M.__DEVICONS_LIB.get_icons_by_extension(),
+    }
+  elseif vim.o.background == "light" then
     ok, theme = pcall(require, "nvim-web-devicons.icons-light")
   else
     ok, theme = pcall(require, "nvim-web-devicons.icons-default")
@@ -89,7 +99,7 @@ M.load_icons = function()
     return
   end
   local icons_by_filename = theme.icons_by_filename or {}
-  local icons_by_file_extension = theme.icons_by_file_extension or {}
+  local icons_by_extension = theme.icons_by_file_extension or {}
   if type(all_devicons[1]) == "table" then
     M.STATE.default_icon.icon = all_devicons[1].icon or M.STATE.default_icon.icon
     M.STATE.default_icon.color = all_devicons[1].color or M.STATE.default_icon.color
@@ -124,7 +134,7 @@ M.load_icons = function()
       if icons_by_filename[k] then
         M.STATE.icons.by_filename[k] = info
       end
-      if icons_by_file_extension[k] then
+      if icons_by_extension[k] then
         if k:match(".+%.") then
           M.STATE.icons.by_ext_2part[k] = info
           M.STATE.icons.ext_has_2part[path.extension(k)] = true
@@ -132,7 +142,7 @@ M.load_icons = function()
           M.STATE.icons.by_ext[k] = info
         end
       end
-      -- if not icons_by_file_extension[k] and not icons_by_filename[k] then
+      -- if not icons_by_extension[k] and not icons_by_filename[k] then
       --   print("icons_by_operating_system", k)
       -- end
     end
@@ -154,7 +164,7 @@ M.get_devicon = function(filepath, extensionOverride)
   end
 
   local icon, color
-  local filename = path.tail(filepath)
+  local filename = path.tail(filepath):lower()
   local ext = extensionOverride or path.extension(filename, true)
 
   -- lookup directly by filename
@@ -163,12 +173,14 @@ M.get_devicon = function(filepath, extensionOverride)
     icon, color = by_filename.icon, by_filename.color
   end
 
+  if ext then ext = ext:lower() end
+
   -- check for `ext` as extension can be nil, e.g. "dockerfile"
   -- lookup by 2 part extensions, e.g. "foo.test.tsx"
   if ext and not icon and M.STATE.icons.ext_has_2part[ext] then
     local ext2 = path.extension(filename:sub(1, #filename - #ext - 1))
     if ext2 then
-      local by_ext_2part = M.STATE.icons.by_ext_2part[ext2 .. "." .. ext]
+      local by_ext_2part = M.STATE.icons.by_ext_2part[ext2:lower() .. "." .. ext]
       if by_ext_2part then
         icon, color = by_ext_2part.icon, by_ext_2part.color
       end
@@ -231,7 +243,7 @@ M.load = function(opts)
   -- Load custom overrides before loading icons
   if vim.g.fzf_lua_is_headless
       ---@diagnostic disable-next-line: undefined-field
-      and _G._devicons_setup and vim.loop.fs_stat(_G._devicons_setup) then
+      and _G._devicons_setup and uv.fs_stat(_G._devicons_setup) then
     ---@diagnostic disable-next-line: undefined-field
     local file = loadfile(_G._devicons_setup)
     if file then pcall(file) end

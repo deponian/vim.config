@@ -7,8 +7,6 @@
 ; Keywords
 [
   "assert"
-  "class"
-  "multiclass"
   "field"
   "let"
   "def"
@@ -16,6 +14,11 @@
   "defset"
   "defvar"
 ] @keyword
+
+[
+  "multiclass"
+  "class"
+] @keyword.type
 
 "in" @keyword.operator
 
@@ -152,5 +155,5 @@
   (multiline_comment)
 ] @comment @spell
 
-((comment) @keyword.directive
+((comment) @keyword.directive @nospell
   (#lua-match? @keyword.directive "^.*RUN"))

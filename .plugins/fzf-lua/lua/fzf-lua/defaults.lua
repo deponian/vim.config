@@ -43,7 +43,6 @@ M.defaults                      = {
       title_pos    = "center",
       scrollbar    = "border",
       scrolloff    = "-2",
-      scrollchar   = "",
       scrollchars  = { "█", "" },
       -- default preview delay 100ms, same as native fzf preview
       -- https://github.com/junegunn/fzf/issues/2417#issuecomment-809886535
@@ -68,30 +67,33 @@ M.defaults                      = {
   },
   keymap        = {
     builtin = {
-      ["<F1>"]     = "toggle-help",
-      ["<F2>"]     = "toggle-fullscreen",
+      ["<F1>"]       = "toggle-help",
+      ["<F2>"]       = "toggle-fullscreen",
       -- Only valid with the 'builtin' previewer
-      ["<F3>"]     = "toggle-preview-wrap",
-      ["<F4>"]     = "toggle-preview",
-      ["<F5>"]     = "toggle-preview-ccw",
-      ["<F6>"]     = "toggle-preview-cw",
-      ["<S-down>"] = "preview-page-down",
-      ["<S-up>"]   = "preview-page-up",
-      ["<S-left>"] = "preview-page-reset",
+      ["<F3>"]       = "toggle-preview-wrap",
+      ["<F4>"]       = "toggle-preview",
+      ["<F5>"]       = "toggle-preview-ccw",
+      ["<F6>"]       = "toggle-preview-cw",
+      ["<S-down>"]   = "preview-page-down",
+      ["<S-up>"]     = "preview-page-up",
+      ["<M-S-down>"] = "preview-down",
+      ["<M-S-up>"]   = "preview-up",
     },
     fzf = {
-      ["ctrl-z"]     = "abort",
-      ["ctrl-u"]     = "unix-line-discard",
-      ["ctrl-f"]     = "half-page-down",
-      ["ctrl-b"]     = "half-page-up",
-      ["ctrl-a"]     = "beginning-of-line",
-      ["ctrl-e"]     = "end-of-line",
-      ["alt-a"]      = "toggle-all",
+      ["ctrl-z"]         = "abort",
+      ["ctrl-u"]         = "unix-line-discard",
+      ["ctrl-f"]         = "half-page-down",
+      ["ctrl-b"]         = "half-page-up",
+      ["ctrl-a"]         = "beginning-of-line",
+      ["ctrl-e"]         = "end-of-line",
+      ["alt-a"]          = "toggle-all",
       -- Only valid with fzf previewers (bat/cat/git/etc)
-      ["f3"]         = "toggle-preview-wrap",
-      ["f4"]         = "toggle-preview",
-      ["shift-down"] = "preview-page-down",
-      ["shift-up"]   = "preview-page-up",
+      ["f3"]             = "toggle-preview-wrap",
+      ["f4"]             = "toggle-preview",
+      ["shift-down"]     = "preview-page-down",
+      ["shift-up"]       = "preview-page-up",
+      ["alt-shift-down"] = "preview-down",
+      ["alt-shift-up"]   = "preview-up",
     },
   },
   actions       = {
@@ -113,7 +115,7 @@ M.defaults                      = {
   fzf_bin       = nil,
   fzf_opts      = {
     ["--ansi"]   = true,
-    ["--info"]   = "inline",
+    ["--info"]   = "inline-right",
     ["--height"] = "100%",
     ["--layout"] = "reverse",
     ["--border"] = "none",
@@ -190,6 +192,63 @@ M.defaults                      = {
       pager     = M._preview_pager_fn,
     },
   },
+  formatters    = {
+    path = {
+      filename_first = {
+        -- <Tab> is used as the invisible space between the parent and the file part
+        enrich = function(o)
+          o.fzf_opts = vim.tbl_extend("keep", o.fzf_opts or {}, { ["--tabstop"] = 1 })
+          return o
+        end,
+        -- underscore `_to` returns a custom to function when options could
+        -- affect the transformation, here we create a different function
+        -- base on the dir part highlight group.
+        -- We use a string function with hardcoded values as non-scope vars
+        -- (globals or file-locals) are stored by ref and will be nil in the
+        -- `string.dump` (from `config.bytecode`), we use the 3rd function
+        -- argument `m` to pass module imports (path, utils, etc).
+        _to = function(o)
+          local _, escseq = utils.ansi_from_hl(o.hls.dir_part, "foo")
+          return [[
+            return function(s, _, m)
+              local _path, _utils = m.path, m.utils
+              local _escseq = "]] .. (escseq or "") .. [["
+              local parent = _path.parent(s)
+              if parent then
+                parent = _path.remove_trailing(parent)
+                if #_escseq > 0 then
+                  parent = _escseq .. parent .. _utils.ansi_escseq.clear
+                end
+                return _path.tail(s) .. "\t" .. parent
+              else
+                return s
+              end
+            end
+          ]]
+        end,
+        from = function(s, _)
+          local parts = utils.strsplit(s, utils.nbsp)
+          local last = parts[#parts]
+          -- Lines from grep, lsp, tags are formatted <file>:<line>:<col>:<text>
+          -- the pattern below makes sure tab doesn't come from the line text
+          local filename, rest = last:match("^([^:]-)\t(.+)$")
+          if filename and rest then
+            local parent
+            if utils.__IS_WINDOWS and path.is_absolute(rest) then
+              parent = rest:sub(1, 2) .. (#rest > 2 and rest:sub(3):match("^[^:]+") or "")
+            else
+              parent = rest:match("^[^:]+")
+            end
+            local fullpath = path.join({ parent, filename })
+            -- overwrite last part with restored fullpath + rest of line
+            parts[#parts] = fullpath .. rest:sub(#parent + 1)
+            s = table.concat(parts, utils.nbsp)
+          end
+          return s
+        end
+      }
+    }
+  },
 }
 
 M.defaults.files                = {
@@ -203,7 +262,7 @@ M.defaults.files                = {
   cwd_prompt             = true,
   cwd_prompt_shorten_len = 32,
   cwd_prompt_shorten_val = 1,
-  fzf_opts               = { ["--info"] = "default", ["--multi"] = true },
+  fzf_opts               = { ["--multi"] = true },
   _fzf_nth_devicons      = true,
   git_status_cmd         = {
     "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
@@ -234,7 +293,7 @@ M.defaults.git                  = {
   },
   status = {
     prompt            = "GitStatus> ",
-    -- override `color.status=always`, techincally not required
+    -- override `color.status=always`, technically not required
     -- since we now also call `utils.strip_ansi_coloring` (#706)
     cmd               = "git -c color.status=false --no-optional-locks status --porcelain=v1 -u",
     previewer         = "git_diff",
@@ -288,7 +347,11 @@ M.defaults.git                  = {
     fzf_opts = { ["--no-multi"] = true },
     actions  = {
       ["default"] = actions.git_switch,
+      ["ctrl-x"]  = { fn = actions.git_branch_del, reload = true },
+      ["ctrl-a"]  = { fn = actions.git_branch_add, field_index = "{q}", reload = true },
     },
+    cmd_add  = { "git", "branch" },
+    cmd_del  = { "git", "branch", "--delete" },
   },
   tags = {
     prompt   = "Tags> ",
@@ -338,7 +401,7 @@ M.defaults.grep                 = {
   file_icons     = true and M._has_devicons,
   color_icons    = true,
   git_icons      = true,
-  fzf_opts       = { ["--info"] = "default", ["--multi"] = true },
+  fzf_opts       = { ["--multi"] = true },
   grep_opts      = utils.is_darwin()
       and "--binary-files=without-match --line-number --recursive --color=always "
       .. "--extended-regexp -e"
@@ -388,6 +451,7 @@ M.defaults.quickfix             = {
   fzf_opts    = { ["--multi"] = true },
   _actions    = function() return M.globals.actions.files end,
   only_valid  = false,
+  _cached_hls = { "path_colnr", "path_linenr" },
 }
 
 M.defaults.quickfix_stack       = {
@@ -408,6 +472,7 @@ M.defaults.loclist              = {
   fzf_opts    = { ["--multi"] = true },
   _actions    = function() return M.globals.actions.files end,
   only_valid  = false,
+  _cached_hls = { "path_colnr", "path_linenr" },
 }
 
 M.defaults.loclist_stack        = {
@@ -432,7 +497,7 @@ M.defaults.buffers              = {
   fzf_opts              = { ["--tiebreak"] = "index", ["--multi"] = true },
   _actions              = function() return M.globals.actions.buffers end,
   actions               = { ["ctrl-x"] = { fn = actions.buf_del, reload = true } },
-  _cached_hls           = { "buf_nr", "buf_flag_cur", "buf_flag_alt" },
+  _cached_hls           = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "path_linenr" },
 }
 
 M.defaults.tabs                 = {
@@ -452,7 +517,7 @@ M.defaults.tabs                 = {
     ["--delimiter"] = "[\\):]",
     ["--with-nth"]  = "3..",
   },
-  _cached_hls = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker" },
+  _cached_hls = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker", "path_linenr" },
 }
 
 M.defaults.lines                = {
@@ -464,11 +529,10 @@ M.defaults.lines                = {
   show_unlisted    = false,
   no_term_buffers  = true,
   fzf_opts         = {
-    ["--no-multi"]  = true,
+    ["--multi"]     = true,
     ["--delimiter"] = "[\\]:]",
     ["--nth"]       = "2..",
     ["--tiebreak"]  = "index",
-    ["--tabstop"]   = "1",
   },
   line_field_index = "{3}",
   _actions         = function() return M.globals.actions.buffers end,
@@ -477,7 +541,7 @@ M.defaults.lines                = {
     ["alt-q"]   = actions.buf_sel_to_qf,
     ["alt-l"]   = actions.buf_sel_to_ll
   },
-  _cached_hls      = { "buf_name", "buf_nr", "buf_linenr" },
+  _cached_hls      = { "buf_name", "buf_nr", "path_linenr" },
 }
 
 M.defaults.blines               = {
@@ -488,11 +552,10 @@ M.defaults.blines               = {
   show_unlisted    = true,
   no_term_buffers  = false,
   fzf_opts         = {
-    ["--no-multi"]  = true,
+    ["--multi"]     = true,
     ["--delimiter"] = "[:]",
     ["--with-nth"]  = "2..",
     ["--tiebreak"]  = "index",
-    ["--tabstop"]   = "1",
   },
   line_field_index = "{2}",
   _actions         = function() return M.globals.actions.buffers end,
@@ -501,7 +564,7 @@ M.defaults.blines               = {
     ["alt-q"]   = actions.buf_sel_to_qf,
     ["alt-l"]   = actions.buf_sel_to_ll
   },
-  _cached_hls      = { "buf_name", "buf_nr", "buf_linenr" },
+  _cached_hls      = { "buf_name", "buf_nr", "path_linenr" },
 }
 
 M.defaults.tags                 = {
@@ -519,10 +582,10 @@ M.defaults.tags                 = {
     ["--no-multi"]  = true,
     ["--delimiter"] = string.format("[:%s]", utils.nbsp),
     ["--tiebreak"]  = "begin",
-    ["--info"]      = "default",
   },
   _actions     = function() return M.globals.actions.files end,
   actions      = { ["ctrl-g"] = { actions.grep_lgrep } },
+  formatter    = false,
 }
 
 M.defaults.btags                = {
@@ -541,10 +604,10 @@ M.defaults.btags                = {
     ["--delimiter"] = string.format("[:%s]", utils.nbsp),
     ["--with-nth"]  = "1,-1",
     ["--tiebreak"]  = "begin",
-    ["--info"]      = "default",
   },
   _actions      = function() return M.globals.actions.files end,
   actions       = { ["ctrl-g"] = false },
+  formatter     = false,
 }
 
 M.defaults.colorschemes         = {
@@ -567,7 +630,6 @@ M.defaults.awesome_colorschemes = {
   live_preview = true,
   max_threads  = 5,
   fzf_opts     = {
-    ["--info"]      = "default",
     ["--multi"]     = true,
     ["--delimiter"] = "[:]",
     ["--with-nth"]  = "3..",
@@ -596,7 +658,7 @@ M.defaults.helptags             = {
   },
   fzf_opts  = {
     ["--no-multi"]  = true,
-    ["--delimiter"] = "[ ]",
+    ["--delimiter"] = string.format("[%s]", utils.nbsp),
     ["--with-nth"]  = "..-2",
     ["--tiebreak"]  = "begin",
   },
@@ -624,10 +686,10 @@ M.defaults.lsp                  = {
   file_icons       = true and M._has_devicons,
   color_icons      = true,
   git_icons        = false,
-  cwd_only         = false,
   async_or_timeout = 5000,
   fzf_opts         = { ["--multi"] = true },
   _actions         = function() return M.globals.actions.files end,
+  _cached_hls      = { "path_colnr", "path_linenr" },
 }
 
 M.defaults.lsp.symbols          = {
@@ -674,8 +736,7 @@ M.defaults.lsp.symbols          = {
   fzf_opts         = {
     ["--delimiter"] = string.format("[:%s]", utils.nbsp),
     ["--tiebreak"]  = "begin",
-    ["--info"]      = "default",
-    ["--no-multi"]  = true,
+    ["--multi"]     = true,
   },
   line_field_index = "{-2}", -- line field index
   field_index_expr = "{}",   -- entry field index
@@ -683,13 +744,14 @@ M.defaults.lsp.symbols          = {
     -- NOT NEEDED: we format at the source in `lsp.symbol_handler`
     -- to = function(s, _)
     --   local file, text = s:match("^(.+:.+:.+:)%s(.*)")
-    --   -- fzf has alignment issues with ansi colorings of differnt escape length
+    --   -- fzf has alignment issues with ansi colorings of different escape length
     --   local align = 56 + utils.ansi_escseq_len(text)
     --   return string.format("%-" .. align .. "s%s%s", text, utils.nbsp, file)
     -- end,
+    to   = false,
     from = function(s, _)
       -- restore the format to something that `path.entry_to_file` can
-      -- handle more robustly, while this can stil work due to the `utils.nbsp`
+      -- handle more robustly, while this can still work due to the `utils.nbsp`
       -- it will fail when the symbol contains "[%d]" (which we use as bufnr)
       local text, file = s:match(string.format("^(.-)%s(.*)", utils.nbsp))
       return string.format("%s %s", file, text)
@@ -697,13 +759,12 @@ M.defaults.lsp.symbols          = {
   },
   _actions         = function() return M.globals.actions.files end,
   actions          = { ["ctrl-g"] = { actions.sym_lsym } },
-  _cached_hls      = { "live_sym" },
+  _cached_hls      = { "live_sym", "path_colnr", "path_linenr" },
 }
 
 M.defaults.lsp.finder           = {
   previewer   = M._default_previewer_fn,
   prompt      = "LSP Finder> ",
-  fzf_opts    = { ["--info"] = "default" },
   file_icons  = true and M._has_devicons,
   color_icons = true,
   git_icons   = false,
@@ -731,6 +792,8 @@ M.defaults.lsp.finder           = {
     { "incoming_calls",  prefix = utils.ansi_codes.cyan("in  ") },
     { "outgoing_calls",  prefix = utils.ansi_codes.yellow("out ") },
   },
+  fzf_opts    = { ["--multi"] = true },
+  _cached_hls = { "path_colnr", "path_linenr" },
 }
 
 M.defaults.lsp.code_actions     = {
@@ -752,6 +815,7 @@ M.defaults.diagnostics          = {
   multiline   = true,
   fzf_opts    = { ["--multi"] = true },
   _actions    = function() return M.globals.actions.files end,
+  _cached_hls = { "path_colnr", "path_linenr" },
   -- signs = {
   --   ["Error"] = { text = "e", texthl = "DiagnosticError" },
   --   ["Warn"]  = { text = "w", texthl = "DiagnosticWarn" },
@@ -936,6 +1000,7 @@ M.defaults.dap                  = {
       ["--delimiter"] = "[\\]:]",
       ["--with-nth"]  = "2..",
     },
+    _cached_hls = { "path_colnr", "path_linenr" },
   },
 }
 
@@ -989,21 +1054,23 @@ M.defaults.__HLS                = {
   scrollfloat_f  = "FzfLuaScrollFloatFull",
   header_bind    = "FzfLuaHeaderBind",
   header_text    = "FzfLuaHeaderText",
+  path_colnr     = "FzfLuaPathColNr",
+  path_linenr    = "FzfLuaPathLineNr",
   buf_name       = "FzfLuaBufName",
   buf_nr         = "FzfLuaBufNr",
-  buf_linenr     = "FzfLuaBufLineNr",
   buf_flag_cur   = "FzfLuaBufFlagCur",
   buf_flag_alt   = "FzfLuaBufFlagAlt",
   tab_title      = "FzfLuaTabTitle",
   tab_marker     = "FzfLuaTabMarker",
   dir_icon       = "FzfLuaDirIcon",
+  dir_part       = "FzfLuaDirPart",
   live_sym       = "FzfLuaLiveSym",
 }
 
 M.defaults.__WINOPTS            = {
-  borderchars    = {
-    ["none"]    = { " ", " ", " ", " ", " ", " ", " ", " " },
-    ["solid"]   = { " ", " ", " ", " ", " ", " ", " ", " " },
+  borderchars   = {
+    ["none"]    = { "", "", "", "", "", "", "", "" },
+    ["empty"]   = { " ", " ", " ", " ", " ", " ", " ", " " },
     ["single"]  = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
     ["double"]  = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
     ["rounded"] = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
@@ -1012,8 +1079,8 @@ M.defaults.__WINOPTS            = {
     ["thicccc"] = { "█", "█", "█", "█", "█", "█", "█", "█" },
   },
   -- border chars reverse lookup for ambiwidth="double"
-  _border2string = {
-    [" "] = "solid",
+  border2string = {
+    [" "] = "empty",
     ["┌"] = "single",
     ["╔"] = "double",
     ["╭"] = "rounded",

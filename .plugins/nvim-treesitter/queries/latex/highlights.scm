@@ -71,7 +71,7 @@
 
 (theorem_definition
   command: _ @function.macro
-  name: (curly_group_text
+  name: (curly_group_text_list
     (_) @label))
 
 (paired_delimiter_definition
@@ -332,8 +332,8 @@
   (comment_environment)
 ] @comment @spell
 
-((line_comment) @keyword.directive
+((line_comment) @keyword.directive @nospell
   (#lua-match? @keyword.directive "^%% !TeX"))
 
-((line_comment) @keyword.directive
+((line_comment) @keyword.directive @nospell
   (#lua-match? @keyword.directive "^%%&"))

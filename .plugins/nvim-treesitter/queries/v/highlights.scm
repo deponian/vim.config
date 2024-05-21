@@ -10,15 +10,18 @@
   "assert"
   "const"
   "defer"
-  "enum"
   "goto"
-  "interface"
-  "struct"
   "sql"
-  "type"
-  "union"
   "unsafe"
 ] @keyword
+
+[
+  "enum"
+  "union"
+  "struct"
+  "interface"
+  "type"
+] @keyword.type
 
 [
   "as"
@@ -280,10 +283,13 @@
 (none) @variable.builtin
 
 ; Comments
-(comment) @comment @spell
+[
+  (line_comment)
+  (block_comment)
+] @comment @spell
 
 (_
-  (comment)+ @comment.documentation
+  (line_comment)+ @comment.documentation
   [
     (function_declaration)
     (type_declaration)

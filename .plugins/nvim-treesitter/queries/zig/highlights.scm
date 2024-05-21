@@ -98,12 +98,17 @@ field_constant: (IDENTIFIER) @constant
   "defer"
   "errdefer"
   "test"
+  "opaque"
+  "error"
+  "const"
+  "var"
+] @keyword
+
+[
   "struct"
   "union"
   "enum"
-  "opaque"
-  "error"
-] @keyword
+] @keyword.type
 
 [
   "async"
@@ -136,7 +141,10 @@ field_constant: (IDENTIFIER) @constant
   "continue"
 ] @keyword.repeat
 
-"usingnamespace" @keyword.import
+[
+  "usingnamespace"
+  "export"
+] @keyword.import
 
 [
   "try"
@@ -149,28 +157,22 @@ field_constant: (IDENTIFIER) @constant
 ] @type.builtin
 
 [
-  "const"
-  "var"
   "volatile"
   "allowzero"
   "noalias"
-] @keyword.modifier
-
-[
   "addrspace"
   "align"
   "callconv"
   "linksection"
+  "pub"
+  "inline"
+  "noinline"
+  "extern"
 ] @keyword.modifier
 
 [
   "comptime"
-  "export"
-  "extern"
-  "inline"
-  "noinline"
   "packed"
-  "pub"
   "threadlocal"
 ] @attribute
 
@@ -201,6 +203,7 @@ field_constant: (IDENTIFIER) @constant
   "."
   ","
   ":"
+  "=>"
 ] @punctuation.delimiter
 
 [
@@ -215,10 +218,18 @@ field_constant: (IDENTIFIER) @constant
   ")"
   "{"
   "}"
-  (Payload
-    "|")
-  (PtrPayload
-    "|")
-  (PtrIndexPayload
-    "|")
 ] @punctuation.bracket
+
+(Payload
+  "|" @punctuation.bracket)
+
+(PtrPayload
+  "|" @punctuation.bracket)
+
+(PtrIndexPayload
+  "|" @punctuation.bracket)
+
+(ParamType
+  (ErrorUnionExpr
+    (SuffixExpr
+      variable_type_function: (IDENTIFIER) @type)))

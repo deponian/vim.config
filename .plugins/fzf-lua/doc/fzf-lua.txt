@@ -1,4 +1,4 @@
-*fzf-lua.txt*          For Neovim >= 0.5.0          Last change: 2024 March 20
+*fzf-lua.txt*           For Neovim >= 0.5.0           Last change: 2024 May 20
 
 ==============================================================================
 Table of Contents                                  *fzf-lua-table-of-contents*
@@ -13,6 +13,7 @@ Windows Notes ........................................ |fzf-lua-windows-notes|
 Installation .......................................... |fzf-lua-installation|
 Usage ........................................................ |fzf-lua-usage|
 Resume ...................................................... |fzf-lua-resume|
+Options .................................................... |fzf-lua-options|
 Commands .................................................. |fzf-lua-commands|
 Buffers and Files ................................ |fzf-lua-buffers-and-files|
 Search ...................................................... |fzf-lua-search|
@@ -30,6 +31,7 @@ Insert-mode Completion ...................... |fzf-lua-insert-mode-completion|
 Custom Completion ................................ |fzf-lua-custom-completion|
 Default Options .................................... |fzf-lua-default-options|
 Highlights .............................................. |fzf-lua-highlights|
+Fzf Colors .............................................. |fzf-lua-fzf-colors|
 Credits .................................................... |fzf-lua-credits|
 
 ==============================================================================
@@ -59,7 +61,7 @@ CONTENTS                                                    *fzf-lua-contents*
 - Dependencies <#dependencies> + Optional Dependencies
   <#optional-dependencies> + Windows Notes <#windows-notes>
 - Installation <#installation>
-- Usage <#usage> + Resume <#resume>
+- Usage <#usage> + Resume <#resume> + Options <#options>
 - Commands <#commands> + Buffers and Files <#buffers-and-files> + Search
   <#search> + Tags <#tags> + Git <#git> + LSP | Diagnostics <#lspdiagnostics>
   + Misc <#misc> + Neovim API <#neovim-api> + `nvim-dap` <#nvim-dap> + `tmux`
@@ -68,7 +70,7 @@ CONTENTS                                                    *fzf-lua-contents*
 - Insert-mode Completion <#insert-mode-completion> + Custom Completion
   <#custom-completion>
 - Default Options <#default-options>
-- Highlights <#highlights>
+- Highlights <#highlights> + Fzf Colors <#fzf-colors>
 - Credits <#credits>
 
 ------------------------------------------------------------------------------
@@ -168,7 +170,8 @@ to configure in `previewer.builtin.extensions`):
 - chafa <https://github.com/hpjansson/chafa> - terminal image previewer
   (recommended, supports most file formats)
 - viu <https://github.com/atanunq/viu> - terminal image previewer
-- ueberzug <https://github.com/seebye/ueberzug> - X11 image previewer
+- ueberzugpp <https://github.com/jstkdng/ueberzugpp> - terminal image
+  previewer using X11/Wayland child windows, sixels, kitty and iterm2
 
                                                                               
 WINDOWS NOTES                                          *fzf-lua-windows-notes*
@@ -285,6 +288,14 @@ Alternatively, resuming work on a specific provider:
     :FzfLua files resume=true
 <
 
+                                                                              
+OPTIONS                                                      *fzf-lua-options*
+
+**Refer to OPTIONS <https://github.com/ibhagwan/fzf-lua/blob/main/OPTIONS.md>
+to see detailed usage notes and a comprehensive list of all available
+options.**
+
+
 ------------------------------------------------------------------------------
 COMMANDS                                                    *fzf-lua-commands*
 
@@ -386,8 +397,8 @@ MISC                                                            *fzf-lua-misc*
 | `resume`               | resume last command/query              |
 | `builtin`              | fzf-lua builtin commands               |
 | `profiles`             | fzf-lua configuration profiles         |
-| `help_tags`            | help tags                              |
-| `man_pages`            | man pages                              |
+| `helptags`             | help tags                              |
+| `manpages`             | man pages                              |
 | `colorschemes`         | color schemes                          |
 | `awesome_colorschemes` | Awesome Neovim color schemes           | 
 | `highlights`           | highlight groups                       |
@@ -531,6 +542,12 @@ telescope defaults with `bat` previewer:
 
 >lua
     :lua require"fzf-lua".setup({"telescope",winopts={preview={default="bat"}}})
+<
+Combining of profiles is also available by sending table instead of string as
+the first argument:
+
+>lua
+    :lua require"fzf-lua".setup({{"telescope","fzf-native"},winopts={fullscreen=true}})
 <
 See profiles
 <https://github.com/ibhagwan/fzf-lua/tree/main/lua/fzf-lua/profiles> for more
@@ -751,7 +768,7 @@ open an issue and I'll be more than happy to help.**
         -- set to `true` for a no-value flag
         -- for raw args use `fzf_args` instead
         ["--ansi"]        = true,
-        ["--info"]        = "inline",
+        ["--info"]        = "inline-right", -- fzf < v0.42 = "inline"
         ["--height"]      = "100%",
         ["--layout"]      = "reverse",
         ["--border"]      = "none",
@@ -787,7 +804,7 @@ open an issue and I'll be more than happy to help.**
           ["marker"]      = { "fg", "Keyword" },
           ["spinner"]     = { "fg", "Label" },
           ["header"]      = { "fg", "Comment" },
-          ["gutter"]      = { "bg", "Normal" },
+          ["gutter"]      = "-1",
       }, ]]
       previewers = {
         cat = {
@@ -887,6 +904,9 @@ open an issue and I'll be more than happy to help.**
         file_icons        = true,           -- show file icons?
         color_icons       = true,           -- colorize file|git icons
         -- path_shorten   = 1,              -- 'true' or number, shorten path?
+        -- Uncomment for custom vscode-like formatter where the filename is first:
+        -- e.g. "fzf-lua/previewer/fzf.lua" => "fzf.lua previewer/fzf-lua"
+        -- formatter      = "path.filename_first",
         -- executed command priority is 'cmd' (if exists)
         -- otherwise auto-detect prioritizes `fd`:`rg`:`find`
         -- default options are controlled by 'fd|rg|find|_opts'
@@ -991,7 +1011,15 @@ open an issue and I'll be more than happy to help.**
           preview  = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
           actions  = {
             ["default"] = actions.git_switch,
+            ["ctrl-x"]  = { fn = actions.git_branch_del, reload = true },
+            ["ctrl-a"]  = { fn = actions.git_branch_add, field_index = "{q}", reload = true },
           },
+          -- If you wish to add branch and switch immediately
+          -- cmd_add  = { "git", "checkout", "-b" },
+          cmd_add  = { "git", "branch" },
+          -- If you wish to delete unmerged branches add "--force"
+          -- cmd_del  = { "git", "branch", "--delete", "--force" },
+          cmd_del  = { "git", "branch", "--delete" },
         },
         tags = {
           prompt   = "Tags> ",
@@ -1074,6 +1102,9 @@ open an issue and I'll be more than happy to help.**
         prompt            = 'History❯ ',
         cwd_only          = false,
         stat_file         = true,         -- verify files exist on disk
+        -- can also be a lua function, for example:
+        -- stat_file = require("fzf-lua").utils.file_is_readable,
+        -- stat_file = function() return true end,
         include_current_session = false,  -- include bufs from current session
       },
       buffers = {
@@ -1161,7 +1192,7 @@ open an issue and I'll be more than happy to help.**
         -- 'tags_live_grep' options, `rg` prioritizes over `grep`
         rg_opts               = "--no-heading --color=always --smart-case",
         grep_opts             = "--color=auto --perl-regexp",
-        fzf_opts              = { ["--info"] = "default", ["--tiebreak"] = "begin" },
+        fzf_opts              = { ["--tiebreak"] = "begin" },
         actions = {
           -- actions inherit from 'actions.files' and merge
           -- this action toggles between 'grep' and 'live_grep'
@@ -1179,7 +1210,7 @@ open an issue and I'll be more than happy to help.**
         git_icons             = false,
         rg_opts               = "--color=never --no-heading",
         grep_opts             = "--color=never --perl-regexp",
-        fzf_opts              = { ["--info"] = "default", ["--tiebreak"] = "begin" },
+        fzf_opts              = { ["--tiebreak"] = "begin" },
         -- actions inherit from 'actions.files'
       },
       colorschemes = {
@@ -1200,7 +1231,6 @@ open an issue and I'll be more than happy to help.**
         max_threads       = 5,          -- max download/update threads
         winopts           = { row = 0, col = 0.99, width = 0.50 },
         fzf_opts          = {
-          ["--info"]      = "default",
           ["--multi"]     = true,
           ["--delimiter"] = "[:]",
           ["--with-nth"]  = "3..",
@@ -1295,10 +1325,7 @@ open an issue and I'll be more than happy to help.**
             symbol_fmt        = function(s, opts) return "[" .. s .. "]" end,
             -- prefix child symbols. set to any string or `false` to disable
             child_prefix      = true,
-            fzf_opts          = {
-              ["--tiebreak"] = "begin",
-              ["--info"]     = "default",
-            },
+            fzf_opts          = { ["--tiebreak"] = "begin" },
         },
         code_actions = {
             prompt            = 'Code Actions> ',
@@ -1310,7 +1337,6 @@ open an issue and I'll be more than happy to help.**
         },
         finder = {
             prompt      = "LSP Finder> ",
-            fzf_opts    = { ["--info"] = "default" },
             file_icons  = true,
             color_icons = true,
             git_icons   = false,
@@ -1362,6 +1388,12 @@ open an issue and I'll be more than happy to help.**
         -- severity_only:   keep any matching exact severity
         -- severity_limit:  keep any equal or more severe (lower)
         -- severity_bound:  keep any equal or less severe (higher)
+      },
+      marks = {
+        marks = "", -- filter vim marks with a lua pattern
+        -- for example if you want to only show user defined marks
+        -- you would set this option as %a this would match characters from [A-Za-z]
+        -- or if you want to show only numbers you would set the pattern to %d (0-9).
       },
       complete_path = {
         cmd          = nil, -- default: auto detect fd|rg|find
@@ -1416,14 +1448,16 @@ temporarily overridden by its corresponding `winopts` option:
 |FzfLuaHelpBorder       |FzfLuaBorder |`hls.help_border`   |Help win border|
 |FzfLuaHeaderBind  |*BlanchedAlmond   |`hls.header_bind`   |Header keybind|
 |FzfLuaHeaderText  |*Brown1           |`hls.header_text`   |Header text|
+|FzfLuaPathColNr   |*CadetBlue1       |`hls.path_colnr`    |Path col nr (`lines,qf,lsp,diag`)|
+|FzfLuaPathLineNr  |*LightGreen       |`hls.path_linenr`   |Path line nr (`lines,qf,lsp,diag`)|
 |FzfLuaBufName     |*LightMagenta     |`hls.buf_name`      |Buffer name (`lines`)|
 |FzfLuaBufNr       |*BlanchedAlmond   |`hls.buf_nr`        |Buffer number (all buffers)|
-|FzfLuaBufLineNr   |*MediumSpringGreen|`hls.buf_linenr`    |Buffer line (`lines`)|
 |FzfLuaBufFlagCur  |*Brown1           |`hls.buf_flag_cur`  |Buffer line (`buffers`)|
 |FzfLuaBufFlagAlt  |*CadetBlue1       |`hls.buf_flag_alt`  |Buffer line (`buffers`)|
 |FzfLuaTabTitle    |*LightSkyBlue1    |`hls.tab_title`     |Tab title (`tabs`)|
 |FzfLuaTabMarker   |*BlanchedAlmond   |`hls.tab_marker`    |Tab marker (`tabs`)|
 |FzfLuaDirIcon     |Directory         |`hls.dir_icon`      |Paths directory icon|
+|FzfLuaDirPart     |Comment           |`hls.dir_part`      |Directory hl when `formatter=path.filename_first`|
 |FzfLuaLiveSym     |*Brown1           |`hls.live_sym`      |LSP live symbols query match|
 
 <sup><sub>&ast;Not a highlight group, RGB color from
@@ -1451,9 +1485,43 @@ Temporary highlight override:
 Permanent global override via `setup`:
 
 >lua
-    require('fzf-lua').setup{
+    require('fzf-lua').setup {
       hls = { border = "FloatBorder" }
     }
+<
+
+                                                                              
+FZF COLORS                                                *fzf-lua-fzf-colors*
+
+Fzf's terminal colors are controlled by fzf's `--color` flag which can be
+configured during setup via `fzf_colors` (see `man fzf` for all color
+options):
+
+>lua
+    require('fzf-lua').setup {
+      fzf_colors = {
+        -- First existing highlight group will be used
+        -- values in 3rd+ index will be passed raw
+        -- i.e:  `--color fg+:#010101:bold:underline`
+        ["fg+"] = { "fg" , { "Comment", "Normal" }, "bold", "underline" },
+        -- It is also possible to pass raw values directly
+        ["gutter"] = "-1"
+      }
+    }
+<
+Conveniently, fzf-lua can also be configured using fzf.vim's `g:fzf_colors`,
+i.e:
+
+>lua
+    -- Similarly, first existing highlight group will be used
+    :lua vim.g.fzf_colors = { ["gutter"] = { "bg", "DoesNotExist", "IncSearch" } }
+<
+However, the above doesn't allow combining both neovim highlights and raw
+args, if you're only using fzf-lua we can hijack `g:fzf_colors` to accept
+fzf-lua style values (i.e. table at 2nd index and 3rd+ raw args):
+
+>lua
+    :lua vim.g.fzf_colors = { ["fg+"] = { "fg", { "ErrorMsg" }, "bold", "underline" } }
 <
 
 ------------------------------------------------------------------------------

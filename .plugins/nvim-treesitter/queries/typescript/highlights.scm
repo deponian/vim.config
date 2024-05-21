@@ -7,12 +7,8 @@
 
 [
   "declare"
-  "enum"
-  "export"
   "implements"
-  "interface"
   "type"
-  "namespace"
   "override"
   "module"
   "asserts"
@@ -22,14 +18,17 @@
 ] @keyword
 
 [
+  "namespace"
+  "interface"
+  "enum"
+] @keyword.type
+
+[
   "keyof"
   "satisfies"
 ] @keyword.operator
 
 (as_expression
-  "as" @keyword.operator)
-
-(export_statement
   "as" @keyword.operator)
 
 (mapped_type_clause

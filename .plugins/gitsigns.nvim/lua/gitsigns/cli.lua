@@ -1,5 +1,4 @@
 local async = require('gitsigns.async')
-local void = require('gitsigns.async').void
 
 local log = require('gitsigns.debug.log')
 local dprintf = log.dprintf
@@ -63,22 +62,14 @@ function M.complete(arglead, line)
   return matches
 end
 
-local function print_nonnil(x)
-  if x ~= nil then
-    print(vim.inspect(x))
-  end
-end
-
-local select = async.wrap(vim.ui.select, 3)
-
-M.run = void(function(params)
+M.run = async.create(1, function(params)
   local __FUNC__ = 'cli.run'
   local pos_args_raw, named_args_raw = parse_args(params.args)
 
   local func = pos_args_raw[1]
 
   if not func then
-    func = select(M.complete('', 'Gitsigns '), {}) --[[@as string]]
+    func = async.wait(3, vim.ui.select, M.complete('', 'Gitsigns '), {}) --[[@as string]]
     if not func then
       return
     end
@@ -98,7 +89,7 @@ M.run = void(function(params)
   if cmd_func then
     -- Action has a specialised mapping function from command form to lua
     -- function
-    print_nonnil(cmd_func(args, params))
+    cmd_func(args, params)
     return
   end
 
@@ -106,7 +97,7 @@ M.run = void(function(params)
     local f = m[func]
     if type(f) == 'function' then
       -- Note functions here do not have named arguments
-      print_nonnil(f(unpack(pos_args), has_named and named_args or nil))
+      f(unpack(pos_args), has_named and named_args or nil)
       return
     end
   end

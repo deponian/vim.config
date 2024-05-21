@@ -11,9 +11,7 @@ local throttle_by_id = require('gitsigns.debounce').throttle_by_id
 
 local log = require('gitsigns.debug.log')
 local dprint = log.dprint
-local dprintf = log.dprintf
 
-local system = require('gitsigns.system')
 local util = require('gitsigns.util')
 local run_diff = require('gitsigns.diff')
 
@@ -212,7 +210,7 @@ local function apply_word_diff(bufnr, row)
     end
 
     api.nvim_buf_set_extmark(bufnr, ns, row, scol, opts)
-    api.nvim__buf_redraw_range(bufnr, row, row + 1)
+    util.redraw({ buf = bufnr, range = { row, row + 1 } })
   end
 end
 
@@ -434,30 +432,27 @@ local function update_show_deleted(bufnr)
   end
 end
 
---- @param bufnr? integer
+--- @async
+--- @nodiscard
+--- @param bufnr integer
 --- @param check_compare_text? boolean
---- @param cb fun(boolean)
-M.buf_check = async.wrap(function(bufnr, check_compare_text, cb)
-  vim.schedule(function()
-    if bufnr then
-      if not api.nvim_buf_is_valid(bufnr) then
-        dprint('Buffer not valid, aborting')
-        return cb(false)
-      end
-      if not cache[bufnr] then
-        dprint('Has detached, aborting')
-        return cb(false)
-      end
-      if check_compare_text and not cache[bufnr].compare_text then
-        dprint('compare_text was invalid, aborting')
-        return cb(false)
-      end
-    end
-    cb(true)
-  end)
-end, 3)
-
-local update_cnt = 0
+--- @return boolean
+function M.schedule(bufnr, check_compare_text)
+  async.scheduler()
+  if not api.nvim_buf_is_valid(bufnr) then
+    dprint('Buffer not valid, aborting')
+    return false
+  end
+  if not cache[bufnr] then
+    dprint('Has detached, aborting')
+    return false
+  end
+  if check_compare_text and not cache[bufnr].compare_text then
+    dprint('compare_text was invalid, aborting')
+    return false
+  end
+  return true
+end
 
 --- Ensure updates cannot be interleaved.
 --- Since updates are asynchronous we need to make sure an update isn't performed
@@ -465,8 +460,7 @@ local update_cnt = 0
 --- update after the current one has completed.
 --- @param bufnr integer
 M.update = throttle_by_id(function(bufnr)
-  local __FUNC__ = 'update'
-  if not M.buf_check(bufnr) then
+  if not M.schedule(bufnr) then
     return
   end
   local bcache = cache[bufnr]
@@ -481,7 +475,7 @@ M.update = throttle_by_id(function(bufnr)
 
   if not bcache.compare_text or config._refresh_staged_on_update or file_mode then
     bcache.compare_text = git_obj:get_show_text(compare_rev)
-    if not M.buf_check(bufnr, true) then
+    if not M.schedule(bufnr, true) then
       return
     end
   end
@@ -489,7 +483,7 @@ M.update = throttle_by_id(function(bufnr)
   local buftext = util.buf_lines(bufnr)
 
   bcache.hunks = run_diff(bcache.compare_text, buftext)
-  if not M.buf_check(bufnr) then
+  if not M.schedule(bufnr) then
     return
   end
 
@@ -497,12 +491,12 @@ M.update = throttle_by_id(function(bufnr)
     if not bcache.compare_text_head or config._refresh_staged_on_update then
       local staged_compare_rev = bcache.commit and string.format('%s^', bcache.commit) or 'HEAD'
       bcache.compare_text_head = git_obj:get_show_text(staged_compare_rev)
-      if not M.buf_check(bufnr, true) then
+      if not M.schedule(bufnr, true) then
         return
       end
     end
     local hunks_head = run_diff(bcache.compare_text_head, buftext)
-    if not M.buf_check(bufnr) then
+    if not M.schedule(bufnr) then
       return
     end
     bcache.hunks_staged = gs_hunks.filter_common(hunks_head, bcache.hunks)
@@ -522,19 +516,10 @@ M.update = throttle_by_id(function(bufnr)
     update_show_deleted(bufnr)
     bcache.force_next_update = false
 
-    api.nvim_exec_autocmds('User', {
-      pattern = 'GitSignsUpdate',
-      modeline = false,
-    })
+    local summary = gs_hunks.get_summary(bcache.hunks)
+    summary.head = git_obj.repo.abbrev_head
+    Status:update(bufnr, summary)
   end
-
-  local summary = gs_hunks.get_summary(bcache.hunks)
-  summary.head = git_obj.repo.abbrev_head
-  Status:update(bufnr, summary)
-
-  update_cnt = update_cnt + 1
-
-  dprintf('updates: %s, jobs: %s', update_cnt, system.job_cnt)
 end, true)
 
 --- @param bufnr integer
@@ -600,7 +585,7 @@ function M.setup()
     signs_staged = Signs.new(config._signs_staged, 'staged')
   end
 
-  M.update_debounced = debounce_trailing(config.update_debounce, async.void(M.update))
+  M.update_debounced = debounce_trailing(config.update_debounce, async.create(1, M.update))
 end
 
 return M

@@ -43,6 +43,10 @@
 
 (statement_identifier) @label
 
+(glimmer_opening_tag) @tag.builtin
+
+(glimmer_closing_tag) @tag.builtin
+
 ; Function and method definitions
 ;--------------------------------
 (function_expression
@@ -310,19 +314,9 @@
 [
   "import"
   "from"
+  "as"
+  "export"
 ] @keyword.import
-
-(export_specifier
-  "as" @keyword.import)
-
-(import_specifier
-  "as" @keyword.import)
-
-(namespace_export
-  "as" @keyword.import)
-
-(namespace_import
-  "as" @keyword.import)
 
 [
   "for"
@@ -334,10 +328,8 @@
 
 [
   "break"
-  "class"
   "const"
   "debugger"
-  "export"
   "extends"
   "get"
   "let"
@@ -347,6 +339,8 @@
   "var"
   "with"
 ] @keyword
+
+"class" @keyword.type
 
 [
   "async"

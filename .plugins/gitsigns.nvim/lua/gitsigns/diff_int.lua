@@ -26,6 +26,7 @@ end
 
 --- @type Gitsigns.RawDifffn
 local run_diff_xdl_async = async.wrap(
+  4,
   --- @param a string
   --- @param b string
   --- @param linematch? integer
@@ -55,7 +56,7 @@ local run_diff_xdl_async = async.wrap(
             return bit.band(flags0, bit.lshift(1, pos)) ~= 0
           end
 
-          --- @diagnostic disable-next-line:return-type-mismatch
+          --- @diagnostic disable-next-line:redundant-return-value
           return vim.mpack.encode(vim.diff(a0, b0, {
             result_type = 'indices',
             algorithm = algorithm,
@@ -73,8 +74,7 @@ local run_diff_xdl_async = async.wrap(
         end
       )
       :queue(a, b, opts.algorithm, flags, linematch)
-  end,
-  4
+  end
 )
 
 --- @param fa string[]
@@ -102,10 +102,16 @@ function M.run_diff(fa, fb, linematch)
       for i = rs, rs + rc - 1 do
         hunk.removed.lines[#hunk.removed.lines + 1] = fa[i] or ''
       end
+      if rs + rc >= #fa and fa[#fa] ~= '' then
+        hunk.removed.no_nl_at_eof = true
+      end
     end
     if ac > 0 then
       for i = as, as + ac - 1 do
         hunk.added.lines[#hunk.added.lines + 1] = fb[i] or ''
+      end
+      if as + ac >= #fb and fb[#fb] ~= '' then
+        hunk.added.no_nl_at_eof = true
       end
     end
     hunks[#hunks + 1] = hunk

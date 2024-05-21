@@ -555,6 +555,22 @@
             {
                 "language": "purescript",
                 "path": "./snippets/purescript.json"
+            },
+            {
+                "language": "gleam",
+                "path": "./snippets/gleam.json"
+            },
+            {
+                "language": "asciidoc",
+                "path": "./snippets/asciidoc.json"
+            },
+            {
+                "language": "beancount",
+                "path": "./snippets/beancount.json"
+            },
+            {
+                 "language": "rst",
+                 "path": "./snippets/rst.json"
             }
         ]
     }

@@ -1,10 +1,8 @@
+local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
-local libuv = require "fzf-lua.libuv"
-local shell = require "fzf-lua.shell"
 local config = require "fzf-lua.config"
-local make_entry = require "fzf-lua.make_entry"
 local devicons = require "fzf-lua.devicons"
 
 local M = {}
@@ -52,13 +50,13 @@ M.commands = function(opts)
     table.sort(entries, function(a, b) return a < b end)
   end
 
-  opts.preview = shell.raw_action(function(args)
+  opts.preview = function(args)
     local cmd = args[1]
     if commands[cmd] then
       cmd = vim.inspect(commands[cmd])
     end
     return cmd
-  end, nil, opts.debug)
+  end
 
   core.fzf_exec(entries, opts)
 end
@@ -154,14 +152,14 @@ M.tagstack = function(opts)
     end
   end
 
-  if vim.tbl_isempty(tags) then
+  if utils.tbl_isempty(tags) then
     utils.info("No tagstack available")
     return
   end
 
   local entries = {}
   for i, tag in ipairs(tags) do
-    local bufname = path.HOME_to_tilde(path.relative_to(tag.filename, vim.loop.cwd()))
+    local bufname = path.HOME_to_tilde(path.relative_to(tag.filename, uv.cwd()))
     local buficon, hl
     if opts.file_icons then
       buficon, hl = devicons.get_devicon(bufname)
@@ -192,19 +190,18 @@ M.marks = function(opts)
   opts = config.normalize_opts(opts, "marks")
   if not opts then return end
 
-  local marks = vim.fn.execute(
-    string.format("marks %s", opts.marks and opts.marks or ""))
+  local marks = vim.fn.execute("marks")
   marks = vim.split(marks, "\n")
 
   local entries = {}
-  local filter = opts.marks and vim.split(opts.marks, "")
+  local pattern = opts.marks and opts.marks or ""
   for i = #marks, 3, -1 do
     local mark, line, col, text = marks[i]:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
     col = tostring(tonumber(col) + 1)
     if path.is_absolute(text) then
       text = path.HOME_to_tilde(text)
     end
-    if not filter or vim.tbl_contains(filter, mark) then
+    if not pattern or string.match(mark, pattern) then
       table.insert(entries, string.format(" %-15s %15s %15s %s",
         utils.ansi_codes.yellow(mark),
         utils.ansi_codes.blue(line),
@@ -218,7 +215,7 @@ M.marks = function(opts)
     string.format("%-5s %s  %s %s", "mark", "line", "col", "file/text"))
 
   opts.fzf_opts["--header-lines"] = 1
-  --[[ opts.preview = shell.raw_action(function (args, fzf_lines, _)
+  --[[ opts.preview = function (args, fzf_lines, _)
     local mark = args[1]:match("[^ ]+")
     local bufnr, lnum, _, _ = unpack(vim.fn.getpos("'"..mark))
     if vim.api.nvim_buf_is_loaded(bufnr) then
@@ -230,7 +227,7 @@ M.marks = function(opts)
       end
       return "UNLOADED: " .. name
     end
-  end) ]]
+  end ]]
 
   core.fzf_exec(entries, opts)
 end
@@ -276,11 +273,11 @@ M.registers = function(opts)
     end
   end
 
-  opts.preview = shell.raw_action(function(args)
+  opts.preview = function(args)
     local r = args[1]:match("%[(.*)%] ")
     local _, contents = pcall(vim.fn.getreg, r)
     return contents and register_escape_special(contents) or args[1]
-  end, nil, opts.debug)
+  end
 
   core.fzf_exec(entries, opts)
 end
@@ -289,7 +286,7 @@ M.keymaps = function(opts)
   opts = config.normalize_opts(opts, "keymaps")
   if not opts then return end
 
-  local formatter = opts.formatter or "%s │ %-14s │ %-33s │ %s"
+  local formatter = "%s │ %-14s │ %-33s │ %s"
   local key_modes = opts.modes or { "n", "i", "c", "v", "t" }
   local modes = {
     n = "blue",
@@ -364,7 +361,7 @@ M.spell_suggest = function(opts)
   local cursor_word = vim.fn.expand "<cword>"
   local entries = vim.fn.spellsuggest(cursor_word)
 
-  if vim.tbl_isempty(entries) then return end
+  if utils.tbl_isempty(entries) then return end
 
   core.fzf_exec(entries, opts)
 end
@@ -374,7 +371,7 @@ M.filetypes = function(opts)
   if not opts then return end
 
   local entries = vim.fn.getcompletion("", "filetype")
-  if vim.tbl_isempty(entries) then return end
+  if utils.tbl_isempty(entries) then return end
 
   core.fzf_exec(entries, opts)
 end
@@ -385,7 +382,7 @@ M.packadd = function(opts)
 
   local entries = vim.fn.getcompletion("", "packadd")
 
-  if vim.tbl_isempty(entries) then return end
+  if utils.tbl_isempty(entries) then return end
 
   core.fzf_exec(entries, opts)
 end
@@ -409,12 +406,12 @@ M.menus = function(opts)
     end
   end
 
-  local entries = vim.tbl_flatten(vim.tbl_map(
+  local entries = utils.tbl_flatten(vim.tbl_map(
     function(x)
       return gen_menu_entries(nil, x)
     end, vim.fn.menu_get("")))
 
-  if vim.tbl_isempty(entries) then
+  if utils.tbl_isempty(entries) then
     utils.info("No menus available")
     return
   end
@@ -427,7 +424,7 @@ M.autocmds = function(opts)
   if not opts then return end
 
   local autocmds = vim.api.nvim_get_autocmds({})
-  if not autocmds or vim.tbl_isempty(autocmds) then
+  if not autocmds or utils.tbl_isempty(autocmds) then
     return
   end
 

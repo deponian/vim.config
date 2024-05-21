@@ -8,19 +8,18 @@ local system = require('gitsigns.system').system
 local gs_config = require('gitsigns.config')
 local config = gs_config.config
 
-local uv = vim.loop
-local startswith = vim.startswith
+local uv = vim.uv or vim.loop
 
-local dprint = require('gitsigns.debug.log').dprint
-local dprintf = require('gitsigns.debug.log').dprintf
-local eprint = require('gitsigns.debug.log').eprint
-local err = require('gitsigns.message').error
+local dprint = log.dprint
+local dprintf = log.dprintf
 local error_once = require('gitsigns.message').error_once
+
+local check_version = require('gitsigns.git.version').check
 
 local M = {}
 
---- @type fun(cmd: string[], opts?: SystemOpts): vim.SystemCompleted
-local asystem = async.wrap(system, 3)
+--- @type fun(cmd: string[], opts?: vim.SystemOpts): vim.SystemCompleted
+local asystem = async.wrap(3, system)
 
 --- @param file string
 --- @return boolean
@@ -59,84 +58,15 @@ M.Obj = Obj
 local Repo = {}
 M.Repo = Repo
 
---- @class (exact) Gitsigns.Version
---- @field major integer
---- @field minor integer
---- @field patch integer
-
---- @param version string
---- @return Gitsigns.Version
-local function parse_version(version)
-  assert(version:match('%d+%.%d+%.%w+'), 'Invalid git version: ' .. version)
-  local ret = {}
-  local parts = vim.split(version, '%.')
-  ret.major = assert(tonumber(parts[1]))
-  ret.minor = assert(tonumber(parts[2]))
-
-  if parts[3] == 'GIT' then
-    ret.patch = 0
-  else
-    local patch_ver = vim.split(parts[3], '-')
-    ret.patch = assert(tonumber(patch_ver[1]))
-  end
-
-  return ret
-end
-
---- Usage: check_version{2,3}
---- @param version {[1]: integer, [2]:integer, [3]:integer}
---- @return boolean
-local function check_version(version)
-  if not M.version then
-    return false
-  end
-  if M.version.major < version[1] then
-    return false
-  end
-  if version[2] and M.version.minor < version[2] then
-    return false
-  end
-  if version[3] and M.version.patch < version[3] then
-    return false
-  end
-  return true
-end
-
---- @async
---- @param version string
-function M._set_version(version)
-  if version ~= 'auto' then
-    M.version = parse_version(version)
-    return
-  end
-
-  --- @type vim.SystemCompleted
-  local obj = asystem({ 'git', '--version' })
-
-  local line = vim.split(obj.stdout or '', '\n', { plain = true })[1]
-  if not line then
-    err("Unable to detect git version as 'git --version' failed to return anything")
-    eprint(obj.stderr)
-    return
-  end
-  assert(type(line) == 'string', 'Unexpected output: ' .. line)
-  assert(startswith(line, 'git version'), 'Unexpected output: ' .. line)
-  local parts = vim.split(line, '%s+')
-  M.version = parse_version(parts[3])
-end
-
---- @class Gitsigns.Git.JobSpec : SystemOpts
+--- @class Gitsigns.Git.JobSpec : vim.SystemOpts
 --- @field command? string
 --- @field ignore_error? boolean
 
+--- @async
 --- @param args string[]
 --- @param spec? Gitsigns.Git.JobSpec
 --- @return string[] stdout, string? stderr
-local git_command = async.create(function(args, spec)
-  if not M.version then
-    M._set_version(config._git_version)
-  end
-
+local function git_command(args, spec)
   spec = spec or {}
 
   local cmd = {
@@ -187,8 +117,9 @@ local git_command = async.create(function(args, spec)
   end
 
   return stdout_lines, stderr
-end, 2)
+end
 
+--- @async
 --- @param file_cmp string
 --- @param file_buf string
 --- @param indent_heuristic? boolean
@@ -212,12 +143,13 @@ function M.diff(file_cmp, file_buf, indent_heuristic, diff_algo)
   })
 end
 
+--- @async
 --- @param gitdir string
 --- @param head_str string
---- @param path string
+--- @param cwd string
 --- @param cmd? string
 --- @return string
-local function process_abbrev_head(gitdir, head_str, path, cmd)
+local function process_abbrev_head(gitdir, head_str, cwd, cmd)
   if not gitdir then
     return head_str
   end
@@ -225,7 +157,7 @@ local function process_abbrev_head(gitdir, head_str, path, cmd)
     local short_sha = git_command({ 'rev-parse', '--short', 'HEAD' }, {
       command = cmd,
       ignore_error = true,
-      cwd = path,
+      cwd = cwd,
     })[1] or ''
     if log.debug_mode and short_sha ~= '' then
       short_sha = 'HEAD'
@@ -264,19 +196,19 @@ local function normalize_path(path)
   return path
 end
 
---- @param path string
+--- @async
+--- @param cwd string
 --- @param cmd? string
 --- @param gitdir? string
 --- @param toplevel? string
 --- @return Gitsigns.RepoInfo
-function M.get_repo_info(path, cmd, gitdir, toplevel)
+function M.get_repo_info(cwd, cmd, gitdir, toplevel)
   -- Does git rev-parse have --absolute-git-dir, added in 2.13:
   --    https://public-inbox.org/git/20170203024829.8071-16-szeder.dev@gmail.com/
   local has_abs_gd = check_version({ 2, 13 })
   local git_dir_opt = has_abs_gd and '--absolute-git-dir' or '--git-dir'
 
-  -- Wait for internal scheduler to settle before running command
-  --    https://github.com/lewis6991/gitsigns.nvim/pull/215
+  -- Wait for internal scheduler to settle before running command (#215)
   scheduler()
 
   local args = {}
@@ -300,7 +232,7 @@ function M.get_repo_info(path, cmd, gitdir, toplevel)
   local results = git_command(args, {
     command = cmd,
     ignore_error = true,
-    cwd = toplevel or path,
+    cwd = toplevel or cwd,
   })
 
   local toplevel_r = normalize_path(results[1])
@@ -313,7 +245,7 @@ function M.get_repo_info(path, cmd, gitdir, toplevel)
   return {
     toplevel = toplevel_r,
     gitdir = gitdir_r,
-    abbrev_head = process_abbrev_head(gitdir_r, results[3], path, cmd),
+    abbrev_head = process_abbrev_head(gitdir_r, results[3], cwd, cmd),
     detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git',
   }
 end
@@ -323,6 +255,7 @@ end
 --------------------------------------------------------------------------------
 
 --- Run git command the with the objects gitdir and toplevel
+--- @async
 --- @param args string[]
 --- @param spec? Gitsigns.Git.JobSpec
 --- @return string[] stdout, string? stderr
@@ -387,10 +320,41 @@ function Repo:get_show_text(object, encoding)
   return stdout, stderr
 end
 
+--- @async
 function Repo:update_abbrev_head()
   self.abbrev_head = M.get_repo_info(self.toplevel).abbrev_head
 end
 
+--- @private
+--- @param dir string
+--- @param gitdir? string
+--- @param toplevel? string
+function Repo:try_yadm(dir, gitdir, toplevel)
+  if not config.yadm.enable or self.gitdir then
+    return
+  end
+
+  local home = os.getenv('HOME')
+
+  if not home or not vim.startswith(dir, home) then
+    return
+  end
+
+  if #git_command({ 'ls-files', dir }, { command = 'yadm' }) == 0 then
+    return
+  end
+
+  M.get_repo_info(dir, 'yadm', gitdir, toplevel)
+  local yadm_info = M.get_repo_info(dir, 'yadm', gitdir, toplevel)
+  for k, v in
+    pairs(yadm_info --[[@as table<string,any>]])
+  do
+    ---@diagnostic disable-next-line:no-unknown
+    self[k] = v
+  end
+end
+
+--- @async
 --- @param dir string
 --- @param gitdir? string
 --- @param toplevel? string
@@ -407,22 +371,7 @@ function Repo.new(dir, gitdir, toplevel)
     self[k] = v
   end
 
-  -- Try yadm
-  if config.yadm.enable and not self.gitdir then
-    if
-      vim.startswith(dir, assert(os.getenv('HOME')))
-      and #git_command({ 'ls-files', dir }, { command = 'yadm' }) ~= 0
-    then
-      M.get_repo_info(dir, 'yadm', gitdir, toplevel)
-      local yadm_info = M.get_repo_info(dir, 'yadm', gitdir, toplevel)
-      for k, v in
-        pairs(yadm_info --[[@as table<string,any>]])
-      do
-        ---@diagnostic disable-next-line:no-unknown
-        self[k] = v
-      end
-    end
-  end
+  self:try_yadm(dir, gitdir, toplevel)
 
   return self
 end
@@ -531,7 +480,7 @@ end
 --- @return string[] stdout, string? stderr
 function Obj:get_show_text(revision)
   if revision == 'FILE' then
-    return util.file_lines(self.file, { raw = true })
+    return util.file_lines(self.file)
   end
 
   if not self.relpath then
@@ -551,8 +500,19 @@ function Obj:get_show_text(revision)
   return stdout, stderr
 end
 
+local function autocmd_changed(file)
+  vim.schedule(function()
+    vim.api.nvim_exec_autocmds('User', {
+      pattern = 'GitSignsChanged',
+      modeline = false,
+      data = { file = file },
+    })
+  end)
+end
+
 function Obj:unstage_file()
   self:command({ 'reset', self.file })
+  autocmd_changed(self.file)
 end
 
 --- @class Gitsigns.CommitInfo
@@ -618,9 +578,9 @@ end
 
 --- @param lines string[]
 --- @param lnum? integer
---- @param ignore_whitespace? boolean
+--- @param opts? Gitsigns.BlameOpts
 --- @return table<integer,Gitsigns.BlameInfo?>?
-function Obj:run_blame(lines, lnum, ignore_whitespace)
+function Obj:run_blame(lines, lnum, opts)
   local ret = {} --- @type table<integer,Gitsigns.BlameInfo>
 
   if not self.object_name or self.repo.abbrev_head == '' then
@@ -641,20 +601,28 @@ function Obj:run_blame(lines, lnum, ignore_whitespace)
 
   local args = { 'blame', '--contents', '-', '--incremental' }
 
+  opts = opts or {}
+
+  if opts.ignore_whitespace then
+    args[#args + 1] = '-w'
+  end
+
   if lnum then
     vim.list_extend(args, { '-L', lnum .. ',+1' })
   end
 
-  args[#args + 1] = self.file
-
-  if ignore_whitespace then
-    args[#args + 1] = '-w'
+  if opts.extra_opts then
+    vim.list_extend(args, opts.extra_opts)
   end
 
   local ignore_file = self.repo.toplevel .. '/.git-blame-ignore-revs'
   if uv.fs_stat(ignore_file) then
     vim.list_extend(args, { '--ignore-revs-file', ignore_file })
   end
+
+  args[#args + 1] = opts.rev
+  args[#args + 1] = '--'
+  args[#args + 1] = self.file
 
   local results, stderr = self:command(args, { stdin = lines, ignore_error = true })
   if stderr then
@@ -791,6 +759,8 @@ function Obj:stage_lines(lines)
     '--cacheinfo',
     string.format('%s,%s,%s', self.mode_bits, new_object, self.relpath),
   })
+
+  autocmd_changed(self.file)
 end
 
 --- @param hunks Gitsigns.Hunk.Hunk[]
@@ -818,6 +788,8 @@ function Obj:stage_hunks(hunks, invert)
   }, {
     stdin = patch,
   })
+
+  autocmd_changed(self.file)
 end
 
 --- @return string?
@@ -849,6 +821,10 @@ function Obj.new(file, encoding, gitdir, toplevel)
     return nil
   end
   local self = setmetatable({}, { __index = Obj })
+
+  if not vim.startswith(file, '/') and toplevel then
+    file = toplevel .. util.path_sep .. file
+  end
 
   self.file = file
   self.encoding = encoding

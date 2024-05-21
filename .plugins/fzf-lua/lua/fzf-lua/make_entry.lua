@@ -1,5 +1,6 @@
 local M = {}
 
+local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local libuv = require "fzf-lua.libuv"
@@ -14,7 +15,7 @@ do
 end
 
 local function load_config_section(s, datatype, optional)
-  if config then
+  if not vim.g.fzf_lua_is_headless then
     local val = utils.map_get(config, s)
     return type(val) == datatype and val or nil
     ---@diagnostic disable-next-line: undefined-field
@@ -71,7 +72,22 @@ M.get_diff_files = function(opts)
   local diff_files = {}
   local cmd = opts.git_status_cmd or config.globals.files.git_status_cmd
   if not cmd then return {} end
+  local start = os.time()
   local ok, status, err = pcall(utils.io_systemlist, path.git_cwd(cmd, opts))
+  local seconds = os.time() - start
+  if seconds >= 3 and opts.silent ~= true then
+    local exec_str = string.format([[require"fzf-lua".utils.warn(]] ..
+      [["`git status` took %d seconds, consider using `:FzfLua files git_icons=false` in this repository.")]]
+      , seconds)
+    if not vim.g.fzf_lua_is_headless then
+      loadstring(exec_str)()
+    else
+      ---@diagnostic disable-next-line: undefined-field
+      local chan_id = vim.fn.sockconnect("pipe", _G._fzf_lua_server, { rpc = true })
+      vim.rpcrequest(chan_id, "nvim_exec_lua", exec_str, {})
+      vim.fn.chanclose(chan_id)
+    end
+  end
   if ok and err == 0 then
     for i = 1, #status do
       local line = status[i]
@@ -157,7 +173,7 @@ M.preprocess = function(opts)
       io.stdout:write(("[DEBUGV]: raw_argv(%d) = %s\n"):format(idx, arg))
     end
     if utils.__IS_WINDOWS then
-      arg = libuv.unescape_fzf(arg)
+      arg = libuv.unescape_fzf(arg, opts.__FZF_VERSION)
     end
     if debug == "v" or debug == "verbose" then
       io.stdout:write(("[DEBUGV]: esc_argv(%d) = %s\n"):format(idx, libuv.shellescape(arg)))
@@ -230,7 +246,7 @@ M.preprocess = function(opts)
   end
 
   if opts.cwd_only and not opts.cwd then
-    opts.cwd = vim.loop.cwd()
+    opts.cwd = uv.cwd()
   end
 
   if opts.file_icons then
@@ -241,21 +257,37 @@ M.preprocess = function(opts)
     opts.diff_files = M.get_diff_files(opts)
   end
 
+  -- formatter `to` function
+  if opts.formatter and not opts._fmt then
+    opts._fmt = opts._fmt or {}
+    opts._fmt.to = load_config_section("__resume_data.opts._fmt.to", "function", true)
+    -- Attempt to load from string value `_to`
+    if not opts._fmt.to then
+      local _to = load_config_section("__resume_data.opts._fmt._to", "string", true)
+      if type(_to) == "string" then
+        opts._fmt.to = loadstring(_to)()
+      end
+    end
+  end
+
   return opts
 end
 
 M.lcol = function(entry, opts)
   if not entry then return nil end
+  local hl_colnr = utils.tbl_contains(opts._cached_hls or {}, "path_colnr")
+      and opts.hls.path_colnr or "blue"
+  local hl_linenr = utils.tbl_contains(opts._cached_hls or {}, "path_linenr")
+      and opts.hls.path_linenr or "green"
   local filename = entry.filename or vim.api.nvim_buf_get_name(entry.bufnr)
-  return string.format("%s:%s:%s:%s%s",
+  return string.format("%s:%s%s%s",
     -- uncomment to test URIs
     -- "file://" .. filename,
     filename, --utils.ansi_codes.magenta(filename),
-    utils.ansi_codes.green(tostring(entry.lnum)),
-    utils.ansi_codes.blue(tostring(entry.col)),
-    entry.text and #entry.text > 0 and " " or "",
-    not entry.text and "" or
-    (opts and opts.trim_entry and vim.trim(entry.text)) or entry.text)
+    tonumber(entry.lnum) == nil and "" or (utils.ansi_codes[hl_linenr](tostring(entry.lnum)) .. ":"),
+    tonumber(entry.col) == nil and "" or (utils.ansi_codes[hl_colnr](tostring(entry.col)) .. ":"),
+    type(entry.text) ~= "string" and ""
+    or (" " .. (opts and opts.trim_entry and vim.trim(entry.text) or entry.text)))
 end
 
 local COLON_BYTE = string.byte(":")
@@ -301,7 +333,7 @@ M.file = function(x, opts)
   if path.is_absolute(filepath) then
     -- filter for cwd only
     if opts.cwd_only then
-      local cwd = opts.cwd or vim.loop.cwd()
+      local cwd = opts.cwd or uv.cwd()
       if not path.is_relative_to(filepath, cwd) then
         return nil
       end
@@ -324,14 +356,14 @@ M.file = function(x, opts)
   if opts.path_shorten then
     filepath = path.shorten(filepath, tonumber(opts.path_shorten),
       -- On Windows we want to shorten using the separator used by the `cwd` arg
-      -- otherwise we might haave issues "lenghening" as in the case of git which
+      -- otherwise we might have issues "lenghening" as in the case of git which
       -- uses normalized paths (using /) for `rev-parse --show-toplevel` and `ls-files`
       utils.__IS_WINDOWS and opts.cwd and path.separator(opts.cwd))
   end
   if opts.git_icons then
     local diff_info = opts.diff_files
         and opts.diff_files[utils._if_win(path.normalize(origpath), origpath)]
-    local indicators = diff_info and diff_info[1] or utils.nbsp
+    local indicators = diff_info and diff_info[1] or " "
     for i = 1, #indicators do
       icon = indicators:sub(i, i)
       local git_icon = config.globals.git.icons[icon]
@@ -355,10 +387,14 @@ M.file = function(x, opts)
     ret[#ret + 1] = icon
     ret[#ret + 1] = utils.nbsp
   end
-  ret[#ret + 1] = file_is_ansi > 0
-      -- filename is ansi escape colored, replace the inner string (#819)
-      and file_part:gsub(utils.lua_regex_escape(stripped_filepath), filepath)
-      or filepath
+  if opts._fmt and type(opts._fmt.to) == "function" then
+    ret[#ret + 1] = opts._fmt.to(filepath, opts, { path = path, utils = utils })
+  else
+    ret[#ret + 1] = file_is_ansi > 0
+        -- filename is ansi escape colored, replace the inner string (#819)
+        and file_part:gsub(utils.lua_regex_escape(stripped_filepath), filepath)
+        or filepath
+  end
   ret[#ret + 1] = rest_of_line
   return table.concat(ret)
 end
@@ -413,7 +449,7 @@ M.git_status = function(x, opts)
     f1, f2 = f1:match("(.*)%s%->%s(.*)")
   end
   f1 = f1 and M.file(f1, opts)
-  -- accomodate 'file_ignore_patterns'
+  -- accommodate 'file_ignore_patterns'
   if not f1 then return end
   f2 = f2 and M.file(f2, opts)
   local staged = git_iconify(x:sub(1, 1):gsub("?", " "), true)

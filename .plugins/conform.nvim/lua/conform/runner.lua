@@ -33,8 +33,19 @@ M.build_cmd = function(formatter_name, ctx, config)
     end
   end
 
+  local function compute_relative_filepath()
+    local cwd
+    if config.cwd then
+      cwd = config.cwd(config, ctx)
+    end
+    return fs.relative_path(cwd or vim.fn.getcwd(), ctx.filename)
+  end
+
   if type(args) == "string" then
-    local interpolated = args:gsub("$FILENAME", ctx.filename):gsub("$DIRNAME", ctx.dirname)
+    local interpolated = args
+      :gsub("$FILENAME", ctx.filename)
+      :gsub("$DIRNAME", ctx.dirname)
+      :gsub("$RELATIVE_FILEPATH", compute_relative_filepath)
     return command .. " " .. interpolated
   else
     local cmd = { command }
@@ -44,6 +55,8 @@ M.build_cmd = function(formatter_name, ctx, config)
         v = ctx.filename
       elseif v == "$DIRNAME" then
         v = ctx.dirname
+      elseif v == "$RELATIVE_FILEPATH" then
+        v = compute_relative_filepath()
       end
       table.insert(cmd, v)
     end
@@ -156,6 +169,9 @@ end
 ---@param only_apply_range boolean
 ---@return boolean any_changes
 M.apply_format = function(bufnr, original_lines, new_lines, range, only_apply_range, dry_run)
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return false
   end
@@ -184,7 +200,7 @@ M.apply_format = function(bufnr, original_lines, new_lines, range, only_apply_ra
     result_type = "indices",
     algorithm = "histogram",
   })
-  assert(indices)
+  assert(type(indices) == "table")
   log.trace("Diff indices %s", indices)
   local text_edits = {}
   for _, idx in ipairs(indices) do
@@ -345,6 +361,11 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
           output = vim.split(content, "\r?\n", {})
         else
           output = stdout
+          -- trim trailing \r in every line
+          -- so that both branches of this if block behaves the same
+          for i, line in ipairs(output) do
+            output[i] = string.gsub(line, "\r$", "")
+          end
         end
         -- Remove the trailing newline from the output to convert back to vim lines representation
         if add_extra_newline and output[#output] == "" then

@@ -61,7 +61,7 @@
   "enum"
   "struct"
   "union"
-] @keyword
+] @keyword.type
 
 "sizeof" @keyword.operator
 
@@ -206,6 +206,9 @@
 
 ; Control flow
 (if_block
+  command: (identifier) @keyword.conditional)
+
+(elif_block
   command: (identifier) @keyword.conditional)
 
 (else_block

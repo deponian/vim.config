@@ -3,11 +3,12 @@
   (struct_item)
   (enum_item)
   (impl_item)
-  (for_expression)
   (struct_expression)
   (struct_pattern)
   (tuple_struct_pattern)
   (tuple_expression)
+  (tuple_type)
+  (tuple_pattern)
   (match_block)
   (call_expression)
   (assignment_expression)
@@ -83,6 +84,12 @@
   "}" @indent.end)
 
 (tuple_struct_pattern
+  ")" @indent.end)
+
+(tuple_type
+  ")" @indent.end)
+
+(tuple_pattern
   ")" @indent.end)
 
 (trait_item

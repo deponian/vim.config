@@ -1,11 +1,12 @@
+local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local shell = require "fzf-lua.shell"
 local config = require "fzf-lua.config"
 local base64 = require "fzf-lua.lib.base64"
-local make_entry = require "fzf-lua.make_entry"
 local devicons = require "fzf-lua.devicons"
+local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
 
@@ -26,7 +27,7 @@ local filter_buffers = function(opts, unfiltered)
   local bufnrs = vim.tbl_filter(function(b)
     if not vim.api.nvim_buf_is_valid(b) then
       excluded[b] = true
-    elseif not opts.show_unlisted and vim.fn.buflisted(b) ~= 1 then
+    elseif not opts.show_unlisted and b ~= core.CTX().bufnr and vim.fn.buflisted(b) ~= 1 then
       excluded[b] = true
     elseif not opts.show_unloaded and not vim.api.nvim_buf_is_loaded(b) then
       excluded[b] = true
@@ -36,7 +37,7 @@ local filter_buffers = function(opts, unfiltered)
       excluded[b] = true
     elseif opts.no_term_buffers and utils.is_term_buffer(b) then
       excluded[b] = true
-    elseif opts.cwd_only and not path.is_relative_to(vim.api.nvim_buf_get_name(b), vim.loop.cwd()) then
+    elseif opts.cwd_only and not path.is_relative_to(vim.api.nvim_buf_get_name(b), uv.cwd()) then
       excluded[b] = true
     elseif opts.cwd and not path.is_relative_to(vim.api.nvim_buf_get_name(b), opts.cwd) then
       excluded[b] = true
@@ -67,7 +68,7 @@ local populate_buffer_entries = function(opts, bufnrs, tabh)
     local element = {
       bufnr = bufnr,
       flag = flag,
-      info = vim.fn.getbufinfo(bufnr)[1],
+      info = utils.getbufinfo(bufnr),
       readonly = vim.bo[bufnr].readonly
     }
 
@@ -120,17 +121,19 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd)
   local flags = hidden .. readonly .. changed
   local leftbr = "["
   local rightbr = "]"
-  local bufname = #buf.info.name > 0 and path.relative_to(buf.info.name, cwd or vim.loop.cwd())
-  if opts.filename_only then
-    bufname = path.basename(bufname)
-  end
-  -- replace $HOME with '~' for paths outside of cwd
-  bufname = path.HOME_to_tilde(bufname)
-  if opts.path_shorten and not bufname:match("^%a+://") then
-    bufname = path.shorten(bufname, tonumber(opts.path_shorten))
-  end
-  -- add line number
-  bufname = ("%s:%s"):format(bufname, buf.info.lnum > 0 and buf.info.lnum or "")
+  local bufname = (function()
+    local bname = buf.info.name
+    if bname:match("^%[.*%]$") or bname:match("^%a+://") then
+      return bname
+    elseif opts.filename_only then
+      return path.tail(bname)
+    else
+      bname = make_entry.lcol({ filename = bname, lnum = buf.info.lnum }, opts):gsub(":$", "")
+      return make_entry.file(bname, vim.tbl_extend("force", opts,
+        -- No support for git_icons, file_icons are added later
+        { cwd = cwd or opts.cwd or uv.cwd(), file_icons = false, git_icons = false }))
+    end
+  end)()
   if buf.flag == "%" then
     flags = utils.ansi_codes[opts.hls.buf_flag_cur](buf.flag) .. flags
   elseif buf.flag == "#" then
@@ -152,7 +155,7 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd)
   end
   local max_bufnr_w = 3 + #tostring(max_bufnr) + utils.ansi_escseq_len(bufnrstr)
   local item_str = string.format("%s%s%s%s%s%s%s%s",
-    utils._if(opts._prefix, opts._prefix, ""),
+    opts._prefix or "",
     string.format("%-" .. tostring(max_bufnr_w) .. "s", bufnrstr),
     utils.nbsp,
     flags,
@@ -284,7 +287,7 @@ M.buffer_lines = function(opts)
             buficon or "",
             buficon and utils.nbsp or "",
             utils.ansi_codes[opts.hls.buf_name](bufname),
-            utils.ansi_codes[opts.hls.buf_linenr](tostring(lnum)),
+            utils.ansi_codes[opts.hls.path_linenr](tostring(lnum)),
             data[lnum]), co)
         end
       end
@@ -293,7 +296,6 @@ M.buffer_lines = function(opts)
   end
 
   opts = core.set_fzf_field_index(opts, "{3}", opts._is_skim and "{}" or "{..-2}")
-
   core.fzf_exec(contents, opts)
 end
 
@@ -364,8 +366,7 @@ M.tabs = function(opts)
         local title, fn_title_hl = opt_hl("tab_title",
           function(s)
             return string.format("%s%s#%d%s", s, utils.nbsp, t,
-              (vim.loop.cwd() == tab_cwd and ""
-                or string.format(": %s", tab_cwd_tilde)))
+              (uv.cwd() == tab_cwd and "" or string.format(": %s", tab_cwd_tilde)))
           end,
           utils.ansi_codes[opts.hls.tab_title])
 
@@ -375,7 +376,7 @@ M.tabs = function(opts)
 
         local tab_cwd_tilde_base64 = base64.encode(tab_cwd_tilde)
         if not opts.current_tab_only then
-          cb(string.format("%s:%d)%s%s\t%s",
+          cb(string.format("%s:%d)%s%s  %s",
             tab_cwd_tilde_base64,
             t,
             utils.nbsp,

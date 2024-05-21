@@ -1,4 +1,6 @@
 :Gitsigns	gitsigns.txt	/*:Gitsigns*
+User_GitSignsChanged	gitsigns.txt	/*User_GitSignsChanged*
+User_GitSignsUpdate	gitsigns.txt	/*User_GitSignsUpdate*
 b:gitsigns_blame_line	gitsigns.txt	/*b:gitsigns_blame_line*
 b:gitsigns_blame_line_dict	gitsigns.txt	/*b:gitsigns_blame_line_dict*
 b:gitsigns_head	gitsigns.txt	/*b:gitsigns_head*
@@ -35,7 +37,7 @@ gitsigns-config-watch_gitdir	gitsigns.txt	/*gitsigns-config-watch_gitdir*
 gitsigns-config-word_diff	gitsigns.txt	/*gitsigns-config-word_diff*
 gitsigns-config-worktrees	gitsigns.txt	/*gitsigns-config-worktrees*
 gitsigns-config-yadm	gitsigns.txt	/*gitsigns-config-yadm*
-gitsigns-event	gitsigns.txt	/*gitsigns-event*
+gitsigns-events	gitsigns.txt	/*gitsigns-events*
 gitsigns-functions	gitsigns.txt	/*gitsigns-functions*
 gitsigns-highlight-groups	gitsigns.txt	/*gitsigns-highlight-groups*
 gitsigns-mappings	gitsigns.txt	/*gitsigns-mappings*
@@ -52,6 +54,7 @@ gitsigns.detach_all()	gitsigns.txt	/*gitsigns.detach_all()*
 gitsigns.diffthis()	gitsigns.txt	/*gitsigns.diffthis()*
 gitsigns.get_actions()	gitsigns.txt	/*gitsigns.get_actions()*
 gitsigns.get_hunks()	gitsigns.txt	/*gitsigns.get_hunks()*
+gitsigns.nav_hunk()	gitsigns.txt	/*gitsigns.nav_hunk()*
 gitsigns.next_hunk()	gitsigns.txt	/*gitsigns.next_hunk()*
 gitsigns.nvim	gitsigns.txt	/*gitsigns.nvim*
 gitsigns.prev_hunk()	gitsigns.txt	/*gitsigns.prev_hunk()*

@@ -58,15 +58,15 @@
   "="
   "|"
   "::"
-  ; "∷"
+  "∷"
   "=>"
-  ; "⇒"
+  "⇒"
   "<="
-  ; "⇐"
+  "⇐"
   "->"
-  ; "→"
+  "→"
   "<-"
-  ; "←"
+  "←"
   "\\"
   "`"
   "@"
@@ -90,23 +90,26 @@
   (where)
   "let"
   "in"
-  "class"
   "instance"
   "derive"
   "foreign"
   "data"
-  "newtype"
-  "type"
   "as"
   "hiding"
   "do"
   "ado"
   "forall"
-  ; "∀" ; utf-8 is not cross-platform safe
+  "∀"
   "infix"
   "infixl"
   "infixr"
 ] @keyword
+
+[
+  "type"
+  "newtype"
+  "class"
+] @keyword.type
 
 (class_instance
   "else" @keyword)

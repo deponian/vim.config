@@ -56,11 +56,11 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
   -- instance never terminates which hangs fzf on exit
   local FZF_DEFAULT_COMMAND = nil
 
-  utils.tbl_extend(cmd, fzf_cli_args or {})
+  utils.tbl_join(cmd, fzf_cli_args or {})
   if type(opts.fzf_cli_args) == "table" then
-    utils.tbl_extend(cmd, opts.fzf_cli_args)
+    utils.tbl_join(cmd, opts.fzf_cli_args)
   elseif type(opts.fzf_cli_args) == "string" then
-    utils.tbl_extend(cmd, { opts.fzf_cli_args })
+    utils.tbl_join(cmd, { opts.fzf_cli_args })
   end
 
   if contents then
@@ -179,7 +179,7 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
     -- error out, but that doesn't matter so we just break out of the loop.
     if contents then
       if type(contents) == "table" then
-        if not vim.tbl_isempty(contents) then
+        if not utils.tbl_isempty(contents) then
           write_cb(vim.tbl_map(function(x)
             return x .. "\n"
           end, contents))
@@ -192,13 +192,13 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
   end)
 
   -- I'm not sure why this happens (probably a neovim bug) but when pressing
-  -- <C-c> in quick successsion immediately after opening the window neovim
+  -- <C-c> in quick succession immediately after opening the window neovim
   -- hangs the CPU at 100% at the last `coroutine.yield` before returning from
   -- this function. At this point it seems that the fzf subprocess was started
   -- and killed but `on_exit` is never called. In order to avoid calling `yield`
   -- I tried checking the job/coroutine status in different ways:
   --   * coroutine.status(co): always returns 'running'
-  --   * vim.fn.job_pid: always returns the corrent pid (even if it doesn't
+  --   * vim.fn.job_pid: always returns the current pid (even if it doesn't
   --     exist anymore)
   --   * vim.fn.jobwait({job_pid}, 0): always returns '-1' (even when looping
   --     with 'vim.defer_fn(fn, 100)')
@@ -251,7 +251,7 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
       and { "cmd", "/d", "/e:off", "/f:off", "/v:off", "/c" }
       or { "sh", "-c" }
   if utils.__IS_WINDOWS then
-    utils.tbl_extend(shell_cmd, cmd)
+    utils.tbl_join(shell_cmd, cmd)
   else
     table.insert(shell_cmd, table.concat(cmd, " "))
   end
@@ -266,6 +266,23 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
       ["SHELL"] = shell_cmd[1],
       ["FZF_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
       ["SKIM_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
+      ["FZF_DEFAULT_OPTS"] = (function()
+        -- Newer style `--preview-window` options in FZF_DEFAULT_OPTS such as:
+        --   --preview-window "right,50%,hidden,<60(up,70%,hidden)"
+        -- prevents our previewer from working properly, since there is never
+        -- a reason to inherit `preview-window` options it can be safely stripped
+        -- from FZF_DEFAULT_OPTS (#1107)
+        local default_opts = os.getenv("FZF_DEFAULT_OPTS")
+        if not default_opts then return end
+        local patterns = { "--preview-window" }
+        for _, p in ipairs(patterns) do
+          -- remove flag end of string
+          default_opts = default_opts:gsub(utils.lua_regex_escape(p) .. "[=%s]+[^%-]+%s-$", "")
+          -- remove flag start/mid of string
+          default_opts = default_opts:gsub(utils.lua_regex_escape(p) .. "[=%s]+.-%s+%-%-", " --")
+        end
+        return default_opts
+      end)()
     },
     on_exit = function(_, rc, _)
       local output = {}

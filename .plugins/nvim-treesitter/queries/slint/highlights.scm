@@ -47,6 +47,9 @@
 
 (user_type_identifier) @type
 
+(enum_block
+  (user_type_identifier) @constant)
+
 ; Functions and callbacks
 (argument) @variable.parameter
 
@@ -184,7 +187,7 @@
 ; Keywords:
 (animate_option_identifier) @keyword
 
-(export) @keyword
+(export) @keyword.import
 
 (if_statement
   "if" @keyword.conditional)
@@ -214,7 +217,7 @@
   ] @keyword)
 
 (enum_definition
-  "enum" @keyword)
+  "enum" @keyword.type)
 
 (for_loop
   [
@@ -250,7 +253,7 @@
   ] @keyword)
 
 (struct_definition
-  "struct" @keyword)
+  "struct" @keyword.type)
 
 (transitions_definition
   [

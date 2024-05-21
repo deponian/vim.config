@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local utils = require "fzf-lua.utils"
 local path = require "fzf-lua.path"
 
@@ -35,7 +36,7 @@ M.normalize_selected = function(actions, selected)
   -- so it can always be enumerated safely
   if not actions or not selected then return end
   local action = _default_action
-  if utils.tbl_length(actions) > 1 or not actions[_default_action] then
+  if utils.tbl_count(actions) > 1 or not actions[_default_action] then
     -- keybind should be in item #1
     -- default keybind is an empty string
     -- so we leave that as "default"
@@ -90,9 +91,8 @@ M.resume = function(_, _)
 end
 
 M.vimcmd = function(vimcmd, selected, noesc)
-  for i = 1, #selected do
-    vim.cmd(("%s %s"):format(vimcmd,
-      noesc and selected[i] or vim.fn.fnameescape(selected[i])))
+  for _, sel in ipairs(selected) do
+    vim.cmd(("%s %s"):format(vimcmd, noesc and sel or vim.fn.fnameescape(sel)))
   end
 end
 
@@ -105,7 +105,7 @@ M.vimcmd_file = function(vimcmd, selected, opts, pcall_vimcmd)
     entry.ctag = opts._ctag and path.entry_to_ctag(selected[i])
     local fullpath = entry.path or entry.uri and entry.uri:match("^%a+://(.*)")
     if not path.is_absolute(fullpath) then
-      fullpath = path.join({ opts.cwd or opts._cwd or vim.loop.cwd(), fullpath })
+      fullpath = path.join({ opts.cwd or opts._cwd or uv.cwd(), fullpath })
     end
     if vimcmd == "e"
         and curbuf ~= fullpath
@@ -128,13 +128,13 @@ M.vimcmd_file = function(vimcmd, selected, opts, pcall_vimcmd)
     if vimcmd ~= "e" or not path.equals(curbuf, fullpath) then
       if entry.path then
         -- do not run ':<cmd> <file>' for uri entries (#341)
-        local relpath = path.relative_to(entry.path, vim.loop.cwd())
+        local relpath = path.relative_to(entry.path, uv.cwd())
         if vim.o.autochdir then
           -- force full paths when `autochdir=true` (#882)
           relpath = fullpath
         end
         -- we normalize the path or Windows will fail with directories starting
-        -- with special characters, for example "C:\app\(web)" will be traslated
+        -- with special characters, for example "C:\app\(web)" will be translated
         -- by neovim to "c:\app(web)" (#1082)
         local cmd = vimcmd .. " " .. vim.fn.fnameescape(path.normalize(relpath))
         if pcall_vimcmd then
@@ -194,7 +194,7 @@ local sel_to_qf = function(selected, opts, is_loclist)
   local qf_list = {}
   for i = 1, #selected do
     local file = path.entry_to_file(selected[i], opts)
-    local text = selected[i]:match(":%d+:%d?%d?%d?%d?:?(.*)$")
+    local text = file.stripped:match(":%d+:%d?%d?%d?%d?:?(.*)$")
     table.insert(qf_list, {
       filename = file.bufname or file.path or file.uri,
       lnum = file.line,
@@ -254,7 +254,7 @@ M.file_switch = function(selected, opts)
   local entry = path.entry_to_file(selected[1])
   local fullpath = entry.path
   if not path.is_absolute(fullpath) then
-    fullpath = path.join({ opts.cwd or vim.loop.cwd(), fullpath })
+    fullpath = path.join({ opts.cwd or uv.cwd(), fullpath })
   end
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
     local bname = vim.api.nvim_buf_get_name(b)
@@ -488,7 +488,7 @@ M.goto_jump = function(selected, opts)
     else
       filepath = res
     end
-    if not filepath or not vim.loop.fs_stat(filepath) then
+    if not filepath or not uv.fs_stat(filepath) then
       -- no accessible file
       -- jump is in current
       filepath = vim.api.nvim_buf_get_name(0)
@@ -571,6 +571,7 @@ end
 
 
 M.git_switch = function(selected, opts)
+  if not selected[1] then return end
   local cmd = path.git_cwd({ "git", "checkout" }, opts)
   local git_ver = utils.git_version()
   -- git switch was added with git version 2.23
@@ -590,8 +591,46 @@ M.git_switch = function(selected, opts)
     utils.err(unpack(output))
   else
     utils.info(unpack(output))
-    if #vim.api.nvim_buf_get_name(0) > 0 then
-      vim.cmd("edit!")
+    vim.cmd("checktime")
+  end
+end
+
+M.git_branch_add = function(selected, opts)
+  -- "reload" actions (fzf version >= 0.36) use field_index = "{q}"
+  -- so the prompt input will be found in `selected[1]`
+  -- previous fzf versions (or skim) restart the process instead
+  -- so the prompt input will be found in `opts.last_query`
+  local branch = opts.last_query or selected[1]
+  if type(branch) ~= "string" or #branch == 0 then
+    utils.warn("Branch name cannot be empty, use prompt for input.")
+  else
+    local cmd_add_branch = path.git_cwd(opts.cmd_add, opts)
+    table.insert(cmd_add_branch, branch)
+    local output, rc = utils.io_systemlist(cmd_add_branch)
+    if rc ~= 0 then
+      utils.err(unpack(output))
+    else
+      utils.info(string.format("Created branch '%s'.", branch))
+    end
+  end
+end
+
+M.git_branch_del = function(selected, opts)
+  local cmd_del_branch = path.git_cwd(opts.cmd_del, opts)
+  local cmd_cur_branch = path.git_cwd({ "git", "rev-parse", "--abbrev-ref", "HEAD" }, opts)
+  local branch = selected[1]:match("[^%s%*]+")
+  local cur_branch = utils.io_systemlist(cmd_cur_branch)[1]
+  if branch == cur_branch then
+    utils.warn(string.format("Cannot delete active branch '%s'", branch))
+    return
+  end
+  if utils.input("Delete branch " .. branch .. "? [y/n] ") == "y" then
+    table.insert(cmd_del_branch, branch)
+    local output, rc = utils.io_systemlist(cmd_del_branch)
+    if rc ~= 0 then
+      utils.err(unpack(output))
+    else
+      utils.info(unpack(output))
     end
   end
 end
@@ -618,21 +657,19 @@ M.git_yank_commit = function(selected, opts)
 end
 
 M.git_checkout = function(selected, opts)
-  local cmd_checkout = path.git_cwd({ "git", "checkout" }, opts)
-  local cmd_cur_commit = path.git_cwd({ "git", "rev-parse", "--short HEAD" }, opts)
+  local cmd_cur_commit = path.git_cwd({ "git", "rev-parse", "--short", "HEAD" }, opts)
   local commit_hash = match_commit_hash(selected[1], opts)
+  local current_commit = utils.io_systemlist(cmd_cur_commit)[1]
+  if commit_hash == current_commit then return end
   if utils.input("Checkout commit " .. commit_hash .. "? [y/n] ") == "y" then
-    local current_commit = utils.io_systemlist(cmd_cur_commit)
-    if (commit_hash == current_commit) then return end
+    local cmd_checkout = path.git_cwd({ "git", "checkout" }, opts)
     table.insert(cmd_checkout, commit_hash)
     local output, rc = utils.io_systemlist(cmd_checkout)
     if rc ~= 0 then
       utils.err(unpack(output))
     else
       utils.info(unpack(output))
-      if #vim.api.nvim_buf_get_name(0) > 0 then
-        vim.cmd("edit!")
-      end
+      vim.cmd("checktime")
     end
   end
 end
@@ -804,7 +841,7 @@ end
 M.tmux_buf_set_reg = function(selected, opts)
   local buf = selected[1]:match("^%[(.-)%]")
   local data, rc = utils.io_system({ "tmux", "show-buffer", "-b", buf })
-  if rc ~= 0 and data and #data > 0 then
+  if rc == 0 and data and #data > 0 then
     opts.register = opts.register or [["]]
     local ok, err = pcall(vim.fn.setreg, opts.register, data)
     if ok then
@@ -837,9 +874,9 @@ M.apply_profile = function(selected, opts)
   local entry = path.entry_to_file(selected[1])
   local fname = entry.path
   local profile = entry.stripped:sub(#fname + 2):match("[^%s]+")
-  local ok = utils.load_profile(fname, profile, opts.silent)
+  local ok = utils.load_profile_fname(fname, profile, opts.silent)
   if ok then
-    vim.cmd(string.format([[lua require("fzf-lua").setup({"%s"})]], profile))
+    loadstring(string.format([[require("fzf-lua").setup({"%s"})]], profile))()
   end
 end
 
@@ -863,12 +900,26 @@ M.complete = function(selected, opts)
 end
 
 M.dap_bp_del = function(selected, opts)
+  local bufnrs = {}
   local dap_bps = require("dap.breakpoints")
   for _, e in ipairs(selected) do
     local entry = path.entry_to_file(e, opts)
     if entry.bufnr > 0 and entry.line then
       dap_bps.remove(entry.bufnr, entry.line)
+      table.insert(bufnrs, tonumber(entry.bufnr))
     end
+  end
+  -- removing the BP will update the UI, if we're in session
+  -- we also need to broadcast the BP delete to the DAP server
+  local session = require("dap").session()
+  if session then
+    local bps = dap_bps.get()
+    for _, b in ipairs(bufnrs) do
+      -- If all BPs were removed from a buffer we must clear the buffer
+      -- by sending an empty table in the bufnr index
+      bps[b] = bps[b] or {}
+    end
+    session:set_breakpoints(bps)
   end
 end
 

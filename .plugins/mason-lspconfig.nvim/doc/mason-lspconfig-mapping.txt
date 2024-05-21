@@ -30,9 +30,12 @@ clangd                                    clangd
 clarity-lsp                               clarity_lsp
 clojure-lsp                               clojure_lsp
 cmake-language-server                     cmake
+cobol-language-support                    cobol_ls
 codeql                                    codeqlls
+coq-lsp                                   coq_lsp
 crystalline                               crystalline
 csharp-language-server                    csharp_ls
+css-variables-language-server             css_variables
 css-lsp                                   cssls
 cssmodules-language-server                cssmodules_ls
 cucumber-language-server                  cucumber_language_server
@@ -47,6 +50,7 @@ dockerfile-language-server                dockerls
 dot-language-server                       dotls
 dprint                                    dprint
 drools-lsp                                drools_lsp
+earthlyls                                 earthlyls
 efm                                       efm
 elixir-ls                                 elixirls
 elm-language-server                       elmls
@@ -65,6 +69,7 @@ flux-lsp                                  flux_lsp
 foam-language-server                      foam_ls
 fortls                                    fortls
 fsautocomplete                            fsautocomplete
+gitlab-ci-ls                              gitlab_ci_ls
 glint                                     glint
 glsl_analyzer                             glsl_analyzer
 glslls                                    glslls
@@ -74,6 +79,7 @@ gradle-language-server                    gradle_ls
 grammarly-languageserver                  grammarly
 graphql-language-service-cli              graphql
 groovy-language-server                    groovyls
+harper-ls                                 harper_ls
 haxe-language-server                      haxe_language_server
 hdl-checker                               hdl_checker
 helm-ls                                   helm_ls
@@ -94,6 +100,7 @@ julia-lsp                                 julials
 kotlin-language-server                    kotlin_language_server
 lelwel                                    lelwel_ls
 lemminx                                   lemminx
+lexical                                   lexical
 ltex-ls                                   ltex
 lua-language-server                       lua_ls
 luau-lsp                                  luau_lsp
@@ -102,8 +109,10 @@ markdown-oxide                            markdown_oxide
 marksman                                  marksman
 matlab-language-server                    matlab_ls
 mdx-analyzer                              mdx_analyzer
+mesonlsp                                  mesonlsp
 millet                                    millet
 metamath-zero-lsp                         mm0_ls
+motoko-lsp                                motoko_lsp
 move-analyzer                             move_analyzer
 mutt-language-server                      mutt_ls
 neocmakelsp                               neocmake
@@ -135,13 +144,15 @@ quick-lint-js                             quick_lint_js
 r-languageserver                          r_language_server
 raku-navigator                            raku_navigator
 reason-language-server                    reason_ls
+regols                                    regols
 remark-language-server                    remark_ls
 rescript-language-server                  rescriptls
 rnix-lsp                                  rnix
 robotframework-lsp                        robotframework_ls
 rome                                      rome
 rubocop                                   rubocop
-ruby-lsp                                  ruby_ls
+ruby-lsp                                  ruby_lsp
+ruff                                      ruff
 ruff-lsp                                  ruff_lsp
 rust-analyzer                             rust_analyzer
 salt-lsp                                  salt_ls
@@ -162,6 +173,7 @@ spectral-language-server                  spectral
 sqlls                                     sqlls
 sqls                                      sqls
 standardrb                                standardrb
+starlark-rust                             starlark_rust
 stimulus-language-server                  stimulus_ls
 stylelint-lsp                             stylelint_lsp
 svelte-language-server                    svelte
@@ -177,6 +189,7 @@ texlab                                    texlab
 tflint                                    tflint
 shopify-theme-check                       theme_check
 thriftls                                  thriftls
+tinymist                                  tinymist
 typescript-language-server                tsserver
 twiggy-language-server                    twiggy_language_server
 typos-lsp                                 typos_lsp
@@ -188,6 +201,7 @@ vala-language-server                      vala_ls
 vale-ls                                   vale_ls
 verible                                   verible
 veryl-ls                                  veryl_ls
+rust_hdl                                  vhdl_ls
 vim-language-server                       vimls
 visualforce-language-server               visualforce_ls
 vls                                       vls

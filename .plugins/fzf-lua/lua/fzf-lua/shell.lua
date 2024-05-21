@@ -31,7 +31,7 @@ end
 
 function M.set_protected(id)
   _protected[id] = true
-  assert(_MAX_LEN > vim.tbl_count(_protected))
+  assert(_MAX_LEN > utils.tbl_count(_protected))
 end
 
 function M.clear_protected()
@@ -54,9 +54,11 @@ function M.raw_async_action(fn, fzf_field_expression, debug)
   local receiving_function = function(pipe_path, ...)
     local pipe = uv.new_pipe(false)
     local args = { ... }
-    -- unesacpe double backslashes on windows
-    if type(args[1]) == "table" then
-      args[1] = vim.tbl_map(function(x) return libuv.unescape_fzf(x) end, args[1])
+    -- unescape double backslashes on windows
+    if utils.__IS_WINDOWS and type(args[1]) == "table" then
+      args[1] = vim.tbl_map(function(x)
+        return libuv.unescape_fzf(x, vim.g.fzf_lua_fzf_version)
+      end, args[1])
     end
     -- save selected item in main module's __INFO
     -- use loadstring to avoid circular require
@@ -69,8 +71,7 @@ function M.raw_async_action(fn, fzf_field_expression, debug)
     end)
     uv.pipe_connect(pipe, pipe_path, function(err)
       if err then
-        error(string.format("pipe_connect(%s) failed with error: %s",
-          pipe_path, err))
+        error(string.format("pipe_connect(%s) failed with error: %s", pipe_path, err))
       else
         vim.schedule(function()
           fn(pipe, unpack(args))
@@ -94,22 +95,20 @@ function M.raw_async_action(fn, fzf_field_expression, debug)
 
   -- we need to add '--' to mark the end of command options otherwise
   -- our preview command will fail when the selected items contain
-  -- special shell chars ('+', '-', etc), exmaples where this can
-  -- happen are the `git status` command and git brances from diff
+  -- special shell chars ('+', '-', etc), examples where this can
+  -- happen are the `git status` command and git branches from diff
   -- worktrees (#600)
   local action_cmd = ("%s%s -n --headless --clean --cmd %s -- %s"):format(
     nvim_runtime,
     libuv.shellescape(path.normalize(nvim_bin)),
-    libuv.shellescape(("lua vim.g.did_load_filetypes=1; loadfile([[%s]])().rpc_nvim_exec_lua({%s})")
-      :format(path.join { vim.g.fzf_lua_directory, "shell_helper.lua" }, call_args)),
+    libuv.shellescape(("lua %sloadfile([[%s]])().rpc_nvim_exec_lua({%s})"):format(
+      utils.__HAS_NVIM_010 and "vim.g.did_load_filetypes=1; " or "",
+      path.join { vim.g.fzf_lua_directory, "shell_helper.lua" },
+      call_args
+    )),
     fzf_field_expression)
 
   return action_cmd, id
-end
-
-function M.async_action(fn, fzf_field_expression, debug)
-  local action_string, id = M.raw_async_action(fn, fzf_field_expression, debug)
-  return libuv.shellescape(action_string), id
 end
 
 function M.raw_action(fn, fzf_field_expression, debug)
@@ -128,7 +127,7 @@ function M.raw_action(fn, fzf_field_expression, debug)
     elseif type(ret) == nil then
       on_complete()
     elseif type(ret) == "table" then
-      if not vim.tbl_isempty(ret) then
+      if not utils.tbl_isempty(ret) then
         uv.write(pipe, vim.tbl_map(function(x) return x .. "\n" end, ret), on_complete)
       else
         on_complete()

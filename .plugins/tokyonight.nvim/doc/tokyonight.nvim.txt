@@ -1,4 +1,4 @@
-*tokyonight.nvim.txt*      For Neovim >= 0.8.0      Last change: 2024 March 26
+*tokyonight.nvim.txt*       For Neovim >= 0.8.0       Last change: 2024 May 21
 
 ==============================================================================
 Table of Contents                          *tokyonight.nvim-table-of-contents*
@@ -16,6 +16,7 @@ Table of Contents                          *tokyonight.nvim-table-of-contents*
   - Overriding Colors & Highlight Groups|tokyonight.nvim-tokyo-night-overriding-colors-&-highlight-groups|
   - Extras                                |tokyonight.nvim-tokyo-night-extras|
   - Contributing                    |tokyonight.nvim-tokyo-night-contributing|
+2. Links                                               |tokyonight.nvim-links|
 
 ==============================================================================
 1. Tokyo Night                                   *tokyonight.nvim-tokyo-night*
@@ -75,7 +76,9 @@ EXTRAS ~
 - Windows Terminal <https://aka.ms/terminal-documentation> (windows_terminal <extras/windows_terminal>)
 - Xfce Terminal <https://docs.xfce.org/apps/terminal/advanced> (xfceterm <extras/xfceterm>)
 - Xresources <https://wiki.archlinux.org/title/X_resources> (xresources <extras/xresources>)
+- Yazi <https://github.com/sxyazi/yazi> (yazi <extras/yazi>)
 - Zathura <https://pwmt.org/projects/zathura/> (zathura <extras/zathura>)
+- Zellij <https://zellij.dev/> (zellij <extras/zellij>)
 
 
 REQUIREMENTS                        *tokyonight.nvim-tokyo-night-requirements*

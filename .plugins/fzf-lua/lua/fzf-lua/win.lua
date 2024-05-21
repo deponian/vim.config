@@ -21,13 +21,19 @@ setmetatable(FzfWin, {
 })
 
 local _preview_keymaps = {
-  ["toggle-preview"]      = { module = "win", fnc = "toggle_preview()" },
-  ["toggle-preview-wrap"] = { module = "win", fnc = "toggle_preview_wrap()" },
-  ["toggle-preview-cw"]   = { module = "win", fnc = "toggle_preview_cw(1)" },
-  ["toggle-preview-ccw"]  = { module = "win", fnc = "toggle_preview_cw(-1)" },
-  ["preview-page-up"]     = { module = "win", fnc = "preview_scroll(-1)" },
-  ["preview-page-down"]   = { module = "win", fnc = "preview_scroll(1)" },
-  ["preview-page-reset"]  = { module = "win", fnc = "preview_scroll(0)" },
+  ["toggle-preview"]         = { module = "win", fnc = "toggle_preview()" },
+  ["toggle-preview-wrap"]    = { module = "win", fnc = "toggle_preview_wrap()" },
+  ["toggle-preview-cw"]      = { module = "win", fnc = "toggle_preview_cw(1)" },
+  ["toggle-preview-ccw"]     = { module = "win", fnc = "toggle_preview_cw(-1)" },
+  ["preview-up"]             = { module = "win", fnc = "preview_scroll('line-up')" },
+  ["preview-down"]           = { module = "win", fnc = "preview_scroll('line-down')" },
+  ["preview-page-up"]        = { module = "win", fnc = "preview_scroll('page-up')" },
+  ["preview-page-down"]      = { module = "win", fnc = "preview_scroll('page-down')" },
+  ["preview-half-page-up"]   = { module = "win", fnc = "preview_scroll('half-page-up')" },
+  ["preview-half-page-down"] = { module = "win", fnc = "preview_scroll('half-page-down')" },
+  ["preview-page-reset"]     = { module = "win", fnc = "preview_scroll('reset')" },
+  ["preview-top"]            = { module = "win", fnc = "preview_scroll('top')" },
+  ["preview-bottom"]         = { module = "win", fnc = "preview_scroll('bottom')" },
 }
 
 function FzfWin:setup_keybinds()
@@ -55,7 +61,7 @@ function FzfWin:setup_keybinds()
 
   for key, action in pairs(self.keymap.builtin) do
     local keymap = keymap_tbl[action]
-    if keymap and not vim.tbl_isempty(keymap) and action ~= false then
+    if keymap and not utils.tbl_isempty(keymap) and action ~= false then
       utils.keymap_set("t", key, funcref_str(keymap),
         { nowait = true, buffer = self.fzf_bufnr })
     end
@@ -205,19 +211,24 @@ local normalize_winopts = function(o)
   winopts.__winhls = {
     main = {
       { "Normal",       o.hls.normal },
+      { "NormalFloat",  o.hls.normal },
       { "FloatBorder",  o.hls.border },
       { "CursorLine",   o.hls.cursorline },
       { "CursorLineNr", o.hls.cursorlinenr },
     },
     prev = {
       { "Normal",       o.hls.preview_normal },
+      { "NormalFloat",  o.hls.preview_normal },
       { "FloatBorder",  o.hls.preview_border },
       { "CursorLine",   o.hls.cursorline },
       { "CursorLineNr", o.hls.cursorlinenr },
     },
     -- our border is manually drawn so we need
     -- to replace Normal with the border color
-    prev_border = { { "Normal", o.hls.preview_border } },
+    prev_border = {
+      { "Normal",      o.hls.preview_border },
+      { "NormalFloat", o.hls.preview_border }
+    },
   }
 
   -- add title hl if wasn't provided by the user
@@ -265,15 +276,12 @@ local normalize_winopts = function(o)
   -- with "border chars must be one cell", force string border (#874)
   if vim.o.ambiwidth == "double" and type(winopts.border) == "table" then
     local topleft = winopts.border[1]
-    winopts.border = topleft
-        and config.globals.__WINOPTS.border2string[topleft] or "rounded"
+    winopts.border = topleft and config.globals.__WINOPTS.border2string[topleft] or "rounded"
+    winopts._border = winopts.border
   end
 
-  -- We only allow 'none|single|double|rounded'
+  -- We only allow 'none|empty|single|double|rounded|thicc|thiccc|thiccc'
   if type(winopts.border) == "string" then
-    -- save the original string so we can pass it
-    -- to the main fzf window 'nvim_open_win' (#364)
-    winopts._border = winopts.border
     winopts.border = config.globals.__WINOPTS.borderchars[winopts.border] or
         config.globals.__WINOPTS.borderchars["rounded"]
   end
@@ -394,7 +402,7 @@ function FzfWin:set_winopts(win, opts)
       -- PROBABLY DOESN'T MATTER (WHO USES 0.5?) BUT WHY NOT LOL
       -- minor backward compatibility fix, with neovim version < 0.7
       -- nvim_win_get_option("scroloff") which should return -1
-      -- returns an invalid (really big number insead which panics
+      -- returns an invalid (really big number instead which panics
       -- when called with nvim_win_set_option, wrapping in a pcall
       -- ensures this plugin still works for neovim version as low as 0.5!
       pcall(function() vim.wo[win][opt] = value end)
@@ -426,8 +434,8 @@ function FzfWin:fs_preview_layout(fs)
   local border_winopts = self.border_winopts
   if not fs or self.winopts.split
       or not prev_winopts or not border_winopts
-      or vim.tbl_isempty(prev_winopts)
-      or vim.tbl_isempty(border_winopts) then
+      or utils.tbl_isempty(prev_winopts)
+      or utils.tbl_isempty(border_winopts) then
     return prev_winopts, border_winopts
   end
 
@@ -466,7 +474,7 @@ end
 
 function FzfWin:preview_layout()
   if self.winopts.split and self.previewer_is_builtin then
-    local wininfo = fn.getwininfo(self.fzf_winid)[1]
+    local wininfo = utils.getwininfo(self.fzf_winid)
     -- unlike floating win popups, split windows inherit the global
     -- 'signcolumn' setting which affects the available width for fzf
     -- 'generate_layout' will then use the sign column available width
@@ -561,7 +569,7 @@ function FzfWin:redraw_preview()
   if not self.previewer_is_builtin or self.preview_hidden then return end
 
   self.prev_winopts, self.border_winopts = self:preview_layout()
-  if vim.tbl_isempty(self.prev_winopts) or vim.tbl_isempty(self.border_winopts) then
+  if utils.tbl_isempty(self.prev_winopts) or utils.tbl_isempty(self.border_winopts) then
     return -1, -1
   end
 
@@ -702,18 +710,8 @@ function FzfWin:redraw_main()
   win_opts.row = winopts.row or math.floor(((lines - win_opts.height) / 2) - 1)
   win_opts.col = winopts.col or math.floor((columns - win_opts.width) / 2)
 
-  -- prioritize using border string argument in `nvim_open_win`
-  if self.winopts._border then
-    win_opts.border = self.winopts._border
-    -- adjust for borderless main window (#364)
-    if self.winopts._border == "none" then
-      win_opts.width = win_opts.width + 2
-      win_opts.height = win_opts.height + 2
-    end
-  end
-
   -- When border chars are empty strings 'nvim_open_win' adjusts
-  -- the layout to take all avialable space, we use these to adjust
+  -- the layout to take all available space, we use these to adjust
   -- our main window height to use all available lines (#364)
   if type(win_opts.border) == "table" then
     local function is_empty_str(tbl, arr)
@@ -836,7 +834,7 @@ function FzfWin:create()
       self.winopts.on_create()
     end
     -- not sure why but when using a split and reusing the window,
-    -- fzf will not use all the avialable width until 'redraw' is
+    -- fzf will not use all the available width until 'redraw' is
     -- called resulting in misaligned native and builtin previews
     vim.cmd("redraw")
     return self.fzf_bufnr
@@ -963,7 +961,7 @@ function FzfWin:close(fzf_bufnr)
     local cmd = {}
     for cmd_part in string.gmatch(self.winrestcmd, "[^|]+") do
       local winnr = cmd_part:match("(.)resize")
-      if vim.tbl_contains(winnrs, winnr) then
+      if utils.tbl_contains(winnrs, winnr) then
         table.insert(cmd, cmd_part)
       end
     end
@@ -1005,11 +1003,6 @@ function FzfWin:update_scrollbar_border(o)
   local hl_f = self.hls.scrollborder_f
   local hl_e = self.hls.scrollborder_e
 
-  -- backward compatibility before 'scrollchar' was a table
-  if type(self.winopts.preview.scrollchar) == "string" and
-      #self.winopts.preview.scrollchar > 0 then
-    scrollchars[1] = self.winopts.preview.scrollchar
-  end
   for i = 1, 2 do
     if not scrollchars[i] or #scrollchars[i] == 0 then
       scrollchars[i] = borderchars[4]
@@ -1021,8 +1014,8 @@ function FzfWin:update_scrollbar_border(o)
 
   -- matchaddpos() can't handle more than 8 items at once
   local add_to_tbl = function(tbl, item)
-    local len = utils.tbl_length(tbl)
-    if len == 0 or utils.tbl_length(tbl[len]) == 8 then
+    local len = utils.tbl_count(tbl)
+    if len == 0 or utils.tbl_count(tbl[len]) == 8 then
       table.insert(tbl, {})
       len = len + 1
     end
@@ -1144,7 +1137,7 @@ function FzfWin:update_scrollbar(hide)
   local buf = api.nvim_win_get_buf(self.preview_winid)
 
   local o = {}
-  o.wininfo = fn.getwininfo(self.preview_winid)[1]
+  o.wininfo = utils.getwininfo(self.preview_winid)
   o.line_count = api.nvim_buf_line_count(buf)
 
   local topline, height = o.wininfo.topline, o.wininfo.height
@@ -1449,6 +1442,7 @@ function FzfWin.toggle_help()
   vim.wo[self.km_winid].winblend = opts.winblend
   vim.wo[self.km_winid].foldenable = false
   vim.wo[self.km_winid].wrap = false
+  vim.wo[self.km_winid].spell = false
   vim.bo[self.km_bufnr].filetype = "help"
 
   vim.cmd(string.format(

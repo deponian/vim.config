@@ -133,11 +133,15 @@ M.extend_args = function(args, extra_args, opts)
       if type(extra_args) == "string" then
         error("extra_args must be a table when args is a table")
       end
+      local ret = {}
       if opts.append then
-        return vim.tbl_flatten({ args, extra_args })
+        vim.list_extend(ret, args or {})
+        vim.list_extend(ret, extra_args or {})
       else
-        return vim.tbl_flatten({ extra_args, args })
+        vim.list_extend(ret, extra_args or {})
+        vim.list_extend(ret, args or {})
       end
+      return ret
     end
   end
 end
@@ -180,6 +184,23 @@ M.buf_get_changedtick = function(bufnr)
     return vim.b[bufnr].last_changedtick or -1
   else
     return changedtick
+  end
+end
+
+---Parse the rust edition from the Cargo.toml file
+---@param dir string
+---@return string?
+M.parse_rust_edition = function(dir)
+  local manifest = vim.fs.find("Cargo.toml", { upward = true, path = dir })[1]
+  if manifest then
+    for line in io.lines(manifest) do
+      if line:match("^edition *=") then
+        local edition = line:match("%d+")
+        if edition then
+          return edition
+        end
+      end
+    end
   end
 end
 

@@ -6,6 +6,7 @@ local M = {
 
 --- @param name string
 --- @param lvl integer
+--- @return any
 local function getvarvalue(name, lvl)
   lvl = lvl + 1
   local value --- @type any?
@@ -67,6 +68,7 @@ end
 
 -- If called in a callback then make sure the callback defines a __FUNC__
 -- variable which can be used to identify the name of the function.
+--- @param obj any
 --- @param lvl integer
 local function cprint(obj, lvl)
   lvl = lvl + 1
@@ -114,7 +116,7 @@ local function eprint(msg, level)
   if info then
     msg = string.format('(ERROR) %s(%d): %s', info.short_src, info.currentline, msg)
   end
-  M.messages[#M.messages + 1] = msg
+  M.messages[#M.messages + 1] = debug.traceback(msg)
   if M.debug_mode then
     error(msg, 3)
   end
@@ -126,6 +128,14 @@ end
 
 function M.eprintf(fmt, ...)
   eprint(fmt:format(...), 1)
+end
+
+function M.assert(cond, msg)
+  if not cond then
+    eprint(msg, 1)
+  end
+
+  return not cond
 end
 
 return M

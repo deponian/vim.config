@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local shell = require "fzf-lua.shell"
 local utils = require "fzf-lua.utils"
@@ -178,7 +179,7 @@ end
 function Previewer.cmd_async:parse_entry_and_verify(entrystr)
   local entry = path.entry_to_file(entrystr, self.opts)
   -- make relative for bat's header display
-  local filepath = path.relative_to(entry.bufname or entry.path or "", vim.loop.cwd())
+  local filepath = path.relative_to(entry.bufname or entry.path or "", uv.cwd())
   if self.opts._ctag then
     entry.ctag = path.entry_to_ctag(entry.stripped, true)
     if entry.line <= 1 then
@@ -193,7 +194,7 @@ function Previewer.cmd_async:parse_entry_and_verify(entrystr)
   end
   local errcmd = nil
   -- verify the file exists on disk and is accessible
-  if #filepath == 0 or not vim.loop.fs_stat(filepath) then
+  if #filepath == 0 or not uv.fs_stat(filepath) then
     errcmd = "echo " .. libuv.shellescape(
       string.format("'%s: NO SUCH FILE OR ACCESS DENIED",
         filepath and #filepath > 0 and filepath or "<null>"))
@@ -231,7 +232,7 @@ function Previewer.bat_async:_preview_offset()
   ]]
   if not self.args or not self.args:match("%-%-style=default") then
     -- we don't need affixed header unless we use bat default style
-    -- TODO: shuld also adjust for "--style=header-filename"
+    -- TODO: should also adjust for "--style=header-filename"
     if self.opts.line_field_index then
       return ("+%s-/2"):format(self.opts.line_field_index)
     end
@@ -302,7 +303,7 @@ end
 function Previewer.git_diff:cmdline(o)
   o = o or {}
   local act = shell.raw_preview_action_cmd(function(items, fzf_lines, fzf_columns)
-    if not items or vim.tbl_isempty(items) then
+    if not items or utils.tbl_isempty(items) then
       utils.warn("shell error while running preview action.")
       return
     end
@@ -329,7 +330,7 @@ function Previewer.git_diff:cmdline(o)
     elseif is_deleted then
       cmd = self.cmd_deleted
     elseif is_untracked then
-      local stat = vim.loop.fs_stat(file.path)
+      local stat = uv.fs_stat(file.path)
       if stat and stat.type == "directory" then
         cmd = utils._if_win({ "dir" }, { "ls", "-la" })
       else
@@ -406,6 +407,10 @@ end
 
 Previewer.help_tags = Previewer.base:extend()
 
+function Previewer.help_tags:fzf_delimiter()
+  return self.opts.fzf_opts and self.opts.fzf_opts["--delimiter"] or nil
+end
+
 function Previewer.help_tags:new(o, opts)
   Previewer.help_tags.super.new(self, o, opts)
   self.cmd = self.cmd or vim.fn.executable("bat") == 1
@@ -417,7 +422,7 @@ end
 function Previewer.help_tags:cmdline(o)
   o = o or {}
   local act = shell.raw_preview_action_cmd(function(items)
-    local vimdoc = items[1]:match("[^%s]+$")
+    local vimdoc = items[1]:match(string.format("[^%s]+$", utils.nbsp))
     local tag = items[1]:match("^[^%s]+")
     local ext = path.extension(vimdoc)
     local cmd = self.cmd:format(libuv.shellescape(vimdoc))

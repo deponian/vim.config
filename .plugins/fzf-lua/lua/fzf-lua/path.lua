@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local utils = require "fzf-lua.utils"
 local libuv = require "fzf-lua.libuv"
 local string_sub = string.sub
@@ -34,7 +35,7 @@ end
 M.byte_is_separator = function(byte)
   if utils.__IS_WINDOWS then
     -- path on windows can also be the result of `vim.fs.normalize`
-    -- so we need to test for the presense of both slash types
+    -- so we need to test for the presence of both slash types
     return byte == M.bslash_byte or byte == M.fslash_byte
   else
     return byte == M.fslash_byte
@@ -230,7 +231,7 @@ end
 
 -- I'm not sure why this happens given that neovim is single threaded
 -- but it seems that 'oldfiles' provider processing entries concurrently
--- crashes when trying to access `vim.env.HOME' from two differnt entries
+-- crashes when trying to access `vim.env.HOME' from two different entries
 -- at the same time due to being run in a coroutine (#447)
 M.HOME = function()
   if not M.__HOME then
@@ -350,8 +351,8 @@ end
 
 function M.entry_to_location(entry, opts)
   local uri, line, col = entry:match("^(.*://.*):(%d+):(%d+):")
-  line = line and tonumber(line) or 1
-  col = col and tonumber(col) or 1
+  line = line and tonumber(line) > 0 and tonumber(line) or 1
+  col = col and tonumber(col) > 0 and tonumber(col) or 1
   if opts.path_shorten and uri:match("file://") then
     uri = "file://" .. M.lengthen(uri:sub(8))
   end
@@ -429,7 +430,7 @@ function M.entry_to_file(entry, opts, force_uri)
     local newfile = file
     for i = 2, #s do
       newfile = ("%s:%s"):format(newfile, s[i])
-      if vim.loop.fs_stat(newfile) then
+      if uv.fs_stat(newfile) then
         file = newfile
         line = s[i + 1]
         col = s[i + 2]

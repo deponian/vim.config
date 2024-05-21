@@ -20,7 +20,10 @@
   (#lua-match? @constant "^[A-Z_]+$"))
 
 ; Includes
-"use" @keyword.import
+[
+  "use"
+  "export"
+] @keyword.import
 
 (use_statement
   (scoped_type_identifier
@@ -41,13 +44,15 @@
 ; Keywords
 [
   "def"
-  "enum"
-  "export"
   "let"
-  "struct"
-  "type"
-  "union"
 ] @keyword
+
+[
+  "enum"
+  "struct"
+  "union"
+  "type"
+] @keyword.type
 
 "fn" @keyword.function
 

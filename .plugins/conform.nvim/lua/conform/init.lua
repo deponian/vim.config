@@ -1,3 +1,5 @@
+---@diagnostic disable-next-line: deprecated
+local islist = vim.islist or vim.tbl_islist
 local M = {}
 
 ---@class (exact) conform.FormatterInfo
@@ -100,6 +102,12 @@ M.setup = function(opts)
           format_args, callback = format_args(args.buf)
         end
         if format_args then
+          if format_args.async then
+            vim.notify_once(
+              "Conform format_on_save cannot use async=true. Use format_after_save instead.",
+              vim.log.levels.ERROR
+            )
+          end
           M.format(
             vim.tbl_deep_extend("force", format_args, {
               buf = args.buf,
@@ -147,6 +155,12 @@ M.setup = function(opts)
         if format_args then
           exit_timeout = format_args.timeout_ms or exit_timeout
           num_running_format_jobs = num_running_format_jobs + 1
+          if format_args.async == false then
+            vim.notify_once(
+              "Conform format_after_save cannot use async=false. Use format_on_save instead.",
+              vim.log.levels.ERROR
+            )
+          end
           M.format(
             vim.tbl_deep_extend("force", format_args, {
               buf = args.buf,
@@ -266,7 +280,7 @@ M.list_formatters_for_buffer = function(bufnr)
         dedupe_formatters(ft_formatters(bufnr), formatters)
       else
         -- support the old structure where formatters could be a subkey
-        if not vim.tbl_islist(ft_formatters) then
+        if not islist(ft_formatters) then
           vim.notify_once(
             "Using deprecated structure for formatters_by_ft. See :help conform-options for details.",
             vim.log.levels.ERROR
@@ -534,7 +548,7 @@ M.list_all_formatters = function()
       ft_formatters = ft_formatters(0)
     end
     -- support the old structure where formatters could be a subkey
-    if not vim.tbl_islist(ft_formatters) then
+    if not islist(ft_formatters) then
       vim.notify_once(
         "Using deprecated structure for formatters_by_ft. See :help conform-options for details.",
         vim.log.levels.ERROR

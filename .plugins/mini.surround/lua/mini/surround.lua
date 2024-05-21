@@ -25,7 +25,7 @@
 ---       followed by balanced '()'). In "input" finds function call, in
 ---       "output" prompts user to enter function name.
 ---     - 't' - tag. In "input" finds tag with same identifier, in "output"
----       prompts user to enter tag name.
+---       prompts user to enter tag name with possible attributes.
 ---     - All symbols in brackets '()', '[]', '{}', '<>". In "input' represents
 ---       balanced brackets (open - with whitespace pad, close - without), in
 ---       "output" - left and right parts of brackets.
@@ -82,10 +82,10 @@
 ---
 --- Extended mappings (temporary force "prev"/"next" search methods):
 --- - `sdnf` - delete (`sd`) next (`n`) function call (`f`).
---- - `srlf(` - replace (`sd`) last (`l`) function call (`f`) with padded
+--- - `srlf(` - replace (`sr`) last (`l`) function call (`f`) with padded
 ---   bracket (`(`).
 --- - `2sfnt` - find (`sf`) second (2) next (`n`) tag (`t`).
---- - `shl}` - highlight (`sh`) last (`l`) second (`2`) curly bracket (`}`).
+--- - `2shl}` - highlight (`sh`) last (`l`) second (`2`) curly bracket (`}`).
 ---
 --- # Comparisons ~
 ---
@@ -361,13 +361,19 @@
 ---
 --- # Output surrounding ~
 ---
---- A table with <left> (plain text string) and <right> (plain text string)
---- fields. Strings can contain new lines character `\n` to add multiline parts.
+--- Specification for output can be either a table with <left> and <right> fields,
+--- or a callable returning such table (will be called with no arguments).
+--- Strings can contain new lines character "\n" to add multiline parts.
 ---
 --- Examples:
 --- - Lua block string: `{ left = '[[', right = ']]' }`
 --- - Brackets on separate lines (indentation is not preserved):
 ---   `{ left = '(\n', right = '\n)' }`
+--- - Function call: >
+---   function()
+---     local function_name = MiniSurround.user_input('Function name')
+---     return { left = function_name .. '(', right = ')' }
+---   end
 ---@tag MiniSurround-surround-specification
 
 --- Count with actions
@@ -486,6 +492,16 @@ end
 ---   vim.keymap.set('n', 'yss', 'ys_', { remap = true })
 --- <
 --- # Options ~
+---
+--- ## Mappings ~
+---
+--- `config.mappings` defines what mappings are set up for particular actions.
+--- By default it uses "prefix style" left hand side starting with "s" (for
+--- "surround"): `sa` - "surround add", `sd` - "surround delete", etc.
+---
+--- Note: if 'timeoutlen' is low enough to cause occasional usage of |s| key
+--- (that deletes character under cursor), disable it with the following call:
+---     `vim.keymap.set({ 'n', 'x' }, 's', '<Nop>')`
 ---
 --- ## Custom surroundings ~
 ---
@@ -1070,7 +1086,7 @@ H.builtin_surroundings = {
   ['t'] = {
     input = { '<(%w-)%f[^<%w][^<>]->.-</%1>', '^<.->().*()</[^/]->$' },
     output = function()
-      local tag_full = MiniSurround.user_input('Tag name')
+      local tag_full = MiniSurround.user_input('Tag')
       if tag_full == nil then return nil end
       local tag_name = tag_full:match('^%S*')
       return { left = '<' .. tag_full .. '>', right = '</' .. tag_name .. '>' }
@@ -1254,8 +1270,7 @@ H.get_surround_spec = function(sur_type, use_cache)
   -- confused with list of patterns.
   if H.is_composed_pattern(res) then res = vim.tbl_map(H.wrap_callable_table, res) end
 
-  -- Track identifier for possible messages. Use metatable to pass
-  -- `vim.tbl_islist()` check.
+  -- Track id for possible messages. Use metatable to pass "islist" check.
   res = setmetatable(res, { __index = { id = char } })
 
   -- Cache result
@@ -1312,7 +1327,7 @@ H.is_region_pair = function(x)
 end
 
 H.is_region_pair_array = function(x)
-  if not vim.tbl_islist(x) then return false end
+  if not H.islist(x) then return false end
   for _, v in ipairs(x) do
     if not H.is_region_pair(v) then return false end
   end
@@ -1320,7 +1335,7 @@ H.is_region_pair_array = function(x)
 end
 
 H.is_composed_pattern = function(x)
-  if not (vim.tbl_islist(x) and #x > 0) then return false end
+  if not (H.islist(x) and #x > 0) then return false end
   for _, val in ipairs(x) do
     local val_type = type(val)
     if not (val_type == 'table' or val_type == 'string' or vim.is_callable(val)) then return false end
@@ -2204,7 +2219,7 @@ end
 ---@private
 H.cartesian_product = function(arr)
   if not (type(arr) == 'table' and #arr > 0) then return {} end
-  arr = vim.tbl_map(function(x) return vim.tbl_islist(x) and x or { x } end, arr)
+  arr = vim.tbl_map(function(x) return H.islist(x) and x or { x } end, arr)
 
   local res, cur_item = {}, {}
   local process
@@ -2213,7 +2228,7 @@ H.cartesian_product = function(arr)
       table.insert(cur_item, arr[level][i])
       if level == #arr then
         -- Flatten array to allow tables as elements of step tables
-        table.insert(res, vim.tbl_flatten(cur_item))
+        table.insert(res, H.tbl_flatten(cur_item))
       else
         process(level + 1)
       end
@@ -2229,5 +2244,10 @@ H.wrap_callable_table = function(x)
   if vim.is_callable(x) and type(x) == 'table' then return function(...) return x(...) end end
   return x
 end
+
+-- TODO: Remove after compatibility with Neovim=0.9 is dropped
+H.islist = vim.fn.has('nvim-0.10') == 1 and vim.islist or vim.tbl_islist
+H.tbl_flatten = vim.fn.has('nvim-0.10') == 1 and function(x) return vim.iter(x):flatten(math.huge):totable() end
+  or vim.tbl_flatten
 
 return MiniSurround

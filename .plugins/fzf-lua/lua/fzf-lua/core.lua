@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local fzf = require "fzf-lua.fzf"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
@@ -19,7 +20,7 @@ M.ACTION_DEFINITIONS = {
   [actions.toggle_ignore]     = {
     function(o)
       local flag = o.toggle_ignore_flag or "--no-ignore"
-      if o.cmd:match(utils.lua_regex_escape(flag)) then
+      if o.cmd and o.cmd:match(utils.lua_regex_escape(flag)) then
         return "Respect .gitignore"
       else
         return "Disable .gitignore"
@@ -61,6 +62,8 @@ M.ACTION_DEFINITIONS = {
   [actions.git_stage_unstage] = { "[un-]stage", pos = 1 },
   [actions.git_stash_drop]    = { "drop a stash" },
   [actions.git_yank_commit]   = { "copy commit hash" },
+  [actions.git_branch_add]    = { "add branch" },
+  [actions.git_branch_del]    = { "delete branch" },
 }
 
 -- converts contents array sent to `fzf_exec` into a single contents
@@ -74,7 +77,7 @@ local contents_from_arr = function(cont_arr)
     contents = {}
     for _, t in ipairs(cont_arr) do
       assert(type(t.contents) == cont_type, "Unable to combine contents of different types")
-      contents = utils.tbl_extend(contents, t.prefix and
+      contents = utils.tbl_join(contents, t.prefix and
         vim.tbl_map(function(x)
           return t.prefix .. x
         end, t.contents)
@@ -230,7 +233,7 @@ M.CTX = function(includeBuflist)
   -- is already open (actions.sym_lsym|grep_lgrep)
   if not M.__CTX or
       -- when called from the LSP module in "sync" mode when no results are found
-      -- the fzf window won't open (e.g. "No refernces found") and the context is
+      -- the fzf window won't open (e.g. "No references found") and the context is
       -- never cleared. The below condition validates the source window when the
       -- UI is not open (#907)
       (not utils.fzf_winobj() and M.__CTX.bufnr ~= vim.api.nvim_get_current_buf()) then
@@ -250,7 +253,7 @@ M.CTX = function(includeBuflist)
   -- buffers/tabs use these we only include the current
   -- list of buffers when requested
   if includeBuflist and not M.__CTX.buflist then
-    -- also add a map for faster lookups than `vim.tbl_contains`
+    -- also add a map for faster lookups than `utils.tbl_contains`
     -- TODO: is it really faster since we must use string keys?
     M.__CTX.bufmap = {}
     M.__CTX.buflist = vim.api.nvim_list_bufs()
@@ -338,9 +341,29 @@ M.fzf = function(contents, opts)
     -- fzf 0.40 added 'zero' event for when there's no match
     -- clears the preview when there are no matching entries
     if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.40 and previewer.zero then
-      opts.keymap = opts.keymap or {}
-      opts.keymap.fzf = opts.keymap.fzf or {}
-      opts.keymap.fzf["zero"] = previewer:zero()
+      utils.map_set(opts, "keymap.fzf.zero", previewer:zero())
+    end
+    if opts.__FZF_VERSION
+        and opts.__FZF_VERSION >= 0.46
+        and opts.winopts.preview.layout == "flex"
+        and tonumber(opts.winopts.preview.flip_columns) > 0
+        -- Only enable flex layout native rotate if zero event wasn't
+        -- set as it's most likely set by the default builtin previewer
+        and (not previewer.zero
+          -- or when using split mode for the background "empty previewer"
+          -- do not use when starting with a hidden previewer as this will
+          -- display the empty previewer when resizing (#1130)
+          or opts.winopts.split and opts.winopts.preview.hidden ~= "hidden")
+    then
+      local transformer = string.format(utils.__IS_WINDOWS
+        and "IF %%FZF_COLUMNS%% LEQ %d (echo change-preview-window:%s) "
+        .. "ELSE (echo change-preview-window:%s)"
+        or "[ $FZF_COLUMNS -le %d ] && echo change-preview-window:%s "
+        .. "|| echo change-preview-window:%s",
+        tonumber(opts.winopts.preview.flip_columns),
+        opts.winopts.preview.vertical,
+        opts.winopts.preview.horizontal)
+      utils.map_set(opts, "keymap.fzf.resize", string.format("transform(%s)", transformer))
     end
     if type(previewer.preview_window) == "function" then
       -- do we need to override the preview_window args?
@@ -402,7 +425,7 @@ M.fzf = function(contents, opts)
       -- reminder: this doesn't get called with 'live_grep' when using skim
       -- due to a bug where '--print-query --interactive' combo is broken:
       -- skim always prints an empty line where the typed query should be.
-      -- see addtional note above 'opts.fn_post_fzf' inside 'live_grep_mt'
+      -- see additional note above 'opts.fn_post_fzf' inside 'live_grep_mt'
       config.resume_set("query", selected[1], opts)
     end
     table.remove(selected, 1)
@@ -443,12 +466,35 @@ M.create_fzf_colors = function(opts)
     colors = colors(opts)
   end
 
+  -- Inerherit from fzf.vim's g:fzf_colors
+  -- fzf.vim:
+  --   vim.g.fzf_colors = {
+  --     ["fg"] = { "fg" , "Comment", "Normal" }
+  --   }
+  -- fzf-lua:
+  --   fzf_colors = {
+  --     ["fg"] = { "fg" , { "Comment", "Normal" } }
+  --   }
+  colors = vim.tbl_extend("keep", colors or {},
+    vim.tbl_map(function(v)
+      -- Value isn't guaranteed a table, e.g:
+      --   vim.g.fzf_colors = { ["gutter"] = "-1" }
+      if type(v) ~= "table" then return tostring(v) end
+      -- We accept both fzf.vim and fzf-lua style values
+      if type(v[2]) == "table" then return v end
+      local new_v = { v[1], { v[2] } }
+      for i = 3, #v do
+        table.insert(new_v[2], v[i])
+      end
+      return new_v
+    end, type(vim.g.fzf_colors) == "table" and vim.g.fzf_colors or {}))
+
   local tbl = {}
 
-  -- In case the user alredy set fzf_opts["--color"] (#1052)
+  -- In case the user already set fzf_opts["--color"] (#1052)
   table.insert(tbl, opts.fzf_opts and opts.fzf_opts["--color"])
 
-  for flag, list in pairs(colors or {}) do
+  for flag, list in pairs(colors) do
     if type(list) == "table" then
       local spec = {}
       local what = list[1]
@@ -469,7 +515,7 @@ M.create_fzf_colors = function(opts)
           table.insert(spec, list[i])
         end
       end
-      if not vim.tbl_isempty(spec) then
+      if not utils.tbl_isempty(spec) then
         table.insert(spec, 1, flag)
         table.insert(tbl, table.concat(spec, ":"))
       end
@@ -478,11 +524,11 @@ M.create_fzf_colors = function(opts)
     end
   end
 
-  return not vim.tbl_isempty(tbl) and table.concat(tbl, ",")
+  return not utils.tbl_isempty(tbl) and table.concat(tbl, ",")
 end
 
 M.create_fzf_binds = function(binds)
-  if not binds or vim.tbl_isempty(binds) then return end
+  if not binds or utils.tbl_isempty(binds) then return end
   local tbl = {}
   local dedup = {}
   for k, v in pairs(binds) do
@@ -520,6 +566,30 @@ M.build_fzf_cli = function(opts)
       opts.fzf_opts["--" .. flag] = opts[flag]
     end
   end
+  -- convert preview action functions to strings using our shell wrapper
+  do
+    local preview_cmd
+    local preview_spec = opts.fzf_opts["--preview"]
+    if type(preview_spec) == "function" then
+      preview_cmd = shell.raw_action(preview_spec, "{}", opts.debug)
+    elseif type(preview_spec) == "table" then
+      preview_spec = vim.tbl_extend("keep", preview_spec, {
+        fn = preview_spec.fn or preview_spec[1],
+        -- by default we use current item only "{}"
+        -- using "{+}" will send multiple selected items
+        field_index = "{}",
+      })
+      if preview_spec.type == "cmd" then
+        preview_cmd = shell.raw_preview_action_cmd(
+          preview_spec.fn, preview_spec.field_index, opts.debug)
+      else
+        preview_cmd = shell.raw_action(preview_spec.fn, preview_spec.field_index, opts.debug)
+      end
+    end
+    if preview_cmd then
+      opts.fzf_opts["--preview"] = preview_cmd
+    end
+  end
   opts.fzf_opts["--bind"] = M.create_fzf_binds(opts.keymap.fzf)
   opts.fzf_opts["--color"] = M.create_fzf_colors(opts)
   opts.fzf_opts["--expect"] = actions.expect(opts.actions)
@@ -530,11 +600,17 @@ M.build_fzf_cli = function(opts)
     opts.fzf_opts["--preview-window"] =
         opts.fzf_opts["--preview-window"] .. ":" .. opts.preview_offset
   end
+  if opts.__FZF_VERSION
+      and opts.__FZF_VERSION < 0.42
+      and opts.fzf_opts["--info"] == "inline-right"
+  then
+    opts.fzf_opts["--info"] = "inline"
+  end
   if opts._is_skim then
     -- skim (rust version of fzf) doesn't support the '--info=' flag
     local info = opts.fzf_opts["--info"]
     opts.fzf_opts["--info"] = nil
-    if info == "inline" then
+    if type(info) == "string" and info:match("^inline") then
       -- inline for skim is defined as:
       opts.fzf_opts["--inline-info"] = true
     end
@@ -604,12 +680,14 @@ M.mt_cmd_wrapper = function(opts)
   local filter_opts = function(o)
     local names = {
       "debug",
+      "silent",
       "argv_expr",
       "cmd",
       "cwd",
       "stdout",
       "stderr",
       "stderr_to_stdout",
+      "formatter",
       "git_dir",
       "git_worktree",
       "git_icons",
@@ -621,8 +699,9 @@ M.mt_cmd_wrapper = function(opts)
       "file_ignore_patterns",
       "rg_glob",
       "_base64",
+      utils.__IS_WINDOWS and "__FZF_VERSION" or nil,
     }
-    -- caller reqested rg with glob support
+    -- caller requested rg with glob support
     if o.rg_glob then
       table.insert(names, "glob_flag")
       table.insert(names, "glob_separator")
@@ -664,7 +743,9 @@ M.mt_cmd_wrapper = function(opts)
       and not opts.git_icons
       and not opts.file_icons
       and not opts.file_ignore_patterns
-      and not opts.path_shorten then
+      and not opts.path_shorten
+      and not opts.formatter
+  then
     -- command does not require any processing, we also reset `argv_expr`
     -- to keep `setup_fzf_interactive_flags::no_query_condi` in the command
     opts.argv_expr = nil
@@ -732,10 +813,10 @@ end
 
 M.set_header = function(opts, hdr_tbl)
   local function normalize_cwd(cwd)
-    if path.is_absolute(cwd) and not path.equals(cwd, vim.loop.cwd()) then
+    if path.is_absolute(cwd) and not path.equals(cwd, uv.cwd()) then
       -- since we're always converting cwd to full path
       -- try to convert it back to relative for display
-      cwd = path.relative_to(cwd, vim.loop.cwd())
+      cwd = path.relative_to(cwd, uv.cwd())
     end
     -- make our home dir path look pretty
     return path.HOME_to_tilde(cwd)
@@ -743,7 +824,7 @@ M.set_header = function(opts, hdr_tbl)
 
   if not opts then opts = {} end
   if opts.cwd_prompt then
-    opts.prompt = normalize_cwd(opts.cwd or vim.loop.cwd())
+    opts.prompt = normalize_cwd(opts.cwd or uv.cwd())
     if tonumber(opts.cwd_prompt_shorten_len) and
         #opts.prompt >= tonumber(opts.cwd_prompt_shorten_len) then
       opts.prompt = path.shorten(opts.prompt, tonumber(opts.cwd_prompt_shorten_val) or 1)
@@ -767,10 +848,10 @@ M.set_header = function(opts, hdr_tbl)
         if opts.cwd_header == false or
             opts.cwd_prompt and opts.cwd_header == nil or
             opts.cwd_header == nil and
-            (not opts.cwd or path.equals(opts.cwd, vim.loop.cwd())) then
+            (not opts.cwd or path.equals(opts.cwd, uv.cwd())) then
           return
         end
-        return normalize_cwd(opts.cwd or vim.loop.cwd())
+        return normalize_cwd(opts.cwd or uv.cwd())
       end
     },
     search = {
@@ -819,7 +900,7 @@ M.set_header = function(opts, hdr_tbl)
           end
         end
         -- table.concat fails if the table indexes aren't consecutive
-        return not vim.tbl_isempty(ret) and (function()
+        return not utils.tbl_isempty(ret) and (function()
           local t = {}
           for _, i in pairs(ret) do
             table.insert(t, i)
@@ -1009,14 +1090,15 @@ M.setup_fzf_interactive_flags = function(command, fzf_field_expression, opts)
         -- also escaping the query with ^"<query>"^ any spaces in the query
         -- will fail the command, by adding caret escaping before fzf's
         -- we fool CMD.exe to not terminate the quote and thus an empty query
-        -- will generate the experssion ^^"^" which translates to ^""
+        -- will generate the expression ^^"^" which translates to ^""
         -- our specialized libuv.shellescape will also double the escape
         -- sequence if a "!" is found in our string as explained in:
         -- https://ss64.com/nt/syntax-esc.html
         -- TODO: open an upstream bug rgd ! as without the double escape
         -- if an ! is found in the command (i.e. -g "rg ... -g !.git")
         -- sending a caret will require doubling (i.e. sending ^^ for ^)
-          [[IF ^%s NEQ ^^"^" ]],
+          opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.51
+          and [[IF %s NEQ ^"^" ]] or [[IF ^%s NEQ ^^"^" ]],
           "[ -z %s ] || "),
         -- {q} for fzf is automatically shell escaped
         fzf_field_expression
@@ -1053,11 +1135,17 @@ M.setup_fzf_interactive_flags = function(command, fzf_field_expression, opts)
     -- use `true` as $FZF_DEFAULT_COMMAND instead (#510)
     opts.__fzf_init_cmd = utils.shell_nop()
     if opts.exec_empty_query or (opts.query and #opts.query > 0) then
+      local q = not utils.__IS_WINDOWS and opts.query
+          or libuv.escape_fzf(opts.query, opts.__FZF_VERSION)
       -- gsub doesn't like single % on rhs
-      local escaped_q = libuv.shellescape(libuv.escape_fzf(opts.query)):gsub("%%", "%%%%")
+      local escaped_q = libuv.shellescape(q):gsub("%%", "%%%%")
       opts.__fzf_init_cmd = initial_command:gsub(fzf_field_expression, escaped_q)
     end
-    opts.fzf_opts["--disabled"] = true
+    if opts.__FZF_VERSION >= 0.25 then
+      opts.fzf_opts["--disabled"] = true
+    else
+      opts.fzf_opts["--phony"] = true
+    end
     opts.fzf_opts["--query"] = opts.query
     -- OR with true to avoid fzf's "Command failed:" message
     if opts.silent_fail ~= false then

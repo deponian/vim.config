@@ -210,14 +210,11 @@
 
 [
   "pass"
-  "class"
   "class_name"
   "extends"
   "signal"
-  "enum"
   "var"
   "onready"
-  "export"
   "setget"
   "remote"
   "master"
@@ -226,6 +223,13 @@
   "mastersync"
   "puppetsync"
 ] @keyword
+
+"export" @keyword.import
+
+[
+  "enum"
+  "class"
+] @keyword.type
 
 "func" @keyword.function
 

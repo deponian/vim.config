@@ -358,6 +358,9 @@ local highlights = {
     bold = true,
     fg = "#9d7cd8"
   },
+  ["@markup.italic"] = {
+    italic = true
+  },
   ["@markup.link"] = {
     fg = "#1abc9c"
   },
@@ -973,7 +976,8 @@ local highlights = {
     bg = "#292e42"
   },
   CursorLineNr = {
-    fg = "#737aa2"
+    bold = true,
+    fg = "#ff9e64"
   },
   DapStoppedLine = {
     bg = "#2e2a2d"
@@ -1215,7 +1219,7 @@ local highlights = {
     nocombine = true
   },
   IblScope = {
-    fg = "#9d7cd8",
+    fg = "#2ac3de",
     nocombine = true
   },
   Identifier = {
@@ -1240,7 +1244,15 @@ local highlights = {
     nocombine = true
   },
   IndentBlanklineContextChar = {
-    fg = "#9d7cd8",
+    fg = "#2ac3de",
+    nocombine = true
+  },
+  IndentLine = {
+    fg = "#3b4261",
+    nocombine = true
+  },
+  IndentLineCurrent = {
+    fg = "#2ac3de",
     nocombine = true
   },
   Italic = {
@@ -1321,6 +1333,12 @@ local highlights = {
     fg = "#0db9d7"
   },
   LineNr = {
+    fg = "#3b4261"
+  },
+  LineNrAbove = {
+    fg = "#3b4261"
+  },
+  LineNrBelow = {
     fg = "#3b4261"
   },
   LspCodeLens = {
@@ -1494,6 +1512,15 @@ local highlights = {
   },
   MiniCursorwordCurrent = {
     bg = "#3b4261"
+  },
+  MiniDiffSignAdd = {
+    fg = "#266d6a"
+  },
+  MiniDiffSignChange = {
+    fg = "#536c9e"
+  },
+  MiniDiffSignDelete = {
+    fg = "#b2555b"
   },
   MiniIndentscopePrefix = {
     nocombine = true
@@ -1760,6 +1787,12 @@ local highlights = {
   },
   NeoTreeDimText = {
     fg = "#3b4261"
+  },
+  NeoTreeGitModified = {
+    fg = "#ff9e64"
+  },
+  NeoTreeGitUntracked = {
+    fg = "#bb9af7"
   },
   NeoTreeNormal = {
     bg = "#16161e",
@@ -2309,6 +2342,9 @@ local highlights = {
   TelescopePromptTitle = {
     bg = "#16161e",
     fg = "#ff9e64"
+  },
+  TelescopeResultsComment = {
+    fg = "#545c7e"
   },
   Title = {
     bold = true,

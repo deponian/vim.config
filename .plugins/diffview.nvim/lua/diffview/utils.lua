@@ -1,10 +1,8 @@
-local async = require("diffview.async")
 local lazy = require("diffview.lazy")
 
 local Job = lazy.access("diffview.job", "Job") ---@type diffview.Job|LazyModule
 
 local api = vim.api
-local await = async.await
 local logger = DiffviewGlobal.logger
 
 local M = {}
@@ -1344,6 +1342,40 @@ function M.merge_sort(t, comparator)
   split_merge(t, 1, #t, comparator)
 end
 
+--- @diagnostic disable-next-line: deprecated
+M.islist = vim.fn.has("nvim-0.10") == 1 and vim.islist or vim.tbl_islist
+
+--- @param t table
+--- @return any[]
+function M.flatten(t)
+  local result = {}
+
+  --- @param _t table<any,any>
+  local function recurse(_t)
+    local n = #_t
+    for i = 1, n do
+      local v = _t[i]
+      if type(v) == 'table' then
+        recurse(v)
+      elseif v then
+        table.insert(result, v)
+      end
+    end
+  end
+
+  recurse(t)
+
+  return result
+end
+
 M.path_sep = path_sep
+
+--- @param t table
+--- @return table t
+function M.add_reverse_lookup(t)
+  local keys = vim.tbl_keys(t)
+  for _, k in ipairs(keys) do t[t[k]] = k end
+  return t
+end
 
 return M

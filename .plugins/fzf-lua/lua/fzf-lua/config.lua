@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local actions = require "fzf-lua.actions"
@@ -49,7 +50,7 @@ M.resume_set = function(what, val, opts)
   -- backward compatibility for users using `get_last_query`
   if what == "query" then
     utils.map_set(M, "__resume_data.last_query", val)
-    -- store in opts for convinience in action callbacks
+    -- store in opts for convenience in action callbacks
     opts.last_query = val
   end
   -- _G.dump("resume_set", key1, utils.map_get(M, key1))
@@ -106,8 +107,9 @@ M.globals = setmetatable({}, {
     end
     -- (1) use fzf-lua's true defaults (pre-setup) as our options base
     local ret = utils.tbl_deep_clone(fzflua_default) or {}
-    if (fzflua_default and fzflua_default.prompt) or (setup_value and setup_value.prompt) then
-      -- (2) the existence of the `prompt` key implies we're dealing with a provider
+    if (fzflua_default and (fzflua_default.actions or fzflua_default._actions))
+        or (setup_value and (setup_value.actions or setup_value._actions)) then
+      -- (2) the existence of the `actions` key implies we're dealing with a picker
       -- override global provider defaults supplied by the user's setup `defaults` table
       ret = vim.tbl_deep_extend("force", ret, M.setup_opts.defaults or {})
     end
@@ -141,9 +143,17 @@ function M.normalize_opts(opts, globals, __resume_key)
 
   -- expand opts that were specified with a dot
   -- e.g. `:FzfLua files winopts.border=single`
-  for k, v in pairs(opts) do
-    if k:match("%.") then
-      utils.map_set(opts, k, v)
+  do
+    -- convert keys only after full iteration or we will
+    -- miss keys due to messing with map ordering
+    local to_convert = {}
+    for k, _ in pairs(opts) do
+      if k:match("%.") then
+        table.insert(to_convert, k)
+      end
+    end
+    for _, k in ipairs(to_convert) do
+      utils.map_set(opts, k, opts[k])
       opts[k] = nil
     end
   end
@@ -216,10 +226,15 @@ function M.normalize_opts(opts, globals, __resume_key)
     if v == "" then opts.fzf_opts[k] = true end
   end
 
-  -- Execlude file icons from the fuzzy matching (#1080)
-  if opts.file_icons and opts._fzf_nth_devicons and not opts.fzf_opts["--delimiter"] then
-    opts.fzf_opts["--nth"] = opts.fzf_opts["--nth"] or "-1.."
-    opts.fzf_opts["--delimiter"] = string.format("[%s]", utils.nbsp)
+  -- fzf.vim's `g:fzf_history_dir` (#1127)
+  if vim.g.fzf_history_dir and opts.fzf_opts["--history"] == nil then
+    local histdir = vim.fn.expand(vim.g.fzf_history_dir)
+    if vim.fn.isdirectory(histdir) == 0 then
+      pcall(vim.fn.mkdir, histdir)
+    end
+    if vim.fn.isdirectory(histdir) == 1 and type(opts.__resume_key) == "string" then
+      opts.fzf_opts["--history"] = path.join({ histdir, opts.__resume_key })
+    end
   end
 
   -- prioritize fzf-tmux split pane flags over the
@@ -347,6 +362,37 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- backward compat copy due to the migration of `winopts.hl` -> `hls`
   opts.hls = vim.tbl_deep_extend("keep", opts.hls or {}, M.globals.__HLS)
 
+  -- Setup formatter options
+  if opts.formatter then
+    local _fmt = M.globals["formatters." .. opts.formatter]
+    if _fmt then
+      opts._fmt = opts._fmt or {}
+      if opts._fmt.to == nil then
+        opts._fmt.to = _fmt.to or _fmt._to and _fmt._to(opts) or nil
+      end
+      if opts._fmt.from == nil then
+        opts._fmt.from = _fmt.from
+      end
+      if type(opts._fmt.to) == "string" then
+        -- store the string function as backup for `make_entry.preprocess`
+        opts._fmt._to = opts._fmt.to
+        opts._fmt.to = loadstring(tostring(opts._fmt.to))()
+      end
+      if type(_fmt.enrich) == "function" then
+        -- formatter requires enriching the config (fzf_opts, etc)
+        opts = _fmt.enrich(opts) or opts
+      end
+    else
+      utils.warn(("Invalid formatter '%s', ignoring."):format(opts.formatter))
+    end
+  end
+
+  -- Exclude file icons from the fuzzy matching (#1080)
+  if opts.file_icons and opts._fzf_nth_devicons and not opts.fzf_opts["--delimiter"] then
+    opts.fzf_opts["--nth"] = opts.fzf_opts["--nth"] or "-1.."
+    opts.fzf_opts["--delimiter"] = string.format("[%s]", utils.nbsp)
+  end
+
   if type(opts.previewer) == "function" then
     -- we use a function so the user can override
     -- globals.winopts.preview.default
@@ -362,14 +408,14 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- use `_cwd` to not interfere with supplied users' options
   -- as this can have unintended effects (e.g. in "buffers")
   if vim.o.autochdir and not opts.cwd then
-    opts._cwd = vim.loop.cwd()
+    opts._cwd = uv.cwd()
   end
 
   if opts.cwd and #opts.cwd > 0 then
     -- NOTE: on Windows, `expand` will replace all backslashes with forward slashes
     -- i.e. C:/Users -> c:\Users
     opts.cwd = vim.fn.expand(opts.cwd)
-    if not vim.loop.fs_stat(opts.cwd) then
+    if not uv.fs_stat(opts.cwd) then
       utils.warn(("Unable to access '%s', removing 'cwd' option."):format(opts.cwd))
       opts.cwd = nil
     else
@@ -377,9 +423,9 @@ function M.normalize_opts(opts, globals, __resume_key)
         -- relative paths in cwd are inaccessible when using multiprocess
         -- as the external process have no awareness of our current working
         -- directory so we must convert to full path (#375)
-        opts.cwd = path.join({ vim.loop.cwd(), opts.cwd })
+        opts.cwd = path.join({ uv.cwd(), opts.cwd })
       elseif utils.__IS_WINDOWS and opts.cwd:sub(2) == ":" then
-        -- TODO: upstream bug? on Windoows: starting jobs with `cwd = C:` (without separator)
+        -- TODO: upstream bug? on Windows: starting jobs with `cwd = C:` (without separator)
         -- ignores the cwd argument and starts the job in the current working directory
         opts.cwd = path.add_trailing(opts.cwd)
       end
@@ -420,9 +466,11 @@ function M.normalize_opts(opts, globals, __resume_key)
   opts._is_skim = opts.fzf_bin:find("sk") ~= nil
 
   -- enforce fzf minimum requirements
+  vim.g.fzf_lua_fzf_version = nil
   if not opts._is_skim then
     local FZF_VERSION, rc, err = utils.fzf_version(opts)
     opts.__FZF_VERSION = FZF_VERSION
+    vim.g.fzf_lua_fzf_version = FZF_VERSION
     if not opts.__FZF_VERSION then
       utils.err(string.format(
         "'fzf --version' failed with error %s: %s", rc, err))
@@ -554,6 +602,8 @@ M._action_to_helpstr = {
   [actions.man]                 = "man-open",
   [actions.man_vert]            = "man-vertical",
   [actions.man_tab]             = "man-tab",
+  [actions.git_branch_add]      = "git-branch-add",
+  [actions.git_branch_del]      = "git-branch-del",
   [actions.git_switch]          = "git-switch",
   [actions.git_checkout]        = "git-checkout",
   [actions.git_reset]           = "git-reset",

@@ -1,3 +1,4 @@
+local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local utils = require "fzf-lua.utils"
 local shell = require "fzf-lua.shell"
@@ -84,13 +85,13 @@ M.breakpoints = function(opts)
   if not dap() then return end
   local dap_bps = require "dap.breakpoints"
 
-  if vim.tbl_isempty(dap_bps.get()) then
+  if utils.tbl_isempty(dap_bps.get()) then
     utils.info("Breakpoint list is empty.")
     return
   end
 
   -- display relative paths by default
-  if opts.cwd == nil then opts.cwd = vim.loop.cwd() end
+  if opts.cwd == nil then opts.cwd = uv.cwd() end
 
   opts.func_async_callback = false
   opts.__fn_reload = opts.__fn_reload or function(_)

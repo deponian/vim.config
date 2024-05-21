@@ -15,7 +15,7 @@
 
 ((program
   .
-  (comment) @keyword.directive)
+  (comment) @keyword.directive @nospell)
   (#lua-match? @keyword.directive "^#!/"))
 
 (identifier) @variable
@@ -100,6 +100,8 @@
   "{"
   "}"
 ] @punctuation.bracket
+
+"," @punctuation.delimiter
 
 (dollar
   _

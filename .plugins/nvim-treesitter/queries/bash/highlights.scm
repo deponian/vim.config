@@ -93,12 +93,13 @@
 [
   "declare"
   "typeset"
-  "export"
   "readonly"
   "local"
   "unset"
   "unsetenv"
 ] @keyword
+
+"export" @keyword.import
 
 "function" @keyword.function
 
@@ -228,5 +229,5 @@
 
 ((program
   .
-  (comment) @keyword.directive)
+  (comment) @keyword.directive @nospell)
   (#lua-match? @keyword.directive "^#!/"))

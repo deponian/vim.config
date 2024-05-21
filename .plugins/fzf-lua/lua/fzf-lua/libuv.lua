@@ -1,5 +1,6 @@
-local uv = vim.loop
+local uv = vim.uv or vim.loop
 
+local _has_nvim_010 = vim.fn.has("nvim-0.10") == 1
 local _is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 
 local M = {}
@@ -369,7 +370,7 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
   end
 
   -- stdin/stdout are already buffered, not stderr. This means
-  -- that every character is flushed immedietely which caused
+  -- that every character is flushed immediately which caused
   -- rendering issues on Mac (#316, #287) and Linux (#414)
   -- switch 'stderr' stream to 'line' buffering
   -- https://www.lua.org/manual/5.2/manual.html#pdf-file%3asetvbuf
@@ -378,7 +379,7 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
   -- redirect 'stderr' to 'stdout' on Macs by default
   -- only takes effect if 'opts.stderr' was not set
   if opts.stderr_to_stdout == nil and
-      vim.loop.os_uname().sysname == "Darwin" then
+      uv.os_uname().sysname == "Darwin" then
     opts.stderr_to_stdout = true
   end
 
@@ -446,7 +447,7 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
         -- if the user cancels the call prematurely with
         -- <C-c>, err will be either EPIPE or ECANCELED
         -- don't really need to do anything since the
-        -- processs will be killed anyways with os.exit()
+        -- processes will be killed anyways with os.exit()
         if err then
           stderr_write(("pipe:write error: %s\n"):format(err))
         end
@@ -524,7 +525,7 @@ M.is_escaped = function(s, is_win)
   return m ~= nil
 end
 
--- our own version of vim.fn.shellescape compatibile with fish shells
+-- our own version of vim.fn.shellescape compatible with fish shells
 --   * don't double-escape '\' (#340)
 --   * if possible, replace surrounding single quote with double
 -- from ':help shellescape':
@@ -534,8 +535,8 @@ end
 --
 -- for windows, we assume we want to keep all quotes as literals
 -- to avoid the quotes being stripped when run from fzf actions
--- we therefore have to escape the quotes with blackslashes and
--- for nested quotes we double the blackslashes due to windows
+-- we therefore have to escape the quotes with backslashes and
+-- for nested quotes we double the backslashes due to windows
 -- quirks, further reading:
 -- https://stackoverflow.com/questions/6714165/powershell-stripping-double-quotes-from-command-line-arguments
 -- https://learn.microsoft.com/en-us/archive/blogs/twistylittlepassagesallalike/everyone-quotes-command-line-arguments-the-wrong-way
@@ -613,9 +614,9 @@ M.shellescape = function(s, win_style)
           return x
         end)
         -- escape all windows metacharacters but quotes
-        -- ( ) % ! ^ < > & | "
+        -- ( ) % ! ^ < > & | ; "
         -- TODO: should % be escaped with ^ or %?
-        inner = inner:gsub('[%(%)%%!%^<>&|%s"]', function(x)
+        inner = inner:gsub('[%(%)%%!%^<>&|;%s"]', function(x)
           return "^" .. x
         end)
         -- escape backslashes at the end of the string
@@ -647,7 +648,7 @@ M.shellescape = function(s, win_style)
   else
     local ret = nil
     vim.o.shell = "sh"
-    if not s:match([["]]) and not s:match([[\]]) then
+    if s and not s:match([["]]) and not s:match([[\]]) then
       -- if the original string does not contain double quotes,
       -- replace surrounding single quote with double quotes,
       -- temporarily replace all single quotes with double
@@ -668,10 +669,12 @@ end
 
 -- Windows fzf oddities, fzf's {q} will send escaped blackslahes,
 -- but only when the backslash prefixes another character which
--- isn't a backslash
-M.unescape_fzf = function(s, is_win)
+-- isn't a backslash, test with:
+-- fzf --disabled --height 30% --preview-window up --preview "echo {q}"
+M.unescape_fzf = function(s, fzf_version, is_win)
   if is_win == nil then is_win = _is_win end
   if not is_win then return s end
+  if tonumber(fzf_version) and tonumber(fzf_version) >= 0.52 then return s end
   local ret = s:gsub("\\+[^\\]", function(x)
     local bslash_num = #x:match([[\+]])
     return string.rep([[\]],
@@ -685,9 +688,10 @@ end
 -- doing weird extra escaping with {q},  we use this to simulate
 -- {q} being sent via the reload action as the initial command
 -- TODO: better solution for these stupid hacks (upstream issues?)
-M.escape_fzf = function(s, is_win)
+M.escape_fzf = function(s, fzf_version, is_win)
   if is_win == nil then is_win = _is_win end
   if not is_win then return s end
+  if tonumber(fzf_version) and tonumber(fzf_version) >= 0.52 then return s end
   local ret = s:gsub("\\+[^\\]", function(x)
     local bslash_num = #x:match([[\+]])
     return string.rep([[\]], bslash_num * 2) .. x:sub(-1)
@@ -708,11 +712,11 @@ M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess)
         _is_win and [[set VIMRUNTIME=%s& ]] or "VIMRUNTIME=%s ",
         _is_win and vim.fs.normalize(vim.env.VIMRUNTIME) or M.shellescape(vim.env.VIMRUNTIME)
       )
-  local lua_cmd = ("lua vim.g.did_load_filetypes=1; loadfile([[%s]])().spawn_stdio(%s,%s,%s)")
-      :format(
-        _is_win and vim.fs.normalize(__FILE__) or __FILE__,
-        opts, fn_transform, fn_preprocess
-      )
+  local lua_cmd = ("lua %sloadfile([[%s]])().spawn_stdio(%s,%s,%s)"):format(
+    _has_nvim_010 and "vim.g.did_load_filetypes=1; " or "",
+    _is_win and vim.fs.normalize(__FILE__) or __FILE__,
+    opts, fn_transform, fn_preprocess
+  )
   local cmd_str = ("%s%s -n --headless --clean --cmd %s"):format(
     nvim_runtime,
     M.shellescape(_is_win and vim.fs.normalize(nvim_bin) or nvim_bin),

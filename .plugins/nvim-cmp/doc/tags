@@ -52,6 +52,8 @@ cmp-config.sources[n].priority	cmp.txt	/*cmp-config.sources[n].priority*
 cmp-config.sources[n].trigger_characters	cmp.txt	/*cmp-config.sources[n].trigger_characters*
 cmp-config.view	cmp.txt	/*cmp-config.view*
 cmp-config.view.docs.auto_open	cmp.txt	/*cmp-config.view.docs.auto_open*
+cmp-config.view.entries.follow_cursor	cmp.txt	/*cmp-config.view.entries.follow_cursor*
+cmp-config.view.entries.selection_order	cmp.txt	/*cmp-config.view.entries.selection_order*
 cmp-config.window.completion.col_offset	cmp.txt	/*cmp-config.window.completion.col_offset*
 cmp-config.window.completion.scrollbar	cmp.txt	/*cmp-config.window.completion.scrollbar*
 cmp-config.window.completion.side_padding	cmp.txt	/*cmp-config.window.completion.side_padding*
