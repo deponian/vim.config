@@ -1,4 +1,4 @@
-local M = { 
+local M = {
   "nvchad/nvim-colorizer.lua",
   event = { "BufReadPost", "BufNewFile" },
 }

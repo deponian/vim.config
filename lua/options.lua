@@ -11,7 +11,9 @@ vim.opt.emoji = false                                 -- don't assume all emoji 
 vim.opt.fillchars:append({ diff = '⁚' })              -- TWO DOT PUNCTUATION (U+205A)
 vim.opt.fillchars:append({ eob = ' ' })               -- suppress ~ at EndOfBuffer
 vim.opt.foldlevelstart = 99                           -- start unfolded
-vim.opt.foldmethod = 'indent'                         -- use 'indent' method if you need faster folding
+vim.opt.foldmethod = "expr"                           -- use special fold expression
+vim.opt.foldexpr = "nvim_treesitter#foldexpr()"       -- use tree-sitter as the source for folding
+vim.opt.foldenable = false                            -- disable folding at startup
 vim.opt.formatoptions:append('ro')                    -- smart auto-commenting
 vim.opt.ignorecase = true                             -- ignore case when searching
 vim.opt.inccommand = 'nosplit'                        -- live highlighting of :s results
