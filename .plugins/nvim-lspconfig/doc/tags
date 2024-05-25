@@ -6,7 +6,6 @@ lspconfig-configurations	lspconfig.txt	/*lspconfig-configurations*
 lspconfig-debugging	lspconfig.txt	/*lspconfig-debugging*
 lspconfig-global-defaults	lspconfig.txt	/*lspconfig-global-defaults*
 lspconfig-highlight	lspconfig.txt	/*lspconfig-highlight*
-lspconfig-keybindings	lspconfig.txt	/*lspconfig-keybindings*
 lspconfig-logging	lspconfig.txt	/*lspconfig-logging*
 lspconfig-new	lspconfig.txt	/*lspconfig-new*
 lspconfig-quickstart	lspconfig.txt	/*lspconfig-quickstart*

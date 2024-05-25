@@ -51,7 +51,7 @@ OPTIONS                                                          *conform-option
       log_level = vim.log.levels.ERROR,
       -- Conform will notify you when a formatter errors
       notify_on_error = true,
-      -- Custom formatters and changes to built-in formatters
+      -- Custom formatters and overrides for built-in formatters
       formatters = {
         my_formatter = {
           -- This can be a string or a function that returns a string.
@@ -109,11 +109,35 @@ OPTIONS                                                          *conform-option
 --------------------------------------------------------------------------------
 API                                                                  *conform-api*
 
+setup({opts})                                                      *conform.setup*
+
+    Parameters:
+      {opts} `nil|conform.setupOpts`
+          {formatters_by_ft} `nil|table<string, conform.FiletypeFormatter>` Map
+                             of filetype to formatters
+          {format_on_save}   `nil|conform.FormatOpts|fun(bufnr: integer): conform.FormatOpts` I
+                             f this is set, Conform will run the formatter on
+                             save. It will pass the table to conform.format().
+                             This can also be a function that returns the table.
+          {format_after_save} `nil|conform.FormatOpts|fun(bufnr: integer): conform.FormatOpts` I
+                             f this is set, Conform will run the formatter
+                             asynchronously after save. It will pass the table
+                             to conform.format(). This can also be a function
+                             that returns the table.
+          {log_level}        `nil|integer` Set the log level (e.g.
+                             `vim.log.levels.DEBUG`). Use `:ConformInfo` to see
+                             the location of the log file.
+          {notify_on_error}  `nil|boolean` Conform will notify you when a
+                             formatter errors (default true).
+          {formatters}       `nil|table<string, conform.FormatterConfigOverride|fun(bufnr: integer): nil|conform.FormatterConfigOverride>` C
+                             ustom formatters and overrides for built-in
+                             formatters.
+
 format({opts}, {callback}): boolean                               *conform.format*
     Format a buffer
 
     Parameters:
-      {opts}     `nil|table`
+      {opts}     `nil|conform.FormatOpts`
           {timeout_ms}   `nil|integer` Time in milliseconds to block for
                          formatting. Defaults to 1000. No effect if async =
                          true.
@@ -234,6 +258,8 @@ FORMATTERS                                                    *conform-formatter
 `fish_indent` - Indent or otherwise prettify a piece of fish code.
 `fixjson` - JSON Fixer for Humans using (relaxed) JSON5.
 `fnlfmt` - A formatter for Fennel code.
+`forge_fmt` - Forge is a command-line tool that ships with Foundry. Forge tests,
+            builds, and deploys your smart contracts.
 `fourmolu` - A fork of ormolu that uses four space indentation and allows
            arbitrary configuration.
 `gci` - GCI, a tool that controls Go package import order and makes it always
@@ -270,6 +296,7 @@ FORMATTERS                                                    *conform-formatter
 `ktlint` - An anti-bikeshedding Kotlin linter with built-in formatter.
 `latexindent` - A perl script for formatting LaTeX files that is generally
               included in major TeX distributions.
+`leptosfmt` - A formatter for the Leptos view! macro.
 `liquidsoap-prettier` - A binary to format Liquidsoap scripts
 `markdown-toc` - API and CLI for generating a markdown TOC (table of contents)
                for a README or any markdown files.
@@ -321,6 +348,8 @@ FORMATTERS                                                    *conform-formatter
 `ruff_fix` - An extremely fast Python linter, written in Rust. Fix lint errors.
 `ruff_format` - An extremely fast Python linter, written in Rust. Formatter
               subcommand.
+`ruff_organize_imports` - An extremely fast Python linter, written in Rust.
+                        Organize imports.
 `rufo` - Rufo is an opinionated ruby formatter.
 `rustfmt` - A tool for formatting rust code according to style guidelines.
 `rustywind` - A tool for formatting Tailwind CSS classes.
@@ -362,6 +391,7 @@ FORMATTERS                                                    *conform-formatter
 `twig-cs-fixer` - Automatically fix Twig Coding Standards issues
 `typos` - Source code spell checker
 `typstfmt` - Basic formatter for the Typst language with a future!
+`typstyle` - Beautiful and reliable typst code formatter.
 `uncrustify` - A source code beautifier for C, C++, C#, ObjectiveC, D, Java,
              Pawn and Vala.
 `usort` - Safe, minimal import sorting for Python projects.
