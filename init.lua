@@ -31,7 +31,28 @@ require("autocmd")
 require("keymaps")
 
 -- initialization of plugins
-require("lazy").setup("configs", {
+require("lazy").setup({
+  require("configs.conform"),
+  require("configs.fzf"),
+  require("configs.gitsigns"),
+  require("configs.illuminate"),
+  require("configs.indent-blankline"),
+  require("configs.lualine"),
+  require("configs.luasnip"),
+  require("configs.minimap"),
+  require("configs.nvim-cmp"),
+  require("configs.nvim-colorizer"),
+  require("configs.nvim-lint"),
+  require("configs.nvim-lspconfig"),
+  require("configs.nvim-tree"),
+  require("configs.onedark"),
+  require("configs.others"),
+  require("configs.scalpelua"),
+  require("configs.tokyonight"),
+  require("configs.treesitter"),
+  require("configs.trouble"),
+  require("configs.vim-ai"),
+}, {
   root = plugins_path,
   lockfile = vim.fn.stdpath("config") .. "/.lazy-lock.json",
   install = {
