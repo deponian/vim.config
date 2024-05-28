@@ -51,7 +51,7 @@
     "revision": "2326d709fb9cf73cf124fdbc803c267f851721a4"
   },
   "c": {
-    "revision": "82fb86aa544843bd17a9f0f3dc16edf645a34349"
+    "revision": "00ed08f1a6c18141bfd7a81638e4d239a0bb55cc"
   },
   "c_sharp": {
     "revision": "82fa8f05f41a33e9bc830f85d74a9548f0291738"
@@ -87,7 +87,7 @@
     "revision": "594289eadfec719198e560f9d7fd243c4db678d5"
   },
   "cpp": {
-    "revision": "2369fa991eba294e9238e28280ffcd58132f94bc"
+    "revision": "d29fbff09a8c9ff4f3074de2595dfca12cb33da9"
   },
   "css": {
     "revision": "f6be52c3d1cdb1c5e4dd7d8bce0a57497f55d6af"
@@ -135,13 +135,13 @@
     "revision": "648183d86f6f8ffb240ea11b4c6873f6f45d8b67"
   },
   "earthfile": {
-    "revision": "91fc9434283aec06139e37fc007ad00922f278b4"
+    "revision": "336001d79dd62668088bc6fe6d72a774a449fa2d"
   },
   "ebnf": {
     "revision": "8e635b0b723c620774dfb8abf382a7f531894b40"
   },
   "eds": {
-    "revision": "fde62029d4c715562230070b9af51a9500c2ce10"
+    "revision": "5517bdb90c90703df49579a4b04689a614780be2"
   },
   "eex": {
     "revision": "f742f2fe327463335e8671a87c0b9b396905d1d1"
@@ -324,7 +324,7 @@
     "revision": "bcb84a2d4bcd6f55b911c42deade75c8f90cb0c5"
   },
   "inko": {
-    "revision": "7860637ce1b43f5f79cfb7cc3311bf3234e9479f"
+    "revision": "234c87be1dac20f766ddf6f486a7bde2a4bc5594"
   },
   "ispc": {
     "revision": "9b2f9aec2106b94b4e099fe75e73ebd8ae707c04"
@@ -447,7 +447,7 @@
     "revision": "570f3d7be01fffc751237f4cfcf52d04e20532d1"
   },
   "nickel": {
-    "revision": "58baf89db8fdae54a84bcf22c80ff10ee3f929ed"
+    "revision": "52478738c5a072ab3ad62c74db5d0902dab064cd"
   },
   "nim": {
     "revision": "961c2798cec9250c44f7d7225ddb33d47d25856a"
@@ -570,7 +570,7 @@
     "revision": "2c57cac27e207425f8df15327884434cb12365a3"
   },
   "query": {
-    "revision": "e6a775551f6e32cc0efd5b822b2987138c338d9b"
+    "revision": "f767fb0ac5e711b6d44c5e0c8d1f349687a86ce0"
   },
   "r": {
     "revision": "391400572538ff9854341a175ed8ab4b1e45f44b"
@@ -648,7 +648,7 @@
     "revision": "ba1b3868eaa960b945593404af9a7c2f296d3643"
   },
   "solidity": {
-    "revision": "b5a23ead0f69d38b5c9a630f52f5c129132c16ed"
+    "revision": "1c94fe3d5351dfcff3551ec1f49614cbf758e444"
   },
   "soql": {
     "revision": "c99ad4b16d112fea91745e3f1b769754239fdaba"
@@ -690,7 +690,7 @@
     "revision": "2c97326cd96b7c3016c3d249e8dc244c89b4abeb"
   },
   "swift": {
-    "revision": "03af4d057afc56edf6a703e6606b86f782353f22"
+    "revision": "26354ddec08c7efde4fa16bd29429f3310d2e2c5"
   },
   "sxhkdrc": {
     "revision": "440d5f913d9465c9c776a1bd92334d32febcf065"
@@ -831,7 +831,7 @@
     "revision": "e877f6ade4b77d5ef8787075141053631ba12318"
   },
   "zathurarc": {
-    "revision": "e9e8de071ab79ed1f6e3365f05fcf890b6d85a2f"
+    "revision": "5918bf1785662c43a841b0b6a27a129337ec3a23"
   },
   "zig": {
     "revision": "0d08703e4c3f426ec61695d7617415fff97029bd"

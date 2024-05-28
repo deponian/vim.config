@@ -16,6 +16,7 @@ M.defaults = {
   },
   -- leave nil when passing the spec as the first argument to setup()
   spec = nil, ---@type LazySpec
+  local_spec = true, -- load project specific .lazy.lua spec files. They will be added at the end of the spec.
   lockfile = vim.fn.stdpath("config") .. "/lazy-lock.json", -- lockfile generated after running update.
   ---@type number? limit the maximum amount of concurrent tasks
   concurrency = jit.os:find("Windows") and (vim.uv.available_parallelism() * 2) or nil,
@@ -181,7 +182,7 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "10.20.5" -- x-release-please-version
+M.version = "10.21.0" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
