@@ -54,7 +54,6 @@ require("lazy").setup({
   require("configs.nvim-lint"),
   require("configs.nvim-lspconfig"),
   require("configs.nvim-tree"),
-  require("configs.onedark"),
   require("configs.others"),
   require("configs.scalpelua"),
   require("configs.tokyonight"),

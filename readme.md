@@ -20,6 +20,7 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/dmitmel/cmp-cmdline-history
 - https://github.com/echasnovski/mini.splitjoin
 - https://github.com/folke/lazy.nvim
+- https://github.com/folke/tokyonight.nvim
 - https://github.com/folke/trouble.nvim
 - https://github.com/hrsh7th/cmp-buffer
 - https://github.com/hrsh7th/cmp-calc
@@ -38,7 +39,6 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/mfussenegger/nvim-lint
 - https://github.com/mtdl9/vim-log-highlighting
 - https://github.com/mustache/vim-mustache-handlebars
-- https://github.com/navarasu/onedark.nvim
 - https://github.com/neovim/nvim-lspconfig
 - https://github.com/nfnty/vim-nftables
 - https://github.com/nvchad/nvim-colorizer.lua
