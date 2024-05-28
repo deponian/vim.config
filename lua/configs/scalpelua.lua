@@ -1,7 +1,7 @@
 local M = { "deponian/nvim-scalpelua" }
 
 M.opts = {
-  minimap_enabled = true,
+  minimap_enabled = not vim.g.bigfile_mode,
   highlighting = {
     regular_search_pattern = "Search",
     current_search_pattern = "CurSearch",

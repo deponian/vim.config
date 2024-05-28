@@ -1,4 +1,7 @@
-local M = { "nvim-treesitter/nvim-treesitter" }
+local M = {
+  "nvim-treesitter/nvim-treesitter",
+  enabled = not vim.g.bigfile_mode,
+}
 
 M.config = function()
   require("nvim-treesitter.configs").setup({
@@ -11,9 +14,9 @@ M.config = function()
       enable = true,
       disable = function(lang, buf)
         local max_filesize = 25 * 1024 -- 25 KB
-        local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+        local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(buf))
         if ok and stats and stats.size > max_filesize then
-            return true
+          return true
         end
       end,
     },

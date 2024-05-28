@@ -83,6 +83,13 @@ M.config = function()
   }
 
   cmp.setup {
+    enabled = function()
+      if not vim.g.bigfile_mode then
+        return true
+      else
+        return false
+      end
+    end,
     preselect = cmp.PreselectMode.None,
     mapping = {
       ['<CR>'] = cmp.mapping(function(fallback)

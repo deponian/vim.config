@@ -11,8 +11,6 @@ vim.opt.emoji = false                                 -- don't assume all emoji 
 vim.opt.fillchars:append({ diff = '⁚' })              -- TWO DOT PUNCTUATION (U+205A)
 vim.opt.fillchars:append({ eob = ' ' })               -- suppress ~ at EndOfBuffer
 vim.opt.foldlevelstart = 99                           -- start unfolded
-vim.opt.foldmethod = "expr"                           -- use special fold expression
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()"       -- use tree-sitter as the source for folding
 vim.opt.foldenable = false                            -- disable folding at startup
 vim.opt.formatoptions:append('ro')                    -- smart auto-commenting
 vim.opt.ignorecase = true                             -- ignore case when searching
@@ -52,6 +50,12 @@ vim.opt.whichwrap = 'b,s'                             -- allow <BS>/h/l/<Left>/<
 vim.opt.wildcharm = 26                                -- ('<C-z>') substitute for 'wildchar' (<Tab>) in macros
 vim.opt.wildignore:append('*.o,*.rej')                -- patterns to ignore during file-navigation
 vim.opt.wildmode = 'longest:full,full'                -- shell-like autocomplete to unambiguous portion
+
+-- use these only for small files
+if not vim.g.bigfile_mode then
+  vim.opt.foldmethod = "expr"                         -- use special fold expression
+  vim.opt.foldexpr = "nvim_treesitter#foldexpr()"     -- use tree-sitter as the source for folding
+end
 
 -- invisible chars
 vim.opt.listchars = {
