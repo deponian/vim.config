@@ -30,19 +30,22 @@ M.colors = {
   Button = "CursorLine",
   ButtonActive = "Visual",
   TaskOutput = "MsgArea", -- task output
-  TaskError = "ErrorMsg", -- task errors
+  Error = "DiagnosticError", -- task errors
+  Warning = "DiagnosticWarn", -- task errors
+  Info = "DiagnosticInfo", -- task errors
   Dir = "@markup.link", -- directory
   Url = "@markup.link", -- url
+  Bold = { bold = true },
+  Italic = { italic = true },
 }
 
 M.did_setup = false
 
 function M.set_hl()
   for hl_group, link in pairs(M.colors) do
-    vim.api.nvim_set_hl(0, "Lazy" .. hl_group, {
-      link = link,
-      default = true,
-    })
+    local hl = type(link) == "table" and link or { link = link }
+    hl.default = true
+    vim.api.nvim_set_hl(0, "Lazy" .. hl_group, hl)
   end
 end
 
@@ -54,6 +57,11 @@ function M.setup()
   M.did_setup = true
 
   M.set_hl()
+  vim.api.nvim_create_autocmd("VimEnter", {
+    callback = function()
+      M.set_hl()
+    end,
+  })
   vim.api.nvim_create_autocmd("ColorScheme", {
     callback = function()
       M.set_hl()

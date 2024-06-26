@@ -4,71 +4,75 @@ local path = require "fzf-lua.path"
 
 local M = {}
 
--- default action map key
-local _default_action = "default"
-
 -- return fzf '--expect=' string from actions keyval tbl
 -- on fzf >= 0.53 add the `prefix` key to the bind flags
-M.expect = function(actions, _)
+-- https://github.com/junegunn/fzf/issues/3829#issuecomment-2143235993
+M.expect = function(actions, opts)
   if not actions then return nil end
-  local keys = {}
+  local expect = {}
   local binds = {}
   for k, v in pairs(actions) do
-    local is_default = k == _default_action
-    if not is_default and v ~= false then
-      table.insert(keys, k)
+    if not v then goto continue end
+    k = k == "default" and "enter" or k
+    v = type(v) == "table" and v or { fn = v }
+    if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
+      -- `print(...)` action was only added with fzf 0.53
+      -- NOTE: we can no longer combine `--expect` and `--bind` as this will
+      -- print an extra empty line regardless of the pressaed keybind (#1241)
+      table.insert(binds, string.format("%s:print(%s)%s%s+accept",
+        k,
+        k,
+        v.prefix and "+" or "",
+        v.prefix and v.prefix:gsub("accept$", ""):gsub("%+$", "") or ""
+      ))
+    elseif k ~= "enter" then
+      table.insert(expect, k)
     end
-    -- Although this only works in fzf 0.53 we don't need to limit the use of these
-    -- actions as `--expect` precets the bind and thus the extra bind has no effect
-    if type(v) == "table" and type(v.prefix) == "string" then
-      table.insert(binds, string.format("%s:%s%s",
-        is_default and "enter" or k,
-        -- When used with `--expect` "accept" is implied and "+" is erroneous
-        v.prefix:gsub("accept$", ""):gsub("%+$", ""),
-        -- Since default accept bind (enter) is excluded from `--expect`
-        -- we need to add "+accept" to complete the selection and exit fzf
-        is_default and "+accept" or ""))
-    end
+    ::continue::
   end
-  return #keys > 0 and keys or nil, #binds > 0 and binds or nil
+  return #expect > 0 and expect or nil, #binds > 0 and binds or nil
 end
 
-M.normalize_selected = function(actions, selected)
-  -- 1. If there are no additional actions but the default,
-  --    the selected table will contain the selected item(s)
-  -- 2. If at least one non-default action was defined, our 'expect'
-  --    function above sent fzf the '--expect` flag, from `man fzf`:
-  --      When this option is set, fzf will print the name of
-  --      the key pressed as the first line of its output (or
-  --      as the second line if --print-query is also used).
-  --
+M.normalize_selected = function(actions, selected, opts)
   -- The below separates the keybind from the item(s)
   -- and makes sure 'selected' contains only item(s) or {}
   -- so it can always be enumerated safely
   if not actions or not selected then return end
-  local action = _default_action
-  if utils.tbl_count(actions) > 1 or not actions[_default_action] then
-    -- keybind should be in item #1
-    -- default keybind is an empty string
-    -- so we leave that as "default"
-    if #selected[1] > 0 then
-      action = selected[1]
-    end
-    -- entries are items #2+
-    local entries = {}
-    for i = 2, #selected do
-      table.insert(entries, selected[i])
-    end
-    return action, entries
+  if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
+    -- Using the new `print` action keybind is expected at `selected[1]`
+    local entries = vim.deepcopy(selected)
+    local keybind = table.remove(entries, 1)
+    return keybind, entries
   else
-    return action, selected
+    -- 1. If there are no additional actions but the default,
+    --    the selected table will contain the selected item(s)
+    -- 2. If at least one non-default action was defined, our 'expect'
+    --    function above sent fzf the '--expect` flag, from `man fzf`:
+    --      When this option is set, fzf will print the name of the key pressed as the
+    --      first line of its output (or as the second line if --print-query is also used).
+    if utils.tbl_count(actions) > 1 or not actions.enter then
+      -- After removal of query (due to `--print-query`), keybind should be in item #1
+      -- when `--expect` is present, default (enter) keybind prints an empty string
+      local entries = vim.deepcopy(selected)
+      local keybind = table.remove(entries, 1)
+      if #keybind == 0 then keybind = "enter" end
+      return keybind, entries
+    else
+      -- Only default (enter) action exists, no `--expect` was specified
+      -- therefore enter was pressed and no empty line in `selected[1]`
+      return "enter", selected
+    end
   end
 end
 
 M.act = function(actions, selected, opts)
   if not actions or not selected then return end
-  local keybind, entries = M.normalize_selected(actions, selected)
+  local keybind, entries = M.normalize_selected(actions, selected, opts)
   local action = actions[keybind]
+  -- Backward compat, was action defined as "default"
+  if not action and keybind == "enter" then
+    action = actions.default
+  end
   if type(action) == "table" then
     -- Two types of action as table:
     --   (1) map containing action properties (reload, noclose, etc)
@@ -84,9 +88,8 @@ M.act = function(actions, selected, opts)
     action(entries, opts)
   elseif type(action) == "string" then
     vim.cmd(action)
-  elseif keybind ~= _default_action then
-    utils.warn(("unsupported action: '%s', type:%s")
-      :format(keybind, type(action)))
+  else
+    utils.warn(("unsupported action: '%s', type:%s"):format(keybind, type(action)))
   end
 end
 
@@ -95,10 +98,8 @@ M.dummy_abort = function()
 end
 
 M.resume = function(_, _)
-  -- must call via vim.cmd or we create
-  -- circular 'require'
-  -- TODO: is this really a big deal?
-  vim.cmd("lua require'fzf-lua'.resume()")
+  -- call via loadstring to prevent a circular ref
+  loadstring([[require("fzf-lua").resume()]])()
 end
 
 M.vimcmd = function(vimcmd, selected, noesc)
@@ -846,9 +847,13 @@ M.sym_lsym = function(_, opts)
   opts.__ACT_TO({ resume = true })
 end
 
-M.toggle_ignore = function(_, opts)
+M.toggle_flag = function(_, opts)
   local o = { resume = true, cwd = opts.cwd }
-  local flag = opts.toggle_ignore_flag or "--no-ignore"
+  local flag = opts.toggle_flag
+  if not flag then
+    utils.err("'toggle_flag' not set")
+    return
+  end
   if not flag:match("^%s") then
     -- flag must be preceded by whitespace
     flag = " " .. flag
@@ -863,6 +868,16 @@ M.toggle_ignore = function(_, opts)
     o.cmd = string.format("%s%s%s", bin, flag, args)
   end
   opts.__call_fn(o)
+end
+
+M.toggle_ignore = function(_, opts)
+  local flag = opts.toggle_ignore_flag or "--no-ignore"
+  M.toggle_flag(_, vim.tbl_extend("force", opts, { toggle_flag = flag }))
+end
+
+M.toggle_hidden = function(_, opts)
+  local flag = opts.toggle_hidden_flag or "--hidden"
+  M.toggle_flag(_, vim.tbl_extend("force", opts, { toggle_flag = flag }))
 end
 
 M.tmux_buf_set_reg = function(selected, opts)

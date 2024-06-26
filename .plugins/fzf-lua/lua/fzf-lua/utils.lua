@@ -226,9 +226,11 @@ function M.lua_regex_escape(str)
   -- escape all lua special chars
   -- ( ) % . + - * [ ? ^ $
   if not str then return nil end
-  return str:gsub("[%(%)%.%+%-%*%[%?%^%$%%]", function(x)
+  -- gsub returns a tuple, return the string only or unexpected happens (#1257)
+  local ret = str:gsub("[%(%)%.%+%-%*%[%?%^%$%%]", function(x)
     return "%" .. x
   end)
+  return ret
 end
 
 function M.glob_escape(str)
@@ -1156,6 +1158,39 @@ function M.windows_pipename()
   local tmpname = vim.fn.tempname()
   tmpname = string.gsub(tmpname, "\\", "")
   return ([[\\.\pipe\%s]]):format(tmpname)
+end
+
+function M.create_user_command_callback(provider, arg, altmap)
+  local function fzflua_opts(o)
+    local ret = {}
+    -- fzf.vim's bang version of the commands opens fullscreen
+    if o.bang then ret.winopts = { fullscreen = true } end
+    return ret
+  end
+  return function(o)
+    local fzf_lua = require("fzf-lua")
+    local prov = provider
+    local opts = fzflua_opts(o) -- setup bang!
+    if type(o.fargs[1]) == "string" then
+      local farg = o.fargs[1]
+      for c, p in pairs(altmap or {}) do
+        -- fzf.vim hijacks the first character of the arg
+        -- to setup special commands postfixed with `?:/`
+        -- "GFiles?", "History:" and "History/"
+        if farg:sub(1, 1) == c then
+          prov = p
+          -- we still allow using args with alt
+          -- providers by removing the "?:/" prefix
+          farg = #farg > 1 and vim.trim(farg:sub(2))
+          break
+        end
+      end
+      if arg and farg and #farg > 0 then
+        opts[arg] = vim.trim(farg)
+      end
+    end
+    fzf_lua[prov](opts)
+  end
 end
 
 return M

@@ -103,12 +103,21 @@ function M.opts(keys)
 end
 
 ---@param keys LazyKeys
+function M.is_nop(keys)
+  return type(keys.rhs) == "string" and (keys.rhs == "" or keys.rhs:lower() == "<nop>")
+end
+
+---@param keys LazyKeys
 function M:_add(keys)
   local lhs = keys.lhs
   local opts = M.opts(keys)
 
   ---@param buf? number
   local function add(buf)
+    if M.is_nop(keys) then
+      return self:_set(keys, buf)
+    end
+
     vim.keymap.set(keys.mode, lhs, function()
       local plugins = self.active[keys.id]
 
@@ -143,7 +152,7 @@ function M:_add(keys)
     vim.api.nvim_create_autocmd("FileType", {
       pattern = keys.ft,
       callback = function(event)
-        if self.active[keys.id] then
+        if self.active[keys.id] and not M.is_nop(keys) then
           add(event.buf)
         else
           -- Only create the mapping if its managed by lazy

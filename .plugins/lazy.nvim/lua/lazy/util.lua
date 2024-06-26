@@ -74,27 +74,25 @@ end
 ---@return F
 function M.throttle(ms, fn)
   local timer = vim.uv.new_timer()
-  local running = false
-  local first = true
+  local pending = false
 
-  return function(...)
-    local args = { ... }
-    local wrapped = function()
-      fn(unpack(args))
+  return function()
+    if timer:is_active() then
+      pending = true
+      return
     end
-    if not running then
-      if first then
-        wrapped()
-        first = false
-      end
-
-      timer:start(ms, 0, function()
-        running = false
-        vim.schedule(wrapped)
+    timer:start(
+      0,
+      ms,
+      vim.schedule_wrap(function()
+        fn()
+        if pending then
+          pending = false
+        else
+          timer:stop()
+        end
       end)
-
-      running = true
-    end
+    )
   end
 end
 
@@ -231,26 +229,43 @@ function M.markdown(msg, opts)
   )
 end
 
+---@async
+---@param ms number
+function M.sleep(ms)
+  local continue = false
+  vim.defer_fn(function()
+    continue = true
+  end, ms)
+  while not continue do
+    coroutine.yield()
+  end
+end
+
 function M._dump(value, result)
   local t = type(value)
   if t == "number" or t == "boolean" then
     table.insert(result, tostring(value))
   elseif t == "string" then
     table.insert(result, ("%q"):format(value))
+  elseif t == "table" and value._raw then
+    table.insert(result, value._raw)
   elseif t == "table" then
     table.insert(result, "{")
-    local i = 1
-    ---@diagnostic disable-next-line: no-unknown
-    for k, v in pairs(value) do
-      if k == i then
-      elseif type(k) == "string" then
-        table.insert(result, ("[%q]="):format(k))
-      else
-        table.insert(result, k .. "=")
-      end
+    for _, v in ipairs(value) do
       M._dump(v, result)
       table.insert(result, ",")
-      i = i + 1
+    end
+    ---@diagnostic disable-next-line: no-unknown
+    for k, v in pairs(value) do
+      if type(k) == "string" then
+        if k:match("^[a-zA-Z]+$") then
+          table.insert(result, ("%s="):format(k))
+        else
+          table.insert(result, ("[%q]="):format(k))
+        end
+        M._dump(v, result)
+        table.insert(result, ",")
+      end
     end
     table.insert(result, "}")
   else

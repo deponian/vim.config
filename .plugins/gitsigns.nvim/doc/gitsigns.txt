@@ -2,7 +2,7 @@
 *gitsigns.nvim*
 
 Author:   Lewis Russell <lewis6991@gmail.com>
-Version:  v0.8.1
+Version:  v0.9.0
 Homepage: <https://github.com/lewis6991/gitsigns.nvim>
 License:  MIT license
 
@@ -59,10 +59,7 @@ of the default settings:
         ignore_whitespace = false,
         virt_text_priority = 100,
       },
-      current_line_blame_formatter = '<author>, <author_time:%Y-%m-%d> - <summary>',
-      current_line_blame_formatter_opts = {
-        relative_time = false,
-      },
+      current_line_blame_formatter = '<author>, <author_time:%R> - <summary>',
       sign_priority = 6,
       update_debounce = 100,
       status_formatter = nil, -- Use default
@@ -192,7 +189,7 @@ setqflist({target}, {opts}, {callback?})                *gitsigns.setqflist()*
                                Open the quickfix/location list viewer.
                                Defaults to `true`.
 
-show({revision})                                             *gitsigns.show()*
+show({revision}, {callback})                                 *gitsigns.show()*
                 Show revision {base} of the current file, if it is given, or
                 with the currently set base (index by default).
 
@@ -286,6 +283,21 @@ change_base({base}, {global}, {callback?})              *gitsigns.change_base()*
                     {base}   (string|nil): The object/revision to diff against.
                     {global} (boolean|nil): Change the base of all buffers.
 
+blame({callback?})                                          *gitsigns.blame()*
+                Run git-blame on the current file and open the results
+                in a scroll-bound vertical split.
+
+                Mappings:
+                  <CR> is mapped to open a menu with the other mappings
+                       Note: <Alt> must be held to activate the mappings whilst the menu is
+                       open.
+                  s   [Show commit] in a vertical split.
+                  S   [Show commit] in a new tab.
+                  r   [Reblame at commit]
+
+                Attributes: ~
+                    {async}
+
 blame_line({opts}, {callback?})                        *gitsigns.blame_line()*
                 Run git blame on the current line and show the results in a
                 floating window. If already open, calling this will cause the
@@ -300,8 +312,6 @@ blame_line({opts}, {callback?})                        *gitsigns.blame_line()*
                              Display full commit message with hunk.
                            • {ignore_whitespace}: (boolean)
                              Ignore whitespace when running blame.
-                           • {rev}: (string)
-                             Revision to blame against.
                            • {extra_opts}: (string[])
                              Extra options passed to `git-blame`.
 
@@ -392,6 +402,8 @@ nav_hunk({direction}, {opts}, {callback?})                 *gitsigns.nav_hunk()*
                                 • {greedy}: (boolean)
                                   Only navigate between non-contiguous hunks. Only useful if
                                   'diff_opts' contains `linematch`. Defaults to `true`.
+                                • {target}: (`'unstaged'|'staged'|'all'`)
+                                  Which kinds of hunks to target. Defaults to `'unstaged'`.
                                 • {count}: (integer)
                                   Number of times to advance. Defaults to |v:count1|.
 
@@ -553,6 +565,28 @@ signs                                                  *gitsigns-config-signs*
         • `GitSignsAddLn `(for signs when `config.linehl == true`)
 
       See |gitsigns-highlight-groups|.
+
+signs_staged                                    *gitsigns-config-signs_staged*
+      Type: `table[extended]`
+      Default: >
+        {
+          add          = { text = '┃' },
+          change       = { text = '┃' },
+          delete       = { text = '▁' },
+          topdelete    = { text = '▔' },
+          changedelete = { text = '~' },
+        }
+<
+    Configuration for signs of staged hunks.
+
+    See |gitsigns-config-signs|.
+
+signs_staged_enable                      *gitsigns-config-signs_staged_enable*
+      Type: `boolean`, Default: `true`
+
+    Show signs for staged hunks.
+
+    When enabled the signs defined in |git-config-signs_staged|` are used.
 
 worktrees                                          *gitsigns-config-worktrees*
       Type: `table`, Default: `nil`
@@ -793,23 +827,8 @@ current_line_blame_opts              *gitsigns-config-current_line_blame_opts*
         • extra_opts: string[]
           Extra options passed to `git-blame`.
 
-current_line_blame_formatter_opts
-                           *gitsigns-config-current_line_blame_formatter_opts*
-   DEPRECATED
-
-      Type: `table[extended]`
-      Default: >
-        `{
-          relative_time = false
-        }`
-<
-      Options for the current line blame annotation formatter.
-
-      Fields: ~
-        • relative_time: boolean
-
 current_line_blame_formatter    *gitsigns-config-current_line_blame_formatter*
-      Type: `string|function`, Default: `" <author>, <author_time> - <summary> "`
+      Type: `string|function`, Default: `" <author>, <author_time:%R> - <summary> "`
 
       String or function used to format the virtual text of
       |gitsigns-config-current_line_blame|.
@@ -878,9 +897,6 @@ current_line_blame_formatter    *gitsigns-config-current_line_blame_formatter*
                        Note that the keys map onto the output of:
                          `git blame --line-porcelain`
 
-          {opts}       Passed directly from
-                       |gitsigns-config-current_line_blame_formatter_opts|.
-
         Return: ~
           The result of this function is passed directly to the `opts.virt_text`
           field of |nvim_buf_set_extmark| and thus must be a list of
@@ -900,18 +916,6 @@ trouble                                              *gitsigns-config-trouble*
 
       When using setqflist() or setloclist(), open Trouble instead of the
       quickfix/location list window.
-
-yadm                                                    *gitsigns-config-yadm*
-   DEPRECATED
-      Please use |gitsigns-config-on_attach_pre| instead
-
-      Type: `table`
-      Default: >
-        `{
-          enable = false
-        }`
-<
-      yadm configuration.
 
 word_diff                                          *gitsigns-config-word_diff*
       Type: `boolean`, Default: `false`

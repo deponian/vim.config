@@ -39,19 +39,21 @@ end
 local function from_nvim_lsp()
   local buffer_severity = {}
 
-  local is_disabled = false
-  if vim.fn.has "nvim-0.9" == 1 then
-    is_disabled = vim.diagnostic.is_disabled()
+  -- is_enabled is not present in all 0.10 builds/releases, see #2781
+  local is_enabled = false
+  if vim.fn.has "nvim-0.10" == 1 and type(vim.diagnostic.is_enabled) == "function" then
+    is_enabled = vim.diagnostic.is_enabled()
+  elseif type(vim.diagnostic.is_disabled) == "function" then ---@diagnostic disable-line: deprecated
+    is_enabled = not vim.diagnostic.is_disabled() ---@diagnostic disable-line: deprecated
   end
 
-  if not is_disabled then
+  if is_enabled then
     for _, diagnostic in ipairs(vim.diagnostic.get(nil, { severity = M.severity })) do
-      local buf = diagnostic.bufnr
-      if vim.api.nvim_buf_is_valid(buf) then
-        local bufname = uniformize_path(vim.api.nvim_buf_get_name(buf))
-        local severity = diagnostic.severity
-        local highest_severity = buffer_severity[bufname] or severity
-        buffer_severity[bufname] = math.min(highest_severity, severity)
+      if diagnostic.severity and diagnostic.bufnr and vim.api.nvim_buf_is_valid(diagnostic.bufnr) then
+        local bufname = uniformize_path(vim.api.nvim_buf_get_name(diagnostic.bufnr))
+        if not buffer_severity[bufname] or diagnostic.severity < buffer_severity[bufname] then
+          buffer_severity[bufname] = diagnostic.severity
+        end
       end
     end
   end

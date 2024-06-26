@@ -8,6 +8,7 @@ local util = require('gitsigns.util')
 
 local cache = require('gitsigns.cache').cache
 local config = require('gitsigns.config').config
+local throttle_by_id = require('gitsigns.debounce').throttle_by_id
 local debounce_trailing = require('gitsigns.debounce').debounce_trailing
 local manager = require('gitsigns.manager')
 
@@ -52,15 +53,21 @@ local function handle_moved(bufnr, old_relpath)
   local old_name = api.nvim_buf_get_name(bufnr)
 
   if not bufexists then
-    util.buf_rename(bufnr, bcache.file)
+    -- Do not trigger BufFilePre/Post
+    -- TODO(lewis6991): figure out how to avoid reattaching without
+    -- disabling all autocommands.
+    util.noautocmd({ 'BufFilePre', 'BufFilePost' }, function()
+      util.buf_rename(bufnr, bcache.file)
+    end)
   end
 
   local msg = bufexists and 'Cannot rename' or 'Renamed'
   dprintf('%s buffer %d from %s to %s', msg, bufnr, old_name, bcache.file)
 end
 
+--- @async
 --- @param bufnr integer
-local watcher_handler = async.create(1, function(bufnr)
+local function watcher_handler0(bufnr)
   local __FUNC__ = 'watcher_handler'
 
   -- Avoid cache hit for detached buffer
@@ -99,9 +106,13 @@ local watcher_handler = async.create(1, function(bufnr)
   cache[bufnr]:invalidate(true)
 
   require('gitsigns.manager').update(bufnr)
-end)
+end
 
-local watcher_handler_debounced = debounce_trailing(200, watcher_handler, 1)
+--- Debounce and throttle the handler.
+--- We also throttle in case the debounce delay is not enough and to prevent
+--- too many handlers from being launched (and interleaved).
+local watcher_handler =
+  debounce_trailing(200, async.create(1, throttle_by_id(watcher_handler0, true)), 1)
 
 --- vim.inspect but on one line
 --- @param x any
@@ -142,7 +153,7 @@ function M.watch_gitdir(bufnr, gitdir)
 
     dprint(info)
 
-    watcher_handler_debounced(bufnr)
+    watcher_handler(bufnr)
   end)
   return w
 end

@@ -12,7 +12,6 @@ M.opts = {
     changedelete = { text = '~' },
     untracked    = { text = '┆' },
   },
-  base = '@',
   count_chars = {
     [1]   = '₁',
     [2]   = '₂',
@@ -25,11 +24,7 @@ M.opts = {
     [9]   = '₉',
     ['+'] = '₊',
   },
-  signcolumn = true,
-  numhl      = false,
-  linehl     = false,
-  word_diff  = false,
-  attach_to_untracked = false,
+  current_line_blame = true,
   preview_config = {
     border = 'rounded',
     style = 'minimal',

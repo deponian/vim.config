@@ -5,14 +5,7 @@ local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
 local system = require('gitsigns.system').system
 
-local gs_config = require('gitsigns.config')
-local config = gs_config.config
-
 local uv = vim.uv or vim.loop
-
-local dprint = log.dprint
-local dprintf = log.dprintf
-local error_once = require('gitsigns.message').error_once
 
 local check_version = require('gitsigns.git.version').check
 
@@ -327,35 +320,6 @@ function Repo:update_abbrev_head()
   self.abbrev_head = M.get_repo_info(self.toplevel).abbrev_head
 end
 
---- @private
---- @param dir string
---- @param gitdir? string
---- @param toplevel? string
-function Repo:try_yadm(dir, gitdir, toplevel)
-  if not config.yadm.enable or self.gitdir then
-    return
-  end
-
-  local home = os.getenv('HOME')
-
-  if not home or not vim.startswith(dir, home) then
-    return
-  end
-
-  if #git_command({ 'ls-files', dir }, { command = 'yadm' }) == 0 then
-    return
-  end
-
-  M.get_repo_info(dir, 'yadm', gitdir, toplevel)
-  local yadm_info = M.get_repo_info(dir, 'yadm', gitdir, toplevel)
-  for k, v in
-    pairs(yadm_info --[[@as table<string,any>]])
-  do
-    ---@diagnostic disable-next-line:no-unknown
-    self[k] = v
-  end
-end
-
 --- @async
 --- @param dir string
 --- @param gitdir? string
@@ -372,8 +336,6 @@ function Repo.new(dir, gitdir, toplevel)
     ---@diagnostic disable-next-line:no-unknown
     self[k] = v
   end
-
-  self:try_yadm(dir, gitdir, toplevel)
 
   return self
 end
@@ -424,11 +386,15 @@ end
 --- @field object_name? string
 --- @field has_conflicts? true
 
+function Obj:from_tree()
+  return self.revision and not vim.startswith(self.revision, ':')
+end
+
 --- @param file? string
 --- @param silent? boolean
 --- @return Gitsigns.FileInfo
 function Obj:file_info(file, silent)
-  if self.revision and not vim.startswith(self.revision, ':') then
+  if self:from_tree() then
     return self:file_info_tree(file, silent)
   else
     return self:file_info_index(file, silent)
@@ -436,12 +402,16 @@ function Obj:file_info(file, silent)
 end
 
 --- @private
+--- Get information about files in the index and the working tree
 --- @param file? string
 --- @param silent? boolean
 --- @return Gitsigns.FileInfo
 function Obj:file_info_index(file, silent)
   local has_eol = check_version({ 2, 9 })
 
+  -- --others + --exclude-standard means ignored files won't return info, but
+  -- untracked files will. Unlike file_info_tree which won't return untracked
+  -- files.
   local cmd = {
     '-c',
     'core.quotepath=off',
@@ -499,6 +469,7 @@ function Obj:file_info_index(file, silent)
 end
 
 --- @private
+--- Get information about files in a certain revision
 --- @param file? string
 --- @param silent? boolean
 --- @return Gitsigns.FileInfo
@@ -538,14 +509,14 @@ end
 --- @return string[] stdout, string? stderr
 function Obj:get_show_text(revision)
   if revision and not self.relpath then
-    dprint('no relpath')
+    log.dprint('no relpath')
     return {}
   end
 
   local object = revision and (revision .. ':' .. self.relpath) or self.object_name
 
   if not object then
-    dprint('no revision or object_name')
+    log.dprint('no revision or object_name')
     return { '' }
   end
 
@@ -606,182 +577,13 @@ end
 --- @field previous_filename? string
 --- @field previous_sha? string
 
-local NOT_COMMITTED = {
-  author = 'Not Committed Yet',
-  author_mail = '<not.committed.yet>',
-  committer = 'Not Committed Yet',
-  committer_mail = '<not.committed.yet>',
-}
-
---- @param file string
---- @return Gitsigns.CommitInfo
-function M.not_commited(file)
-  local time = os.time()
-  return {
-    sha = string.rep('0', 40),
-    abbrev_sha = string.rep('0', 8),
-    author = 'Not Committed Yet',
-    author_mail = '<not.committed.yet>',
-    author_tz = '+0000',
-    author_time = time,
-    committer = 'Not Committed Yet',
-    committer_time = time,
-    committer_mail = '<not.committed.yet>',
-    committer_tz = '+0000',
-    summary = 'Version of ' .. file,
-  }
-end
-
----@param x any
----@return integer
-local function asinteger(x)
-  return assert(tonumber(x))
-end
-
 --- @param lines string[]
 --- @param lnum? integer
+--- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
---- @return table<integer,Gitsigns.BlameInfo?>?
-function Obj:run_blame(lines, lnum, opts)
-  local ret = {} --- @type table<integer,Gitsigns.BlameInfo>
-
-  if not self.object_name or self.repo.abbrev_head == '' then
-    -- As we support attaching to untracked files we need to return something if
-    -- the file isn't isn't tracked in git.
-    -- If abbrev_head is empty, then assume the repo has no commits
-    local commit = M.not_commited(self.file)
-    for i in ipairs(lines) do
-      ret[i] = {
-        orig_lnum = 0,
-        final_lnum = i,
-        commit = commit,
-        filename = self.file,
-      }
-    end
-    return ret
-  end
-
-  local args = { 'blame', '--contents', '-', '--incremental' }
-
-  opts = opts or {}
-
-  if opts.ignore_whitespace then
-    args[#args + 1] = '-w'
-  end
-
-  if lnum then
-    vim.list_extend(args, { '-L', lnum .. ',+1' })
-  end
-
-  if opts.extra_opts then
-    vim.list_extend(args, opts.extra_opts)
-  end
-
-  local ignore_file = self.repo.toplevel .. '/.git-blame-ignore-revs'
-  if uv.fs_stat(ignore_file) then
-    vim.list_extend(args, { '--ignore-revs-file', ignore_file })
-  end
-
-  args[#args + 1] = opts.rev
-  args[#args + 1] = '--'
-  args[#args + 1] = self.file
-
-  local results, stderr = self:command(args, { stdin = lines, ignore_error = true })
-  if stderr then
-    error_once('Error running git-blame: ' .. stderr)
-    return
-  end
-
-  if #results == 0 then
-    return
-  end
-
-  local commits = {} --- @type table<string,Gitsigns.CommitInfo>
-  local i = 1
-
-  while i <= #results do
-    --- @param pat? string
-    --- @return string
-    local function get(pat)
-      local l = assert(results[i])
-      i = i + 1
-      if pat then
-        return l:match(pat)
-      end
-      return l
-    end
-
-    local function peek(pat)
-      local l = results[i]
-      if l and pat then
-        return l:match(pat)
-      end
-      return l
-    end
-
-    local sha, orig_lnum_str, final_lnum_str, size_str = get('(%x+) (%d+) (%d+) (%d+)')
-    local orig_lnum = asinteger(orig_lnum_str)
-    local final_lnum = asinteger(final_lnum_str)
-    local size = asinteger(size_str)
-
-    if peek():match('^author ') then
-      --- @type table<string,string|true>
-      local commit = {
-        sha = sha,
-        abbrev_sha = sha:sub(1, 8),
-      }
-
-      -- filename terminates the entry
-      while peek() and not (peek():match('^filename ') or peek():match('^previous ')) do
-        local l = get()
-        local key, value = l:match('^([^%s]+) (.*)')
-        if key then
-          if vim.endswith(key, '_time') then
-            value = tonumber(value)
-          end
-          key = key:gsub('%-', '_') --- @type string
-          commit[key] = value
-        else
-          commit[l] = true
-          if l ~= 'boundary' then
-            dprintf("Unknown tag: '%s'", l)
-          end
-        end
-      end
-
-      -- New in git 2.41:
-      -- The output given by "git blame" that attributes a line to contents
-      -- taken from the file specified by the "--contents" option shows it
-      -- differently from a line attributed to the working tree file.
-      if
-        commit.author_mail == '<external.file>'
-        or commit.author_mail == 'External file (--contents)'
-      then
-        commit = vim.tbl_extend('force', commit, NOT_COMMITTED)
-      end
-      commits[sha] = commit
-    end
-
-    local previous_sha, previous_filename = peek():match('^previous (%x+) (.*)')
-    if previous_sha then
-      get()
-    end
-
-    local filename = assert(get():match('^filename (.*)'))
-
-    for j = 0, size - 1 do
-      ret[final_lnum + j] = {
-        final_lnum = final_lnum + j,
-        orig_lnum = orig_lnum + j,
-        commit = commits[sha],
-        filename = filename,
-        previous_filename = previous_filename,
-        previous_sha = previous_sha,
-      }
-    end
-  end
-
-  return ret
+--- @return table<integer,Gitsigns.BlameInfo?>
+function Obj:run_blame(lines, lnum, revision, opts)
+  return require('gitsigns.git.blame').run_blame(self, lines, lnum, revision, opts)
 end
 
 --- @param obj Gitsigns.GitObj
@@ -880,7 +682,7 @@ end
 --- @return Gitsigns.GitObj?
 function Obj.new(file, revision, encoding, gitdir, toplevel)
   if in_git_dir(file) then
-    dprint('In git dir')
+    log.dprint('In git dir')
     return nil
   end
   local self = setmetatable({}, { __index = Obj })
@@ -895,7 +697,7 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
   self.repo = Repo.new(util.dirname(file), gitdir, toplevel)
 
   if not self.repo.gitdir then
-    dprint('Not in git repo')
+    log.dprint('Not in git repo')
     return nil
   end
 

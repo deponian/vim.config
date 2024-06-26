@@ -84,7 +84,7 @@
 --- - `sdnf` - delete (`sd`) next (`n`) function call (`f`).
 --- - `srlf(` - replace (`sr`) last (`l`) function call (`f`) with padded
 ---   bracket (`(`).
---- - `2sfnt` - find (`sf`) second (2) next (`n`) tag (`t`).
+--- - `2sfnt` - find (`sf`) second (`2`) next (`n`) tag (`t`).
 --- - `2shl}` - highlight (`sh`) last (`l`) second (`2`) curly bracket (`}`).
 ---
 --- # Comparisons ~
@@ -195,9 +195,13 @@
 ---   whitespace: open includes it left and right parts, close does not.
 --- - Output value of `b` alias is same as `)`. For `q` alias - same as `"`.
 --- - Default surrounding is activated for all characters which are not
----   configured surrounding identifiers. Note: due to special handling of
----   underlying `x.-x` Lua pattern (see |MiniSurround-search-algorithm|), it
----   doesn't really support non-trivial `[count]` for "cover" search method.
+---   configured surrounding identifiers. Notes:
+---     - Due to special handling of underlying `x.-x` Lua pattern
+---       (see |MiniSurround-search-algorithm|), it doesn't really support
+---       non-trivial `[count]` for "cover" search method.
+---     - When cursor is exactly on the identifier character while there are
+---       two matching candidates on both left and right, the one resulting in
+---       region with smaller width is preferred.
 ---@tag MiniSurround-surround-builtin
 
 --- Note: this is similar to |MiniAi-glossary|.
@@ -444,15 +448,6 @@ local H = {}
 ---
 ---@usage `require('mini.surround').setup({})` (replace `{}` with your `config` table)
 MiniSurround.setup = function(config)
-  -- TODO: Remove after Neovim<=0.7 support is dropped
-  if vim.fn.has('nvim-0.8') == 0 then
-    vim.notify(
-      '(mini.surround) Neovim<0.8 is soft deprecated (module works but not supported).'
-        .. ' It will be deprecated after next "mini.nvim" release (module might not work).'
-        .. ' Please update your Neovim version.'
-    )
-  end
-
   -- Export module
   _G.MiniSurround = MiniSurround
 
@@ -539,12 +534,12 @@ end
 ---       -- Use function to compute surrounding info
 ---       ['*'] = {
 ---         input = function()
----           local n_star = MiniSurround.user_input('Number of * to find: ')
+---           local n_star = MiniSurround.user_input('Number of * to find')
 ---           local many_star = string.rep('%*', tonumber(n_star) or 1)
 ---           return { many_star .. '().-()' .. many_star }
 ---         end,
 ---         output = function()
----           local n_star = MiniSurround.user_input('Number of * to output: ')
+---           local n_star = MiniSurround.user_input('Number of * to output')
 ---           local many_star = string.rep('*', tonumber(n_star) or 1)
 ---           return { left = many_star, right = many_star }
 ---         end,
@@ -917,19 +912,8 @@ end
 --- Generate common surrounding specifications
 ---
 --- This is a table with two sets of generator functions: <input> and <output>
---- (currently empty). Each is a table with values being function generating
+--- (currently empty). Each is a table with function values generating
 --- corresponding surrounding specification.
----
---- Example: >
----   local ts_input = require('mini.surround').gen_spec.input.treesitter
----   require('mini.surround').setup({
----     custom_surroundings = {
----       -- Use tree-sitter to search for function call
----       f = {
----         input = ts_input({ outer = '@call.outer', inner = '@call.inner' })
----       },
----     }
----   })
 ---
 ---@seealso |MiniAi.gen_spec|
 MiniSurround.gen_spec = { input = {}, output = {} }
@@ -968,8 +952,11 @@ MiniSurround.gen_spec = { input = {}, output = {} }
 --- >
 ---   local ts_input = require('mini.surround').gen_spec.input.treesitter
 ---   require('mini.surround').setup({
----     custom_textobjects = {
----       f = ts_input({ outer = '@call.outer', inner = '@call.inner' }),
+---     custom_surroundings = {
+---       -- Use tree-sitter to search for function call
+---       f = {
+---         input = ts_input({ outer = '@call.outer', inner = '@call.inner' })
+---       },
 ---     }
 ---   })
 --- <

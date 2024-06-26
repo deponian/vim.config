@@ -27,8 +27,8 @@ local function reset_filter(node_)
     :iterate()
 end
 
-local overlay_bufnr = nil
-local overlay_winnr = nil
+local overlay_bufnr = 0
+local overlay_winnr = 0
 
 local function remove_overlay()
   if view.View.float.enable and view.View.float.quit_on_focus_loss then
@@ -46,8 +46,8 @@ local function remove_overlay()
 
   vim.api.nvim_win_close(overlay_winnr, true)
   vim.api.nvim_buf_delete(overlay_bufnr, { force = true })
-  overlay_bufnr = nil
-  overlay_winnr = nil
+  overlay_bufnr = 0
+  overlay_winnr = 0
 
   if M.filter == "" then
     M.clear_filter()
@@ -150,7 +150,13 @@ local function create_overlay()
     border = "none",
     style = "minimal",
   })
-  vim.api.nvim_buf_set_option(overlay_bufnr, "modifiable", true)
+
+  if vim.fn.has "nvim-0.10" == 1 then
+    vim.api.nvim_set_option_value("modifiable", true, { buf = overlay_bufnr })
+  else
+    vim.api.nvim_buf_set_option(overlay_bufnr, "modifiable", true) ---@diagnostic disable-line: deprecated
+  end
+
   vim.api.nvim_buf_set_lines(overlay_bufnr, 0, -1, false, { M.filter })
   vim.cmd "startinsert"
   vim.api.nvim_win_set_cursor(overlay_winnr, { 1, #M.filter + 1 })

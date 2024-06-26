@@ -67,7 +67,10 @@ function M.create()
   self.state = vim.deepcopy(default_state)
 
   self.render = Render.new(self)
-  self.update = Util.throttle(Config.options.ui.throttle, self.update)
+  local update = self.update
+  self.update = Util.throttle(Config.options.ui.throttle, function()
+    update(self)
+  end)
 
   for _, pattern in ipairs({ "LazyRender", "LazyFloatResized" }) do
     self:on({ "User" }, function()
@@ -143,7 +146,11 @@ end
 function M:update()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
     vim.bo[self.buf].modifiable = true
+    local view = vim.api.nvim_win_call(self.view.win, vim.fn.winsaveview)
     self.render:update()
+    vim.api.nvim_win_call(self.view.win, function()
+      vim.fn.winrestview(view)
+    end)
     vim.bo[self.buf].modifiable = false
     vim.cmd.redraw()
   end
@@ -297,14 +304,21 @@ function M:setup_modes()
     end
     if m.key_plugin and name ~= "restore" then
       self:on_key(m.key_plugin, function()
-        vim.api.nvim_feedkeys(vim.keycode("<esc>"), "n", false)
+        local esc = vim.api.nvim_replace_termcodes("<esc>", true, true, true)
+        vim.api.nvim_feedkeys(esc, "n", false)
         local plugins = {}
         if vim.api.nvim_get_mode().mode:lower() == "v" then
           local f, t = vim.fn.line("."), vim.fn.line("v")
-          if f > t then f, t = t, f end
-          for i = f, t do
-            plugins[#plugins + 1] = self.render:get_plugin(i)
+          if f > t then
+            f, t = t, f
           end
+          for i = f, t do
+            local plugin = self.render:get_plugin(i)
+            if plugin then
+              plugins[plugin.name] = plugin
+            end
+          end
+          plugins = vim.tbl_values(plugins)
         else
           plugins[1] = self.render:get_plugin()
         end

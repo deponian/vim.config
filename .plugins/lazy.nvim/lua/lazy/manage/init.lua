@@ -83,11 +83,19 @@ function M.install(opts)
       "git.clone",
       { "git.checkout", lockfile = opts.lockfile },
       "plugin.docs",
-      "wait",
+      {
+        "wait",
+        ---@param runner Runner
+        sync = function(runner)
+          require("lazy.pkg").update()
+          Plugin.load()
+          runner:update()
+        end,
+      },
       "plugin.build",
     },
     plugins = function(plugin)
-      return plugin.url and not plugin._.installed
+      return plugin.url and not (plugin._.installed and not plugin._.build)
     end,
   }, opts):wait(function()
     require("lazy.manage.lock").update()
@@ -106,7 +114,15 @@ function M.update(opts)
       "git.status",
       { "git.checkout", lockfile = opts.lockfile },
       "plugin.docs",
-      "wait",
+      {
+        "wait",
+        ---@param runner Runner
+        sync = function(runner)
+          require("lazy.pkg").update()
+          Plugin.load()
+          runner:update()
+        end,
+      },
       "plugin.build",
       { "git.log", updated = true },
     },
@@ -220,7 +236,7 @@ function M.clear(plugins)
     if plugin._.tasks then
       ---@param task LazyTask
       plugin._.tasks = vim.tbl_filter(function(task)
-        return task:is_running()
+        return task:is_running() or task:has_errors()
       end, plugin._.tasks)
     end
   end

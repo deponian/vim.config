@@ -8,15 +8,62 @@ local start = vim.health.start or vim.health.report_start
 local ok = vim.health.ok or vim.health.report_ok
 local warn = vim.health.warn or vim.health.report_warn
 local error = vim.health.error or vim.health.report_error
+local info = vim.health.info or vim.health.report_info
+
+---@class LazyHealth
+---@field error? fun(msg:string)
+---@field warn? fun(msg:string)
+---@field ok? fun(msg:string)
+
+---@class LazyHealthHave : LazyHealth
+---@field version? string
+---@field version_pattern? string
+---@field optional? boolean
+
+---@param cmd string|string[]
+---@param opts? LazyHealthHave
+function M.have(cmd, opts)
+  opts = vim.tbl_extend("force", {
+    error = error,
+    warn = warn,
+    ok = ok,
+    version = "--version",
+  }, opts or {})
+
+  cmd = type(cmd) == "table" and cmd or { cmd }
+  ---@cast cmd string[]
+  ---@type string?
+  local found
+  for _, c in ipairs(cmd) do
+    if vim.fn.executable(c) == 1 then
+      local version = vim.fn.system(c .. " " .. opts.version) or ""
+      version = vim.trim(vim.split(version, "\n")[1])
+      version = version:gsub("^%s*" .. vim.pesc(c) .. "%s*", "")
+      if opts.version_pattern and not version:find(opts.version_pattern, 1, true) then
+        opts.warn(("`%s` version `%s` needed, but found `%s`"):format(c, opts.version_pattern, version))
+      else
+        found = ("{%s} `%s`"):format(c, version)
+        break
+      end
+    end
+  end
+  if found then
+    opts.ok(found)
+    return true
+  else
+    (opts.optional and opts.warn or opts.error)(
+      ("{%s} %snot installed"):format(
+        table.concat(cmd, "} or {"),
+        opts.version_pattern and "version `" .. opts.version_pattern .. "` " or ""
+      )
+    )
+  end
+end
 
 function M.check()
   start("lazy.nvim")
 
-  if vim.fn.executable("git") == 1 then
-    ok("Git installed")
-  else
-    error("Git not installed?")
-  end
+  M.have("git")
 
   local sites = vim.opt.packpath:get()
   local default_site = vim.fn.stdpath("data") .. "/site"
@@ -37,7 +84,7 @@ function M.check()
     ok("no existing packages found by other package managers")
   end
 
-  for _, name in ipairs({ "packer", "plugged", "paq" }) do
+  for _, name in ipairs({ "packer", "plugged", "paq", "pckr", "mini.deps" }) do
     for _, path in ipairs(vim.opt.rtp:get()) do
       if path:find(name, 1, true) then
         error("Found paths on the rtp from another plugin manager `" .. name .. "`")
@@ -59,7 +106,6 @@ function M.check()
   else
     for _, plugin in pairs(spec.plugins) do
       M.check_valid(plugin)
-      M.check_override(plugin)
     end
     if #spec.notifs > 0 then
       error("Issues were reported when loading your specs:")
@@ -75,6 +121,37 @@ function M.check()
       end
     end
   end
+
+  start("luarocks")
+  if Config.options.rocks.enabled then
+    if Config.options.rocks.hererocks then
+      info("checking `hererocks` installation")
+    else
+      info("checking `luarocks` installation")
+    end
+    local need_luarocks = {}
+    for _, plugin in pairs(spec.plugins) do
+      if plugin.build == "rockspec" then
+        table.insert(need_luarocks, plugin.name)
+      end
+    end
+    if #need_luarocks == 0 then
+      ok("no plugins require `luarocks`, so you can ignore any warnings below")
+    else
+      local lines = vim.tbl_map(function(name)
+        return "  * `" .. name .. "`"
+      end, need_luarocks)
+
+      info("you have some plugins that require `luarocks`:\n" .. table.concat(lines, "\n"))
+    end
+    require("lazy.pkg.rockspec").check({
+      error = #need_luarocks > 0 and error or warn,
+      warn = warn,
+      ok = ok,
+    })
+  else
+    ok("luarocks disabled")
+  end
 end
 
 ---@param plugin LazyPlugin
@@ -84,23 +161,6 @@ function M.check_valid(plugin)
       if key ~= "module" or type(plugin.module) ~= "boolean" then
         warn("{" .. plugin.name .. "}: unknown key <" .. key .. ">")
       end
-    end
-  end
-end
-
----@param plugin LazyPlugin
-function M.check_override(plugin)
-  if not plugin._.super then
-    return
-  end
-
-  local Handler = require("lazy.core.handler")
-  local skip = { "dependencies", "_", "opts", 1 }
-  vim.list_extend(skip, vim.tbl_values(Handler.types))
-
-  for key, value in pairs(plugin._.super) do
-    if not vim.tbl_contains(skip, key) and plugin[key] and plugin[key] ~= value then
-      warn("{" .. plugin.name .. "}: overriding <" .. key .. ">")
     end
   end
 end

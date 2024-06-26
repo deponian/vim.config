@@ -114,11 +114,12 @@ M.defaults                      = {
   },
   fzf_bin       = nil,
   fzf_opts      = {
-    ["--ansi"]   = true,
-    ["--info"]   = "inline-right",
-    ["--height"] = "100%",
-    ["--layout"] = "reverse",
-    ["--border"] = "none",
+    ["--ansi"]           = true,
+    ["--info"]           = "inline-right",
+    ["--height"]         = "100%",
+    ["--layout"]         = "reverse",
+    ["--border"]         = "none",
+    ["--highlight-line"] = true,
   },
   fzf_tmux_opts = { ["-p"] = "80%,80%", ["--margin"] = "0,0" },
   previewers    = {
@@ -196,8 +197,15 @@ M.defaults                      = {
     path = {
       filename_first = {
         -- <Tab> is used as the invisible space between the parent and the file part
-        enrich = function(o)
+        enrich = function(o, v)
           o.fzf_opts = vim.tbl_extend("keep", o.fzf_opts or {}, { ["--tabstop"] = 1 })
+          if tonumber(v) == 2 then
+            -- https://github.com/ibhagwan/fzf-lua/pull/1255
+            o.fzf_opts = vim.tbl_extend("keep", o.fzf_opts or {}, {
+              ["--ellipsis"] = " ",
+              ["--no-hscroll"] = true,
+            })
+          end
           return o
         end,
         -- underscore `_to` returns a custom to function when options could
@@ -207,28 +215,35 @@ M.defaults                      = {
         -- (globals or file-locals) are stored by ref and will be nil in the
         -- `string.dump` (from `config.bytecode`), we use the 3rd function
         -- argument `m` to pass module imports (path, utils, etc).
-        _to = function(o)
-          local _, escseq = utils.ansi_from_hl(o.hls.dir_part, "foo")
-          return [[
+        _to = function(o, v)
+          local _, hl_dir = utils.ansi_from_hl(o.hls.dir_part, "foo")
+          local _, hl_file = utils.ansi_from_hl(o.hls.file_part, "foo")
+          local v2 = tonumber(v) ~= 2 and "" or [[, "\xc2\xa0" .. string.rep(" ", 200) .. s]]
+          return ([[
             return function(s, _, m)
               local _path, _utils = m.path, m.utils
-              local _escseq = "]] .. (escseq or "") .. [["
+              local _hl_dir = "%s"
+              local _hl_file = "%s"
+              local tail = _path.tail(s)
               local parent = _path.parent(s)
+              if #_hl_file > 0 then
+                tail = _hl_file .. tail .. _utils.ansi_escseq.clear
+              end
               if parent then
                 parent = _path.remove_trailing(parent)
-                if #_escseq > 0 then
-                  parent = _escseq .. parent .. _utils.ansi_escseq.clear
+                if #_hl_dir > 0 then
+                  parent = _hl_dir .. parent .. _utils.ansi_escseq.clear
                 end
-                return _path.tail(s) .. "\t" .. parent
+                return tail .. "\t" .. parent %s
               else
-                return s
+                return tail %s
               end
             end
-          ]]
+          ]]):format(hl_dir or "", hl_file or "", v2, v2)
         end,
         from = function(s, _)
           local parts = utils.strsplit(s, utils.nbsp)
-          local last = parts[#parts]
+          local last = parts[#parts]:gsub("\xc2\xa0     .*$", "") -- gsub v2 postfix
           -- Lines from grep, lsp, tags are formatted <file>:<line>:<col>:<text>
           -- the pattern below makes sure tab doesn't come from the line text
           local filename, rest = last:match("^([^:]-)\t(.+)$")
@@ -242,11 +257,39 @@ M.defaults                      = {
             local fullpath = path.join({ parent, filename })
             -- overwrite last part with restored fullpath + rest of line
             parts[#parts] = fullpath .. rest:sub(#parent + 1)
-            s = table.concat(parts, utils.nbsp)
+            return table.concat(parts, utils.nbsp)
+          else
+            return last
           end
-          return s
         end
-      }
+      },
+      dirname_first = {
+        -- Credit fo @folke :-)
+        -- https://github.com/ibhagwan/fzf-lua/pull/1255
+        _to = function(o)
+          local _, hl_dir = utils.ansi_from_hl(o.hls.dir_part, "foo")
+          local _, hl_file = utils.ansi_from_hl(o.hls.file_part, "foo")
+          return ([[
+            return function(s, _, m)
+              local _path, _utils = m.path, m.utils
+              local _hl_dir = "%s"
+              local _hl_file = "%s"
+              local tail = _path.tail(s)
+              local parent = _path.parent(s)
+              if #_hl_file > 0 then
+                tail = _hl_file .. tail .. _utils.ansi_escseq.clear
+              end
+              if parent then
+                parent = _path.add_trailing(parent)
+                if #_hl_dir > 0 then
+                  parent = _hl_dir .. parent .. _utils.ansi_escseq.clear
+                end
+              end
+              return (parent or "") .. tail
+            end
+          ]]):format(hl_dir or "", hl_file or "")
+        end,
+      },
     }
   },
 }
@@ -270,6 +313,7 @@ M.defaults.files                = {
   rg_opts                = [[--color=never --files --hidden --follow -g "!.git"]],
   fd_opts                = "--color=never --type f --hidden --follow --exclude .git",
   toggle_ignore_flag     = "--no-ignore",
+  toggle_hidden_flag     = "--hidden",
   _actions               = function() return M.globals.actions.files end,
   actions                = { ["ctrl-g"] = { actions.toggle_ignore } },
   winopts                = { preview = { winopts = { cursorline = false } } },
@@ -802,6 +846,10 @@ M.defaults.lsp.code_actions     = {
   previewer        = "codeaction",
   -- previewer        = "codeaction_native",
   fzf_opts         = { ["--no-multi"] = true },
+  -- NOTE: we don't need an action as code actions are executed by the ui.select
+  -- callback but we setup an empty table to indicate to `globals.__index` that
+  -- we need to inherit from the global defaults (#1232)
+  actions          = {},
 }
 
 M.defaults.diagnostics          = {
@@ -1064,7 +1112,24 @@ M.defaults.__HLS                = {
   tab_marker     = "FzfLuaTabMarker",
   dir_icon       = "FzfLuaDirIcon",
   dir_part       = "FzfLuaDirPart",
+  file_part      = "FzfLuaFilePart",
   live_sym       = "FzfLuaLiveSym",
+  fzf            = {
+    normal     = "FzfLuaFzfNormal",
+    cursorline = "FzfLuaFzfCursorLine",
+    match      = "FzfLuaFzfMatch",
+    border     = "FzfLuaFzfBorder",
+    scrollbar  = "FzfLuaFzfScrollbar",
+    separator  = "FzfLuaFzfSeparator",
+    gutter     = "FzfLuaFzfGutter",
+    header     = "FzfLuaFzfHeader",
+    info       = "FzfLuaFzfInfo",
+    pointer    = "FzfLuaFzfPointer",
+    marker     = "FzfLuaFzfMarker",
+    spinner    = "FzfLuaFzfSpinner",
+    prompt     = "FzfLuaFzfPrompt",
+    query      = "FzfLuaFzfQuery",
+  }
 }
 
 M.defaults.__WINOPTS            = {

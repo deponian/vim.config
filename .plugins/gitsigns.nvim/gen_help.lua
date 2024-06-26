@@ -101,10 +101,10 @@ local function gen_config_doc_field(field, out)
     end
 
     local vtype = (function()
-      if v.type == 'table' and v.deep_extend then
+      local ty = v.type_help or v.type
+      if ty == 'table' and v.deep_extend then
         return 'table[extended]'
       end
-      local ty = v.type
       if type(ty) == 'table' then
         v.type = table.concat(ty, '|')
       end
@@ -478,7 +478,7 @@ end
 --- @return string|fun():string
 local function get_marker_text(marker)
   return ({
-    VERSION = 'v0.8.1', -- x-release-please-version
+    VERSION = 'v0.9.0', -- x-release-please-version
     CONFIG = gen_config_doc,
     FUNCTIONS = function()
       return gen_functions_doc({

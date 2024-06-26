@@ -1,5 +1,6 @@
 local errors = require("conform.errors")
 local fs = require("conform.fs")
+local ft_to_ext = require("conform.ft_to_ext")
 local log = require("conform.log")
 local util = require("conform.util")
 local uv = vim.uv or vim.loop
@@ -196,6 +197,7 @@ M.apply_format = function(bufnr, original_lines, new_lines, range, only_apply_ra
   end
 
   log.trace("Comparing lines %s and %s", original_lines, new_lines)
+  ---@diagnostic disable-next-line: missing-fields
   local indices = vim.diff(original_text, new_text, {
     result_type = "indices",
     algorithm = "histogram",
@@ -328,6 +330,8 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
   log.debug("Run command: %s", cmd)
   if cwd then
     log.debug("Run CWD: %s", cwd)
+  else
+    log.debug("Run default CWD: %s", vim.fn.getcwd())
   end
   if env then
     log.debug("Run ENV: %s", env)
@@ -456,7 +460,7 @@ M.build_context = function(bufnr, config, range)
     filename = fs.join(dirname, "unnamed_temp")
     local ft = vim.bo[bufnr].filetype
     if ft and ft ~= "" then
-      filename = filename .. "." .. ft
+      filename = filename .. "." .. (ft_to_ext[ft] or ft)
     end
   else
     dirname = vim.fs.dirname(filename)

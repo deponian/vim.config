@@ -82,6 +82,9 @@ local highlights = {
   ["@character"] = {
     link = "Character"
   },
+  ["@character.printf"] = {
+    link = "SpecialChar"
+  },
   ["@character.special"] = {
     link = "SpecialChar"
   },
@@ -1128,6 +1131,53 @@ local highlights = {
     fg = "#82aaff",
     style = {}
   },
+  FzfLuaBorder = {
+    bg = "#1e2030",
+    fg = "#589ed7"
+  },
+  FzfLuaCursor = {
+    link = "IncSearch"
+  },
+  FzfLuaDirPart = {
+    fg = "#545c7e"
+  },
+  FzfLuaFilePart = {
+    link = "FzfLuaFzfNormal"
+  },
+  FzfLuaFzfCursorLine = {
+    link = "Visual"
+  },
+  FzfLuaFzfNormal = {
+    fg = "#c8d3f5"
+  },
+  FzfLuaFzfPointer = {
+    fg = "#ff007c"
+  },
+  FzfLuaFzfSeparator = {
+    bg = "#1e2030",
+    fg = "#ff966c"
+  },
+  FzfLuaHeaderBind = {
+    link = "@punctuation.special"
+  },
+  FzfLuaHeaderText = {
+    link = "Title"
+  },
+  FzfLuaNormal = {
+    bg = "#1e2030",
+    fg = "#c8d3f5"
+  },
+  FzfLuaPath = {
+    link = "Directory"
+  },
+  FzfLuaPreviewTitle = {
+    bg = "#1e2030",
+    fg = "#589ed7"
+  },
+  FzfLuaTitle = {
+    bg = "#1e2030",
+    fg = "#ff966c"
+  },
   GitGutterAdd = {
     fg = "#627259"
   },
@@ -1504,6 +1554,34 @@ local highlights = {
     bold = true,
     fg = "#ff966c"
   },
+  MiniAnimateCursor = {
+    nocombine = true,
+    reverse = true
+  },
+  MiniAnimateNormalFloat = {
+    link = "NormalFloat"
+  },
+  MiniClueBorder = {
+    link = "FloatBorder"
+  },
+  MiniClueDescGroup = {
+    link = "DiagnosticFloatingWarn"
+  },
+  MiniClueDescSingle = {
+    link = "NormalFloat"
+  },
+  MiniClueNextKey = {
+    link = "DiagnosticFloatingHint"
+  },
+  MiniClueNextKeyWithPostkeys = {
+    link = "DiagnosticFloatingError"
+  },
+  MiniClueSeparator = {
+    link = "DiagnosticFloatingInfo"
+  },
+  MiniClueTitle = {
+    link = "FloatTitle"
+  },
   MiniCompletionActiveParameter = {
     underline = true
   },
@@ -1513,6 +1591,50 @@ local highlights = {
   MiniCursorwordCurrent = {
     bg = "#3b4261"
   },
+  MiniDepsChangeAdded = {
+    link = "diffAdded"
+  },
+  MiniDepsChangeRemoved = {
+    link = "diffRemoved"
+  },
+  MiniDepsHint = {
+    link = "DiagnosticHint"
+  },
+  MiniDepsInfo = {
+    link = "DiagnosticInfo"
+  },
+  MiniDepsMsgBreaking = {
+    link = "DiagnosticWarn"
+  },
+  MiniDepsPlaceholder = {
+    link = "Comment"
+  },
+  MiniDepsTitle = {
+    link = "Title"
+  },
+  MiniDepsTitleError = {
+    bg = "#e26a75",
+    fg = "#1b1d2b"
+  },
+  MiniDepsTitleSame = {
+    link = "Comment"
+  },
+  MiniDepsTitleUpdate = {
+    bg = "#b8db87",
+    fg = "#1b1d2b"
+  },
+  MiniDiffOverAdd = {
+    link = "DiffAdd"
+  },
+  MiniDiffOverChange = {
+    link = "DiffText"
+  },
+  MiniDiffOverContext = {
+    link = "DiffChange"
+  },
+  MiniDiffOverDelete = {
+    link = "DiffDelete"
+  },
   MiniDiffSignAdd = {
     fg = "#627259"
   },
@@ -1521,6 +1643,79 @@ local highlights = {
   },
   MiniDiffSignDelete = {
     fg = "#b55a67"
+  },
+  MiniFilesBorder = {
+    link = "FloatBorder"
+  },
+  MiniFilesBorderModified = {
+    link = "DiagnosticFloatingWarn"
+  },
+  MiniFilesCursorLine = {
+    link = "CursorLine"
+  },
+  MiniFilesDirectory = {
+    link = "Directory"
+  },
+  MiniFilesFile = {
+    fg = "#c8d3f5"
+  },
+  MiniFilesNormal = {
+    link = "NormalFloat"
+  },
+  MiniFilesTitle = {
+    link = "FloatTitle"
+  },
+  MiniFilesTitleFocused = {
+    bg = "#1e2030",
+    bold = true,
+    fg = "#589ed7"
+  },
+  MiniHipatternsFixme = {
+    bg = "#c53b53",
+    bold = true,
+    fg = "#1b1d2b"
+  },
+  MiniHipatternsHack = {
+    bg = "#ffc777",
+    bold = true,
+    fg = "#1b1d2b"
+  },
+  MiniHipatternsNote = {
+    bg = "#4fd6be",
+    bold = true,
+    fg = "#1b1d2b"
+  },
+  MiniHipatternsTodo = {
+    bg = "#0db9d7",
+    bold = true,
+    fg = "#1b1d2b"
+  },
+  MiniIconsAzure = {
+    fg = "#0db9d7"
+  },
+  MiniIconsBlue = {
+    fg = "#82aaff"
+  },
+  MiniIconsCyan = {
+    fg = "#4fd6be"
+  },
+  MiniIconsGreen = {
+    fg = "#c3e88d"
+  },
+  MiniIconsGrey = {
+    fg = "#c8d3f5"
+  },
+  MiniIconsOrange = {
+    fg = "#ff966c"
+  },
+  MiniIconsPurple = {
+    fg = "#fca7ea"
+  },
+  MiniIconsRed = {
+    fg = "#ff757f"
+  },
+  MiniIconsYellow = {
+    fg = "#ffc777"
   },
   MiniIndentscopePrefix = {
     nocombine = true
@@ -1533,10 +1728,88 @@ local highlights = {
     bg = "#ff007c",
     fg = "#ffffff"
   },
+  MiniJump2dDim = {
+    link = "Comment"
+  },
   MiniJump2dSpot = {
     bold = true,
     fg = "#ff007c",
     nocombine = true
+  },
+  MiniJump2dSpotAhead = {
+    bg = "#1e2030",
+    fg = "#4fd6be",
+    nocombine = true
+  },
+  MiniJump2dSpotUnique = {
+    bold = true,
+    fg = "#ff966c",
+    nocombine = true
+  },
+  MiniMapNormal = {
+    link = "NormalFloat"
+  },
+  MiniMapSymbolCount = {
+    link = "Special"
+  },
+  MiniMapSymbolLine = {
+    link = "Title"
+  },
+  MiniMapSymbolView = {
+    link = "Delimiter"
+  },
+  MiniNotifyBorder = {
+    link = "FloatBorder"
+  },
+  MiniNotifyNormal = {
+    link = "NormalFloat"
+  },
+  MiniNotifyTitle = {
+    link = "FloatTitle"
+  },
+  MiniOperatorsExchangeFrom = {
+    link = "IncSearch"
+  },
+  MiniPickBorder = {
+    link = "FloatBorder"
+  },
+  MiniPickBorderBusy = {
+    link = "DiagnosticFloatingWarn"
+  },
+  MiniPickBorderText = {
+    bg = "#1e2030",
+    fg = "#4fd6be"
+  },
+  MiniPickHeader = {
+    link = "DiagnosticFloatingHint"
+  },
+  MiniPickIconDirectory = {
+    link = "Directory"
+  },
+  MiniPickIconFile = {
+    link = "MiniPickNormal"
+  },
+  MiniPickMatchCurrent = {
+    link = "CursorLine"
+  },
+  MiniPickMatchMarked = {
+    link = "Visual"
+  },
+  MiniPickMatchRanges = {
+    link = "DiagnosticFloatingHint"
+  },
+  MiniPickNormal = {
+    link = "NormalFloat"
+  },
+  MiniPickPreviewLine = {
+    link = "CursorLine"
+  },
+  MiniPickPreviewRegion = {
+    link = "IncSearch"
+  },
+  MiniPickPrompt = {
+    bg = "#1e2030",
+    fg = "#0db9d7"
   },
   MiniStarterCurrent = {
     nocombine = true
@@ -1788,8 +2061,14 @@ local highlights = {
   NeoTreeDimText = {
     fg = "#3b4261"
   },
+  NeoTreeFileName = {
+    fg = "#828bb8"
+  },
   NeoTreeGitModified = {
     fg = "#ff966c"
+  },
+  NeoTreeGitStaged = {
+    fg = "#4fd6be"
   },
   NeoTreeGitUntracked = {
     fg = "#c099ff"
@@ -1876,6 +2155,24 @@ local highlights = {
   },
   NeotestWinSelect = {
     fg = "#82aaff"
+  },
+  NoiceCmdlineIconInput = {
+    fg = "#ffc777"
+  },
+  NoiceCmdlineIconLua = {
+    fg = "#65bcff"
+  },
+  NoiceCmdlinePopupBorderInput = {
+    fg = "#ffc777"
+  },
+  NoiceCmdlinePopupBorderLua = {
+    fg = "#65bcff"
+  },
+  NoiceCmdlinePopupTitleInput = {
+    fg = "#ffc777"
+  },
+  NoiceCmdlinePopupTitleLua = {
+    fg = "#65bcff"
   },
   NoiceCompletionItemKindArray = {
     link = "LspKindArray"
@@ -2120,6 +2417,40 @@ local highlights = {
   NvimTreeWinSeparator = {
     bg = "#1e2030",
     fg = "#1e2030"
+  },
+  OctoDetailsLabel = {
+    bold = true,
+    fg = "#65bcff"
+  },
+  OctoDetailsValue = {
+    link = "@variable.member"
+  },
+  OctoDirty = {
+    bold = true,
+    fg = "#ff966c"
+  },
+  OctoIssueTitle = {
+    bold = true,
+    fg = "#fca7ea"
+  },
+  OctoStateChangesRequested = {
+    link = "DiagnosticVirtualTextWarn"
+  },
+  OctoStateClosed = {
+    link = "DiagnosticVirtualTextError"
+  },
+  OctoStateMerged = {
+    bg = "#32304a",
+    fg = "#c099ff"
+  },
+  OctoStateOpen = {
+    link = "DiagnosticVirtualTextHint"
+  },
+  OctoStatePending = {
+    link = "DiagnosticVirtualTextWarn"
+  },
+  OctoStatusColumn = {
+    fg = "#65bcff"
   },
   Operator = {
     fg = "#89ddff"

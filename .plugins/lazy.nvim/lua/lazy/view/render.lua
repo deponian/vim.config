@@ -354,6 +354,31 @@ end
 
 ---@param plugin LazyPlugin
 function M:diagnostics(plugin)
+  local skip = false
+  for _, task in ipairs(plugin._.tasks or {}) do
+    if task:is_running() then
+      self:diagnostic({
+        severity = vim.diagnostic.severity.WARN,
+        message = task.name .. (task:status() and (": " .. task:status()) or ""),
+      })
+      skip = true
+    elseif task:has_errors() then
+      self:diagnostic({
+        message = task.name .. " failed",
+        severity = vim.diagnostic.severity.ERROR,
+      })
+      skip = true
+    elseif task:has_warnings() then
+      self:diagnostic({
+        message = task.name .. " warning",
+        severity = vim.diagnostic.severity.WARN,
+      })
+      skip = true
+    end
+  end
+  if skip then
+    return
+  end
   if plugin._.updated then
     if plugin._.updated.from == plugin._.updated.to then
       self:diagnostic({
@@ -380,19 +405,6 @@ function M:diagnostics(plugin)
     else
       self:diagnostic({
         message = "updates available",
-      })
-    end
-  end
-  for _, task in ipairs(plugin._.tasks or {}) do
-    if task:is_running() then
-      self:diagnostic({
-        severity = vim.diagnostic.severity.WARN,
-        message = task.name .. (task.status == "" and "" or (": " .. task.status)),
-      })
-    elseif task.error then
-      self:diagnostic({
-        message = task.name .. " failed",
-        severity = vim.diagnostic.severity.ERROR,
       })
     end
   end
@@ -434,6 +446,22 @@ function M:plugin(plugin)
     { name = plugin.name, from = plugin_start, to = self:row() - 1, kind = plugin._.kind }
 end
 
+---@param str string
+---@param hl? string|Extmark
+---@param opts? {indent?: number, prefix?: string, wrap?: boolean}
+function M:markdown(str, hl, opts)
+  local lines = vim.split(str, "\n")
+  for _, line in ipairs(lines) do
+    self:append(line, hl, opts):highlight({
+      ["`.-`"] = "@markup.raw.markdown_inline",
+      ["%*.-%*"] = "LazyItalic",
+      ["%*%*.-%*%*"] = "LazyBold",
+      ["^%s*-"] = "Special",
+    })
+    self:nl()
+  end
+end
+
 ---@param plugin LazyPlugin
 function M:tasks(plugin)
   for _, task in ipairs(plugin._.tasks or {}) do
@@ -442,46 +470,56 @@ function M:tasks(plugin)
       self:append(" " .. math.floor((task:time()) * 100) / 100 .. "ms", "Bold")
       self:nl()
     end
-    if task.error then
-      self:append(vim.trim(task.error), "LazyTaskError", { indent = 6 })
-      self:nl()
-    elseif task.name == "log" then
+
+    if not task:has_warnings() and task.name == "log" then
       self:log(task)
-    elseif self.view:is_selected(plugin) and task.output ~= "" and task.output ~= task.error then
-      self:append(vim.trim(task.output), "LazyTaskOutput", { indent = 6 })
-      self:nl()
+    else
+      local hls = {
+        [vim.log.levels.ERROR] = "LazyError",
+        [vim.log.levels.WARN] = "LazyWarning",
+        [vim.log.levels.INFO] = "LazyInfo",
+      }
+      for _, msg in ipairs(task:get_log()) do
+        if task:has_warnings() or self.view:is_selected(plugin) then
+          self:markdown(msg.msg, hls[msg.level] or "LazyTaskOutput", { indent = 6 })
+        end
+      end
     end
   end
 end
 
 ---@param task LazyTask
 function M:log(task)
-  local log = vim.trim(task.output)
+  local log = vim.trim(task:output())
   if log ~= "" then
     local lines = vim.split(log, "\n")
     for _, line in ipairs(lines) do
       local ref, msg, time = line:match("^(%w+) (.*) (%(.*%))$")
-      if msg:find("^%S+!:") then
-        self:diagnostic({ message = "Breaking Changes", severity = vim.diagnostic.severity.WARN })
-      end
-      self:append(ref:sub(1, 7) .. " ", "LazyCommit", { indent = 6 })
-
-      local dimmed = false
-      for _, dim in ipairs(ViewConfig.dimmed_commits) do
-        if msg:find("^" .. dim) then
-          dimmed = true
+      if msg then
+        if msg:find("^%S+!:") then
+          self:diagnostic({ message = "Breaking Changes", severity = vim.diagnostic.severity.WARN })
         end
+        self:append(ref:sub(1, 7) .. " ", "LazyCommit", { indent = 6 })
+
+        local dimmed = false
+        for _, dim in ipairs(ViewConfig.dimmed_commits) do
+          if msg:find("^" .. dim) then
+            dimmed = true
+          end
+        end
+        self:append(vim.trim(msg), dimmed and "LazyDimmed" or nil):highlight({
+          ["#%d+"] = "LazyCommitIssue",
+          ["^%S+:"] = dimmed and "Bold" or "LazyCommitType",
+          ["^%S+(%(.*%))!?:"] = "LazyCommitScope",
+          ["`.-`"] = "@markup.raw.markdown_inline",
+          ["%*.-%*"] = "Italic",
+          ["%*%*.-%*%*"] = "Bold",
+        })
+        self:append(" " .. time, "LazyComment")
+        self:nl()
+        -- else
+        --   self:append(line, "LazyTaskOutput", { indent = 6 }):nl()
       end
-      self:append(vim.trim(msg), dimmed and "LazyDimmed" or nil):highlight({
-        ["#%d+"] = "LazyCommitIssue",
-        ["^%S+:"] = dimmed and "Bold" or "LazyCommitType",
-        ["^%S+(%(.*%))!?:"] = "LazyCommitScope",
-        ["`.-`"] = "@markup.raw.markdown_inline",
-        ["%*.-%*"] = "Italic",
-        ["%*%*.-%*%*"] = "Bold",
-      })
-      self:append(" " .. time, "LazyComment")
-      self:nl()
     end
     self:nl()
   end
@@ -511,6 +549,11 @@ function M:details(plugin)
       table.insert(props, { "commit", git.commit:sub(1, 7), "LazyCommit" })
     end
   end
+  local rocks = require("lazy.pkg.rockspec").deps(plugin)
+  if rocks then
+    table.insert(props, { "rocks", vim.inspect(rocks) })
+  end
+
   if Util.file_exists(plugin.dir .. "/README.md") then
     table.insert(props, { "readme", "README.md" })
   end

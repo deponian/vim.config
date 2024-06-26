@@ -17,7 +17,6 @@ gitsigns-config-count_chars	gitsigns.txt	/*gitsigns-config-count_chars*
 gitsigns-config-current_line_blame	gitsigns.txt	/*gitsigns-config-current_line_blame*
 gitsigns-config-current_line_blame_formatter	gitsigns.txt	/*gitsigns-config-current_line_blame_formatter*
 gitsigns-config-current_line_blame_formatter_nc	gitsigns.txt	/*gitsigns-config-current_line_blame_formatter_nc*
-gitsigns-config-current_line_blame_formatter_opts	gitsigns.txt	/*gitsigns-config-current_line_blame_formatter_opts*
 gitsigns-config-current_line_blame_opts	gitsigns.txt	/*gitsigns-config-current_line_blame_opts*
 gitsigns-config-debug_mode	gitsigns.txt	/*gitsigns-config-debug_mode*
 gitsigns-config-diff_opts	gitsigns.txt	/*gitsigns-config-diff_opts*
@@ -30,13 +29,14 @@ gitsigns-config-show_deleted	gitsigns.txt	/*gitsigns-config-show_deleted*
 gitsigns-config-sign_priority	gitsigns.txt	/*gitsigns-config-sign_priority*
 gitsigns-config-signcolumn	gitsigns.txt	/*gitsigns-config-signcolumn*
 gitsigns-config-signs	gitsigns.txt	/*gitsigns-config-signs*
+gitsigns-config-signs_staged	gitsigns.txt	/*gitsigns-config-signs_staged*
+gitsigns-config-signs_staged_enable	gitsigns.txt	/*gitsigns-config-signs_staged_enable*
 gitsigns-config-status_formatter	gitsigns.txt	/*gitsigns-config-status_formatter*
 gitsigns-config-trouble	gitsigns.txt	/*gitsigns-config-trouble*
 gitsigns-config-update_debounce	gitsigns.txt	/*gitsigns-config-update_debounce*
 gitsigns-config-watch_gitdir	gitsigns.txt	/*gitsigns-config-watch_gitdir*
 gitsigns-config-word_diff	gitsigns.txt	/*gitsigns-config-word_diff*
 gitsigns-config-worktrees	gitsigns.txt	/*gitsigns-config-worktrees*
-gitsigns-config-yadm	gitsigns.txt	/*gitsigns-config-yadm*
 gitsigns-events	gitsigns.txt	/*gitsigns-events*
 gitsigns-functions	gitsigns.txt	/*gitsigns-functions*
 gitsigns-highlight-groups	gitsigns.txt	/*gitsigns-highlight-groups*
@@ -47,6 +47,7 @@ gitsigns-statusline	gitsigns.txt	/*gitsigns-statusline*
 gitsigns-textobject	gitsigns.txt	/*gitsigns-textobject*
 gitsigns-usage	gitsigns.txt	/*gitsigns-usage*
 gitsigns.attach()	gitsigns.txt	/*gitsigns.attach()*
+gitsigns.blame()	gitsigns.txt	/*gitsigns.blame()*
 gitsigns.blame_line()	gitsigns.txt	/*gitsigns.blame_line()*
 gitsigns.change_base()	gitsigns.txt	/*gitsigns.change_base()*
 gitsigns.detach()	gitsigns.txt	/*gitsigns.detach()*

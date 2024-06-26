@@ -163,6 +163,7 @@ M.rg_insert_args = function(cmd, args, relocate_pattern)
 end
 
 M.preprocess = function(opts)
+  local EOL = opts.multiline and "\0" or "\n"
   local argv = function(i, debug)
     -- argv1 is actually the 7th argument if we count
     -- arguments already supplied by 'wrap_spawn_stdio'.
@@ -170,13 +171,13 @@ M.preprocess = function(opts)
     local idx = tonumber(i) and tonumber(i) + 6 or #vim.v.argv
     local arg = vim.v.argv[idx]
     if debug == "v" or debug == "verbose" then
-      io.stdout:write(("[DEBUGV]: raw_argv(%d) = %s\n"):format(idx, arg))
+      io.stdout:write(("[DEBUGV]: raw_argv(%d) = %s" .. EOL):format(idx, arg))
     end
     if utils.__IS_WINDOWS then
       arg = libuv.unescape_fzf(arg, opts.__FZF_VERSION)
     end
     if debug == "v" or debug == "verbose" then
-      io.stdout:write(("[DEBUGV]: esc_argv(%d) = %s\n"):format(idx, libuv.shellescape(arg)))
+      io.stdout:write(("[DEBUGV]: esc_argv(%d) = %s" .. EOL):format(idx, libuv.shellescape(arg)))
     end
     return arg
   end
@@ -387,15 +388,33 @@ M.file = function(x, opts)
     ret[#ret + 1] = icon
     ret[#ret + 1] = utils.nbsp
   end
+  local _fmt_postfix -- when using `path.filename_first` v2
   if opts._fmt and type(opts._fmt.to) == "function" then
-    ret[#ret + 1] = opts._fmt.to(filepath, opts, { path = path, utils = utils })
+    ret[#ret + 1], _fmt_postfix = opts._fmt.to(filepath, opts, { path = path, utils = utils })
   else
     ret[#ret + 1] = file_is_ansi > 0
         -- filename is ansi escape colored, replace the inner string (#819)
         and file_part:gsub(utils.lua_regex_escape(stripped_filepath), filepath)
         or filepath
   end
+  -- multiline is only enabled with grep-like output PATH:LINE:COL:
+  if opts.multiline and rest_of_line then
+    opts.multiline = tonumber(opts.multiline) or 1
+    -- Sould match both colored and non colored versions of
+    -- PATH:LINE:TEXT and PATH:LINE:COL:TEXT
+    local ansi_num = "[%[%d;m]"
+    local filespec = rest_of_line:match(string.format("^:%s-:%s-:", ansi_num, ansi_num))
+        or rest_of_line:match(string.format("^:%s-:", ansi_num))
+    if filespec then
+      rest_of_line = filespec
+          .. "\n"
+          .. string.rep(" ", 4)
+          .. rest_of_line:sub(#filespec + 1)
+          .. (opts.multiline > 1 and "\n" or "")
+    end
+  end
   ret[#ret + 1] = rest_of_line
+  ret[#ret + 1] = _fmt_postfix
   return table.concat(ret)
 end
 

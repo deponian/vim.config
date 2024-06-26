@@ -7,12 +7,16 @@ local M = {}
 M.defaults = {
   root = vim.fn.stdpath("data") .. "/lazy", -- directory where plugins will be installed
   defaults = {
+    -- Set this to `true` to have all your plugins lazy-loaded by default.
+    -- Only do this if you know what you are doing, as it can lead to unexpected behavior.
     lazy = false, -- should plugins be lazy-loaded?
-    version = nil,
+    -- It's recommended to leave version=false for now, since a lot the plugin that support versioning,
+    -- have outdated releases, which may break your Neovim install.
+    version = nil, -- always use the latest git commit
+    -- version = "*", -- try installing the latest stable version for plugins that support semver
     -- default `cond` you can use to globally disable a lot of plugins
     -- when running inside vscode for example
     cond = nil, ---@type boolean|fun(self:LazyPlugin):boolean|nil
-    -- version = "*", -- enable this to try installing the latest stable versions of plugins
   },
   -- leave nil when passing the spec as the first argument to setup()
   spec = nil, ---@type LazySpec
@@ -30,6 +34,23 @@ M.defaults = {
     -- then set the below to false. This should work, but is NOT supported and will
     -- increase downloads a lot.
     filter = true,
+  },
+  pkg = {
+    enabled = true,
+    cache = vim.fn.stdpath("state") .. "/lazy/pkg-cache.lua",
+    -- the first package source that is found for a plugin will be used.
+    sources = {
+      "lazy",
+      "rockspec", -- will only be used when rocks.enabled is true
+      "packspec",
+    },
+  },
+  rocks = {
+    enabled = true,
+    root = vim.fn.stdpath("data") .. "/lazy-rocks",
+    server = "https://nvim-neorocks.github.io/rocks-binaries/",
+    -- use hererocks to install luarocks.
+    hererocks = vim.fn.executable("luarocks") == 0,
   },
   dev = {
     ---@type string | fun(plugin: LazyPlugin): string directory where you store your local plugin projects
@@ -84,7 +105,7 @@ M.defaults = {
     -- leave nil, to automatically select a browser depending on your OS.
     -- If you want to use a specific browser, you can define it here
     browser = nil, ---@type string?
-    throttle = 20, -- how frequently should the ui process render events
+    throttle = 1000 / 30, -- how frequently should the ui process render events
     custom_keys = {
       -- You can define custom key maps here. If present, the description will
       -- be shown in the help menu.
@@ -108,6 +129,17 @@ M.defaults = {
         desc = "Open terminal in plugin dir",
       },
     },
+  },
+  -- Output options for headless mode
+  headless = {
+    -- show the output from process commands like git
+    process = true,
+    -- show log messages
+    log = true,
+    -- show task start/end
+    task = true,
+    -- use ansi colors
+    colors = true,
   },
   diff = {
     -- diff command <d> can be one of:
@@ -164,12 +196,6 @@ M.defaults = {
     skip_if_doc_exists = true,
   },
   state = vim.fn.stdpath("state") .. "/lazy/state.json", -- state info for checker and other things
-  build = {
-    -- Plugins can provide a `build.lua` file that will be executed when the plugin is installed
-    -- or updated. When the plugin spec also has a `build` command, the plugin's `build.lua` not be
-    -- executed. In this case, a warning message will be shown.
-    warn_on_override = true,
-  },
   -- Enable profiling of lazy.nvim. This will add some overhead,
   -- so only enable this when you are debugging lazy.nvim
   profiling = {
@@ -182,7 +208,7 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "10.21.0" -- x-release-please-version
+M.version = "11.4.2" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
@@ -220,6 +246,7 @@ function M.setup(opts)
   end
   table.insert(M.options.install.colorscheme, "habamax")
 
+  -- root
   M.options.root = Util.norm(M.options.root)
   if type(M.options.dev.path) == "string" then
     M.options.dev.path = Util.norm(M.options.dev.path)
@@ -236,6 +263,7 @@ function M.setup(opts)
   M.me = debug.getinfo(1, "S").source:sub(2)
   M.me = Util.norm(vim.fn.fnamemodify(M.me, ":p:h:h:h:h"))
   if M.options.performance.rtp.reset then
+    ---@type vim.Option
     vim.opt.rtp = {
       vim.fn.stdpath("config"),
       vim.fn.stdpath("data") .. "/site",
@@ -255,10 +283,6 @@ function M.setup(opts)
   M.mapleader = vim.g.mapleader
   M.maplocalleader = vim.g.maplocalleader
 
-  if M.headless() then
-    require("lazy.view.commands").setup()
-  end
-
   vim.api.nvim_create_autocmd("UIEnter", {
     once = true,
     callback = function()
@@ -266,21 +290,37 @@ function M.setup(opts)
     end,
   })
 
-  vim.api.nvim_create_autocmd("User", {
-    pattern = "VeryLazy",
-    once = true,
-    callback = function()
-      require("lazy.view.commands").setup()
-      if M.options.change_detection.enabled then
-        require("lazy.manage.reloader").enable()
-      end
-      if M.options.checker.enabled then
-        vim.defer_fn(function()
-          require("lazy.manage.checker").start()
-        end, 10)
-      end
-    end,
-  })
+  if M.headless() then
+    require("lazy.view.commands").setup()
+  else
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "VeryLazy",
+      once = true,
+      callback = function()
+        require("lazy.view.commands").setup()
+        if M.options.change_detection.enabled then
+          require("lazy.manage.reloader").enable()
+        end
+        if M.options.checker.enabled then
+          vim.defer_fn(function()
+            require("lazy.manage.checker").start()
+          end, 10)
+        end
+
+        -- useful for plugin developers when making changes to a packspec file
+        vim.api.nvim_create_autocmd("BufWritePost", {
+          pattern = { "lazy.lua", "pkg.json", "*.rockspec" },
+          callback = function()
+            require("lazy").pkg({
+              plugins = {
+                require("lazy.core.plugin").find(vim.uv.cwd() .. "/lua/"),
+              },
+            })
+          end,
+        })
+      end,
+    })
+  end
 
   Util.very_lazy()
 end

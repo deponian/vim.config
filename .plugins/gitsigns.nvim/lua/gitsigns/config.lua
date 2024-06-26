@@ -1,21 +1,10 @@
---- @class (exact) Gitsigns.SchemaElem.Deprecated
----
---- Used for renaming fields.
---- @field new_field? string
----
---- Documentation for deprecation. Will be added to the help file and used in
---- the notification if `hard = true`.
---- @field message? string
----
---- Emit a message via vim.notify
---- @field hard? boolean
-
 --- @class (exact) Gitsigns.SchemaElem
---- @field type string|string[]
+--- @field type string|string[]|fun(x:any): boolean
+--- @field type_help? string
 --- @field refresh? fun(cb: fun()) Function to refresh the config value
 --- @field deep_extend? boolean
 --- @field default any
---- @field deprecated? boolean|Gitsigns.SchemaElem.Deprecated
+--- @field deprecated? boolean
 --- @field default_help? string
 --- @field description string
 
@@ -45,10 +34,7 @@
 --- | 'changedelete'
 --- | 'untracked'
 
---- @class (exact) Gitsigns.CurrentLineBlameFmtOpts
---- @field relative_time boolean
-
---- @alias Gitsigns.CurrentLineBlameFmtFun fun(user: string, info: table<string,any>, opts: Gitsigns.CurrentLineBlameFmtOpts): {[1]:string,[2]:string}[]
+--- @alias Gitsigns.CurrentLineBlameFmtFun fun(user: string, info: table<string,any>): [string,string][]
 
 --- @class (exact) Gitsigns.CurrentLineBlameOpts : Gitsigns.BlameOpts
 --- @field virt_text? boolean
@@ -58,7 +44,6 @@
 
 --- @class (exact) Gitsigns.BlameOpts
 --- @field ignore_whitespace? boolean
---- @field rev? string
 --- @field extra_opts? string[]
 
 --- @class (exact) Gitsigns.LineBlameOpts : Gitsigns.BlameOpts
@@ -69,8 +54,8 @@
 --- @field diff_opts Gitsigns.DiffOpts
 --- @field base? string
 --- @field signs table<Gitsigns.SignType,Gitsigns.SignConfig>
---- @field _signs_staged table<Gitsigns.SignType,Gitsigns.SignConfig>
---- @field _signs_staged_enable boolean
+--- @field signs_staged table<Gitsigns.SignType,Gitsigns.SignConfig>
+--- @field signs_staged_enable boolean
 --- @field count_chars table<string|integer,string>
 --- @field signcolumn boolean
 --- @field numhl boolean
@@ -84,14 +69,12 @@
 --- @field update_debounce integer
 --- @field status_formatter fun(_: table<string,any>): string
 --- @field current_line_blame boolean
---- @field current_line_blame_formatter_opts { relative_time: boolean }
 --- @field current_line_blame_formatter string|Gitsigns.CurrentLineBlameFmtFun
 --- @field current_line_blame_formatter_nc string|Gitsigns.CurrentLineBlameFmtFun
 --- @field current_line_blame_opts Gitsigns.CurrentLineBlameOpts
 --- @field preview_config table<string,any>
 --- @field auto_attach boolean
 --- @field attach_to_untracked boolean
---- @field yadm { enable: boolean }
 --- @field worktrees {toplevel: string, gitdir: string}[]
 --- @field word_diff boolean
 --- @field trouble boolean
@@ -108,9 +91,7 @@ local M = {
     DiffOpts = {},
     SignConfig = {},
     watch_gitdir = {},
-    current_line_blame_formatter_opts = {},
     current_line_blame_opts = {},
-    yadm = {},
     Worktree = {},
   },
 }
@@ -182,10 +163,53 @@ M.config = setmetatable({}, {
   end,
 })
 
+local function warn(s, ...)
+  vim.notify_once(s:format(...), vim.log.levels.WARN, { title = 'gitsigns' })
+end
+
+--- @param x Gitsigns.SignConfig
+--- @return boolean
+local function validate_signs(x)
+  if type(x) ~= 'table' then
+    return false
+  end
+
+  local warnings --- @type table<string,true>?
+
+  --- @diagnostic disable-next-line:no-unknown
+  for kind, s in pairs(M.schema.signs.default) do
+    --- @diagnostic disable-next-line:no-unknown
+    for ty, v in pairs(s) do
+      if x[kind] and x[kind][ty] and vim.endswith(ty, 'hl') then
+        warnings = warnings or {}
+        local w = string.format(
+          "'signs.%s.%s' is now deprecated, please define highlight '%s' e.g:\n"
+            .. "  vim.api.nvim_set_hl(0, '%s', { link = '%s' })",
+          kind,
+          ty,
+          v,
+          v,
+          x[kind][ty]
+        )
+        warnings[w] = true
+      end
+    end
+  end
+
+  if warnings then
+    for w in vim.spairs(warnings) do
+      warn(w)
+    end
+  end
+
+  return true
+end
+
 --- @type table<string,Gitsigns.SchemaElem>
 M.schema = {
   signs = {
-    type = 'table',
+    type_help = 'table',
+    type = validate_signs,
     deep_extend = true,
     default = {
       add = { hl = 'GitSignsAdd', text = '┃', numhl = 'GitSignsAddNr', linehl = 'GitSignsAddLn' },
@@ -244,7 +268,7 @@ M.schema = {
     ]],
   },
 
-  _signs_staged = {
+  signs_staged = {
     type = 'table',
     deep_extend = true,
     default = {
@@ -293,9 +317,9 @@ M.schema = {
     ]],
   },
 
-  _signs_staged_enable = {
+  signs_staged_enable = {
     type = 'boolean',
-    default = false,
+    default = true,
     description = [[
     Show signs for staged hunks.
 
@@ -649,24 +673,9 @@ M.schema = {
     ]],
   },
 
-  current_line_blame_formatter_opts = {
-    type = 'table',
-    deep_extend = true,
-    deprecated = true,
-    default = {
-      relative_time = false,
-    },
-    description = [[
-      Options for the current line blame annotation formatter.
-
-      Fields: ~
-        • relative_time: boolean
-    ]],
-  },
-
   current_line_blame_formatter = {
     type = { 'string', 'function' },
-    default = ' <author>, <author_time> - <summary> ',
+    default = ' <author>, <author_time:%R> - <summary> ',
     description = [[
       String or function used to format the virtual text of
       |gitsigns-config-current_line_blame|.
@@ -735,9 +744,6 @@ M.schema = {
                        Note that the keys map onto the output of:
                          `git blame --line-porcelain`
 
-          {opts}       Passed directly from
-                       |gitsigns-config-current_line_blame_formatter_opts|.
-
         Return: ~
           The result of this function is passed directly to the `opts.virt_text`
           field of |nvim_buf_set_extmark| and thus must be a list of
@@ -766,17 +772,6 @@ M.schema = {
     description = [[
       When using setqflist() or setloclist(), open Trouble instead of the
       quickfix/location list window.
-    ]],
-  },
-
-  yadm = {
-    type = 'table',
-    deprecated = {
-      message = 'Please use |gitsigns-config-on_attach_pre| instead',
-    },
-    default = { enable = false },
-    description = [[
-      yadm configuration.
     ]],
   },
 
@@ -861,22 +856,18 @@ M.schema = {
   },
 }
 
-local function warn(s, ...)
-  vim.notify(s:format(...), vim.log.levels.WARN, { title = 'gitsigns' })
-end
-
 --- @param config Gitsigns.Config
 local function validate_config(config)
-  --- @diagnostic disable-next-line:no-unknown
-  for k, v in pairs(config) do
+  for k, v in
+    pairs(config --[[@as table<string,any>]])
+  do
     local kschema = M.schema[k]
     if kschema == nil then
       warn("gitsigns: Ignoring invalid configuration field '%s'", k)
-    elseif kschema.type then
-      if type(kschema.type) == 'string' then
-        vim.validate({
-          [k] = { v, kschema.type },
-        })
+    else
+      local ty = kschema.type
+      if type(ty) == 'string' or type(ty) == 'function' then
+        vim.validate({ [k] = { v, ty } })
       end
     end
   end
@@ -888,28 +879,15 @@ local function handle_deprecated(cfg)
     local dep = v.deprecated
     if dep and cfg[k] ~= nil then
       if type(dep) == 'table' then
-        if dep.new_field then
-          local opts_key, field = dep.new_field:match('(.*)%.(.*)')
-          if opts_key and field then
-            -- Field moved to an options table
-            local opts = (cfg[opts_key] or {}) --[[@as table<any,any>]]
-            opts[field] = cfg[k]
-            cfg[opts_key] = opts
-          else
-            -- Field renamed
-            cfg[dep.new_field] = cfg[k]
-          end
-        end
-
         if dep.hard then
           if dep.message then
             warn(dep.message)
-          elseif dep.new_field then
-            warn('%s is now deprecated, please use %s', k, dep.new_field)
           else
             warn('%s is now deprecated; ignoring', k)
           end
         end
+      else
+        warn('%s is now deprecated; ignoring', k)
       end
     end
   end

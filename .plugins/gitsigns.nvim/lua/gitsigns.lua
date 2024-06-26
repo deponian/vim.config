@@ -17,6 +17,10 @@ local cwd_watcher ---@type uv.uv_fs_event_t?
 local function get_gitdir_and_head()
   local cwd = assert(uv.cwd())
 
+  -- Run on the main loop to avoid:
+  --   https://github.com/LazyVim/LazyVim/discussions/3407#discussioncomment-9622211
+  async.scheduler()
+
   -- Look in the cache first
   for _, bcache in pairs(require('gitsigns.cache').cache) do
     local repo = bcache.git_obj.repo
@@ -65,6 +69,11 @@ local update_cwd_head = async.create(function()
 
   if cwd_watcher then
     cwd_watcher:stop()
+    -- TODO(lewis6991): (#1027) Running `fs_event:stop()` -> `fs_event:start()`
+    -- in the same loop event, on Windows, causes Nvim to hang on quit.
+    if vim.fn.has('win32') then
+      async.scheduler()
+    end
   else
     cwd_watcher = assert(uv.new_fs_event())
   end
@@ -129,8 +138,10 @@ local function setup_attach()
 
   local attach_autocmd_disabled = false
 
-  api.nvim_create_autocmd({ 'BufRead', 'BufNewFile', 'BufWritePost' }, {
+  -- Need to attach in 'BufFilePost' since we always detach in 'BufFilePre'
+  api.nvim_create_autocmd({ 'BufFilePost', 'BufRead', 'BufNewFile', 'BufWritePost' }, {
     group = 'gitsigns',
+    desc = 'Gitsigns: attach',
     callback = function(args)
       local bufnr = args.buf --[[@as integer]]
       if attach_autocmd_disabled then
@@ -142,11 +153,21 @@ local function setup_attach()
     end,
   })
 
+  -- If the buffer name is about to change, then detach
+  api.nvim_create_autocmd('BufFilePre', {
+    group = 'gitsigns',
+    desc = 'Gitsigns: detach when changing buffer names',
+    callback = function(args)
+      require('gitsigns.attach').detach(args.buf)
+    end,
+  })
+
   --- vimpgrep creates and deletes lots of buffers so attaching to each one will
-  --- waste lots of resource and even slow down vimgrep.
+  --- waste lots of resource and slow down vimgrep.
   api.nvim_create_autocmd({ 'QuickFixCmdPre', 'QuickFixCmdPost' }, {
     group = 'gitsigns',
     pattern = '*vimgrep*',
+    desc = 'Gitsigns: disable attach during vimgrep',
     callback = function(args)
       attach_autocmd_disabled = args.event == 'QuickFixCmdPre'
     end,

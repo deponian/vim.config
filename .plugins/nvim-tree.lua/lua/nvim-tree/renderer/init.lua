@@ -19,10 +19,21 @@ local namespace_id = vim.api.nvim_create_namespace "NvimTreeHighlights"
 ---@param hl_args AddHighlightArgs[]
 ---@param signs string[]
 local function _draw(bufnr, lines, hl_args, signs)
-  vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
+  if vim.fn.has "nvim-0.10" == 1 then
+    vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
+  else
+    vim.api.nvim_buf_set_option(bufnr, "modifiable", true) ---@diagnostic disable-line: deprecated
+  end
+
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
   M.render_hl(bufnr, hl_args)
-  vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
+
+  if vim.fn.has "nvim-0.10" == 1 then
+    vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+  else
+    vim.api.nvim_buf_set_option(bufnr, "modifiable", false) ---@diagnostic disable-line: deprecated
+  end
+
   vim.fn.sign_unplace(SIGN_GROUP)
   for i, sign_name in pairs(signs) do
     vim.fn.sign_place(0, SIGN_GROUP, sign_name, bufnr, { lnum = i + 1 })
@@ -51,7 +62,7 @@ function M.draw()
 
   local profile = log.profile_start "draw"
 
-  local cursor = vim.api.nvim_win_get_cursor(view.get_winnr())
+  local cursor = vim.api.nvim_win_get_cursor(view.get_winnr() or 0)
   icon_component.reset_config()
 
   local builder = Builder:new():build()
@@ -59,7 +70,7 @@ function M.draw()
   _draw(bufnr, builder.lines, builder.hl_args, builder.signs)
 
   if cursor and #builder.lines >= cursor[1] then
-    vim.api.nvim_win_set_cursor(view.get_winnr(), cursor)
+    vim.api.nvim_win_set_cursor(view.get_winnr() or 0, cursor)
   end
 
   view.grow_from_content()

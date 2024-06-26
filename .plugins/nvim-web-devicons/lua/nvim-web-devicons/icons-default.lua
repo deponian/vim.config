@@ -12,7 +12,7 @@ local icons_by_filename = {
     name = "GradleSettings",
   },
   [".babelrc"] = {
-    icon = "",
+    icon = "",
     color = "#cbcb41",
     cterm_color = "185",
     name = "Babelrc",
@@ -107,6 +107,12 @@ local icons_by_filename = {
     cterm_color = "28",
     name = "Gvimrc",
   },
+  [".justfile"] = {
+    icon = "",
+    color = "#6d8086",
+    cterm_color = "66",
+    name = "Justfile",
+  },
   [".luaurc"] = {
     icon = "",
     color = "#00a2ff",
@@ -130,6 +136,12 @@ local icons_by_filename = {
     color = "#E8274B",
     cterm_color = "197",
     name = "NPMrc",
+  },
+  [".nvmrc"] = {
+    icon = "",
+    color = "#5FA04E",
+    cterm_color = "71",
+    name = "node",
   },
   [".prettierrc"] = {
     icon = "",
@@ -454,6 +466,12 @@ local icons_by_filename = {
     color = "#1c99f3",
     cterm_color = "32",
     name = "Cantorrc",
+  },
+  ["justfile"] = {
+    icon = "",
+    color = "#6d8086",
+    cterm_color = "66",
+    name = "Justfile",
   },
   ["kalgebrarc"] = {
     icon = "",
@@ -2210,6 +2228,18 @@ local icons_by_file_extension = {
     cterm_color = "215",
     name = "Mobi",
   },
+  ["mojo"] = {
+    icon = "",
+    color = "#ff4c1f",
+    cterm_color = "196",
+    name = "Mojo",
+  },
+  ["🔥"] = {
+    icon = "",
+    color = "#ff4c1f",
+    cterm_color = "196",
+    name = "Mojo",
+  },
   ["mov"] = {
     icon = "",
     color = "#FD971F",
@@ -3473,12 +3503,6 @@ local icons_by_operating_system = {
     cterm_color = "238",
     name = "LXLE",
   },
-  ["mint"] = {
-    icon = "󰣭",
-    color = "#66af3d",
-    cterm_color = "70",
-    name = "Mint",
-  },
   ["mageia"] = {
     icon = "",
     color = "#2397d4",
@@ -3490,6 +3514,12 @@ local icons_by_operating_system = {
     color = "#33b959",
     cterm_color = "35",
     name = "Manjaro",
+  },
+  ["mint"] = {
+    icon = "󰣭",
+    color = "#66af3d",
+    cterm_color = "70",
+    name = "Mint",
   },
   ["mxlinux"] = {
     icon = "",

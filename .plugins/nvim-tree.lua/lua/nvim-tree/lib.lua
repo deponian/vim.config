@@ -3,6 +3,7 @@ local view = require "nvim-tree.view"
 local core = require "nvim-tree.core"
 local utils = require "nvim-tree.utils"
 local events = require "nvim-tree.events"
+local notify = require "nvim-tree.notify"
 local explorer_node = require "nvim-tree.explorer.node"
 
 ---@class LibOpenOpts
@@ -84,8 +85,7 @@ function M.get_last_group_node(node)
     node = node.group_next
   end
 
-  ---@diagnostic disable-next-line: return-type-mismatch -- it can't be nil
-  return node
+  return node ---@diagnostic disable-line: return-type-mismatch -- it can't be nil
 end
 
 ---Group empty folders
@@ -198,8 +198,15 @@ end
 local function should_hijack_current_buf()
   local bufnr = vim.api.nvim_get_current_buf()
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-  local bufmodified = vim.api.nvim_buf_get_option(bufnr, "modified")
-  local ft = vim.api.nvim_buf_get_option(bufnr, "ft")
+
+  local bufmodified, ft
+  if vim.fn.has "nvim-0.10" == 1 then
+    bufmodified = vim.api.nvim_get_option_value("modified", { buf = bufnr })
+    ft = vim.api.nvim_get_option_value("ft", { buf = bufnr })
+  else
+    bufmodified = vim.api.nvim_buf_get_option(bufnr, "modified") ---@diagnostic disable-line: deprecated
+    ft = vim.api.nvim_buf_get_option(bufnr, "ft") ---@diagnostic disable-line: deprecated
+  end
 
   local should_hijack_unnamed = M.hijack_unnamed_buffer_when_opening and bufname == "" and not bufmodified and ft == ""
   local should_hijack_dir = bufname ~= "" and vim.fn.isdirectory(bufname) == 1 and M.hijack_directories.enable
@@ -243,7 +250,16 @@ function M.open(opts)
 
   M.set_target_win()
   if not core.get_explorer() or opts.path then
-    core.init(opts.path or vim.loop.cwd())
+    if opts.path then
+      core.init(opts.path)
+    else
+      local cwd, err = vim.loop.cwd()
+      if not cwd then
+        notify.error(string.format("current working directory unavailable: %s", err))
+        return
+      end
+      core.init(cwd)
+    end
   end
   if should_hijack_current_buf() then
     view.close_this_tab_only()

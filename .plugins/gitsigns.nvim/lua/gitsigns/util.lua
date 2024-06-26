@@ -71,8 +71,9 @@ local function add_bom(x, encoding)
 end
 
 --- @param bufnr integer
+--- @param noendofline? boolean
 --- @return string[]
-function M.buf_lines(bufnr)
+function M.buf_lines(bufnr, noendofline)
   -- nvim_buf_get_lines strips carriage returns if fileformat==dos
   local buftext = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
@@ -84,7 +85,7 @@ function M.buf_lines(bufnr)
     end
   end
 
-  if vim.bo[bufnr].endofline then
+  if not noendofline and vim.bo[bufnr].endofline then
     -- Add CR to the last line
     if dos then
       buftext[#buftext] = buftext[#buftext] .. '\r'
@@ -114,6 +115,15 @@ end
 function M.buf_rename(bufnr, name)
   vim.api.nvim_buf_set_name(bufnr, name)
   delete_alt(bufnr)
+end
+
+--- @param events string[]
+--- @param f fun()
+function M.noautocmd(events, f)
+  local ei = vim.o.eventignore
+  vim.o.eventignore = table.concat(events, ',')
+  f()
+  vim.o.eventignore = ei
 end
 
 --- @param bufnr integer
@@ -254,9 +264,8 @@ end
 
 ---@param fmt string
 ---@param info table<string,any>
----@param reltime? boolean Use relative time as the default date format
 ---@return string
-function M.expand_format(fmt, info, reltime)
+function M.expand_format(fmt, info)
   local ret = {} --- @type string[]
 
   for _ = 1, 20 do -- loop protection
@@ -277,7 +286,7 @@ function M.expand_format(fmt, info, reltime)
       end
       if vim.endswith(key, '_time') then
         if time_fmt == '' then
-          time_fmt = reltime and '%R' or '%Y-%m-%d'
+          time_fmt = '%Y-%m-%d'
         end
         v = expand_date(time_fmt, v)
       end
@@ -318,7 +327,7 @@ end
 ---@param first integer
 ---@param last integer
 function M.list_remove(t, first, last)
-  local n = #t
+  local n = table.maxn(t)
   for i = 0, n - first do
     t[first + i] = t[last + 1 + i]
     t[last + 1 + i] = nil
@@ -338,7 +347,7 @@ end
 ---@param last integer
 ---@param v any
 function M.list_insert(t, first, last, v)
-  local n = #t
+  local n = table.maxn(t)
 
   -- Shift table forward
   for i = n - first, 0, -1 do

@@ -88,15 +88,13 @@ local function on_lines_blame(blame, first, last_orig, last_new)
     return
   end
 
-  if last_new ~= last_orig then
-    if last_new < last_orig then
-      util.list_remove(blame, last_new, last_orig)
-    else
-      util.list_insert(blame, last_orig, last_new)
-    end
+  if last_new < last_orig then
+    util.list_remove(blame, last_new + 1, last_orig)
+  elseif last_new > last_orig then
+    util.list_insert(blame, last_orig + 1, last_new)
   end
 
-  for i = math.min(first + 1, last_new), math.max(first + 1, last_new) do
+  for i = first + 1, last_new do
     blame[i] = nil
   end
 end
@@ -488,9 +486,10 @@ M.update = throttle_by_id(function(bufnr)
     return
   end
 
-  if config._signs_staged_enable and not file_mode and not git_obj.revision then
+  if config.signs_staged_enable and not file_mode then
     if not bcache.compare_text_head or config._refresh_staged_on_update then
-      bcache.compare_text_head = git_obj:get_show_text('HEAD')
+      local staged_rev = git_obj:from_tree() and git_obj.revision .. '^' or 'HEAD'
+      bcache.compare_text_head = git_obj:get_show_text(staged_rev)
       if not M.schedule(bufnr, true) then
         return
       end
@@ -581,8 +580,8 @@ function M.setup()
   })
 
   signs_normal = Signs.new(config.signs)
-  if config._signs_staged_enable then
-    signs_staged = Signs.new(config._signs_staged, 'staged')
+  if config.signs_staged_enable then
+    signs_staged = Signs.new(config.signs_staged, 'staged')
   end
 
   M.update_debounced = debounce_trailing(config.update_debounce, async.create(1, M.update))

@@ -71,7 +71,7 @@ local function get_buf_path(bufnr)
     dprintf("Fugitive buffer for file '%s' from path '%s'", path, file)
     if path then
       local realpath = uv.fs_realpath(path)
-      if realpath then
+      if realpath and vim.fn.isdirectory(realpath) == 0 then
         return realpath, commit, true
       end
     end
@@ -138,15 +138,16 @@ end
 
 --- @param _bufnr integer
 --- @param file string
+--- @param revision string?
 --- @param encoding string
 --- @return Gitsigns.GitObj?
-local function try_worktrees(_bufnr, file, encoding)
+local function try_worktrees(_bufnr, file, revision, encoding)
   if not config.worktrees then
     return
   end
 
   for _, wt in ipairs(config.worktrees) do
-    local git_obj = git.Obj.new(file, encoding, wt.gitdir, wt.toplevel)
+    local git_obj = git.Obj.new(file, revision, encoding, wt.gitdir, wt.toplevel)
     if git_obj and git_obj.object_name then
       dprintf('Using worktree %s', vim.inspect(wt))
       return git_obj
@@ -211,13 +212,12 @@ local function get_buf_context(bufnr)
     file = file,
     gitdir = gitdir,
     toplevel = toplevel,
-    -- Commit buffers have there base set back one revision with '^'
     -- Stage buffers always compare against the common ancestor (':1')
     -- :0: index
     -- :1: common ancestor
     -- :2: target commit (HEAD)
     -- :3: commit which is being merged
-    base = commit and (commit:match('^:[1-3]') and ':1' or commit .. '^') or nil,
+    base = commit and (commit:match('^:[1-3]') and ':1' or commit) or nil,
   }
 end
 
@@ -273,7 +273,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
   local git_obj = git.Obj.new(file, revision, encoding, ctx.gitdir, ctx.toplevel)
 
   if not git_obj and not passed_ctx then
-    git_obj = try_worktrees(cbuf, file, encoding)
+    git_obj = try_worktrees(cbuf, file, revision, encoding)
     async.scheduler()
     if not api.nvim_buf_is_valid(cbuf) then
       return
@@ -357,6 +357,10 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
 
   -- Initial update
   manager.update(cbuf)
+
+  if config.current_line_blame then
+    require('gitsigns.current_line_blame').update(cbuf)
+  end
 end)
 
 --- Detach Gitsigns from all buffers it is attached to.

@@ -27,6 +27,16 @@ M.ACTION_DEFINITIONS = {
       end
     end,
   },
+  [actions.toggle_hidden]     = {
+    function(o)
+      local flag = o.toggle_hidden_flag or "--hidden"
+      if o.cmd and o.cmd:match(utils.lua_regex_escape(flag)) then
+        return "Exclude hidden files"
+      else
+        return "Include hidden files"
+      end
+    end,
+  },
   [actions.grep_lgrep]        = {
     function(o)
       if o.fn_reload then
@@ -411,7 +421,8 @@ M.fzf = function(contents, opts)
       cwd = opts.cwd,
       silent_fail = opts.silent_fail,
       is_fzf_tmux = opts._is_fzf_tmux,
-      debug = opts.debug_cmd or opts.debug and not (opts.debug_cmd == false)
+      debug = opts.debug_cmd or opts.debug and not (opts.debug_cmd == false),
+      RIPGREP_CONFIG_PATH = opts.RIPGREP_CONFIG_PATH,
     })
   -- kill fzf piped process PID
   -- NOTE: might be an overkill since we're using $FZF_DEFAULT_COMMAND
@@ -439,7 +450,7 @@ M.fzf = function(contents, opts)
   -- retrieve the future action and check:
   --   * if it's a single function we can close the window
   --   * if it's a table of functions we do not close the window
-  local keybind = actions.normalize_selected(opts.actions, selected)
+  local keybind = actions.normalize_selected(opts.actions, selected, opts)
   local action = keybind and opts.actions and opts.actions[keybind]
   -- only close the window if autoclose wasn't specified or is 'true'
   -- or if the action wasn't a table or defined with `reload|noclose`
@@ -466,6 +477,32 @@ M.create_fzf_colors = function(opts)
   local colors = opts and opts.fzf_colors
   if type(colors) == "function" then
     colors = colors(opts)
+  end
+  -- auto create `fzf_colors` based on Neovim's current colorscheme
+  if colors == true then
+    colors = {
+      ["fg"]      = { "fg", opts.hls.fzf.normal },
+      ["bg"]      = { "bg", opts.hls.fzf.normal },
+      ["hl"]      = { "fg", opts.hls.fzf.match },
+      ["fg+"]     = { "fg", opts.hls.fzf.cursorline },
+      ["bg+"]     = { "bg", opts.hls.fzf.cursorline },
+      ["hl+"]     = { "fg", opts.hls.fzf.match },
+      ["info"]    = { "fg", opts.hls.fzf.info },
+      ["border"]  = { "fg", opts.hls.fzf.border },
+      ["gutter"]  = { "bg", opts.hls.fzf.gutter },
+      ["query"]   = { "fg", opts.hls.fzf.query, "regular" },
+      ["prompt"]  = { "fg", opts.hls.fzf.prompt },
+      ["pointer"] = { "fg", opts.hls.fzf.pointer },
+      ["marker"]  = { "fg", opts.hls.fzf.marker },
+      ["spinner"] = { "fg", opts.hls.fzf.spinner },
+      ["header"]  = { "fg", opts.hls.fzf.header },
+    }
+    if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.35 then
+      colors.separator = { "fg", opts.hls.fzf.separator }
+    end
+    if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.41 then
+      colors.scrollbar = { "fg", opts.hls.fzf.scrollbar }
+    end
   end
 
   -- Inerherit from fzf.vim's g:fzf_colors
@@ -529,7 +566,8 @@ M.create_fzf_colors = function(opts)
   return not utils.tbl_isempty(tbl) and table.concat(tbl, ",")
 end
 
-M.create_fzf_binds = function(binds)
+M.create_fzf_binds = function(opts)
+  local binds = opts.keymap.fzf
   if not binds or utils.tbl_isempty(binds) then return end
   local tbl = {}
   local dedup = {}
@@ -543,6 +581,16 @@ M.create_fzf_binds = function(binds)
     end
   end
   for key, action in pairs(dedup) do
+    -- Since we no longer use `--expect` any bind that contains `accept`
+    -- should be assumed to "accept" the default action, using `--expect`
+    -- that meant printing an empty string for the default enter key
+    if opts.__FZF_VERSION
+        and opts.__FZF_VERSION >= 0.53
+        and action:match("accept")
+        and not action:match("print(.-)%+accept")
+    then
+      action = action:gsub("accept", "print(enter)+accept")
+    end
     table.insert(tbl, string.format("%s:%s", key, action))
   end
   return table.concat(tbl, ",")
@@ -552,14 +600,13 @@ end
 ---@return string[]
 M.build_fzf_cli = function(opts)
   opts.fzf_opts = vim.tbl_extend("force", config.globals.fzf_opts, opts.fzf_opts or {})
-  -- copy from globals
-  for _, o in ipairs({
-    "fzf_ansi",
-    "fzf_colors",
-    "fzf_layout",
-    "keymap",
-  }) do
-    opts[o] = opts[o] or config.globals[o]
+  -- copy/merge from globals
+  for _, o in ipairs({ "fzf_colors", "keymap" }) do
+    if opts[o] == nil then
+      opts[o] = config.globals[o]
+    elseif type(opts[o]) == "table" and type(config.globals[o]) == "table" then
+      opts[o] = vim.tbl_deep_extend("keep", opts[o], config.globals[o])
+    end
   end
   -- below options can be specified directly in opts and will be
   -- prioritized: opts.<name> is prioritized over fzf_opts["--name"]
@@ -592,7 +639,7 @@ M.build_fzf_cli = function(opts)
       opts.fzf_opts["--preview"] = preview_cmd
     end
   end
-  opts.fzf_opts["--bind"] = M.create_fzf_binds(opts.keymap.fzf)
+  opts.fzf_opts["--bind"] = M.create_fzf_binds(opts)
   opts.fzf_opts["--color"] = M.create_fzf_colors(opts)
   do
     -- `actions.expect` parses the actions table and returns a list of
@@ -607,7 +654,7 @@ M.build_fzf_cli = function(opts)
     if expect_binds and #expect_binds > 0 then
       local bind = opts.fzf_opts["--bind"]
       opts.fzf_opts["--bind"] = string.format("%s%s%s",
-        bind, bind and "," or "", table.concat(expect_binds, ","))
+        bind or "", bind and "," or "", table.concat(expect_binds, ","))
     end
   end
   if opts.fzf_opts["--preview-window"] == nil then
@@ -622,6 +669,9 @@ M.build_fzf_cli = function(opts)
       and opts.fzf_opts["--info"] == "inline-right"
   then
     opts.fzf_opts["--info"] = "inline"
+  end
+  if opts._is_skim or opts.__FZF_VERSION and opts.__FZF_VERSION < 0.53 then
+    opts.fzf_opts["--highlight-line"] = nil
   end
   if opts._is_skim then
     -- skim (rust version of fzf) doesn't support the '--info=' flag
@@ -705,6 +755,7 @@ M.mt_cmd_wrapper = function(opts)
       "stderr",
       "stderr_to_stdout",
       "formatter",
+      "multiline",
       "git_dir",
       "git_worktree",
       "git_icons",

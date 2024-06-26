@@ -355,7 +355,13 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- Setup completion options
   if opts.complete then
     opts.actions = opts.actions or {}
-    opts.actions["default"] = actions.complete
+    opts.actions.enter = actions.complete
+  end
+
+  -- Backward compat, "default" action is "enter"
+  if opts.actions then
+    opts.actions.enter = opts.actions.enter or opts.actions.default
+    opts.actions.default = nil
   end
 
   -- Merge highlight overrides with defaults, we only do this after the
@@ -364,11 +370,16 @@ function M.normalize_opts(opts, globals, __resume_key)
 
   -- Setup formatter options
   if opts.formatter then
+    local _fmt_ver = 1
+    if type(opts.formatter) == "table" then
+      _fmt_ver = opts.formatter.v or opts.formatter[2] or _fmt_ver
+      opts.formatter = opts.formatter.name or opts.formatter[1]
+    end
     local _fmt = M.globals["formatters." .. opts.formatter]
     if _fmt then
       opts._fmt = opts._fmt or {}
       if opts._fmt.to == nil then
-        opts._fmt.to = _fmt.to or _fmt._to and _fmt._to(opts) or nil
+        opts._fmt.to = _fmt.to or _fmt._to and _fmt._to(opts, _fmt_ver) or nil
       end
       if opts._fmt.from == nil then
         opts._fmt.from = _fmt.from
@@ -380,7 +391,7 @@ function M.normalize_opts(opts, globals, __resume_key)
       end
       if type(_fmt.enrich) == "function" then
         -- formatter requires enriching the config (fzf_opts, etc)
-        opts = _fmt.enrich(opts) or opts
+        opts = _fmt.enrich(opts, _fmt_ver) or opts
       end
     else
       utils.warn(("Invalid formatter '%s', ignoring."):format(opts.formatter))
@@ -485,6 +496,15 @@ function M.normalize_opts(opts, globals, __resume_key)
       opts.fzf_opts = opts.fzf_opts or {}
       opts.fzf_opts["--border"] = false
     end
+  end
+
+  if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 and opts.multiline then
+    -- If `multiline` was specified we add both "read0" & "print0" flags
+    opts.fzf_opts["--read0"] = true
+    opts.fzf_opts["--print0"] = true
+  else
+    -- If not possible (fzf v<0.53|skim), nullify the option
+    opts.multiline = nil
   end
 
   -- are we using fzf-tmux, if so get available columns
@@ -621,6 +641,7 @@ M._action_to_helpstr = {
   [actions.arg_add]             = "arg-list-add",
   [actions.arg_del]             = "arg-list-delete",
   [actions.toggle_ignore]       = "toggle-ignore",
+  [actions.toggle_hidden]       = "toggle-hidden",
   [actions.grep_lgrep]          = "grep<->lgrep",
   [actions.sym_lsym]            = "sym<->lsym",
   [actions.tmux_buf_set_reg]    = "set-register",

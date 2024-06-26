@@ -84,7 +84,7 @@ Extended mappings (temporary force "prev"/"next" search methods):
 - `sdnf` - delete (`sd`) next (`n`) function call (`f`).
 - `srlf(` - replace (`sr`) last (`l`) function call (`f`) with padded
   bracket (`(`).
-- `2sfnt` - find (`sf`) second (2) next (`n`) tag (`t`).
+- `2sfnt` - find (`sf`) second (`2`) next (`n`) tag (`t`).
 - `2shl}` - highlight (`sh`) last (`l`) second (`2`) curly bracket (`}`).
 
 # Comparisons ~
@@ -197,9 +197,13 @@ Notes:
   whitespace: open includes it left and right parts, close does not.
 - Output value of `b` alias is same as `)`. For `q` alias - same as `"`.
 - Default surrounding is activated for all characters which are not
-  configured surrounding identifiers. Note: due to special handling of
-  underlying `x.-x` Lua pattern (see |MiniSurround-search-algorithm|), it
-  doesn't really support non-trivial `[count]` for "cover" search method.
+  configured surrounding identifiers. Notes:
+    - Due to special handling of underlying `x.-x` Lua pattern
+      (see |MiniSurround-search-algorithm|), it doesn't really support
+      non-trivial `[count]` for "cover" search method.
+    - When cursor is exactly on the identifier character while there are
+      two matching candidates on both left and right, the one resulting in
+      region with smaller width is preferred.
 
 ------------------------------------------------------------------------------
                                                          *MiniSurround-glossary*
@@ -456,7 +460,7 @@ Usage ~
 Module config
 
 Default values:
->
+>lua
   MiniSurround.config = {
     -- Add custom surroundings to be used on top of builtin ones. For more
     -- information with examples, see `:h MiniSurround.config`.
@@ -566,12 +570,12 @@ Examples of using `config.custom_surroundings` (see more examples at
       -- Use function to compute surrounding info
       ['*'] = {
         input = function()
-          local n_star = MiniSurround.user_input('Number of * to find: ')
+          local n_star = MiniSurround.user_input('Number of * to find')
           local many_star = string.rep('%*', tonumber(n_star) or 1)
           return { many_star .. '().-()' .. many_star }
         end,
         output = function()
-          local n_star = MiniSurround.user_input('Number of * to output: ')
+          local n_star = MiniSurround.user_input('Number of * to output')
           local many_star = string.rep('*', tonumber(n_star) or 1)
           return { left = many_star, right = many_star }
         end,
@@ -727,19 +731,8 @@ to ask for input inside function custom surrounding (see |MiniSurround.config|).
 Generate common surrounding specifications
 
 This is a table with two sets of generator functions: <input> and <output>
-(currently empty). Each is a table with values being function generating
+(currently empty). Each is a table with function values generating
 corresponding surrounding specification.
-
-Example: >
-  local ts_input = require('mini.surround').gen_spec.input.treesitter
-  require('mini.surround').setup({
-    custom_surroundings = {
-      -- Use tree-sitter to search for function call
-      f = {
-        input = ts_input({ outer = '@call.outer', inner = '@call.inner' })
-      },
-    }
-  })
 
 See also ~
 |MiniAi.gen_spec|
@@ -781,8 +774,11 @@ Example configuration for function definition textobject with
 >
   local ts_input = require('mini.surround').gen_spec.input.treesitter
   require('mini.surround').setup({
-    custom_textobjects = {
-      f = ts_input({ outer = '@call.outer', inner = '@call.inner' }),
+    custom_surroundings = {
+      -- Use tree-sitter to search for function call
+      f = {
+        input = ts_input({ outer = '@call.outer', inner = '@call.inner' })
+      },
     }
   })
 <

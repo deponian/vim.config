@@ -69,6 +69,12 @@ function M.setup_highlights(override)
     { "FzfLuaScrollFloatFull",   "scrollfloat_f",  { default = default, link = "PmenuThumb" } },
     { "FzfLuaDirIcon",           "dir_icon",       { default = default, link = "Directory" } },
     { "FzfLuaDirPart",           "dir_part",       { default = default, link = "Comment" } },
+    { "FzfLuaFilePart", "file_part",
+      {
+        default = default,
+        link = utils.__HAS_NVIM_08 and "@none" or "Normal",
+      }
+    },
     -- Fzf terminal hls, colors from `vim.api.nvim_get_color_map()`
     { "FzfLuaHeaderBind", "header_bind",
       { default = default, fg = is_light and "MediumSpringGreen" or "BlanchedAlmond" } },
@@ -93,6 +99,21 @@ function M.setup_highlights(override)
       { default = default, fg = is_light and "CadetBlue4" or "LightSkyBlue1", bold = true } },
     { "FzfLuaTabMarker", "tab_marker",    -- tabs
       { default = default, fg = is_light and "MediumSpringGreen" or "BlanchedAlmond", bold = true } },
+    -- highlight groups for `fzf_colors=true`
+    { "FzfLuaFzfNormal",     "fzf.normal",     { default = default, link = "FzfLuaNormal" } },
+    { "FzfLuaFzfCursorLine", "fzf.cursorline", { default = default, link = "FzfLuaCursorLine" } },
+    { "FzfLuaFzfMatch",      "fzf.match",      { default = default, link = "Special" } },
+    { "FzfLuaFzfBorder",     "fzf.border",     { default = default, link = "FzfLuaBorder" } },
+    { "FzfLuaFzfScrollbar",  "fzf.scrollbar",  { default = default, link = "FzfLuaFzfBorder" } },
+    { "FzfLuaFzfSeparator",  "fzf.separator",  { default = default, link = "FzfLuaFzfBorder" } },
+    { "FzfLuaFzfGutter",     "fzf.gutter",     { default = default, link = "FzfLuaNormal" } },
+    { "FzfLuaFzfHeader",     "fzf.header",     { default = default, link = "FzfLuaTitle" } },
+    { "FzfLuaFzfInfo",       "fzf.info",       { default = default, link = "NonText" } },
+    { "FzfLuaFzfPointer",    "fzf.pointer",    { default = default, link = "Special" } },
+    { "FzfLuaFzfMarker",     "fzf.marker",     { default = default, link = "FzfLuaFzfPointer" } },
+    { "FzfLuaFzfSpinner",    "fzf.spinner",    { default = default, link = "FzfLuaFzfPointer" } },
+    { "FzfLuaFzfPrompt",     "fzf.prompt",     { default = default, link = "Special" } },
+    { "FzfLuaFzfQuery",      "fzf.query",      { default = default, link = "FzfLuaNormal" } },
   }
   for _, a in ipairs(highlights) do
     local hl_name, _, hl_def = a[1], a[2], a[3]
