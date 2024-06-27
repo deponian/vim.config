@@ -4,7 +4,7 @@
 vim.keymap.set({"n", "v"}, "<Leader>q", "<cmd>quit<CR>")
 
 -- <Leader>Q -- exit without saving
-vim.keymap.set({"n", "v"}, "<Leader>Q", "<cmd>quitall!<CR>")
+vim.keymap.set({"n", "v"}, "<Leader>Q", "<cmd>quitall<CR>")
 
 -- <Leader>w -- save buffer
 vim.keymap.set("n", "<Leader>w", "<cmd>write<CR>")
