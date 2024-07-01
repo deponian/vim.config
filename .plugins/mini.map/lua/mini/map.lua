@@ -27,8 +27,8 @@
 ---   for common integrations:
 ---     - Builtin search (as result of |/| and similar).
 ---     - Builtin diagnostic (taken from |vim.diagnostic.get()|).
----     - Git line status (with help of 'lewis6991/gitsigns.nvim', see
----       |gitsigns.get_hunks()|).
+---     - General diff hunks provided by 'mini.diff'.
+---     - Hunks computed provided by 'lewis6991/gitsigns.nvim'.
 ---   For more details see |MiniMap.gen_integration|.
 ---
 --- - Focus on map window to quickly browse current (source) buffer. Moving inside
@@ -58,17 +58,19 @@
 --- - Provide autoopen functionality. Due to vast differences in user preference
 ---   of when map window should be shown, set up of automatic opening is left to
 ---   user. A common approach would be to call `MiniMap.open()` on |VimEnter| event.
----   If you use |MiniStarter|, you can modify `<CR>` buffer mapping: >
+---   If you use |MiniStarter|, you can modify `<CR>` buffer mapping: >lua
 ---
----   vim.cmd([[autocmd User MiniStarterOpened
----     \ lua vim.keymap.set(
----     \   'n',
----     \   '<CR>',
----     \   '<Cmd>lua MiniStarter.eval_current_item(); MiniMap.open()<CR>',
----     \   { buffer = true }
----     \ )]])
+---     local set_map_keymap = function()
+---       local rhs = function()
+---         MiniStarter.eval_current_item()
+---         MiniMap.open()
+---       end
+---       vim.keymap.set('n', '<CR>', rhs, { buffer = true })
+---     end
+---     local opts = { pattern = 'MiniStarterOpened', callback = set_map_keymap }
+---     vim.api.nvim_create_autocmd('User', opts)
 --- <
---- # Setup~
+--- # Setup ~
 ---
 --- This module needs a setup with `require('mini.map').setup({})` (replace
 --- `{}` with your `config` table). It will create global Lua table `MiniMap`
@@ -80,13 +82,15 @@
 --- to buffer inside `vim.b.minimap_config` which should have same structure
 --- as `MiniMap.config`. See |mini.nvim-buffer-local-config| for more details.
 ---
---- # Dependencies~
+--- # Dependencies ~
 ---
 --- Suggested dependencies (provide extra functionality for integrations):
+--- - Enabled 'mini.diff' module for general diff highlighting via
+---   |MiniMap.gen_integration.diff()|. If missing, no highlighting is added.
 --- - Plugin 'lewis6991/gitsigns.nvim' for Git status highlighting via
 ---   |MiniMap.gen_integration.gitsigns()|. If missing, no highlighting is added.
 ---
---- # Comparisons~
+--- # Comparisons ~
 ---
 --- - 'wfxr/minimap.vim':
 ---     - 'mini.map' doesn't have dependencies while being as fast as written
@@ -118,10 +122,10 @@
 ---     - 'mini.map' has fully extendable highlight integrations, while
 ---       'nvim-scrollbar' only supports diagnostic and search (with dependency).
 --- - 'lewis6991/satellite.nvim':
----     - Almost the same differencies as with 'dstein64/nvim-scrollview', except
+---     - Almost the same differences as with 'dstein64/nvim-scrollview', except
 ---       'satellite.nvim' can display some set of integration highlights.
 ---
---- # Highlight groups~
+--- # Highlight groups ~
 ---
 --- * `MiniMapNormal` - basic highlight of whole window.
 --- * `MiniMapSymbolCount` - counts of per-line integration items.
@@ -130,7 +134,7 @@
 ---
 --- To change any highlight group, modify it directly with |:highlight|.
 ---
---- # Disabling~
+--- # Disabling ~
 ---
 --- To disable, set `vim.g.minimap_disable` (globally) or `vim.b.minimap_disable`
 --- (for a buffer) to `true`. Considering high number of different scenarios
@@ -141,7 +145,7 @@
 --- # Mappings ~
 ---
 --- This module doesn't make mappings, only provides functions for users to map
---- manually. Here is how one |<Leader>| set of mappings can be constructed: >
+--- manually. Here is how one |<Leader>| set of mappings can be constructed: >lua
 ---
 ---   vim.keymap.set('n', '<Leader>mc', MiniMap.close)
 ---   vim.keymap.set('n', '<Leader>mf', MiniMap.toggle_focus)
@@ -184,7 +188,11 @@ local H = {}
 ---
 ---@param config table|nil Module config table. See |MiniMap.config|.
 ---
----@usage `require('mini.map').setup({})` (replace `{}` with your `config` table)
+---@usage >lua
+---   require('mini.map').setup() -- use default config
+---   -- OR
+---   require('mini.map').setup({}) -- replace {} with your config table
+--- <
 MiniMap.setup = function(config)
   -- Export module
   _G.MiniMap = MiniMap
@@ -270,7 +278,7 @@ end
 --- highlight group name) keys. Note: line number outside of source buffer
 --- count will be converted to a nearest appropriate one.
 ---
---- Example output of single integration: >
+--- Example output of single integration: >lua
 ---
 ---   {
 ---     { line = 1, hl_group = 'Search' },
@@ -293,13 +301,13 @@ end
 --- this will make them have higher priority in case other integrations will
 --- highlight same map line.
 ---
---- Example of using `config.integrations`: >
+--- Example of using `config.integrations`: >lua
 ---
 ---   local map = require('mini.map')
 ---   map.setup({
 ---     integrations = {
 ---       map.gen_integration.builtin_search(),
----       map.gen_integration.gitsigns(),
+---       map.gen_integration.diff(),
 ---       map.gen_integration.diagnostic(),
 ---     },
 ---   })
@@ -324,9 +332,11 @@ end
 --- `window.width` - width of floating window, including scrollbar and
 --- integration count column. Default: 10.
 ---
---- `window.winblend` - value of 'winblend' for map window. Value 0 makes it
+--- `window.winblend` - value of 'winblend' of floating window. Value 0 makes it
 --- completely non-transparent, 100 - completely transparent (content is still
 --- visible, but with slightly different highlights).
+---
+--- `window.zindex` - z-index of floating window. Default: 10.
 ---
 --- # Pure scrollbar config ~
 ---
@@ -337,7 +347,7 @@ end
 ---   height).
 --- - Integration highlights are not computed.
 ---
---- Config: >
+--- Config: >lua
 ---
 ---   require('mini.map').setup({
 ---     -- Customize `symbols` to your liking
@@ -353,6 +363,7 @@ end
 ---       show_integration_count = false,
 ---     }
 ---   })
+--- <
 MiniMap.config = {
   -- Highlight integrations (none by default)
   integrations = nil,
@@ -385,6 +396,9 @@ MiniMap.config = {
 
     -- Value of 'winblend' option
     winblend = 25,
+
+    -- Z-index
+    zindex = 10,
   },
 }
 --minidoc_afterlines_end
@@ -471,6 +485,7 @@ MiniMap.current = {
 ---   tttt
 ---   tftf
 ---   ttff
+--- <
 --- - Convert to symbols. It makes `1x2` bins, treats their input as (reversed)
 ---   binary digits (`ff=00=0`, `tf=10=1`, `ft=01=2`, `tt=11=3`) and takes
 ---   corresponding symbols from supplied options (value plus 1). Result: >
@@ -648,7 +663,7 @@ MiniMap.toggle_focus = function(use_previous_cursor)
 
     -- Use either previous cursor or first non-whitespace character (if this
     -- was the result of cursor movement inside map window)
-    if use_previous_cursor then
+    if use_previous_cursor and H.cache.previous_win.cursor ~= nil then
       vim.api.nvim_win_set_cursor(0, H.cache.previous_win.cursor)
     elseif H.cache.n_map_cursor_moves > 1 then
       vim.cmd('normal! ^')
@@ -719,17 +734,19 @@ MiniMap.gen_integration = {}
 --- Integration count reflects number of actual matches.
 ---
 --- It prompts integration highlighting update on every change of |hlsearch| option
---- (see |OptionSet|). Note, that it doesn't do that when search is
---- started with |n|, |N|, or similar (there is no good approach for this yet).
---- To enable highlight update on this keys, make custom mappings. Like this: >
+--- (see |OptionSet|). Note that it is not happening for some keys:
+--- - Toggle search highlight with |CTRL-L-default| or `\h` from 'mini.basics'.
+---   Use custom mapping which changes mode. Like this: >lua
+---
+---   vim.keymap.set('n', [[\h]], ':let v:hlsearch = 1 - v:hlsearch<CR>')
+--- <
+--- - After starting search with |n|, |N|, |star|, or |#|.
+---   To enable highlight update on this keys, make custom mappings. Like this: >lua
 ---
 ---   for _, key in ipairs({ 'n', 'N', '*', '#' }) do
----     vim.keymap.set(
----       'n',
----       key,
----       key ..
----         '<Cmd>lua MiniMap.refresh({}, {lines = false, scrollbar = false})<CR>'
----     )
+---     local rhs = key ..
+---       '<Cmd>lua MiniMap.refresh({}, {lines = false, scrollbar = false})<CR>'
+---     vim.keymap.set('n', key, rhs)
 ---   end
 --- <
 ---@param hl_groups table|nil Table defining highlight groups. Can have the
@@ -793,7 +810,8 @@ end
 ---   - <info> - highlight group for info items. Default: `nil` (not shown).
 ---   - <hint> - highlight group for hint items. Default: `nil` (not shown).
 ---
----@usage Show all diagnostic levels: >
+---@usage >lua
+---   -- Show all diagnostic levels
 ---   local map = require('mini.map')
 ---   local diagnostic_integration = map.gen_integration.diagnostic({
 ---     error = 'DiagnosticFloatingError',
@@ -802,6 +820,7 @@ end
 ---     hint  = 'DiagnosticFloatingHint',
 ---   })
 ---   map.setup({ integrations = { diagnostic_integration } })
+--- <
 MiniMap.gen_integration.diagnostic = function(hl_groups)
   if hl_groups == nil then hl_groups = { error = 'DiagnosticFloatingError' } end
 
@@ -841,21 +860,48 @@ MiniMap.gen_integration.diagnostic = function(hl_groups)
   end
 end
 
---- Git line status
+--- General diff hunks from 'mini.diff'
 ---
---- Highlight lines which have non-trivial Git status. Requires dependency
---- 'lewis6991/gitsigns.nvim' installed and set up. Uses |gitsigns.get_hunks()|
---- and should highlight map lines similarly to how Gitsigns highlights source
---- buffer lines (except dealing with rescaled input on "first seen" bases; see
---- "Integrations" section in |MiniMap.config|).
----
---- It prompts integration highlighting update on every |gitsigns-event|.
+--- Highlight lines which are part of current diff.
+--- Requires 'mini.diff' as dependency.
 ---
 ---@param hl_groups table|nil Table defining highlight groups. If `nil` (not
 ---   supplied), this status is not highlighted. Can have the following fields:
----   - <add> - highlight group for added lines. Default: "GitSignsAdd".
----   - <change> - highlight group for changed lines. Default: "GitSignsChange".
----   - <delete> - highlight group for deleted lines. Default: "GitSignsDelete".
+---   - <add> - group name for "add" hunks. Default: "MiniDiffSignAdd".
+---   - <change> - group name for "change" hunks. Default: "MiniDiffSignChange".
+---   - <delete> - group name for "delete" hunks. Default: "MiniDiffSignDelete".
+MiniMap.gen_integration.diff = function(hl_groups)
+  if hl_groups == nil then
+    hl_groups = { add = 'MiniDiffSignAdd', change = 'MiniDiffSignChange', delete = 'MiniDiffSignDelete' }
+  end
+
+  local augroup = vim.api.nvim_create_augroup('MiniMapDiff', {})
+  vim.api.nvim_create_autocmd(
+    'User',
+    { group = augroup, pattern = 'MiniDiffUpdated', callback = H.on_integration_update, desc = 'On MiniDiffUpdated' }
+  )
+
+  return function()
+    local has_diff, diff = pcall(require, 'mini.diff')
+    if not has_diff or diff == nil then return {} end
+
+    local has_buf_data, buf_data = pcall(diff.get_buf_data, MiniMap.current.buf_data.source)
+    if not has_buf_data or buf_data == nil then return {} end
+
+    return H.hunks_to_line_hl(buf_data.hunks, hl_groups)
+  end
+end
+
+--- Hunks from 'lewis6991/gitsigns.nvim'
+---
+--- Highlight lines which have non-trivial Git status.
+--- Requires 'lewis6991/gitsigns.nvim' dependency.
+---
+---@param hl_groups table|nil Table defining highlight groups. If `nil` (not
+---   supplied), this status is not highlighted. Can have the following fields:
+---   - <add> - group name for added lines. Default: "GitSignsAdd".
+---   - <change> - group name for changed lines. Default: "GitSignsChange".
+---   - <delete> - group name for deleted lines. Default: "GitSignsDelete".
 MiniMap.gen_integration.gitsigns = function(hl_groups)
   if hl_groups == nil then hl_groups = { add = 'GitSignsAdd', change = 'GitSignsChange', delete = 'GitSignsDelete' } end
 
@@ -872,29 +918,23 @@ MiniMap.gen_integration.gitsigns = function(hl_groups)
     local has_hunks, hunks = pcall(gitsigns.get_hunks, MiniMap.current.buf_data.source)
     if not has_hunks or hunks == nil then return {} end
 
-    local line_hl = {}
-    for _, hunk in ipairs(hunks) do
-      local from_line = hunk.added.start
-      local n_added, n_removed = hunk.added.count, hunk.removed.count
-      local n_lines = math.max(n_added, 1)
-      -- Highlight similar to 'gitsigns' itself:
-      -- - Delete - single first line if nothing was added.
-      -- - Change - added lines that are within first removed lines.
-      -- - Added - added lines after first removed lines.
-      for i = 1, n_lines do
-        local hl_type = (n_added < i and 'delete') or (i <= n_removed and 'change' or 'add')
-        local hl_group = hl_groups[hl_type]
-        if hl_group ~= nil then table.insert(line_hl, { line = from_line + i - 1, hl_group = hl_group }) end
-      end
+    local diff_hunks = {}
+    for _, h in ipairs(hunks) do
+      --stylua: ignore
+      table.insert( diff_hunks, {
+        type = h.type,
+        buf_start = h.added.start,   buf_count = h.added.count,
+        ref_start = h.removed.start, ref_count = h.removed.count,
+      })
     end
 
-    return line_hl
+    return H.hunks_to_line_hl(diff_hunks, hl_groups)
   end
 end
 
 -- Helper data ================================================================
 -- Module default config
-H.default_config = MiniMap.config
+H.default_config = vim.deepcopy(MiniMap.config)
 
 -- Cache for various operations
 H.cache = {
@@ -980,7 +1020,7 @@ H.setup_config = function(config)
   -- General idea: if some table elements are not present in user-supplied
   -- `config`, take them from default config
   vim.validate({ config = { config, 'table', true } })
-  config = vim.tbl_deep_extend('force', H.default_config, config or {})
+  config = vim.tbl_deep_extend('force', vim.deepcopy(H.default_config), config or {})
 
   vim.validate({
     integrations = { config.integrations, H.is_valid_config_integrations },
@@ -1003,6 +1043,7 @@ H.create_autocommands = function()
   au({ 'BufEnter', 'BufWritePost', 'TextChanged', 'VimResized' }, '*', H.on_content_change, 'On content change')
   au({ 'CursorMoved', 'WinScrolled' }, '*', H.on_view_change, 'On view change')
   au('WinLeave', '*', H.on_winleave, 'On WinLeave')
+  au('WinClosed', '*', H.on_winclosed, 'On WinClosed')
   au('ModeChanged', '*:n', H.on_content_change, 'On return to Normal mode')
 end
 
@@ -1021,8 +1062,9 @@ end
 
 H.is_disabled = function() return vim.g.minimap_disable == true or vim.b.minimap_disable == true end
 
-H.get_config =
-  function(config) return vim.tbl_deep_extend('force', MiniMap.config, vim.b.minimap_config or {}, config or {}) end
+H.get_config = function(config)
+  return vim.tbl_deep_extend('force', MiniMap.config, vim.b.minimap_config or {}, config or {})
+end
 
 -- Autocommands ---------------------------------------------------------------
 H.on_content_change = vim.schedule_wrap(function()
@@ -1048,6 +1090,19 @@ H.on_winleave = function()
 
   H.cache.previous_win.id = vim.api.nvim_get_current_win()
   H.cache.previous_win.cursor = vim.api.nvim_win_get_cursor(0)
+end
+
+H.on_winclosed = function(data)
+  -- Ensure that `H.cache.previous_win` always points to a valid normal window
+  local ok, closed_win_id = pcall(tonumber, data.match)
+  if not ok or closed_win_id ~= H.cache.previous_win.id then return end
+
+  for _, win_id in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if win_id ~= closed_win_id and vim.api.nvim_win_get_config(win_id).relative == '' then
+      H.cache.previous_win = { id = win_id }
+      return
+    end
+  end
 end
 
 H.track_map_cursor = function()
@@ -1158,7 +1213,7 @@ H.mask_rescale = function(mask, opts)
 end
 
 --- Convert extended map mask to strings. Each bin with resolution dimensions
---- is transformed into encode symbol. Single convertable `(resolution.row,
+--- is transformed into encode symbol. Single convertible `(resolution.row,
 --- resolution.col)` boolean mask is treated as binary digit: `true` as 1;
 --- `false` as 0; traversing left-right, top-bottom (top-left is lowest bit,
 --- bottom-right - highest).
@@ -1288,6 +1343,11 @@ H.is_valid_config_window = function(x, x_name)
     return false, H.msg_config(x_name .. '.winblend', 'number between 0 and 100')
   end
 
+  -- Z-index
+  if not (type(x.zindex) == 'number' and x.zindex > 0) then
+    return false, H.msg_config(x_name .. '.zindex', 'positive number')
+  end
+
   return true
 end
 
@@ -1313,10 +1373,10 @@ H.normalize_window_options = function(win_opts, full)
     -- Can be updated at `VimResized` event
     height = vim.o.lines - vim.o.cmdheight - (has_tabline and 1 or 0) - (has_statusline and 1 or 0),
     focusable = win_opts.focusable,
+    zindex = win_opts.zindex,
   }
   if not full then return res end
 
-  res.zindex = 10
   res.style = 'minimal'
   return res
 end
@@ -1497,7 +1557,7 @@ H.update_map_integrations = function()
       local cur_count = line_counts[map_line] or 0
       line_counts[map_line] = cur_count + 1
 
-      -- Actually highlight only first map line occurence
+      -- Actually highlight only first map line occurrence
       if cur_count == 0 then H.add_line_hl(buf_id, ns_id, lh.hl_group, map_line - 1) end
     end
   end
@@ -1537,9 +1597,30 @@ H.mapline_to_sourceline = function(map_line)
   return math.min(math.max(res, 1), data.source_rows)
 end
 
+-- Hunks ----------------------------------------------------------------------
+H.hunks_to_line_hl = function(hunks, hl_groups)
+  local res = {}
+  for _, h in ipairs(hunks) do
+    local from_line = h.buf_start
+    local n_added, n_removed = h.buf_count, h.ref_count
+    local n_lines = math.max(n_added, 1)
+    -- Highlight similar to hunk summary logic:
+    -- - Delete - single first line if nothing was added.
+    -- - Change - added lines that are within first removed lines.
+    -- - Added - added lines after first removed lines.
+    for i = 1, n_lines do
+      local hl_type = (n_added < i and 'delete') or (i <= n_removed and 'change' or 'add')
+      local hl_group = hl_groups[hl_type]
+      if hl_group ~= nil then table.insert(res, { line = from_line + i - 1, hl_group = hl_group }) end
+    end
+  end
+
+  return res
+end
+
 -- Predicates -----------------------------------------------------------------
 H.is_array_of = function(x, predicate)
-  if not vim.tbl_islist(x) then return false end
+  if not H.islist(x) then return false end
   for _, v in ipairs(x) do
     if not predicate(v) then return false end
   end
@@ -1586,7 +1667,12 @@ H.validate_if = function(predicate, x, x_name)
 end
 
 H.add_line_hl = function(buf_id, ns_id, hl_group, line)
-  pcall(vim.highlight.range, buf_id, ns_id, hl_group, { line, H.cache.scrollbar_data.offset }, { line, -1 })
+  H.set_extmark_safely(buf_id, ns_id, line, H.cache.scrollbar_data.offset, {
+    hl_group = hl_group,
+    end_row = line + 1,
+    end_col = 0,
+    strict = false,
+  })
 end
 
 H.set_extmark_safely = function(...) pcall(vim.api.nvim_buf_set_extmark, ...) end
@@ -1604,5 +1690,8 @@ H.tbl_repeat = function(x, n)
   end
   return res
 end
+
+-- TODO: Remove after compatibility with Neovim=0.9 is dropped
+H.islist = vim.fn.has('nvim-0.10') == 1 and vim.islist or vim.tbl_islist
 
 return MiniMap

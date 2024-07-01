@@ -72,7 +72,7 @@ function M.check(opts)
   }, opts or {})
 
   local ok = false
-  if Config.options.rocks.hererocks then
+  if Config.hererocks() then
     if M.hererocks.building() then
       ok = true
     else
@@ -90,7 +90,7 @@ function M.check(opts)
     ok = Health.have("luarocks", opts)
     ok = (
       Health.have(
-        { "lua5.1", "lua" },
+        { "lua5.1", "lua", "lua-5.1" },
         vim.tbl_extend("force", opts, {
           version = "-v",
           version_pattern = "5.1",
@@ -101,6 +101,7 @@ function M.check(opts)
   return ok
 end
 
+---@async
 ---@param task LazyTask
 function M.build(task)
   if
@@ -118,7 +119,7 @@ function M.build(task)
       "",
       "This plugin requires `luarocks`. Try one of the following:",
       " - fix your `luarocks` installation",
-      Config.options.rocks.hererocks and " - disable *hererocks* with `opts.rocks.hererocks = false`"
+      Config.hererocks() and " - disable *hererocks* with `opts.rocks.hererocks = false`"
         or " - enable `hererocks` with `opts.rocks.hererocks = true`",
       " - disable `luarocks` support completely with `opts.rocks.enabled = false`",
     })
@@ -131,7 +132,7 @@ function M.build(task)
 
   local env = {}
   local luarocks = "luarocks"
-  if Config.options.rocks.hererocks then
+  if Config.hererocks() then
     -- hererocks is still building, so skip for now
     -- a new build will happen in the next round
     if M.hererocks.building() then
@@ -163,7 +164,7 @@ function M.build(task)
   )
 
   local root = Config.options.rocks.root .. "/" .. task.plugin.name
-  task:spawn(luarocks, {
+  local ok = task:spawn(luarocks, {
     args = {
       "--tree",
       root,
@@ -177,6 +178,30 @@ function M.build(task)
       "--deps-mode",
       "one",
       rockspec.package,
+    },
+    cwd = task.plugin.dir,
+    env = env,
+  })
+
+  if ok then
+    return
+  end
+
+  task:warn("Failed installing " .. rockspec.package .. " with `luarocks`.\nTrying to build from source.")
+
+  -- install failed, so try building from source
+  task:set_level() -- reset level
+  task:spawn(luarocks, {
+    args = {
+      "--tree",
+      root,
+      "--dev",
+      "--lua-version",
+      "5.1",
+      "make",
+      "--force-fast",
+      "--deps-mode",
+      "one",
     },
     cwd = task.plugin.dir,
     env = env,

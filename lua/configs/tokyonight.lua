@@ -20,11 +20,14 @@ M.opts = {
     sidebars = "dark", -- style for sidebars, see below
     floats = "normal", -- style for floating windows
   },
-  sidebars = { "qf", "help" }, -- Set a darker background on sidebar-like windows. For example: `["qf", "vista_kind", "terminal", "packer"]`
   day_brightness = 0.3, -- Adjusts the brightness of the colors of the **Day** style. Number between 0 and 1, from dull to vibrant colors
-  hide_inactive_statusline = false, -- Enabling this option, will hide inactive statuslines and replace them with a thin border instead. Should work with the standard **StatusLine** and **LuaLine**.
   dim_inactive = false, -- dims inactive windows
   lualine_bold = true, -- When `true`, section headers in the lualine theme will be bold
+  use_background = true, -- can be light/dark/auto. When auto, background will be set to vim.o.background
+  cache = true, -- When set to true, the theme will be cached for better performance
+  plugins = {
+    all = true,
+  },
 
   on_colors = function(colors)
     colors.fg_sidebar = "#b2bcde"
@@ -35,19 +38,17 @@ M.opts = {
     colors.git.add = colors.green
     colors.git.delete = colors.red
 
-    colors.gitSigns.change = colors.orange
-    colors.gitSigns.add = colors.green
-    colors.gitSigns.delete = colors.red
+    colors.diff.add = "#1d3c41"
+    colors.diff.change = "#252a3f"
+    colors.diff.delete = "#40252e"
+    colors.diff.text = "#026faf"
 
     colors.bg_visual = "#553a19"
   end,
 
   on_highlights = function(hl, c)
-    hl.DiffAdd = { bg = "#1d3c41" }
-    hl.DiffChange = { bg = "#252a3f" }
-    hl.DiffDelete = { bg = "#40252e" }
-    hl.DiffText = { bg = "#026faf" }
-
+    -- hl.NvimTreeNormal = { bg = "#1e2030", fg = "#c8d3f5" }
+    -- hl.NvimTreeNormalNC = { bg = "#1e2030", fg = "#c8d3f5" }
     hl.NvimTreeWinSeparator = { bg = "#222436", fg = "#222436" }
   end,
 }

@@ -214,13 +214,17 @@ function M.setup()
     reset(k)
   end
 
+  local group = api.nvim_create_augroup('gitsigns_blame', {})
+
   if not config.current_line_blame then
     return
   end
 
-  local group = api.nvim_create_augroup('gitsigns_blame', {})
   local opts = config.current_line_blame_opts
   M.update = debounce.debounce_trailing(opts.delay, update)
+
+  -- show current buffer line blame immediately
+  M.update(api.nvim_get_current_buf())
 
   local events = { 'FocusGained', 'BufEnter', 'CursorMoved', 'CursorMovedI' }
   if vim.fn.exists('#WinResized') == 1 then

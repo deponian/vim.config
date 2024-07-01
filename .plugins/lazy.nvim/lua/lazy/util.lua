@@ -73,26 +73,24 @@ end
 ---@param fn F
 ---@return F
 function M.throttle(ms, fn)
-  local timer = vim.uv.new_timer()
+  ---@type Async
+  local async
   local pending = false
 
   return function()
-    if timer:is_active() then
+    if async and async:running() then
       pending = true
       return
     end
-    timer:start(
-      0,
-      ms,
-      vim.schedule_wrap(function()
+    ---@async
+    async = require("lazy.async").new(function()
+      repeat
+        pending = false
         fn()
-        if pending then
-          pending = false
-        else
-          timer:stop()
-        end
-      end)
-    )
+        async:sleep(ms)
+
+      until not pending
+    end)
   end
 end
 
@@ -164,12 +162,21 @@ end
 ---@param opts? LazyCmdOptions|{filetype?:string}
 function M.float_cmd(cmd, opts)
   opts = opts or {}
+  local Process = require("lazy.manage.process")
+  local lines, code = Process.exec(cmd, { cwd = opts.cwd })
+  if code ~= 0 then
+    M.error({
+      "`" .. table.concat(cmd, " ") .. "`",
+      "",
+      "## Error",
+      table.concat(lines, "\n"),
+    }, { title = "Command Failed (" .. code .. ")" })
+    return
+  end
   local float = M.float(opts)
   if opts.filetype then
     vim.bo[float.buf].filetype = opts.filetype
   end
-  local Process = require("lazy.manage.process")
-  local lines = Process.exec(cmd, { cwd = opts.cwd })
   vim.api.nvim_buf_set_lines(float.buf, 0, -1, false, lines)
   vim.bo[float.buf].modifiable = false
   return float
@@ -227,18 +234,6 @@ function M.markdown(msg, opts)
       end,
     }, opts or {})
   )
-end
-
----@async
----@param ms number
-function M.sleep(ms)
-  local continue = false
-  vim.defer_fn(function()
-    continue = true
-  end, ms)
-  while not continue do
-    coroutine.yield()
-  end
 end
 
 function M._dump(value, result)

@@ -13,7 +13,7 @@ M.opts = function ()
   return {
     options = {
       icons_enabled = true,
-      theme = "tokyonight",
+      theme = "tokyonight-moon",
       component_separators = '',
       section_separators = '',
       disabled_filetypes = {

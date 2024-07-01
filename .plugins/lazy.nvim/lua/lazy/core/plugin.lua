@@ -21,7 +21,7 @@ M.Spec = Spec
 M.LOCAL_SPEC = ".lazy.lua"
 
 ---@param spec? LazySpec
----@param opts? {optional?:boolean}
+---@param opts? {optional?:boolean, pkg?:boolean}
 function Spec.new(spec, opts)
   local self = setmetatable({}, Spec)
   self.meta = Meta.new(self)
@@ -30,7 +30,9 @@ function Spec.new(spec, opts)
   self.notifs = {}
   self.ignore_installed = {}
   self.optional = opts and opts.optional
-  self.meta:load_pkgs()
+  if not (opts and opts.pkg == false) then
+    self.meta:load_pkgs()
+  end
   if spec then
     self:parse(spec)
   end
@@ -148,8 +150,11 @@ function Spec:import(spec)
   local modspecs = {}
 
   if type(import) == "string" then
-    Util.lsmod(import, function(modname)
+    Util.lsmod(import, function(modname, modpath)
       modspecs[#modspecs + 1] = modname
+      package.preload[modname] = function()
+        return loadfile(modpath)()
+      end
     end)
     table.sort(modspecs)
   else
@@ -334,16 +339,16 @@ function M.load()
   end
 
   -- add hererocks when enabled and needed
-  if Config.options.rocks.hererocks then
-    for _, plugin in pairs(Config.spec.plugins) do
-      if plugin.build == "rockspec" then
+  for _, plugin in pairs(Config.spec.plugins) do
+    if plugin.build == "rockspec" then
+      if Config.hererocks() then
         Config.spec.meta:add({
           "luarocks/hererocks",
           build = "rockspec",
           lazy = true,
         })
-        break
       end
+      break
     end
   end
 

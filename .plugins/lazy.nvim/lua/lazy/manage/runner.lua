@@ -16,7 +16,6 @@ local Task = require("lazy.manage.task")
 ---@class Runner
 ---@field _plugins table<string,LazyPlugin>
 ---@field _pipeline PipelineStep[]
----@field _on_done fun()[]
 ---@field _opts RunnerOpts
 ---@field _running? Async
 local Runner = {}
@@ -38,7 +37,6 @@ function Runner.new(opts)
   for _, plugin in ipairs(pp) do
     self._plugins[plugin.name] = plugin
   end
-  self._on_done = {}
 
   ---@param step string|(TaskOptions|{[1]:string})
   self._pipeline = vim.tbl_map(function(step)
@@ -61,15 +59,9 @@ end
 
 function Runner:start()
   ---@async
-  self._running = Async.run(function()
+  self._running = Async.new(function()
     self:_start()
-  end, {
-    on_done = function()
-      for _, cb in ipairs(self._on_done) do
-        cb()
-      end
-    end,
-  })
+  end)
 end
 
 ---@async
@@ -86,6 +78,7 @@ function Runner:_start()
   ---@type number?
   local wait_step = nil
 
+  ---@async
   ---@param resume? boolean
   local function continue(resume)
     active = 0
@@ -97,19 +90,19 @@ function Runner:_start()
     for _, name in ipairs(names) do
       state[name] = state[name] or { step = 0 }
       local s = state[name]
-      local is_running = s.task and s.task:is_running()
+      local is_running = s.task and s.task:running()
       local step = self._pipeline[s.step]
 
+      if is_running then
+        -- still running
+        active = active + 1
       -- selene:allow(empty_if)
-      if s.task and s.task:has_errors() then
+      elseif s.task and s.task:has_errors() then
         -- don't continue tasks if there are errors
       elseif step and step.task == "wait" and not resume then
         -- waiting for sync
         waiting = waiting + 1
         wait_step = s.step
-      elseif is_running then
-        -- still running
-        active = active + 1
       else
         next[#next + 1] = name
       end
@@ -122,22 +115,30 @@ function Runner:_start()
       end
       local s = state[name]
       local plugin = self:plugin(name)
-      if s.step == #self._pipeline then
-        -- done
-        s.task = nil
-        plugin._.working = false
-      elseif s.step < #self._pipeline then
-        -- next
-        s.step = s.step + 1
-        local step = self._pipeline[s.step]
-        if step.task == "wait" then
+      while s.step <= #self._pipeline do
+        if s.step == #self._pipeline then
+          -- done
+          s.task = nil
           plugin._.working = false
-          waiting = waiting + 1
-          wait_step = s.step
-        else
-          s.task = self:queue(plugin, step)
-          plugin._.working = true
-          active = active + 1
+          break
+        elseif s.step < #self._pipeline then
+          -- next
+          s.step = s.step + 1
+          local step = self._pipeline[s.step]
+          if step.task == "wait" then
+            plugin._.working = false
+            waiting = waiting + 1
+            wait_step = s.step
+            break
+          else
+            s.task = self:queue(plugin, step)
+            plugin._.working = true
+            if s.task then
+              active = active + 1
+              s.task:wake(false)
+              break
+            end
+          end
         end
       end
     end
@@ -152,7 +153,9 @@ function Runner:_start()
       end
       continue(true)
     end
-    coroutine.yield()
+    if active > 0 then
+      self._running:suspend()
+    end
   end
 end
 
@@ -185,14 +188,10 @@ function Runner:wait(cb)
     end
     return self
   end
-
   if cb then
-    table.insert(self._on_done, cb)
+    self._running:on("done", cb)
   else
-    -- sync wait
-    while self:is_running() do
-      vim.wait(10)
-    end
+    self._running:wait()
   end
   return self
 end

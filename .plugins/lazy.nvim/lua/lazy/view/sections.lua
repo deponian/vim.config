@@ -28,10 +28,16 @@ return {
         return true
       end
       return has_task(plugin, function(task)
-        return task:is_running()
+        return task:running()
       end)
     end,
     title = "Working",
+  },
+  {
+    filter = function(plugin)
+      return plugin._.build
+    end,
+    title = "Build",
   },
   {
     filter = function(plugin)

@@ -51,7 +51,7 @@ function M:update()
     if plugin._.tasks then
       for _, task in ipairs(plugin._.tasks) do
         self.progress.total = self.progress.total + 1
-        if not task:is_running() then
+        if not task:running() then
           self.progress.done = self.progress.done + 1
         end
       end
@@ -74,7 +74,17 @@ function M:update()
   end
 
   self:trim()
+
+  vim.bo[self.view.buf].modifiable = true
+  local view = vim.api.nvim_win_call(self.view.win, vim.fn.winsaveview)
+
   self:render(self.view.buf)
+
+  vim.api.nvim_win_call(self.view.win, function()
+    vim.fn.winrestview(view)
+  end)
+  vim.bo[self.view.buf].modifiable = false
+
   vim.diagnostic.set(
     Config.ns,
     self.view.buf,
@@ -108,6 +118,15 @@ function M:get_plugin(row)
       else
         return Config.plugins[loc.name]
       end
+    end
+  end
+end
+
+---@param selected {name:string, kind?: LazyPluginKind}
+function M:get_row(selected)
+  for _, loc in ipairs(self.locations) do
+    if loc.kind == selected.kind and loc.name == selected.name then
+      return loc.from
     end
   end
 end
@@ -182,7 +201,15 @@ function M:help()
     :nl()
   self:append("or the plugin was just updated. Otherwise the plugin webpage will open."):nl():nl()
 
-  self:append("Use "):append("<d>", "LazySpecial"):append(" on a commit or plugin to open the diff view"):nl()
+  self:append("Use "):append("<d>", "LazySpecial"):append(" on a commit or plugin to open the diff view"):nl():nl()
+  self
+    :append("Use ")
+    :append("<]]>", "LazySpecial")
+    :append(" and ")
+    :append("<[[>", "LazySpecial")
+    :append(" to navigate between plugins")
+    :nl()
+    :nl()
   self:nl()
 
   self:append("Keyboard Shortcuts", "LazyH2"):nl()
@@ -356,7 +383,7 @@ end
 function M:diagnostics(plugin)
   local skip = false
   for _, task in ipairs(plugin._.tasks or {}) do
-    if task:is_running() then
+    if task:running() then
       self:diagnostic({
         severity = vim.diagnostic.severity.WARN,
         message = task.name .. (task:status() and (": " .. task:status()) or ""),
@@ -379,7 +406,12 @@ function M:diagnostics(plugin)
   if skip then
     return
   end
-  if plugin._.updated then
+  if plugin._.build then
+    self:diagnostic({
+      message = "needs build",
+      severity = vim.diagnostic.severity.WARN,
+    })
+  elseif plugin._.updated then
     if plugin._.updated.from == plugin._.updated.to then
       self:diagnostic({
         message = "already up to date",

@@ -49,8 +49,11 @@ M.defaults = {
     enabled = true,
     root = vim.fn.stdpath("data") .. "/lazy-rocks",
     server = "https://nvim-neorocks.github.io/rocks-binaries/",
-    -- use hererocks to install luarocks.
-    hererocks = vim.fn.executable("luarocks") == 0,
+    -- use hererocks to install luarocks?
+    -- set to `nil` to use hererocks when luarocks is not found
+    -- set to `true` to always use hererocks
+    -- set to `false` to always use luarocks
+    hererocks = nil,
   },
   dev = {
     ---@type string | fun(plugin: LazyPlugin): string directory where you store your local plugin projects
@@ -118,6 +121,16 @@ M.defaults = {
           })
         end,
         desc = "Open lazygit log",
+      },
+
+      ["<localleader>i"] = {
+        function(plugin)
+          Util.notify(vim.inspect(plugin), {
+            title = "Inspect " .. plugin.name,
+            lang = "lua",
+          })
+        end,
+        desc = "Inspect Plugin",
       },
 
       ["<localleader>t"] = {
@@ -208,7 +221,14 @@ M.defaults = {
   debug = false,
 }
 
-M.version = "11.4.2" -- x-release-please-version
+function M.hererocks()
+  if M.options.rocks.hererocks == nil then
+    M.options.rocks.hererocks = vim.fn.executable("luarocks") == 0
+  end
+  return M.options.rocks.hererocks
+end
+
+M.version = "11.9.1" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
@@ -311,11 +331,10 @@ function M.setup(opts)
         vim.api.nvim_create_autocmd("BufWritePost", {
           pattern = { "lazy.lua", "pkg.json", "*.rockspec" },
           callback = function()
-            require("lazy").pkg({
-              plugins = {
-                require("lazy.core.plugin").find(vim.uv.cwd() .. "/lua/"),
-              },
-            })
+            local plugin = require("lazy.core.plugin").find(vim.uv.cwd() .. "/lua/")
+            if plugin then
+              require("lazy").pkg({ plugins = { plugin } })
+            end
           end,
         })
       end,

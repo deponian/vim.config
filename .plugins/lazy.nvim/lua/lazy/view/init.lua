@@ -83,8 +83,11 @@ function M.create()
 
   vim.keymap.set("n", ViewConfig.keys.abort, function()
     require("lazy.manage.process").abort()
+    require("lazy.async").abort()
     return ViewConfig.keys.abort
   end, { silent = true, buffer = self.buf, expr = true })
+
+  vim.keymap.set("n", "gx", "K", { buffer = self.buf, remap = true })
 
   -- plugin details
   self:on_key(ViewConfig.keys.details, function()
@@ -94,8 +97,40 @@ function M.create()
         name = plugin.name,
         kind = plugin._.kind,
       }
-      self.state.plugin = not vim.deep_equal(self.state.plugin, selected) and selected or nil
+
+      local open = not vim.deep_equal(self.state.plugin, selected)
+
+      if not open then
+        local row = self.render:get_row(selected)
+        if row then
+          vim.api.nvim_win_set_cursor(self.view.win, { row, 8 })
+        end
+      end
+
+      self.state.plugin = open and selected or nil
       self:update()
+    end
+  end)
+
+  self:on_key(ViewConfig.keys.next, function()
+    local cursor = vim.api.nvim_win_get_cursor(self.view.win)
+    for l = 1, #self.render.locations, 1 do
+      local loc = self.render.locations[l]
+      if loc.from > cursor[1] then
+        vim.api.nvim_win_set_cursor(self.view.win, { loc.from, 8 })
+        return
+      end
+    end
+  end)
+
+  self:on_key(ViewConfig.keys.prev, function()
+    local cursor = vim.api.nvim_win_get_cursor(self.view.win)
+    for l = #self.render.locations, 1, -1 do
+      local loc = self.render.locations[l]
+      if loc.from < cursor[1] then
+        vim.api.nvim_win_set_cursor(self.view.win, { loc.from, 8 })
+        return
+      end
     end
   end)
 
@@ -145,13 +180,7 @@ end
 
 function M:update()
   if self.buf and vim.api.nvim_buf_is_valid(self.buf) then
-    vim.bo[self.buf].modifiable = true
-    local view = vim.api.nvim_win_call(self.view.win, vim.fn.winsaveview)
     self.render:update()
-    vim.api.nvim_win_call(self.view.win, function()
-      vim.fn.winrestview(view)
-    end)
-    vim.bo[self.buf].modifiable = false
     vim.cmd.redraw()
   end
 end

@@ -10,6 +10,7 @@ MiniMap.gen_encode_symbols.shade()	mini-map.txt	/*MiniMap.gen_encode_symbols.sha
 MiniMap.gen_integration	mini-map.txt	/*MiniMap.gen_integration*
 MiniMap.gen_integration.builtin_search()	mini-map.txt	/*MiniMap.gen_integration.builtin_search()*
 MiniMap.gen_integration.diagnostic()	mini-map.txt	/*MiniMap.gen_integration.diagnostic()*
+MiniMap.gen_integration.diff()	mini-map.txt	/*MiniMap.gen_integration.diff()*
 MiniMap.gen_integration.gitsigns()	mini-map.txt	/*MiniMap.gen_integration.gitsigns()*
 MiniMap.open()	mini-map.txt	/*MiniMap.open()*
 MiniMap.refresh()	mini-map.txt	/*MiniMap.refresh()*
