@@ -5,17 +5,18 @@ M.config = function()
     ">>> system",
     "",
     "You are going to play a role of a completion engine with following parameters:",
-  "Task: Provide compact code/text completion, generation, transformation or explanation",
-  "Topic: general programming and text editing",
-  "Style: Plain result without any commentary, unless commentary is necessary",
-  "Audience: Users of text editor and programmers that need to transform/generate text"
+    "Task: Provide compact code/text completion, generation, transformation or explanation",
+    "Topic: general programming and text editing",
+    "Style: Plain result without any commentary, unless commentary is necessary",
+    "Audience: Users of text editor and programmers that need to transform/generate text"
   }
 
   local chat_engine_config = {
     engine = "chat",
     options = {
-      model = "gpt-3.5-turbo",
-      max_tokens = 1000,
+      model = "gpt-4o",
+      endpoint_url = "https://api.openai.com/v1/chat/completions",
+      max_tokens = 0,
       temperature = 0.1,
       request_timeout = 20,
       selection_boundary = "",
@@ -36,9 +37,10 @@ M.config = function()
 
   vim.g.vim_ai_chat = {
     options = {
-      model = "gpt-3.5-turbo",
-      max_tokens = 1000,
-      temperature = 1,
+      model = "gpt-4o",
+      endpoint_url = "https://api.openai.com/v1/chat/completions",
+      max_tokens = 0,
+      temperature = 0.1,
       request_timeout = 20,
       selection_boundary = "",
       initial_prompt = initial_chat_prompt,
@@ -55,6 +57,7 @@ end
 
 M.keys = {
   -- <Leader>a -- ChatGPT integration
+
   -- (mnemonic: [a]rtificial intelligence)
   { "<Leader>a", ":AI<Space>" },
   { "<Leader>a", ":AIEdit<Space>", mode = "x" },
