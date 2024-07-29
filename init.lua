@@ -55,7 +55,6 @@ require("lazy").setup({
   require("configs.nvim-lspconfig"),
   require("configs.nvim-tree"),
   require("configs.others"),
-  require("configs.persistence"),
   require("configs.scalpelua"),
   require("configs.tokyonight"),
   require("configs.treesitter"),
