@@ -31,8 +31,14 @@ vim.keymap.set("n", "D", '"_D')
 -- Toggle list (display unprintable characters)
 vim.keymap.set("n", "<F2>", "<cmd>set list!<CR>")
 
--- Toggle between number and nonumber
-vim.keymap.set("n", "<F3>", "<cmd>set invnumber<CR>")
+-- Toggle between normal and raw-copy modes
+vim.keymap.set("n", "<F3>", function ()
+  vim.cmd("set invnumber")
+  vim.cmd("IBLToggle")
+  require('gitsigns').toggle_current_line_blame()
+  vim.diagnostic.hide()
+end
+)
 
 -- Toggle between spell and nospell
 vim.keymap.set("n", "<F4>", "<cmd>setlocal spell! spelllang=en<CR>")
