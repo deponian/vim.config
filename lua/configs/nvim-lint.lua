@@ -4,7 +4,7 @@ M.config = function ()
   require("lint").linters_by_ft = {
     go = {"golangcilint"},
     yaml = {"yamllint"},
-    ["yaml.gha"] = {"yamllint"},
+    ["yaml.gha"] = {"actionlint", "yamllint"},
     dockerfile = {"hadolint"},
     terraform = {"tflint"},
   }
