@@ -42,20 +42,6 @@ augroup("ResizeWindows", function(group)
     })
 end)
 
--- Highlight current line only on focused window
--- augroup("ActiveWinCursorLine", function(g)
---   autocmd({ "WinEnter", "BufEnter", "InsertLeave" }, {
---     group = g,
---     pattern = "*",
---     command = "if ! &cursorline && ! &pvw | setlocal cursorline | endif"
---   })
---   autocmd({ "WinLeave", "BufLeave", "InsertEnter" }, {
---     group = g,
---     pattern = "*",
---     command = "if &cursorline && ! &pvw | setlocal nocursorline | endif"
---   })
--- end)
-
 -- Auto create dir when saving a file, in case some intermediate directory does not exist
 augroup("AutoCreateDir", function(group)
   autocmd("BufWritePre", {
