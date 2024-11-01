@@ -54,6 +54,7 @@ function M.setup_highlights(override)
     { "FzfLuaNormal",            "normal",         { default = default, link = "Normal" } },
     { "FzfLuaBorder",            "border",         { default = default, link = "Normal" } },
     { "FzfLuaTitle",             "title",          { default = default, link = "FzfLuaNormal" } },
+    { "FzfLuaBackdrop",          "backdrop",       { default = default, bg = "Black" } },
     { "FzfLuaHelpNormal",        "help_normal",    { default = default, link = "FzfLuaNormal" } },
     { "FzfLuaHelpBorder",        "help_border",    { default = default, link = "FzfLuaBorder" } },
     { "FzfLuaPreviewNormal",     "preview_normal", { default = default, link = "FzfLuaNormal" } },
@@ -235,12 +236,16 @@ do
     grep_cWORD = { "fzf-lua.providers.grep", "grep_cWORD" },
     grep_visual = { "fzf-lua.providers.grep", "grep_visual" },
     grep_curbuf = { "fzf-lua.providers.grep", "grep_curbuf" },
+    grep_quickfix = { "fzf-lua.providers.grep", "grep_quickfix" },
+    grep_loclist = { "fzf-lua.providers.grep", "grep_loclist" },
     grep_project = { "fzf-lua.providers.grep", "grep_project" },
     live_grep = { "fzf-lua.providers.grep", "live_grep" },
     live_grep_native = { "fzf-lua.providers.grep", "live_grep_native" },
     live_grep_resume = { "fzf-lua.providers.grep", "live_grep_resume" },
     live_grep_glob = { "fzf-lua.providers.grep", "live_grep_glob" },
     lgrep_curbuf = { "fzf-lua.providers.grep", "lgrep_curbuf" },
+    lgrep_quickfix = { "fzf-lua.providers.grep", "lgrep_quickfix" },
+    lgrep_loclist = { "fzf-lua.providers.grep", "lgrep_loclist" },
     tags = { "fzf-lua.providers.tags", "tags" },
     btags = { "fzf-lua.providers.tags", "btags" },
     tags_grep = { "fzf-lua.providers.tags", "grep" },
@@ -253,6 +258,7 @@ do
     git_stash = { "fzf-lua.providers.git", "stash" },
     git_commits = { "fzf-lua.providers.git", "commits" },
     git_bcommits = { "fzf-lua.providers.git", "bcommits" },
+    git_blame = { "fzf-lua.providers.git", "blame" },
     git_branches = { "fzf-lua.providers.git", "branches" },
     git_tags = { "fzf-lua.providers.git", "tags" },
     oldfiles = { "fzf-lua.providers.oldfiles", "oldfiles" },
@@ -264,6 +270,7 @@ do
     tabs = { "fzf-lua.providers.buffers", "tabs" },
     lines = { "fzf-lua.providers.buffers", "lines" },
     blines = { "fzf-lua.providers.buffers", "blines" },
+    treesitter = { "fzf-lua.providers.buffers", "treesitter" },
     helptags = { "fzf-lua.providers.helptags", "helptags" },
     manpages = { "fzf-lua.providers.manpages", "manpages" },
     -- backward compat
@@ -355,6 +362,14 @@ M.setup_fzfvim_cmds = function(...)
   return fn(...)
 end
 
+function M.hide()
+  return loadstring("return require'fzf-lua'.win.hide()")()
+end
+
+function M.unhide()
+  return loadstring("return require'fzf-lua'.win.unhide()")()
+end
+
 -- export the defaults module and deref
 M.defaults = require("fzf-lua.defaults").defaults
 
@@ -394,6 +409,8 @@ M._excluded_meta = {
   "get_info",
   "set_info",
   "get_last_query",
+  "hide",
+  "unhide",
   -- Exclude due to rename:
   --   help_tags -> helptags
   --   man_pages -> manpages

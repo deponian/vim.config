@@ -13,7 +13,27 @@ M.commands = function(opts)
 
   local global_commands = vim.api.nvim_get_commands {}
   local buf_commands = vim.api.nvim_buf_get_commands(0, {})
-  local commands = vim.tbl_extend("force", {}, global_commands, buf_commands)
+
+  local builtin_commands = {}
+  -- parse help doc to get builtin commands and descriptions
+  if opts.include_builtin then
+    local help = vim.fn.globpath(vim.o.rtp, "doc/index.txt")
+    if uv.fs_stat(help) then
+      local cmd, desc
+      for line in utils.read_file(help):gmatch("[^\n]*\n") do
+        if line:match("^|:[^|]") then
+          if cmd then builtin_commands[cmd] = desc end
+          cmd, desc = line:match("^|:(%S+)|%s*%S+%s*(.*%S)")
+        elseif cmd then -- found
+          if line:match("^%s%+%S") then desc = desc .. (line:match("^%s*(.*%S)") or "") end
+          if line:match("^%s*$") then break end
+        end
+      end
+      if cmd then builtin_commands[cmd] = desc end
+    end
+  end
+
+  local commands = vim.tbl_extend("force", {}, global_commands, buf_commands, builtin_commands)
 
   local entries = {}
 
@@ -26,18 +46,21 @@ M.commands = function(opts)
     for i = #history, #history - 3, -1 do
       local cmd = history[i]:match("%d+%s+([^%s]+)")
       if buf_commands[cmd] then
-        table.insert(entries, utils.ansi_codes.green(cmd))
+        table.insert(entries, cmd)
         buf_commands[cmd] = nil
       end
       if global_commands[cmd] then
-        table.insert(entries, utils.ansi_codes.magenta(cmd))
+        table.insert(entries, cmd)
         global_commands[cmd] = nil
+      end
+      if builtin_commands[cmd] then
+        table.insert(entries, cmd)
       end
     end
   end
 
   for k, _ in pairs(global_commands) do
-    table.insert(entries, utils.ansi_codes.magenta(k))
+    table.insert(entries, utils.ansi_codes.blue(k))
   end
 
   for k, v in pairs(buf_commands) do
@@ -46,8 +69,13 @@ M.commands = function(opts)
     end
   end
 
+  -- Sort before adding "builtin" so they don't end up atop the list
   if not opts.sort_lastused then
     table.sort(entries, function(a, b) return a < b end)
+  end
+
+  for k, _ in pairs(builtin_commands) do
+    table.insert(entries, utils.ansi_codes.magenta(k))
   end
 
   opts.preview = function(args)
@@ -122,6 +150,11 @@ M.jumps = function(opts)
       utils.ansi_codes.blue(line),
       utils.ansi_codes.green(col),
       text))
+  end
+
+  if utils.tbl_isempty(entries) then
+    utils.info(("%s list is empty."):format(opts.h1 or "jump"))
+    return
   end
 
   table.insert(entries, 1,
@@ -256,8 +289,9 @@ M.registers = function(opts)
     for k, v in pairs(gsub_map) do
       reg = reg:gsub(k, utils.ansi_codes.magenta(v))
     end
-    return not nl and reg or
-        reg:gsub("\n", utils.ansi_codes.magenta("\\n"))
+    return not nl and reg
+        or nl == 2 and reg:gsub("\n$", "")
+        or reg:gsub("\n", utils.ansi_codes.magenta("\\n"))
   end
 
   local entries = {}
@@ -266,7 +300,7 @@ M.registers = function(opts)
     -- E5108: Error executing lua Vim:clipboard:
     --        provider returned invalid data
     local _, contents = pcall(vim.fn.getreg, r)
-    contents = register_escape_special(contents, true)
+    contents = register_escape_special(contents, opts.multiline and 2 or 1)
     if (contents and #contents > 0) or not opts.ignore_empty then
       table.insert(entries, string.format("[%s] %s",
         utils.ansi_codes.yellow(r), contents))
@@ -286,7 +320,6 @@ M.keymaps = function(opts)
   opts = config.normalize_opts(opts, "keymaps")
   if not opts then return end
 
-  local formatter = "%s │ %-14s │ %-33s │ %s"
   local key_modes = opts.modes or { "n", "i", "c", "v", "t" }
   local modes = {
     n = "blue",
@@ -296,9 +329,25 @@ M.keymaps = function(opts)
     t = "green"
   }
   local keymaps = {}
+  local format = nil
 
+  if opts.show_details then
+    local formatter = "%s │ %-14s │ %-33s │ %s"
 
-  local add_keymap = function(keymap)
+    format = function(mode, lhs, desc, rhs)
+      -- we don't trim `lhs` here because it's better to violate the structure
+      -- than to cut off the most useful information
+      return string.format(formatter, mode, lhs, string.sub(desc or "", 1, 33), rhs)
+    end
+  else
+    local formatter = "%s │ %-14s │ %s"
+
+    format = function(mode, lhs, desc, rhs)
+      return string.format(formatter, mode, lhs, desc or rhs)
+    end
+  end
+
+  local function add_keymap(keymap)
     -- ignore dummy mappings
     if type(keymap.rhs) == "string" and #keymap.rhs == 0 then
       return
@@ -315,12 +364,13 @@ M.keymaps = function(opts)
       end
     end
 
-    keymap.str = string.format(formatter,
+    keymap.str = format(
       utils.ansi_codes[modes[keymap.mode] or "blue"](keymap.mode),
       keymap.lhs:gsub("%s", "<Space>"),
       -- desc can be a multi-line string, normalize it
-      string.sub(string.gsub(keymap.desc or "", "\n%s+", "\r") or "", 1, 30),
-      (keymap.rhs or string.format("%s", keymap.callback)))
+      keymap.desc and string.gsub(keymap.desc, "\n%s+", "\r"),
+      keymap.rhs or string.format("%s", keymap.callback)
+    )
 
     local k = string.format("[%s:%s:%s]", keymap.buffer, keymap.mode, keymap.lhs)
     keymaps[k] = keymap
@@ -347,7 +397,7 @@ M.keymaps = function(opts)
   -- sort alphabetically
   table.sort(entries)
 
-  local header_str = string.format(formatter, "m", "keymap", "description", "detail")
+  local header_str = format("m", "keymap", "description", "detail")
   table.insert(entries, 1, header_str)
 
   core.fzf_exec(entries, opts)
@@ -373,6 +423,15 @@ M.filetypes = function(opts)
   local entries = vim.fn.getcompletion("", "filetype")
   if utils.tbl_isempty(entries) then return end
 
+  if opts.file_icons then
+    entries = vim.tbl_map(function(ft)
+      local buficon, hl = devicons.icon_by_ft(ft)
+      if not buficon then buficon = " " end
+      if hl then buficon = utils.ansi_from_hl(hl, buficon) end
+      return string.format("%s%s%s", buficon, utils.nbsp, ft)
+    end, entries)
+  end
+
   core.fzf_exec(entries, opts)
 end
 
@@ -381,7 +440,6 @@ M.packadd = function(opts)
   if not opts then return end
 
   local entries = vim.fn.getcompletion("", "packadd")
-
   if utils.tbl_isempty(entries) then return end
 
   core.fzf_exec(entries, opts)

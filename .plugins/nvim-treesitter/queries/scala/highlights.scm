@@ -157,8 +157,6 @@
 
 (character_literal) @character
 
-(symbol_literal) @string.special.symbol
-
 (interpolation
   "$" @punctuation.special)
 
@@ -211,9 +209,14 @@
 
 (null_literal) @constant.builtin
 
-(wildcard) @variable.parameter
+(wildcard
+  "_") @character.special
 
-(namespace_wildcard) @punctuation.special
+(namespace_wildcard
+  [
+    "*"
+    "_"
+  ] @character.special)
 
 (annotation) @attribute
 

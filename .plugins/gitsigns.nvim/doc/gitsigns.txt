@@ -42,6 +42,15 @@ of the default settings:
         changedelete = { text = '~' },
         untracked    = { text = '┆' },
       },
+      signs_staged = {
+        add          = { text = '┃' },
+        change       = { text = '┃' },
+        delete       = { text = '_' },
+        topdelete    = { text = '‾' },
+        changedelete = { text = '~' },
+        untracked    = { text = '┆' },
+      },
+      signs_staged_enable = true,
       signcolumn = true,  -- Toggle with `:Gitsigns toggle_signs`
       numhl      = false, -- Toggle with `:Gitsigns toggle_numhl`
       linehl     = false, -- Toggle with `:Gitsigns toggle_linehl`
@@ -58,6 +67,7 @@ of the default settings:
         delay = 1000,
         ignore_whitespace = false,
         virt_text_priority = 100,
+        use_focus = true,
       },
       current_line_blame_formatter = '<author>, <author_time:%R> - <summary>',
       sign_priority = 6,
@@ -563,6 +573,7 @@ signs                                                  *gitsigns-config-signs*
         • `GitSignsAdd`   (for normal text signs)
         • `GitSignsAddNr` (for signs when `config.numhl == true`)
         • `GitSignsAddLn `(for signs when `config.linehl == true`)
+        • `GitSignsAddCul `(for signs when `config.culhl == true`)
 
       See |gitsigns-highlight-groups|.
 
@@ -674,6 +685,16 @@ linehl                                                *gitsigns-config-linehl*
       Enable/disable line highlights.
 
       When enabled the highlights defined in `signs.*.linehl` are used. If
+      the highlight group does not exist, then it is automatically defined
+      and linked to the corresponding highlight group in `signs.*.hl`.
+
+culhl                                                  *gitsigns-config-culhl*
+      Type: `boolean`, Default: `false`
+
+      Enable/disable highlights for the sign column when the cursor is on
+      the same line.
+
+      When enabled the highlights defined in `signs.*.culhl` are used. If
       the highlight group does not exist, then it is automatically defined
       and linked to the corresponding highlight group in `signs.*.hl`.
 
@@ -801,6 +822,7 @@ current_line_blame_opts              *gitsigns-config-current_line_blame_opts*
       Default: >
         `{
           delay = 1000,
+          use_focus = true,
           virt_text = true,
           virt_text_pos = "eol",
           virt_text_priority = 100
@@ -824,6 +846,8 @@ current_line_blame_opts              *gitsigns-config-current_line_blame_opts*
           Ignore whitespace when running blame.
         • virt_text_priority: integer
           Priority of virtual text.
+        • use_focus: boolean
+          Enable only when buffer is in focus
         • extra_opts: string[]
           Extra options passed to `git-blame`.
 
@@ -1032,6 +1056,36 @@ GitSignsUntrackedLn
         Used for buffer line (when `config.linehl == true`) of 'untracked' signs.
 
         Fallbacks: `GitSignsAddLn`
+                                                        *hl-GitSignsAddCul*
+GitSignsAddCul
+        Used for the text of 'add' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsAdd`
+                                                        *hl-GitSignsChangeCul*
+GitSignsChangeCul
+        Used for the text of 'change' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsChange`
+                                                        *hl-GitSignsDeleteCul*
+GitSignsDeleteCul
+        Used for the text of 'delete' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsDelete`
+                                                        *hl-GitSignsChangedeleteCul*
+GitSignsChangedeleteCul
+        Used for the text of 'changedelete' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsChangeCul`
+                                                        *hl-GitSignsTopdeleteCul*
+GitSignsTopdeleteCul
+        Used for the text of 'topdelete' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsDeleteCul`
+                                                        *hl-GitSignsUntrackedCul*
+GitSignsUntrackedCul
+        Used for the text of 'untracked' signs when the cursor is on the same line as the sign.
+
+        Fallbacks: `GitSignsAddCul`
                                                         *hl-GitSignsAddPreview*
 GitSignsAddPreview
         Used for added lines in previews.
@@ -1204,4 +1258,3 @@ GitSignsChanged    After any event in which Gitsigns can potentially change
 
 ------------------------------------------------------------------------------
 vim:tw=78:ts=8:ft=help:norl:
-

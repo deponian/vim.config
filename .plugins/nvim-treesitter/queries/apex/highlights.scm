@@ -84,11 +84,7 @@
 
 (assignment_operator) @operator
 
-(update_expression
-  [
-    "++"
-    "--"
-  ] @operator)
+(update_operator) @operator
 
 (trigger_declaration
   name: (identifier) @type
@@ -135,8 +131,7 @@
     "~"
   ]) @operator
 
-(map_initializer
-  "=>" @operator)
+"=>" @operator
 
 [
   (boolean_type)
@@ -159,13 +154,13 @@
   (modifiers
     (modifier
       [
-        "final"
-        "static"
+        (final)
+        (static)
       ])
     (modifier
       [
-        "final"
-        "static"
+        (final)
+        (static)
       ]))
   (variable_declarator
     name: (identifier) @constant))
@@ -226,29 +221,31 @@
 "new" @keyword.operator
 
 [
-  "abstract"
+  (abstract)
+  (all_rows_clause)
   "continue"
-  "default"
   "extends"
-  "final"
+  (final)
   "get"
-  "global"
+  (global)
   "implements"
   "instanceof"
   "on"
-  "private"
-  "protected"
-  "public"
+  (override)
+  (private)
+  (protected)
+  (public)
   "set"
-  "static"
-  "testMethod"
-  "transient"
+  (static)
+  (testMethod)
+  (webservice)
+  (transient)
   "trigger"
-  "virtual"
+  (virtual)
   "when"
-  "with_sharing"
-  "without_sharing"
-  "inherited_sharing"
+  (with_sharing)
+  (without_sharing)
+  (inherited_sharing)
 ] @keyword
 
 [

@@ -55,16 +55,16 @@ end
 -- For more unicode SPACE options see:
 -- http://unicode-search.net/unicode-namesearch.pl?term=SPACE&.submit=Search
 
--- DO NOT USE '\u{}' escape, it will fail with
--- "invalid escape sequence" if Lua < 5.3
--- '\x' escape sequence requires Lua 5.2
--- M.nbsp = "\xc2\xa0"    -- "\u{00a0}"
-M.nbsp = "\xe2\x80\x82" -- "\u{2002}"
-
--- Lua 5.1 compatibility, not sure if required since we're running LuaJIT
--- but it's harmless anyways since if the '\x' escape worked it will do nothing
+-- DO NOT USE "\u{}" escape, fails with "invalid escape sequence" if Lua < 5.3
+-- "\x" escape sequence requires Lua 5.2/LuaJIT, for Lua 5.1 compatibility we
+-- use a literal backslash with the long string format `[[\x]]` to be replaced
+-- later with `string.char(tonumber(x, 16))`
 -- https://stackoverflow.com/questions/29966782/\
 --    how-to-embed-hex-values-in-a-lua-string-literal-i-e-x-equivalent
+-- M.nbsp = [[\xc2\xa0]]  -- "\u{00a0}"
+M.nbsp = [[\xe2\x80\x82]] -- "\u{2002}"
+
+-- Lua 5.1 compatibility
 if _VERSION and type(_VERSION) == "string" then
   local ver = tonumber(_VERSION:match("%d+.%d+"))
   if ver < 5.2 then
@@ -119,7 +119,8 @@ end
 ---@return string[]
 M.strsplit = function(inputstr, sep)
   local t = {}
-  if #sep == 1 then
+  -- Also match any single character class (e.g. %s, %a, etc)
+  if #sep == 1 or sep:match("^%%.$") then
     for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
       table.insert(t, str)
     end
@@ -208,6 +209,12 @@ function M.rg_escape(str)
   return ret
 end
 
+function M.regex_to_magic(str)
+  -- Convert regex to "very magic" pattern, basically a regex
+  -- with special meaning for "=&<>", `:help /magic`
+  return [[\v]] .. str:gsub("[=&<>]", function(x) return [[\]] .. x end)
+end
+
 function M.sk_escape(str)
   if not str then return str end
   return str:gsub('["`]', function(x)
@@ -222,15 +229,13 @@ function M.lua_escape(str)
   end)
 end
 
+---@see vim.pesc
 function M.lua_regex_escape(str)
   -- escape all lua special chars
   -- ( ) % . + - * [ ? ^ $
   if not str then return nil end
   -- gsub returns a tuple, return the string only or unexpected happens (#1257)
-  local ret = str:gsub("[%(%)%.%+%-%*%[%?%^%$%%]", function(x)
-    return "%" .. x
-  end)
-  return ret
+  return (str:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1"))
 end
 
 function M.glob_escape(str)
@@ -467,13 +472,24 @@ end
 
 ---@param m table<string, unknown>?
 ---@return table<string, unknown>?
-function M.map_tolower(m)
+function M.map_tolower(m, exclude_patterns)
+  -- We use "exclude_patterns" to filter "alt-{a|A}"
+  -- as it's a valid and different fzf bind
+  exclude_patterns = type(exclude_patterns) == "table" and exclude_patterns
+      or type(exclude_patterns) == "string" and { exclude_patterns }
+      or {}
   if not m then
     return
   end
   local ret = {}
   for k, v in pairs(m) do
-    ret[k:lower()] = v
+    local lower_k = (function()
+      for _, p in ipairs(exclude_patterns) do
+        if k:match(p) then return k end
+      end
+      return k:lower()
+    end)()
+    ret[lower_k] = v
   end
   return ret
 end
@@ -619,14 +635,23 @@ function M.COLORMAP()
   return M.__COLORMAP
 end
 
-local function synIDattr(hl, w)
-  return vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID(hl)), w)
+local function synIDattr(hl, w, mode)
+  -- Although help specifies invalid mode returns the active hlgroups
+  -- when sending `nil` for mode the return value for "fg" is also nil
+  return mode == "cterm" or mode == "gui"
+      and vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID(hl)), w, mode)
+      or vim.fn.synIDattr(vim.fn.synIDtrans(vim.fn.hlID(hl)), w)
 end
 
-function M.hexcol_from_hl(hlgroup, what)
+function M.hexcol_from_hl(hlgroup, what, mode)
   if not hlgroup or not what then return end
-  local hexcol = synIDattr(hlgroup, what)
-  if hexcol and not hexcol:match("^#") then
+  local hexcol = synIDattr(hlgroup, what, mode)
+  -- Without termguicolors hexcol returns `{ctermfg|ctermbg}` which is
+  -- a simple number representing the term ANSI color (e.g. 1-15, etc)
+  -- in which case we return the number as is so it can be passed onto
+  -- fzf's "--color" flag, this shouldn't be an issue for `ansi_from_hl`
+  -- as the function validates the a 6-digit hex number (#1422)
+  if hexcol and not hexcol:match("^#") and not tonumber(hexcol) then
     -- try to acquire the color from the map
     -- some schemes don't capitalize first letter?
     local col = M.COLORMAP()[hexcol:sub(1, 1):upper() .. hexcol:sub(2)]
@@ -648,6 +673,9 @@ function M.ansi_from_rgb(rgb, s)
   local r, g, b = hex2rgb(rgb)
   if r and g and b then
     return string.format("[38;2;%d;%d;%dm%s%s", r, g, b, s, "[0m")
+  elseif tonumber(rgb) then
+    -- No termguicolors, use the number as is
+    return string.format("[38;5;%dm%s%s", rgb, s, "[0m")
   end
   return s
 end
@@ -679,6 +707,9 @@ function M.ansi_from_hl(hl, s)
         table.insert(escseqs, string.format("[%d;2;%d;%d;%dm", p.code, r, g, b))
         -- elseif #hexcol>0 then
         --   print("unresolved", hl, w, hexcol, M.COLORMAP()[synIDattr(hl, w)])
+      elseif tonumber(hexcol) then
+        -- No termguicolors, use the number as is
+        table.insert(escseqs, string.format("[%d;5;%dm", p.code, tonumber(hexcol)))
       end
     else
       local value = synIDattr(hl, w)
@@ -707,7 +738,10 @@ function M.strip_ansi_coloring(str)
   -- 1. ^[[34m
   -- 2. ^[[0;34m
   -- 3. ^[[m
-  return str:gsub("%[[%d;]-m", "")
+  -- NOTE: didn't work with grep's "^[[K"
+  -- return str:gsub("%[[%d;]-m", "")
+  -- https://stackoverflow.com/a/49209650/368691
+  return str:gsub("[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]", "")
 end
 
 function M.ansi_escseq_len(str)
@@ -784,6 +818,10 @@ end
 function M.fzf_winobj()
   -- use 'loadstring' to prevent circular require
   return loadstring("return require'fzf-lua'.win.__SELF()")()
+end
+
+function M.CTX()
+  return loadstring("return require'fzf-lua'.core.CTX()")()
 end
 
 function M.resume_get(what, opts)
@@ -958,6 +996,14 @@ function M.nvim_buf_get_name(bufnr, bufinfo)
   end
   assert(#bufname > 0)
   return bufname
+end
+
+function M.wo(win, k, v)
+  if M.__HAS_NVIM_08 then
+    vim.api.nvim_set_option_value(k, v, { scope = "local", win = win })
+  else
+    vim.wo[win][k] = v
+  end
 end
 
 function M.zz()
@@ -1190,6 +1236,29 @@ function M.create_user_command_callback(provider, arg, altmap)
       end
     end
     fzf_lua[prov](opts)
+  end
+end
+
+--- Checks if treesitter parser for language is installed
+---@param lang string
+function M.has_ts_parser(lang)
+  if M.__HAS_NVIM_011 then
+    return vim.treesitter.language.add(lang)
+  else
+    return pcall(vim.treesitter.language.add, lang)
+  end
+end
+
+--- Wrapper around vim.lsp.jump_to_location which was deprecated in v0.11
+---@param location lsp.Location|lsp.LocationLink
+---@param offset_encoding 'utf-8'|'utf-16'|'utf-32'
+---@param reuse_win boolean?
+---@return boolean
+function M.jump_to_location(location, offset_encoding, reuse_win)
+  if M.__HAS_NVIM_011 then
+    return vim.lsp.util.show_document(location, offset_encoding, { reuse_win = reuse_win, focus = true })
+  else
+    return vim.lsp.util.jump_to_location(location, offset_encoding, reuse_win)
   end
 end
 

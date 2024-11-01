@@ -21,7 +21,7 @@
     ; https://docs.python.org/3/library/constants.html
     "NotImplemented" "Ellipsis" "quit" "exit" "copyright" "credits" "license"))
 
-"_" @constant.builtin ; match wildcard
+"_" @character.special ; match wildcard
 
 ((attribute
   attribute: (identifier) @variable.member)
@@ -59,7 +59,7 @@
 ; Decorators
 ((decorator
   "@" @attribute)
-  (#set! "priority" 101))
+  (#set! priority 101))
 
 (decorator
   (identifier) @attribute)
@@ -319,6 +319,9 @@
 
 (aliased_import
   "as" @keyword.import)
+
+(wildcard_import
+  "*" @character.special)
 
 [
   "if"

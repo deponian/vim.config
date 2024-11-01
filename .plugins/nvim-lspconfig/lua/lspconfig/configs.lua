@@ -1,6 +1,6 @@
 local util = require 'lspconfig.util'
 local async = require 'lspconfig.async'
-local api, validate, lsp, uv, fn = vim.api, vim.validate, vim.lsp, vim.loop, vim.fn
+local api, validate, lsp, uv, fn = vim.api, vim.validate, vim.lsp, (vim.uv or vim.loop), vim.fn
 local tbl_deep_extend = vim.tbl_deep_extend
 
 local configs = {}
@@ -10,9 +10,10 @@ local configs = {}
 --- @field single_file_support? boolean
 --- @field filetypes? string[]
 --- @field filetype? string
---- @field on_new_config? function
+--- @field on_new_config? fun(new_config: lspconfig.Config?, new_root_dir: string)
 --- @field autostart? boolean
 --- @field package _on_attach? fun(client: vim.lsp.Client, bufnr: integer)
+--- @field root_dir? string|fun(filename: string, bufnr: number)
 
 --- @param cmd any
 local function sanitize_cmd(cmd)
@@ -25,6 +26,9 @@ local function sanitize_cmd(cmd)
   end
 end
 
+---@param t table
+---@param config_name string
+---@param config_def table Config definition read from `lspconfig.configs.<name>`.
 function configs.__newindex(t, config_name, config_def)
   validate {
     name = { config_name, 's' },
@@ -72,7 +76,7 @@ function configs.__newindex(t, config_name, config_def)
         { 'f', 't' },
         true,
       },
-      root_dir = { user_config.root_dir, 'f', true },
+      root_dir = { user_config.root_dir, { 's', 'f' }, true },
       filetypes = { user_config.filetype, 't', true },
       on_new_config = { user_config.on_new_config, 'f', true },
       on_attach = { user_config.on_attach, 'f', true },
@@ -127,12 +131,14 @@ function configs.__newindex(t, config_name, config_def)
 
       async.run(function()
         local root_dir
-        if get_root_dir then
+        if type(get_root_dir) == 'function' then
           root_dir = get_root_dir(util.path.sanitize(bufname), bufnr)
           async.reenter()
           if not api.nvim_buf_is_valid(bufnr) then
             return
           end
+        elseif type(get_root_dir) == 'string' then
+          root_dir = get_root_dir
         end
 
         if root_dir then
@@ -175,7 +181,7 @@ function configs.__newindex(t, config_name, config_def)
       end)
     end
 
-    -- Used by :LspInfo
+    -- Used by :LspInfo (evil, mutable aliases?)
     M.get_root_dir = get_root_dir
     M.filetypes = config.filetypes
     M.handlers = config.handlers
@@ -287,7 +293,9 @@ function configs.__newindex(t, config_name, config_def)
 
   M.commands = config_def.commands
   M.name = config_name
-  M.document_config = config_def
+  -- Expose the (original?) values of a config (non-active, or before `setup()`).
+  M.config_def = config_def
+  M.document_config = config_def -- For back-compat.
 
   rawset(t, config_name, M)
 end

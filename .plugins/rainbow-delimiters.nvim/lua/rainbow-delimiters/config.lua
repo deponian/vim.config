@@ -78,10 +78,16 @@ local M = {
 			for _, v in ipairs(blacklist) do
 				if v == lang then return false end
 			end
-			return true
 		end
 
 		return true
+	end,
+	enabled_when = function(bufnr)
+		local conf = vim.g.rainbow_delimiters
+		if not conf or not conf.condition then
+			return true
+		end
+		return conf.condition(bufnr)
 	end
 }
 

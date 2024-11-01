@@ -164,7 +164,7 @@ M.config = function ()
     on_attach = on_attach,
   })
 
-  require("lspconfig").tsserver.setup({
+  require("lspconfig").ts_ls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
     handlers = handlers,

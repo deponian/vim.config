@@ -1,20 +1,15 @@
+local Status = require('gitsigns.status')
 local async = require('gitsigns.async')
 local git = require('gitsigns.git')
-
-local manager = require('gitsigns.manager')
-
+local Cache = require('gitsigns.cache')
 local log = require('gitsigns.debug.log')
-local dprintf = log.dprintf
-local dprint = log.dprint
-
-local gs_cache = require('gitsigns.cache')
-local cache = gs_cache.cache
-local Status = require('gitsigns.status')
-
-local config = require('gitsigns.config').config
-
+local manager = require('gitsigns.manager')
 local util = require('gitsigns.util')
 
+local cache = Cache.cache
+local config = require('gitsigns.config').config
+local dprint = log.dprint
+local dprintf = log.dprintf
 local throttle_by_id = require('gitsigns.debounce').throttle_by_id
 
 local api = vim.api
@@ -46,13 +41,25 @@ end
 --- @return string buffer
 --- @return string? commit
 local function parse_gitsigns_uri(name)
-  -- TODO(lewis6991): Support submodules
-  --- @type any, any, string?, string?, string
-  local _, _, root_path, commit, rel_path = name:find([[^gitsigns://(.*)/%.git/(.*):(.*)]])
+  local _proto, head, tail = unpack(vim.split(name, '//'))
+
+  --- @type any, any, string?, string?
+  local _, _, root_path, sub_path = head:find([[(.*)/%.git(.*)]])
+
+  --- @type any, any, string?, string?
+  local _, _, commit, rel_path = tail:find([[(.*):(.*)]])
+
   commit = util.norm_base(commit)
+
   if root_path then
-    name = root_path .. '/' .. rel_path
+    if sub_path then
+      sub_path = sub_path:gsub('^/modules/', '')
+      name = string.format('%s/%s/%s', root_path, sub_path, rel_path)
+    else
+      name = string.format('%s/%s', root_path, rel_path)
+    end
   end
+
   return name, commit
 end
 
@@ -323,7 +330,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
     return
   end
 
-  cache[cbuf] = gs_cache.new({
+  cache[cbuf] = Cache.new({
     bufnr = cbuf,
     file = file,
     git_obj = git_obj,
@@ -395,7 +402,7 @@ function M.detach(bufnr, _keep_signs)
   -- Clear status variables
   Status:clear(bufnr)
 
-  gs_cache.destroy(bufnr)
+  Cache.destroy(bufnr)
 end
 
 --- Attach Gitsigns to the buffer.

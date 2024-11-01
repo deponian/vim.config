@@ -1,4 +1,3 @@
-after	fzf-lua.txt	/*after*
 fzf-lua-buffers-and-files	fzf-lua.txt	/*fzf-lua-buffers-and-files*
 fzf-lua-coming-from-fzf.vim?	fzf-lua.txt	/*fzf-lua-coming-from-fzf.vim?*
 fzf-lua-commands	fzf-lua.txt	/*fzf-lua-commands*
@@ -57,6 +56,7 @@ fzf-lua-opts-fzf-lua-commands-and-options	fzf-lua-opts.txt	/*fzf-lua-opts-fzf-lu
 fzf-lua-opts-general-usage	fzf-lua-opts.txt	/*fzf-lua-opts-general-usage*
 fzf-lua-opts-git	fzf-lua-opts.txt	/*fzf-lua-opts-git*
 fzf-lua-opts-git_bcommits	fzf-lua-opts.txt	/*fzf-lua-opts-git_bcommits*
+fzf-lua-opts-git_blame	fzf-lua-opts.txt	/*fzf-lua-opts-git_blame*
 fzf-lua-opts-git_branches	fzf-lua-opts.txt	/*fzf-lua-opts-git_branches*
 fzf-lua-opts-git_commits	fzf-lua-opts.txt	/*fzf-lua-opts-git_commits*
 fzf-lua-opts-git_files	fzf-lua-opts.txt	/*fzf-lua-opts-git_files*
@@ -70,6 +70,7 @@ fzf-lua-opts-globals.file_icons	fzf-lua-opts.txt	/*fzf-lua-opts-globals.file_ico
 fzf-lua-opts-globals.formatter	fzf-lua-opts.txt	/*fzf-lua-opts-globals.formatter*
 fzf-lua-opts-globals.git_icons	fzf-lua-opts.txt	/*fzf-lua-opts-globals.git_icons*
 fzf-lua-opts-globals.header	fzf-lua-opts.txt	/*fzf-lua-opts-globals.header*
+fzf-lua-opts-globals.hls.backdrop	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.backdrop*
 fzf-lua-opts-globals.hls.border	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.border*
 fzf-lua-opts-globals.hls.buf_flag_alt	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_flag_alt*
 fzf-lua-opts-globals.hls.buf_flag_cur	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_flag_cur*
@@ -117,6 +118,7 @@ fzf-lua-opts-globals.hls.title	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.title
 fzf-lua-opts-globals.previewer	fzf-lua-opts.txt	/*fzf-lua-opts-globals.previewer*
 fzf-lua-opts-globals.prompt	fzf-lua-opts.txt	/*fzf-lua-opts-globals.prompt*
 fzf-lua-opts-globals.query	fzf-lua-opts.txt	/*fzf-lua-opts-globals.query*
+fzf-lua-opts-globals.winopts.backdrop	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.backdrop*
 fzf-lua-opts-globals.winopts.border	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.border*
 fzf-lua-opts-globals.winopts.col	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.col*
 fzf-lua-opts-globals.winopts.fullscreen	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.fullscreen*
@@ -135,13 +137,17 @@ fzf-lua-opts-grep	fzf-lua-opts.txt	/*fzf-lua-opts-grep*
 fzf-lua-opts-grep_curbuf	fzf-lua-opts.txt	/*fzf-lua-opts-grep_curbuf*
 fzf-lua-opts-grep_cword	fzf-lua-opts.txt	/*fzf-lua-opts-grep_cword*
 fzf-lua-opts-grep_last	fzf-lua-opts.txt	/*fzf-lua-opts-grep_last*
+fzf-lua-opts-grep_loclist	fzf-lua-opts.txt	/*fzf-lua-opts-grep_loclist*
 fzf-lua-opts-grep_project	fzf-lua-opts.txt	/*fzf-lua-opts-grep_project*
+fzf-lua-opts-grep_quickfix	fzf-lua-opts.txt	/*fzf-lua-opts-grep_quickfix*
 fzf-lua-opts-grep_visual	fzf-lua-opts.txt	/*fzf-lua-opts-grep_visual*
 fzf-lua-opts-helptags	fzf-lua-opts.txt	/*fzf-lua-opts-helptags*
 fzf-lua-opts-highlights	fzf-lua-opts.txt	/*fzf-lua-opts-highlights*
 fzf-lua-opts-jumps	fzf-lua-opts.txt	/*fzf-lua-opts-jumps*
 fzf-lua-opts-keymaps	fzf-lua-opts.txt	/*fzf-lua-opts-keymaps*
 fzf-lua-opts-lgrep_curbuf	fzf-lua-opts.txt	/*fzf-lua-opts-lgrep_curbuf*
+fzf-lua-opts-lgrep_loclist	fzf-lua-opts.txt	/*fzf-lua-opts-lgrep_loclist*
+fzf-lua-opts-lgrep_quickfix	fzf-lua-opts.txt	/*fzf-lua-opts-lgrep_quickfix*
 fzf-lua-opts-lines	fzf-lua-opts.txt	/*fzf-lua-opts-lines*
 fzf-lua-opts-live_grep	fzf-lua-opts.txt	/*fzf-lua-opts-live_grep*
 fzf-lua-opts-live_grep_glob	fzf-lua-opts.txt	/*fzf-lua-opts-live_grep_glob*
@@ -198,6 +204,7 @@ fzf-lua-opts-tags_live_grep	fzf-lua-opts.txt	/*fzf-lua-opts-tags_live_grep*
 fzf-lua-opts-tagstack	fzf-lua-opts.txt	/*fzf-lua-opts-tagstack*
 fzf-lua-opts-tmux	fzf-lua-opts.txt	/*fzf-lua-opts-tmux*
 fzf-lua-opts-tmux_buffers	fzf-lua-opts.txt	/*fzf-lua-opts-tmux_buffers*
+fzf-lua-opts-treesitter	fzf-lua-opts.txt	/*fzf-lua-opts-treesitter*
 fzf-lua-opts.txt	fzf-lua-opts.txt	/*fzf-lua-opts.txt*
 fzf-lua-profiles	fzf-lua.txt	/*fzf-lua-profiles*
 fzf-lua-quickstart	fzf-lua.txt	/*fzf-lua-quickstart*

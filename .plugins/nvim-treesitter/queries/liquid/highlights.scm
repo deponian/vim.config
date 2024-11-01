@@ -25,6 +25,7 @@
   "as"
   "assign"
   "capture"
+  (custom_unpaired_statement)
   "decrement"
   "echo"
   "endcapture"
@@ -59,9 +60,9 @@
   (#set! priority 110))
 
 ([
-  "break"
+  (break_statement)
+  (continue_statement)
   "by"
-  "continue"
   "cycle"
   "endfor"
   "endpaginate"
@@ -94,6 +95,7 @@
 
 [
   "include"
+  "include_relative"
   "render"
   "section"
   "sections"

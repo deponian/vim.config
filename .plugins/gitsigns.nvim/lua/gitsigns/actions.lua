@@ -1,16 +1,14 @@
 local async = require('gitsigns.async')
-local config = require('gitsigns.config').config
-local mk_repeatable = require('gitsigns.repeat').mk_repeatable
+local git = require('gitsigns.git')
+local Hunks = require('gitsigns.hunks')
+local manager = require('gitsigns.manager')
 local popup = require('gitsigns.popup')
 local util = require('gitsigns.util')
-local manager = require('gitsigns.manager')
-local git = require('gitsigns.git')
 local run_diff = require('gitsigns.diff')
 
-local gs_cache = require('gitsigns.cache')
-local cache = gs_cache.cache
-
-local Hunks = require('gitsigns.hunks')
+local config = require('gitsigns.config').config
+local mk_repeatable = require('gitsigns.repeat').mk_repeatable
+local cache = require('gitsigns.cache').cache
 
 local api = vim.api
 local current_buf = api.nvim_get_current_buf
@@ -277,6 +275,11 @@ M.stage_hunk = mk_repeatable(async.create(2, function(range, opts)
     return
   end
 
+  if bcache:locked() then
+    print('Error: busy')
+    return
+  end
+
   if not util.path_exists(bcache.file) then
     print('Error: Cannot stage lines. Please add the file to the working tree.')
     return
@@ -296,7 +299,6 @@ M.stage_hunk = mk_repeatable(async.create(2, function(range, opts)
   end
 
   bcache.git_obj:stage_hunks({ hunk }, invert)
-
   table.insert(bcache.staged_diffs, hunk)
 
   bcache:invalidate(true)
@@ -399,6 +401,11 @@ M.undo_stage_hunk = async.create(function()
     return
   end
 
+  if bcache:locked() then
+    print('Error: busy')
+    return
+  end
+
   local hunk = table.remove(bcache.staged_diffs)
   if not hunk then
     print('No hunks to undo')
@@ -416,9 +423,13 @@ end)
 ---     {async}
 M.stage_buffer = async.create(function()
   local bufnr = current_buf()
-
   local bcache = cache[bufnr]
   if not bcache then
+    return
+  end
+
+  if bcache:locked() then
+    print('Error: busy')
     return
   end
 
@@ -457,6 +468,11 @@ M.reset_buffer_index = async.create(function()
     return
   end
 
+  if bcache:locked() then
+    print('Error: busy')
+    return
+  end
+
   -- `bcache.staged_diffs` won't contain staged changes outside of current
   -- neovim session so signs added from this unstage won't be complete They will
   -- however be fixed by gitdir watcher and properly updated We should implement
@@ -466,7 +482,6 @@ M.reset_buffer_index = async.create(function()
   bcache.staged_diffs = {}
 
   bcache.git_obj:unstage_file()
-
   bcache:invalidate(true)
   update(bufnr)
 end)
@@ -554,6 +569,9 @@ local function get_nav_hunks(bufnr, target, greedy)
     if target == 'all' then
       hunks = hunks_main
       vim.list_extend(hunks, hunks_head)
+      table.sort(hunks, function(h1, h2)
+        return h1.added.start < h2.added.start
+      end)
     elseif target == 'staged' then
       hunks = hunks_head
     end
@@ -1019,7 +1037,7 @@ M.blame_line = async.create(1, function(opts)
   local blame_linespec = create_blame_fmt(is_committed, opts.full)
 
   if is_committed and opts.full then
-    local body = bcache.git_obj:command(
+    local body = bcache.git_obj.repo:command(
       { 'show', '-s', '--format=%B', result.sha },
       { text = true }
     )
@@ -1181,7 +1199,7 @@ M.diffthis = function(base, opts)
     base = tostring(base)
   end
   opts = opts or {}
-  if not opts.vertical then
+  if opts.vertical == nil then
     opts.vertical = config.diff_opts.vertical
   end
   require('gitsigns.diffthis').diffthis(base, opts)
@@ -1243,6 +1261,10 @@ M.show = function(revision, callback)
   diffthis.show(bufnr, revision, callback)
 end
 
+C.show = function(args, _)
+  M.show(args[1])
+end
+
 CP.show = complete_heads
 
 --- @param buf_or_filename string|integer
@@ -1287,17 +1309,24 @@ local function buildqflist(target)
       end
     end
 
-    local repo = git.Repo.new(assert(vim.loop.cwd()))
-    if not repos[repo.gitdir] then
+    local repo = git.Repo.get(assert(vim.loop.cwd()))
+    if repo and not repos[repo.gitdir] then
       repos[repo.gitdir] = repo
     end
 
     for _, r in pairs(repos) do
-      for _, f in ipairs(r:files_changed()) do
+      for _, f in ipairs(r:files_changed(config.base)) do
         local f_abs = r.toplevel .. '/' .. f
         local stat = vim.loop.fs_stat(f_abs)
         if stat and stat.type == 'file' then
-          local a = r:get_show_text(':0:' .. f)
+          ---@type string
+          local obj
+          if config.base and config.base ~= ':0' then
+            obj = config.base .. ':' .. f
+          else
+            obj = ':0:' .. f
+          end
+          local a = r:get_show_text(obj)
           async.scheduler()
           local hunks = run_diff(a, util.file_lines(f_abs))
           hunks_to_qflist(f_abs, hunks, qflist)

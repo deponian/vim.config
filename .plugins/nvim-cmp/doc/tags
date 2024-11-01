@@ -34,6 +34,7 @@ cmp-config.performance.async_budget	cmp.txt	/*cmp-config.performance.async_budge
 cmp-config.performance.confirm_resolve_timeout	cmp.txt	/*cmp-config.performance.confirm_resolve_timeout*
 cmp-config.performance.debounce	cmp.txt	/*cmp-config.performance.debounce*
 cmp-config.performance.fetching_timeout	cmp.txt	/*cmp-config.performance.fetching_timeout*
+cmp-config.performance.filtering_context_budget	cmp.txt	/*cmp-config.performance.filtering_context_budget*
 cmp-config.performance.max_view_entries	cmp.txt	/*cmp-config.performance.max_view_entries*
 cmp-config.performance.throttle	cmp.txt	/*cmp-config.performance.throttle*
 cmp-config.preselect	cmp.txt	/*cmp-config.preselect*

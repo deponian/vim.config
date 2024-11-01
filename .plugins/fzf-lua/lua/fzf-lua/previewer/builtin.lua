@@ -64,8 +64,8 @@ function Previewer.base:new(o, opts, fzf_win)
   self.cached_bufnrs = {}
   self.cached_buffers = {}
   -- store currently listed buffers, this helps us determine which buffers
-  -- navigated with 'vim.lsp.util.jump_to_location' we can safely unload
-  -- since jump_to_location reuses buffers and I couldn't find a better way
+  -- navigated with 'vim.lsp.util.show_document' we can safely unload
+  -- since show_document reuses buffers and I couldn't find a better way
   -- to determine if the destination buffer was listed prior to the jump
   self.listed_buffers = (function()
     local map = {}
@@ -221,7 +221,7 @@ function Previewer.base:clear_preview_buf(newbuf)
   -- will return false
   -- one case where the buffer may remain valid after detaching
   -- from the preview window is with URI type entries after calling
-  -- 'vim.lsp.util.jump_to_location' which can reuse existing buffers,
+  -- 'vim.lsp.util.show_document' which can reuse existing buffers,
   -- so technically this should never be executed unless the
   -- user wrote an fzf-lua extension and set the preview buffer to
   -- a random buffer without the 'bufhidden' property
@@ -287,9 +287,10 @@ end
 
 function Previewer.base:cmdline(_)
   local act = shell.raw_action(function(items, _, _)
+    self.opts._last_query = type(items[2]) == "string" and items[2] or nil
     self:display_entry(items[1])
     return ""
-  end, "{}", self.opts.debug)
+  end, "{} {q}", self.opts.debug)
   return act
 end
 
@@ -642,14 +643,14 @@ function Previewer.buffer_or_file:populate_preview_buf(entry_str)
     -- LSP 'jdt://' entries, see issue #195
     -- https://github.com/ibhagwan/fzf-lua/issues/195
     vim.api.nvim_win_call(self.win.preview_winid, function()
-      local ok, res = pcall(vim.lsp.util.jump_to_location, entry, "utf-16", false)
+      local ok, res = pcall(utils.jump_to_location, entry, "utf-16", false)
       if ok then
         self.preview_bufnr = vim.api.nvim_get_current_buf()
       else
         -- in case of an error display the stacktrace in the preview buffer
         local lines = vim.split(res, "\n") or { "null" }
         table.insert(lines, 1,
-          string.format("lsp.util.jump_to_location failed for '%s':", entry.uri))
+          string.format("lsp.util.%s failed for '%s':", utils.__HAS_NVIM_011 and "show_document" or "jump_to_location", entry.uri))
         table.insert(lines, 2, "")
         local tmpbuf = self:get_tmp_buffer()
         vim.api.nvim_buf_set_lines(tmpbuf, 0, -1, false, lines)
@@ -675,18 +676,22 @@ function Previewer.buffer_or_file:populate_preview_buf(entry_str)
     end
     do
       local lines = nil
-      -- make sure the file is readable (or bad entry.path)
-      local fs_stat = uv.fs_stat(entry.path)
-      if not entry.path or not fs_stat then
-        lines = { string.format("Unable to stat file %s", entry.path) }
-      elseif fs_stat.size > 0 and utils.perl_file_is_binary(entry.path) then
-        lines = { "Preview is not supported for binary files." }
-      elseif tonumber(self.limit_b) > 0 and fs_stat.size > self.limit_b then
-        lines = {
-          ("Preview file size limit (>%dMB) reached, file size %dMB.")
-              :format(self.limit_b / (1024 * 1024), fs_stat.size / (1024 * 1024)),
-          -- "(configured via 'previewers.builtin.limit_b')"
-        }
+      if entry.path:match("^%[DEBUG]") then
+        lines = { tostring(entry.path:gsub("^%[DEBUG]", "")) }
+      else
+        -- make sure the file is readable (or bad entry.path)
+        local fs_stat = uv.fs_stat(entry.path)
+        if not entry.path or not fs_stat then
+          lines = { string.format("Unable to stat file %s", entry.path) }
+        elseif fs_stat.size > 0 and utils.perl_file_is_binary(entry.path) then
+          lines = { "Preview is not supported for binary files." }
+        elseif tonumber(self.limit_b) > 0 and fs_stat.size > self.limit_b then
+          lines = {
+            ("Preview file size limit (>%dMB) reached, file size %dMB.")
+                :format(self.limit_b / (1024 * 1024), fs_stat.size / (1024 * 1024)),
+            -- "(configured via 'previewers.builtin.limit_b')"
+          }
+        end
       end
       if lines then
         pcall(vim.api.nvim_buf_set_lines, tmpbuf, 0, -1, false, lines)
@@ -750,7 +755,7 @@ end
 -- Attach ts highlighter, neovim >= v0.9
 local ts_attach = function(bufnr, ft)
   local lang = vim.treesitter.language.get_lang(ft)
-  local loaded = pcall(vim.treesitter.language.add, lang)
+  local loaded = lang and utils.has_ts_parser(lang)
   if lang and loaded then
     local ok, err = pcall(vim.treesitter.start, bufnr, lang)
     if not ok then
@@ -857,30 +862,48 @@ function Previewer.buffer_or_file:do_syntax(entry)
 end
 
 function Previewer.buffer_or_file:set_cursor_hl(entry)
-  pcall(vim.api.nvim_win_call, self.win.preview_winid, function()
-    local lnum, col = tonumber(entry.line), tonumber(entry.col)
-    local pattern = entry.pattern or entry.text
+  local mgrep = require("fzf-lua.providers.grep")
+  local regex = self.opts.__ACT_TO == mgrep.grep and self.opts._last_query
+      or self.opts.__ACT_TO == mgrep.live_grep and self.opts.search or nil
+  if regex and self.opts.rg_glob and self.opts.glob_separator then
+    regex = require("fzf-lua.make_entry").glob_parse(regex, self.opts)
+  end
 
+  pcall(vim.api.nvim_win_call, self.win.preview_winid, function()
+    local lnum, col = tonumber(entry.line), tonumber(entry.col) or 0
     if not lnum or lnum < 1 then
-      api.nvim_win_set_cursor(0, { 1, 0 })
-      if pattern ~= "" then
-        fn.search(pattern, "c")
+      vim.wo.cursorline = false
+      self.orig_pos = { 1, 0 }
+      api.nvim_win_set_cursor(0, self.orig_pos)
+      return
+    end
+
+    self.orig_pos = { lnum, math.max(0, col - 1) }
+    api.nvim_win_set_cursor(0, self.orig_pos)
+    fn.clearmatches()
+
+    -- If regex is available (grep/lgrep), match on current line
+    local regex_match_len = 0
+    if regex and self.win.hls.search then
+      -- vim.regex is always magic, see `:help vim.regex`
+      local ok, reg = pcall(vim.regex, utils.regex_to_magic(regex))
+      if ok then
+        _, regex_match_len = reg:match_line(self.preview_bufnr, lnum - 1, math.max(1, col) - 1)
+        regex_match_len = tonumber(regex_match_len) or 0
+      elseif self.opts.silent ~= true then
+        utils.warn(string.format([[Unable to init vim.regex with "%s", %s]], regex, reg))
       end
-    else
-      if not pcall(api.nvim_win_set_cursor, 0, { lnum, math.max(0, col - 1) }) then
-        return
+      if regex_match_len > 0 then
+        fn.matchaddpos(self.win.hls.search, { { lnum, math.max(1, col), regex_match_len } }, 11)
       end
+    end
+
+    -- Fallback to cursor hl, only if column exists
+    if regex_match_len <= 0 and self.win.hls.cursor and col > 0 then
+      fn.matchaddpos(self.win.hls.cursor, { { lnum, math.max(1, col) } }, 11)
     end
 
     utils.zz()
-
-    self.orig_pos = api.nvim_win_get_cursor(0)
-
-    fn.clearmatches()
-
-    if self.win.hls.cursor and not (lnum <= 1 and col <= 1) then
-      fn.matchaddpos(self.win.hls.cursor, { { lnum, math.max(1, col) } }, 11)
-    end
   end)
 end
 
@@ -888,10 +911,14 @@ function Previewer.buffer_or_file:update_border(entry)
   if self.title then
     local filepath = entry.path
     if filepath then
-      if self.opts.cwd then
-        filepath = path.relative_to(entry.path, self.opts.cwd)
+      if filepath:match("^%[DEBUG]") then
+        filepath = "[DEBUG]"
+      else
+        if self.opts.cwd then
+          filepath = path.relative_to(entry.path, self.opts.cwd)
+        end
+        filepath = path.HOME_to_tilde(filepath)
       end
-      filepath = path.HOME_to_tilde(filepath)
     end
     local title = filepath or entry.uri or entry.bufname
     -- was transform function defined?
@@ -952,6 +979,9 @@ end
 
 function Previewer.help_tags:parse_entry(entry_str)
   local tag = entry_str:match("^[^%s]+")
+  if not tag then
+    return {}
+  end
   local vimdoc = entry_str:match(string.format("[^%s]+$", utils.nbsp))
   return {
     htag = tag,
@@ -1003,6 +1033,7 @@ function Previewer.man_pages:new(o, opts, fzf_win)
   Previewer.man_pages.super.new(self, o, opts, fzf_win)
   self.filetype = "man"
   self.cmd = o.cmd or "man -c %s | col -bx"
+  self.cmd = type(self.cmd) == "function" and self.cmd() or self.cmd
   return self
 end
 
@@ -1033,6 +1064,7 @@ end
 function Previewer.marks:parse_entry(entry_str)
   local bufnr = nil
   local mark, lnum, col, filepath = entry_str:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
+  if not mark then return {} end
   -- try to acquire position from sending buffer
   -- if this succeeds (line>0) the mark is inside
   local pos = vim.api.nvim_buf_get_mark(self.win.src_bufnr, mark)
@@ -1041,7 +1073,7 @@ function Previewer.marks:parse_entry(entry_str)
     filepath = api.nvim_buf_get_name(bufnr)
   end
   if #filepath > 0 then
-    local ok, res = pcall(vim.fn.expand, filepath)
+    local ok, res = pcall(libuv.expand, filepath)
     if not ok then
       filepath = ""
     else
@@ -1065,10 +1097,11 @@ function Previewer.jumps:new(o, opts, fzf_win)
 end
 
 function Previewer.jumps:parse_entry(entry_str)
+  if entry_str == "" then return {} end
   local bufnr = nil
   local _, lnum, col, filepath = entry_str:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
   if filepath then
-    local ok, res = pcall(vim.fn.expand, filepath)
+    local ok, res = pcall(libuv.expand, filepath)
     if ok then
       filepath = path.relative_to(res, uv.cwd())
     end
@@ -1092,16 +1125,6 @@ Previewer.tags = Previewer.buffer_or_file:extend()
 function Previewer.tags:new(o, opts, fzf_win)
   Previewer.tags.super.new(self, o, opts, fzf_win)
   return self
-end
-
-function Previewer.tags:parse_entry(entry_str)
-  -- first parse as normal entry
-  -- must use 'super.' and send self as 1st arg
-  -- or the ':' syntactic sugar will send super's
-  -- self which doesn't have self.opts
-  local entry = self.super.parse_entry(self, entry_str)
-  entry.ctag = path.entry_to_ctag(entry_str)
-  return entry
 end
 
 function Previewer.tags:set_cursor_hl(entry)

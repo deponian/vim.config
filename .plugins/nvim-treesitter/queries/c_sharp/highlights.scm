@@ -217,7 +217,6 @@
   "module"
   "this"
   "base"
-  (discard)
 ] @variable.builtin
 
 (constructor_declaration
@@ -358,6 +357,9 @@
 (preproc_pragma
   (identifier) @constant)
 
+(preproc_if
+  (identifier) @constant)
+
 [
   "if"
   "else"
@@ -366,15 +368,6 @@
   "case"
   "when"
 ] @keyword.conditional
-
-(preproc_pragma
-  (identifier) @constant)
-
-(preproc_if
-  (identifier) @constant)
-
-(preproc_if
-  (identifier) @constant)
 
 [
   "while"
@@ -435,6 +428,11 @@
   "??="
   ".."
 ] @operator
+
+(list_pattern
+  ".." @character.special)
+
+(discard) @character.special
 
 [
   ";"

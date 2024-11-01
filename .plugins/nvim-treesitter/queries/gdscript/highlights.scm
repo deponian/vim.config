@@ -129,9 +129,10 @@
   (#eq? @keyword.operator "new"))
 
 ; Match Pattern
-(underscore) @constant ; The "_" pattern.
-
-(pattern_open_ending) @operator ; The ".." pattern.
+[
+  (underscore)
+  (pattern_open_ending)
+] @character.special
 
 ; Alternations
 [
@@ -301,8 +302,7 @@
     "var_to_str" "weakref" "wrap" "wrapf" "wrapi"
     ; from modules/gdscript/doc_classes/@GDScript.xml
     "Color8" "assert" "char" "convert" "dict_to_inst" "get_stack" "inst_to_dict" "is_instance_of"
-    "len" "load" "preload" "print_debug" "print_stack" "range" "type_exists")
-  )
+    "len" "load" "preload" "print_debug" "print_stack" "range" "type_exists"))
 
 ; Builtin Constants
 ((identifier) @constant.builtin

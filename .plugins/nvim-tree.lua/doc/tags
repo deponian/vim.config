@@ -26,6 +26,7 @@ nvim-tree-api.events.subscribe()	nvim-tree-lua.txt	/*nvim-tree-api.events.subscr
 nvim-tree-api.fs	nvim-tree-lua.txt	/*nvim-tree-api.fs*
 nvim-tree-api.fs.clear_clipboard()	nvim-tree-lua.txt	/*nvim-tree-api.fs.clear_clipboard()*
 nvim-tree-api.fs.copy.absolute_path()	nvim-tree-lua.txt	/*nvim-tree-api.fs.copy.absolute_path()*
+nvim-tree-api.fs.copy.basename()	nvim-tree-lua.txt	/*nvim-tree-api.fs.copy.basename()*
 nvim-tree-api.fs.copy.filename()	nvim-tree-lua.txt	/*nvim-tree-api.fs.copy.filename()*
 nvim-tree-api.fs.copy.node()	nvim-tree-lua.txt	/*nvim-tree-api.fs.copy.node()*
 nvim-tree-api.fs.copy.relative_path()	nvim-tree-lua.txt	/*nvim-tree-api.fs.copy.relative_path()*
@@ -106,6 +107,7 @@ nvim-tree-api.tree.is_tree_buf()	nvim-tree-lua.txt	/*nvim-tree-api.tree.is_tree_
 nvim-tree-api.tree.is_visible()	nvim-tree-lua.txt	/*nvim-tree-api.tree.is_visible()*
 nvim-tree-api.tree.open()	nvim-tree-lua.txt	/*nvim-tree-api.tree.open()*
 nvim-tree-api.tree.reload()	nvim-tree-lua.txt	/*nvim-tree-api.tree.reload()*
+nvim-tree-api.tree.resize()	nvim-tree-lua.txt	/*nvim-tree-api.tree.resize()*
 nvim-tree-api.tree.search_node()	nvim-tree-lua.txt	/*nvim-tree-api.tree.search_node()*
 nvim-tree-api.tree.toggle()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle()*
 nvim-tree-api.tree.toggle_custom_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_custom_filter()*
@@ -192,6 +194,7 @@ nvim-tree.diagnostics.show_on_dirs	nvim-tree-lua.txt	/*nvim-tree.diagnostics.sho
 nvim-tree.diagnostics.show_on_open_dirs	nvim-tree-lua.txt	/*nvim-tree.diagnostics.show_on_open_dirs*
 nvim-tree.disable_netrw	nvim-tree-lua.txt	/*nvim-tree.disable_netrw*
 nvim-tree.experimental	nvim-tree-lua.txt	/*nvim-tree.experimental*
+nvim-tree.experimental.actions.open_file.relative_path	nvim-tree-lua.txt	/*nvim-tree.experimental.actions.open_file.relative_path*
 nvim-tree.filesystem_watchers.debounce_delay	nvim-tree-lua.txt	/*nvim-tree.filesystem_watchers.debounce_delay*
 nvim-tree.filesystem_watchers.enable	nvim-tree-lua.txt	/*nvim-tree.filesystem_watchers.enable*
 nvim-tree.filesystem_watchers.ignore_dirs	nvim-tree-lua.txt	/*nvim-tree.filesystem_watchers.ignore_dirs*
@@ -240,10 +243,12 @@ nvim-tree.reload_on_bufenter	nvim-tree-lua.txt	/*nvim-tree.reload_on_bufenter*
 nvim-tree.renderer.add_trailing	nvim-tree-lua.txt	/*nvim-tree.renderer.add_trailing*
 nvim-tree.renderer.full_name	nvim-tree-lua.txt	/*nvim-tree.renderer.full_name*
 nvim-tree.renderer.group_empty	nvim-tree-lua.txt	/*nvim-tree.renderer.group_empty*
+nvim-tree.renderer.hidden_display	nvim-tree-lua.txt	/*nvim-tree.renderer.hidden_display*
 nvim-tree.renderer.highlight_bookmarks	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_bookmarks*
 nvim-tree.renderer.highlight_clipboard	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_clipboard*
 nvim-tree.renderer.highlight_diagnostics	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_diagnostics*
 nvim-tree.renderer.highlight_git	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_git*
+nvim-tree.renderer.highlight_hidden	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_hidden*
 nvim-tree.renderer.highlight_modified	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_modified*
 nvim-tree.renderer.highlight_opened_files	nvim-tree-lua.txt	/*nvim-tree.renderer.highlight_opened_files*
 nvim-tree.renderer.icons	nvim-tree-lua.txt	/*nvim-tree.renderer.icons*
@@ -254,8 +259,10 @@ nvim-tree.renderer.icons.glyphs	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.gly
 nvim-tree.renderer.icons.glyphs.default	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.default*
 nvim-tree.renderer.icons.glyphs.folder	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.folder*
 nvim-tree.renderer.icons.glyphs.git	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.git*
+nvim-tree.renderer.icons.glyphs.hidden	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.hidden*
 nvim-tree.renderer.icons.glyphs.modified	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.modified*
 nvim-tree.renderer.icons.glyphs.symlink	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.glyphs.symlink*
+nvim-tree.renderer.icons.hidden_placement	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.hidden_placement*
 nvim-tree.renderer.icons.modified_placement	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.modified_placement*
 nvim-tree.renderer.icons.padding	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.padding*
 nvim-tree.renderer.icons.show	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show*
@@ -265,6 +272,7 @@ nvim-tree.renderer.icons.show.file	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.
 nvim-tree.renderer.icons.show.folder	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show.folder*
 nvim-tree.renderer.icons.show.folder_arrow	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show.folder_arrow*
 nvim-tree.renderer.icons.show.git	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show.git*
+nvim-tree.renderer.icons.show.hidden	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show.hidden*
 nvim-tree.renderer.icons.show.modified	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.show.modified*
 nvim-tree.renderer.icons.symlink_arrow	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.symlink_arrow*
 nvim-tree.renderer.icons.web_devicons	nvim-tree-lua.txt	/*nvim-tree.renderer.icons.web_devicons*

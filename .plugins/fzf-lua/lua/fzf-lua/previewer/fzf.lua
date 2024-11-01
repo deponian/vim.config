@@ -173,7 +173,7 @@ local grep_tag = function(file, tag)
   else
     utils.warn(("previewer: unable to find pattern '%s' in file '%s'"):format(pattern, file))
   end
-  return line
+  return tonumber(line)
 end
 
 function Previewer.cmd_async:parse_entry_and_verify(entrystr)
@@ -181,8 +181,9 @@ function Previewer.cmd_async:parse_entry_and_verify(entrystr)
   -- make relative for bat's header display
   local filepath = path.relative_to(entry.bufname or entry.path or "", uv.cwd())
   if self.opts._ctag then
+    -- NOTE: override `entry.ctag` with the unescaped version
     entry.ctag = path.entry_to_ctag(entry.stripped, true)
-    if entry.line <= 1 then
+    if not tonumber(entry.line) or tonumber(entry.line) < 1 then
       -- default tags are without line numbers
       -- make sure we don't already have line #
       -- (in the case the line no. is actually 1)
@@ -193,11 +194,15 @@ function Previewer.cmd_async:parse_entry_and_verify(entrystr)
     end
   end
   local errcmd = nil
-  -- verify the file exists on disk and is accessible
-  if #filepath == 0 or not uv.fs_stat(filepath) then
-    errcmd = "echo " .. libuv.shellescape(
-      string.format("'%s: NO SUCH FILE OR ACCESS DENIED",
-        filepath and #filepath > 0 and filepath or "<null>"))
+  if filepath:match("^%[DEBUG]") then
+    errcmd = "echo " .. libuv.shellescape(tostring(filepath:gsub("^%[DEBUG]", "")))
+  else
+    -- verify the file exists on disk and is accessible
+    if #filepath == 0 or not uv.fs_stat(filepath) then
+      errcmd = "echo " .. libuv.shellescape(
+        string.format("'%s: NO SUCH FILE OR ACCESS DENIED",
+          filepath and #filepath > 0 and filepath or "<null>"))
+    end
   end
   return filepath, entry, errcmd
 end
@@ -268,7 +273,8 @@ function Previewer.bat_async:cmdline(o)
     local cmd = errcmd or ("%s %s %s %s %s %s"):format(
       self.cmd, self.args,
       self.theme and string.format([[--theme="%s"]], self.theme) or "",
-      self.opts.line_field_index and string.format("--highlight-line=%d", entry.line) or "",
+      self.opts.line_field_index and tonumber(entry.line) and tonumber(entry.line) > 0
+      and string.format("--highlight-line=%d", entry.line) or "",
       line_range,
       libuv.shellescape(filepath))
     return cmd
@@ -380,19 +386,8 @@ Previewer.man_pages = Previewer.base:extend()
 
 function Previewer.man_pages:new(o, opts)
   Previewer.man_pages.super.new(self, o, opts)
-  if not self.cmd then
-    if utils.is_darwin() then
-      self.cmd = vim.fn.executable("bat") == 1
-          and [[man -P "bat -l man -p --color=always" %s]]
-          or "man -P cat %s"
-    else
-      self.cmd = vim.fn.executable("bat") == 1
-          and "man -c %s | bat -l man -p --color=always"
-          or "man %s"
-    end
-    self.cmd = self.cmd or vim.fn.executable("bat") == 1
-        and "bat -p -l help --color=always %s" or "cat %s"
-  end
+  self.cmd = o.cmd or "man -c %s | col -bx"
+  self.cmd = type(self.cmd) == "function" and self.cmd() or self.cmd
   return self
 end
 

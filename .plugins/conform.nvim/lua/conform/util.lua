@@ -49,13 +49,7 @@ end
 ---@return fun(self: conform.FormatterConfig, ctx: conform.Context): nil|string
 M.root_file = function(files)
   return function(self, ctx)
-    if vim.fn.has("nvim-0.10") == 1 then
-      return vim.fs.root(ctx.dirname, files)
-    end
-    local found = vim.fs.find(files, { upward = true, path = ctx.dirname })[1]
-    if found then
-      return vim.fs.dirname(found)
-    end
+    return vim.fs.root(ctx.dirname, files)
   end
 end
 
@@ -207,6 +201,49 @@ M.parse_rust_edition = function(dir)
       end
     end
   end
+end
+
+---@param cmd string
+---@return string[]
+M.shell_build_argv = function(cmd)
+  local argv = {}
+
+  -- If the shell starts with a quote, it contains spaces (from :help 'shell').
+  -- The shell may also have additional arguments in it, separated by spaces.
+  if vim.startswith(vim.o.shell, '"') then
+    local quoted = vim.o.shell:match('^"([^"]+)"')
+    table.insert(argv, quoted)
+    vim.list_extend(argv, vim.split(vim.o.shell:sub(quoted:len() + 3), "%s+", { trimempty = true }))
+  else
+    vim.list_extend(argv, vim.split(vim.o.shell, "%s+"))
+  end
+
+  vim.list_extend(argv, vim.split(vim.o.shellcmdflag, "%s+", { trimempty = true }))
+
+  if vim.o.shellxquote ~= "" then
+    -- When shellxquote is "(", we should escape the shellxescape characters with '^'
+    -- See :help 'shellxescape'
+    if vim.o.shellxquote == "(" and vim.o.shellxescape ~= "" then
+      cmd = cmd:gsub(".", function(char)
+        if string.find(vim.o.shellxescape, char, 1, true) then
+          return "^" .. char
+        else
+          return char
+        end
+      end)
+    end
+
+    if vim.o.shellxquote == "(" then
+      cmd = "(" .. cmd .. ")"
+    elseif vim.o.shellxquote == '"(' then
+      cmd = '"(' .. cmd .. ')"'
+    else
+      cmd = vim.o.shellxquote .. cmd .. vim.o.shellxquote
+    end
+  end
+
+  table.insert(argv, cmd)
+  return argv
 end
 
 return M

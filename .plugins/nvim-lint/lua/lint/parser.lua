@@ -1,5 +1,8 @@
+---@mod lint.parser Parsers and parse functions
+---
 local M = {}
 local vd = vim.diagnostic
+local api = vim.api
 
 local severity_by_qftype = {
   E = vd.severity.ERROR,
@@ -8,8 +11,10 @@ local severity_by_qftype = {
   N = vd.severity.HINT,
 }
 
--- Return a parse function that uses an errorformat to parse the output.
--- See `:help errorformat`
+---Return a parse function that uses an errorformat to parse the output.
+---@param efm string Format following |errorformat|
+---@param skeleton table<string, any> | vim.Diagnostic default values
+---@return lint.parse
 function M.from_errorformat(efm, skeleton)
   skeleton = skeleton or {}
   skeleton.severity = skeleton.severity or vd.severity.ERROR
@@ -17,7 +22,7 @@ function M.from_errorformat(efm, skeleton)
     local lines = vim.split(output, '\n')
     local qflist = vim.fn.getqflist({ efm = efm, lines = lines })
     local result = {}
-    for _, item in pairs(qflist.items) do
+    for _, item in ipairs(qflist.items) do
       if item.valid == 1 and (bufnr == nil or item.bufnr == 0 or item.bufnr == bufnr) then
         local lnum = math.max(0, item.lnum - 1)
         local col = math.max(0, item.col - 1)
@@ -44,21 +49,41 @@ local normalize = (vim.fs ~= nil and vim.fs.normalize ~= nil)
   or function(path) return path end
 
 
---- Parse a linter's output using a Lua pattern
+---Return a parse function that parses a linter's output using a Lua or LPEG pattern.
 ---
----@param pattern string
+---@param pattern string|vim.lpeg.Pattern|fun(line: string):string[]
 ---@param groups string[]
 ---@param severity_map? table<string, vim.diagnostic.Severity>
 ---@param defaults? table
 ---@param opts? {col_offset?: integer, end_col_offset?: integer, lnum_offset?: integer, end_lnum_offset?: integer}
+---@return lint.parse
 function M.from_pattern(pattern, groups, severity_map, defaults, opts)
   defaults = defaults or {}
   severity_map = severity_map or {}
   opts = opts or {}
+
+  local type_ = type(pattern)
+  local matchline
+  if type_ == "string" then
+    matchline = function(line)
+      return { line:match(pattern) }
+    end
+  elseif type_ == "function" then
+    matchline = pattern
+  else
+    matchline = function(line)
+      return { pattern:match(line) }
+    end
+  end
+
+
   -- Like vim.diagnostic.match but also checks if a `file` group matches the buffer path
   -- Some linters produce diagnostics for the full project and this should only produce buffer diagnostics
   local match = function(linter_cwd, buffer_path, line)
-    local matches = { line:match(pattern) }
+    local ok, matches = pcall(matchline, line)
+    if not ok then
+      error(string.format("pattern match failed on line: %s with error: %q", line, matches))
+    end
     if not next(matches) then
       return nil
     end
@@ -107,12 +132,14 @@ function M.from_pattern(pattern, groups, severity_map, defaults, opts)
     return vim.tbl_extend('keep', diagnostic, defaults or {})
   end
   return function(output, bufnr, linter_cwd)
-    if not vim.api.nvim_buf_is_valid(bufnr) then
+    if not api.nvim_buf_is_valid(bufnr) then
       return {}
     end
     local result = {}
-    local buffer_path = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":p")
-    for _, line in ipairs(vim.fn.split(output, '\n')) do
+    local buffer_path = vim.fn.fnamemodify(api.nvim_buf_get_name(bufnr), ":p")
+    --- bwc for 0.6 requires boolean arg instead of table
+    ---@diagnostic disable-next-line: param-type-mismatch
+    for line in vim.gsplit(output, "\n", true) do
       local diagnostic = match(linter_cwd, buffer_path, line)
       if diagnostic then
         table.insert(result, diagnostic)
@@ -130,6 +157,11 @@ Output from linter:
 %s
 ]]
 
+
+--- Turn a parse function into a parser table
+---
+---@param parse fun(output: string, bufnr: integer, cwd: string):vim.Diagnostic[]
+---@return lint.Parser
 function M.accumulate_chunks(parse)
   local chunks = {}
   return {
@@ -139,8 +171,15 @@ function M.accumulate_chunks(parse)
     on_done = function(publish, bufnr, linter_cwd)
       vim.schedule(function()
         local output = table.concat(chunks)
-        if vim.api.nvim_buf_is_valid(bufnr) and output ~= "" then
-          local ok, diagnostics = pcall(parse, output, bufnr, linter_cwd)
+        if api.nvim_buf_is_valid(bufnr) and output ~= "" then
+          local ok, diagnostics
+          if api.nvim_buf_call then
+            api.nvim_buf_call(bufnr, function()
+              ok, diagnostics = pcall(parse, output, bufnr, linter_cwd)
+            end)
+          else
+            ok, diagnostics = pcall(parse, output, bufnr, linter_cwd)
+          end
           if not ok then
             local err = diagnostics
             diagnostics = {
@@ -163,6 +202,10 @@ function M.accumulate_chunks(parse)
 end
 
 
+---Split a parser into two
+---
+---@param parser lint.Parser
+---@return lint.Parser, lint.Parser
 function M.split(parser)
   local remaining_calls = 2
   local chunks1 = {}

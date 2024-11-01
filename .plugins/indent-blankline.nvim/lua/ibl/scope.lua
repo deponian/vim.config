@@ -58,7 +58,7 @@ M.get = function(bufnr, config)
     end
 
     local lang = lang_tree:lang()
-    if not scope_lang[lang] then
+    if not scope_lang[lang] and not config.scope.include.node_type[lang] then
         return nil
     end
 
@@ -72,11 +72,11 @@ M.get = function(bufnr, config)
     local include_node_types =
         utils.tbl_join(config.scope.include.node_type["*"] or {}, config.scope.include.node_type[lang] or {})
 
-    while node do
+    while node and node:byte_length() > 0 do
         local type = node:type()
 
         if
-            (scope_lang[lang][type] and not utils.tbl_contains(excluded_node_types, type))
+            ((scope_lang[lang] and scope_lang[lang][type]) and not utils.tbl_contains(excluded_node_types, type))
             or utils.tbl_contains(include_node_types, type)
             or utils.tbl_contains(include_node_types, "*")
         then

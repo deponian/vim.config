@@ -9,14 +9,17 @@ M.plugins = {
   ["ale"]                           = "ale",
   ["alpha-nvim"]                    = "alpha",
   ["barbar.nvim"]                   = "barbar",
+  ["blink.cmp"]                     = "blink",
   ["bufferline.nvim"]               = "bufferline",
   ["dashboard-nvim"]                = "dashboard",
   ["flash.nvim"]                    = "flash",
   ["fzf-lua"]                       = "fzf",
   ["gitsigns.nvim"]                 = "gitsigns",
+  ["grug-far.nvim"]                 = "grug-far",
   ["headlines.nvim"]                = "headlines",
   ["hop.nvim"]                      = "hop",
   ["indent-blankline.nvim"]         = "indent-blankline",
+  ["indentmini.nvim"]               = "indentmini",
   ["lazy.nvim"]                     = "lazy",
   ["leap.nvim"]                     = "leap",
   ["lspsaga.nvim"]                  = "lspsaga",
@@ -28,8 +31,8 @@ M.plugins = {
   ["mini.diff"]                     = "mini_diff",
   ["mini.files"]                    = "mini_files",
   ["mini.hipatterns"]               = "mini_hipatterns",
-  ["mini.hue"]                      = "mini_hue",
-  ["mini.indent"]                   = "mini_indent",
+  ["mini.icons"]                    = "mini_icons",
+  ["mini.indentscope"]              = "mini_indentscope",
   ["mini.jump"]                     = "mini_jump",
   ["mini.map"]                      = "mini_map",
   ["mini.notify"]                   = "mini_notify",
@@ -50,33 +53,40 @@ M.plugins = {
   ["nvim-navic"]                    = "navic",
   ["nvim-notify"]                   = "notify",
   ["nvim-scrollbar"]                = "scrollbar",
-  ["nvim-tree"]                     = "nvim-tree",
+  ["nvim-tree.lua"]                 = "nvim-tree",
   ["nvim-treesitter-context"]       = "treesitter-context",
   ["octo.nvim"]                     = "octo",
   ["rainbow-delimiters.nvim"]       = "rainbow",
+  ["render-markdown.nvim"]          = "render-markdown",
   ["telescope.nvim"]                = "telescope",
   ["trouble.nvim"]                  = "trouble",
   ["vim-gitgutter"]                 = "gitgutter",
   ["vim-glyph-palette"]             = "glyph-palette",
   ["vim-illuminate"]                = "illuminate",
   ["vim-sneak"]                     = "sneak",
+  ["vimwiki"]                       = "vimwiki",
   ["which-key.nvim"]                = "which-key",
+  ["yanky.nvim"]                    = "yanky"
 }
 
 local me = debug.getinfo(1, "S").source:sub(2)
 me = vim.fn.fnamemodify(me, ":h")
 
+function M.get_group(name)
+  ---@type {get: tokyonight.HighlightsFn, url: string}
+  return Util.mod("tokyonight.groups." .. name)
+end
+
 ---@param colors ColorScheme
 ---@param opts tokyonight.Config
 function M.get(name, colors, opts)
-  ---@type {get: tokyonight.HighlightsFn}
-  local mod = Util.mod("tokyonight.groups." .. name)
+  local mod = M.get_group(name)
   return mod.get(colors, opts)
 end
 
 ---@param colors ColorScheme
 ---@param opts tokyonight.Config
-function M.load(colors, opts)
+function M.setup(colors, opts)
   local groups = {
     base = true,
     kinds = true,
@@ -107,18 +117,14 @@ function M.load(colors, opts)
   end
 
   -- manually enable/disable plugins
-  for k, v in pairs(opts.plugins) do
-    local group = M.plugins[k]
-    if group then
-      local use = v
-      if type(v) == "table" then
-        use = v.enabled
+  for plugin, group in pairs(M.plugins) do
+    local use = opts.plugins[group]
+    use = use == nil and opts.plugins[plugin] or use
+    if use ~= nil then
+      if type(use) == "table" then
+        use = use.enabled
       end
-      if use then
-        groups[group] = true
-      else
-        groups[group] = nil
-      end
+      groups[group] = use or nil
     end
   end
 
@@ -128,15 +134,14 @@ function M.load(colors, opts)
   local cache_key = opts.style
   local cache = opts.cache and Util.cache.read(cache_key)
 
-  local ret = nil ---@type tokyonight.Highlights
-  if cache then
-    local expect = { colors = colors, plugins = names, version = Config.version }
-    local used = { colors = cache.colors, plugins = cache.plugins, version = cache.version }
+  local inputs = {
+    colors = colors,
+    plugins = names,
+    version = Config.version,
+    opts = { transparent = opts.transparent, styles = opts.styles, dim_inactive = opts.dim_inactive },
+  }
 
-    if vim.deep_equal(expect, used) then
-      ret = cache.groups
-    end
-  end
+  local ret = cache and vim.deep_equal(inputs, cache.inputs) and cache.groups
 
   if not ret then
     ret = {}
@@ -148,12 +153,12 @@ function M.load(colors, opts)
     end
     Util.resolve(ret)
     if opts.cache then
-      Util.cache.write(cache_key, { colors = colors, groups = ret, plugins = names, version = Config.version })
+      Util.cache.write(cache_key, { groups = ret, inputs = inputs })
     end
   end
   opts.on_highlights(ret, colors)
 
-  return ret
+  return ret, groups
 end
 
 return M

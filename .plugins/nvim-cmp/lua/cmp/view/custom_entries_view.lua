@@ -70,17 +70,32 @@ custom_entries_view.new = function()
             if field == types.cmp.ItemField.Abbr then
               a = o
             end
-            vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o, {
-              end_line = i,
-              end_col = o + v[field].bytes,
-              hl_group = v[field].hl_group,
-              hl_mode = 'combine',
-              ephemeral = true,
-            })
+
+            if type(v[field].hl_group) == 'table' then
+              for _, extmark in ipairs(v[field].hl_group) do
+                local hl_start, hl_end = unpack(extmark.range)
+                vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o + hl_start, {
+                  end_line = i,
+                  end_col = o + hl_end,
+                  hl_group = extmark[1],
+                  hl_eol = false,
+                  ephemeral = true,
+                })
+              end
+            else
+              vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o, {
+                end_line = i,
+                end_col = o + v[field].bytes,
+                hl_group = v[field].hl_group,
+                hl_mode = 'combine',
+                ephemeral = true,
+              })
+            end
+
             o = o + v[field].bytes + (self.column_width[field] - v[field].width) + 1
           end
 
-          for _, m in ipairs(e.matches or {}) do
+          for _, m in ipairs(e:get_view_matches(v.abbr.text) or {}) do
             vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, a + m.word_match_start - 1, {
               end_line = i,
               end_col = a + m.word_match_end,
@@ -306,9 +321,15 @@ custom_entries_view.info = function(self)
   return self.entries_win:info()
 end
 
+custom_entries_view.get_selected_index = function(self)
+  if self:visible() and self.entries_win:option('cursorline') then
+    return vim.api.nvim_win_get_cursor(self.entries_win.win)[1]
+  end
+end
+
 custom_entries_view.select_next_item = function(self, option)
   if self:visible() then
-    local cursor = vim.api.nvim_win_get_cursor(self.entries_win.win)[1]
+    local cursor = self:get_selected_index()
     local is_top_down = self:is_direction_top_down()
     local last = #self.entries
 
@@ -345,7 +366,7 @@ end
 
 custom_entries_view.select_prev_item = function(self, option)
   if self:visible() then
-    local cursor = vim.api.nvim_win_get_cursor(self.entries_win.win)[1]
+    local cursor = self:get_selected_index()
     local is_top_down = self:is_direction_top_down()
     local last = #self.entries
 
@@ -402,7 +423,7 @@ end
 
 custom_entries_view.get_selected_entry = function(self)
   if self:visible() and self.entries_win:option('cursorline') then
-    return self.entries[vim.api.nvim_win_get_cursor(self.entries_win.win)[1]]
+    return self.entries[self:get_selected_index()]
   end
 end
 

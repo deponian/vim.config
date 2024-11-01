@@ -336,11 +336,15 @@ local M = {
 
         exceptionHandler = true,
     },
+    perl = {
+        block = true,
+        block_statement = true,
+    },
     php = {
         class_declaration = true,
         method_declaration = true,
         function_definition = true,
-        anonymous_function_creation_expression = true,
+        anonymous_function = true,
     },
     pony = {
         use_statement = true,

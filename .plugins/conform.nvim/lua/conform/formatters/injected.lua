@@ -112,6 +112,7 @@ return {
     url = "doc/advanced_topics.md#injected-language-formatting-code-blocks",
     description = "Format treesitter injected languages.",
   },
+  ---@type conform.InjectedFormatterOptions
   options = {
     -- Set to true to ignore errors
     ignore_errors = false,
@@ -137,10 +138,9 @@ return {
     lang_to_formatters = {},
   },
   condition = function(self, ctx)
-    local ok, parser = pcall(vim.treesitter.get_parser, ctx.buf)
-    -- Require Neovim 0.9 because the treesitter API has changed significantly
-    ---@diagnostic disable-next-line: invisible
-    return ok and parser._injection_query and vim.fn.has("nvim-0.9") == 1
+    local buf_lang = vim.treesitter.language.get_lang(vim.bo[ctx.buf].filetype)
+    local ok = pcall(vim.treesitter.get_string_parser, "", buf_lang)
+    return ok
   end,
   format = function(self, ctx, lines, callback)
     local conform = require("conform")
@@ -157,8 +157,8 @@ return {
       callback("No treesitter parser for buffer")
       return
     end
-    ---@type conform.InjectedFormatterOptions
     local options = self.options
+    ---@cast options conform.InjectedFormatterOptions
 
     ---@param lang string
     ---@return nil|conform.FiletypeFormatter
@@ -284,13 +284,21 @@ return {
         ---@type string[]
         local formatter_names
         if type(ft_formatters) == "function" then
-          formatter_names = ft_formatters(ctx.buf)
-        else
-          local formatters = require("conform").resolve_formatters(ft_formatters, ctx.buf, false)
-          formatter_names = vim.tbl_map(function(f)
-            return f.name
-          end, formatters)
+          ft_formatters = ft_formatters(ctx.buf)
         end
+        local stop_after_first = ft_formatters.stop_after_first
+        if stop_after_first == nil then
+          stop_after_first = conform.default_format_opts.stop_after_first
+        end
+        if stop_after_first == nil then
+          stop_after_first = false
+        end
+
+        local formatters =
+          conform.resolve_formatters(ft_formatters, ctx.buf, false, stop_after_first)
+        formatter_names = vim.tbl_map(function(f)
+          return f.name
+        end, formatters)
         local idx = num_format
         log.debug("Injected format %s:%d:%d: %s", lang, start_lnum, end_lnum, formatter_names)
         log.trace("Injected format lines %s", input_lines)

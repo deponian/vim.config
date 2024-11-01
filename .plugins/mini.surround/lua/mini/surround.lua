@@ -9,7 +9,7 @@
 --- similar to 'tpope/vim-surround' (see |MiniSurround-vim-surround-config|).
 ---
 --- Features:
---- - Actions (all of them are dot-repeatable out of the box and respect
+--- - Actions (text editing actions are dot-repeatable out of the box and respect
 ---   |[count]|) with configurable keymappings:
 ---     - Add surrounding with `sa` (in visual mode or on motion).
 ---     - Delete surrounding with `sd`.
@@ -487,6 +487,9 @@ MiniSurround.setup = function(config)
   -- Apply config
   H.apply_config(config)
 
+  -- Define behavior
+  H.create_autocommands()
+
   -- Create default highlighting
   H.create_default_hl()
 end
@@ -615,9 +618,9 @@ end
 --- - Nearest match. Whichever is closest among previous and next matches.
 ---
 --- Possible values are:
---- - `'cover'` - use only covering match. Don't use either previous or
+--- - `'cover'` (default) - use only covering match. Don't use either previous or
 ---   next; report that there is no surrounding found.
---- - `'cover_or_next'` (default) - use covering match. If not found, use next.
+--- - `'cover_or_next'` - use covering match. If not found, use next.
 --- - `'cover_or_prev'` - use covering match. If not found, use previous.
 --- - `'cover_or_nearest'` - use covering match. If not found, use nearest.
 --- - `'next'` - use next match.
@@ -656,7 +659,7 @@ end
 --- - It creates new mappings only for actions involving surrounding search:
 ---   delete, replace, find (right and left), highlight.
 --- - All new mappings behave the same way as if `config.search_method` is set
----   to certain search method. They are dot-repeatable, respect |[count]|, etc.
+---   to certain search method. They preserve dot-repeat support, respect |[count]|.
 --- - Supply empty string to disable creation of corresponding set of mappings.
 ---
 --- Example with default values (`n` for `suffix_next`, `l` for `suffix_last`)
@@ -851,7 +854,7 @@ end
 MiniSurround.find = function()
   -- Find surrounding region
   local surr = H.find_surrounding(H.get_surround_spec('input', true))
-  if surr == nil then return '<Esc>' end
+  if surr == nil then return end
 
   -- Make array of unique positions to cycle through
   local pos_array = H.surr_to_pos_array(surr)
@@ -870,7 +873,7 @@ end
 MiniSurround.highlight = function()
   -- Find surrounding region
   local surr = H.find_surrounding(H.get_surround_spec('input', true))
-  if surr == nil then return '<Esc>' end
+  if surr == nil then return end
 
   -- Highlight surrounding region
   local config = H.get_config()
@@ -1127,8 +1130,8 @@ H.builtin_surroundings = {
 -- Cache for dot-repeatability. This table is currently used with these keys:
 -- - 'input' - surround info for searching (in 'delete' and 'replace' start).
 -- - 'output' - surround info for adding (in 'add' and 'replace' end).
--- - 'direction' - direction in which `MiniSurround.find()` should go. Used to
---   enable same `operatorfunc` pattern for dot-repeatability.
+-- - 'direction' - direction in which `MiniSurround.find()` should go.
+--   Currently is not used for dot-repeat, but for easier mappings.
 -- - 'search_method' - search method.
 -- - 'msg_shown' - whether helper message was shown.
 H.cache = {}
@@ -1172,53 +1175,59 @@ H.apply_config = function(config)
   MiniSurround.config = config
 
   local expr_map = function(lhs, rhs, desc) H.map('n', lhs, rhs, { expr = true, desc = desc }) end
+  local map = function(lhs, rhs, desc) H.map('n', lhs, rhs, { desc = desc }) end
+
   --stylua: ignore start
   -- Make regular mappings
   local m = config.mappings
 
-  expr_map(m.add,       H.make_operator('add', nil, nil, true), 'Add surrounding')
-  expr_map(m.delete,    H.make_operator('delete'),              'Delete surrounding')
-  expr_map(m.replace,   H.make_operator('replace'),             'Replace surrounding')
-  expr_map(m.find,      H.make_operator('find', 'right'),       'Find right surrounding')
-  expr_map(m.find_left, H.make_operator('find', 'left'),        'Find left surrounding')
-  expr_map(m.highlight, H.make_operator('highlight'),           'Highlight surrounding')
+  expr_map(m.add,     H.make_operator('add', nil, true), 'Add surrounding')
+  expr_map(m.delete,  H.make_operator('delete'),         'Delete surrounding')
+  expr_map(m.replace, H.make_operator('replace'),        'Replace surrounding')
+
+  map(m.find,      H.make_action('find', 'right'), 'Find right surrounding')
+  map(m.find_left, H.make_action('find', 'left'),  'Find left surrounding')
+  map(m.highlight, H.make_action('highlight'),     'Highlight surrounding')
 
   H.map('n', m.update_n_lines, MiniSurround.update_n_lines, { desc = 'Update `MiniSurround.config.n_lines`' })
   H.map('x', m.add, [[:<C-u>lua MiniSurround.add('visual')<CR>]], { desc = 'Add surrounding to selection' })
 
   -- Make extended mappings
-  local suffix_map = function(lhs, suffix, rhs, desc)
+  local suffix_expr_map = function(lhs, suffix, rhs, desc)
     -- Don't create extended mapping if user chose not to create regular one
     if lhs == '' then return end
     expr_map(lhs .. suffix, rhs, desc)
   end
+  local suffix_map = function(lhs, suffix, rhs, desc)
+    if lhs == '' then return end
+    map(lhs .. suffix, rhs, desc)
+  end
 
   if m.suffix_last ~= '' then
-    local operator_prev = function(method, direction)
-      return H.make_operator(method, direction, 'prev')
-    end
-
     local suff = m.suffix_last
-    suffix_map(m.delete,    suff, operator_prev('delete'),        'Delete previous surrounding')
-    suffix_map(m.replace,   suff, operator_prev('replace'),       'Replace previous surrounding')
-    suffix_map(m.find,      suff, operator_prev('find', 'right'), 'Find previous right surrounding')
-    suffix_map(m.find_left, suff, operator_prev('find', 'left'),  'Find previous left surrounding')
-    suffix_map(m.highlight, suff, operator_prev('highlight'),     'Highlight previous surrounding')
+    suffix_expr_map(m.delete,  suff, H.make_operator('delete',  'prev'), 'Delete previous surrounding')
+    suffix_expr_map(m.replace, suff, H.make_operator('replace', 'prev'), 'Replace previous surrounding')
+
+    suffix_map(m.find,      suff, H.make_action('find', 'right',  'prev'), 'Find previous right surrounding')
+    suffix_map(m.find_left, suff, H.make_action('find', 'left',   'prev'), 'Find previous left surrounding')
+    suffix_map(m.highlight, suff, H.make_action('highlight', nil, 'prev'), 'Highlight previous surrounding')
   end
 
   if m.suffix_next ~= '' then
-    local operator_next = function(method, direction)
-      return H.make_operator(method, direction, 'next')
-    end
-
     local suff = m.suffix_next
-    suffix_map(m.delete,    suff, operator_next('delete'),        'Delete next surrounding')
-    suffix_map(m.replace,   suff, operator_next('replace'),       'Replace next surrounding')
-    suffix_map(m.find,      suff, operator_next('find', 'right'), 'Find next right surrounding')
-    suffix_map(m.find_left, suff, operator_next('find', 'left'),  'Find next left surrounding')
-    suffix_map(m.highlight, suff, operator_next('highlight'),     'Highlight next surrounding')
+    suffix_expr_map(m.delete,  suff, H.make_operator('delete',  'next'), 'Delete next surrounding')
+    suffix_expr_map(m.replace, suff, H.make_operator('replace', 'next'), 'Replace next surrounding')
+
+    suffix_map(m.find,      suff, H.make_action('find', 'right',  'next'), 'Find next right surrounding')
+    suffix_map(m.find_left, suff, H.make_action('find', 'left',   'next'), 'Find next left surrounding')
+    suffix_map(m.highlight, suff, H.make_action('highlight', nil, 'next'), 'Highlight next surrounding')
   end
   --stylua: ignore end
+end
+
+H.create_autocommands = function()
+  local gr = vim.api.nvim_create_augroup('MiniSurround', {})
+  vim.api.nvim_create_autocmd('ColorScheme', { group = gr, callback = H.create_default_hl, desc = 'Ensure colors' })
 end
 
 H.create_default_hl = function() vim.api.nvim_set_hl(0, 'MiniSurround', { default = true, link = 'IncSearch' }) end
@@ -1248,7 +1257,7 @@ H.validate_search_method = function(x, x_name)
 end
 
 -- Mappings -------------------------------------------------------------------
-H.make_operator = function(task, direction, search_method, ask_for_textobject)
+H.make_operator = function(task, search_method, ask_for_textobject)
   return function()
     if H.is_disabled() then
       -- Using `<Esc>` helps to stop moving cursor caused by current
@@ -1256,7 +1265,7 @@ H.make_operator = function(task, direction, search_method, ask_for_textobject)
       return [[\<Esc>]]
     end
 
-    H.cache = { count = vim.v.count1, direction = direction, search_method = search_method }
+    H.cache = { count = vim.v.count1, search_method = search_method }
 
     vim.o.operatorfunc = 'v:lua.MiniSurround.' .. task
 
@@ -1266,6 +1275,14 @@ H.make_operator = function(task, direction, search_method, ask_for_textobject)
     -- - Concatenate `' '` to operator output to "disable" motion
     --   required by `g@`. It is used to enable dot-repeatability.
     return '<Cmd>echon ""<CR>g@' .. (ask_for_textobject and '' or ' ')
+  end
+end
+
+H.make_action = function(task, direction, search_method)
+  return function()
+    if H.is_disabled() then return end
+    H.cache = { count = vim.v.count1, direction = direction, search_method = search_method }
+    return MiniSurround[task]()
   end
 end
 
@@ -1309,20 +1326,20 @@ end
 
 H.make_surrounding_table = function()
   -- Extend builtins with data from `config`
-  local surroundings = vim.tbl_deep_extend('force', H.builtin_surroundings, H.get_config().custom_surroundings or {})
-
-  -- Add possibly missing information from default surrounding info
-  for char, info in pairs(surroundings) do
+  local surroundings = vim.deepcopy(H.builtin_surroundings)
+  for char, spec in pairs(H.get_config().custom_surroundings or {}) do
+    local cur_spec = surroundings[char] or {}
     local default = H.get_default_surrounding_info(char)
-    surroundings[char] = vim.tbl_deep_extend('force', default, info)
+    -- NOTE: Don't use `tbl_deep_extend` to prefer full `input` arrays
+    cur_spec.input = spec.input or cur_spec.input or default.input
+    cur_spec.output = spec.output or cur_spec.output or default.output
+    surroundings[char] = cur_spec
   end
 
   -- Use default surrounding info for not supplied single character identifier
-  --stylua: ignore start
   return setmetatable(surroundings, {
     __index = function(_, key) return H.get_default_surrounding_info(key) end,
   })
-  --stylua: ignore end
 end
 
 H.get_default_surrounding_info = function(char)
@@ -1373,7 +1390,7 @@ end
 
 -- Work with finding surrounding ----------------------------------------------
 ---@param surr_spec table Composed pattern. Last item(s) - extraction template.
----@param opts table Options.
+---@param opts table|nil Options.
 ---@private
 H.find_surrounding = function(surr_spec, opts)
   if surr_spec == nil then return end
@@ -1528,8 +1545,9 @@ end
 H.get_matched_node_pairs_builtin = function(captures)
   -- Fetch treesitter data for buffer
   local lang = vim.bo.filetype
-  local ok, parser = pcall(vim.treesitter.get_parser, 0, lang)
-  if not ok then H.error_treesitter('parser', lang) end
+  -- TODO: Remove `opts.error` after compatibility with Neovim=0.11 is dropped
+  local has_parser, parser = pcall(vim.treesitter.get_parser, 0, lang, { error = false })
+  if not has_parser or parser == nil then H.error_treesitter('parser', lang) end
 
   local get_query = vim.fn.has('nvim-0.9') == 1 and vim.treesitter.query.get or vim.treesitter.get_query
   local query = get_query(lang, 'textobjects')
@@ -1837,9 +1855,8 @@ H.get_marks_pos = function(mode)
     local _, line1_indent = vim.fn.getline(pos1[1]):find('^%s*')
     pos1[2] = line1_indent
 
-    -- Move end mark to the last character (` - 2` here because `col()` returns
-    -- column right after the last 1-based column)
-    pos2[2] = vim.fn.col({ pos2[1], '$' }) - 2
+    -- Move end mark to the last non-whitespace character
+    pos2[2] = vim.fn.getline(pos2[1]):find('%s*$') - 2
   end
 
   -- Make columns 1-based instead of 0-based. This is needed because

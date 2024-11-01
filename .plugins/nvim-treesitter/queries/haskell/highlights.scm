@@ -4,8 +4,6 @@
 ; and don't override destructured parameters
 (variable) @variable
 
-(pattern/wildcard) @variable
-
 (decl/function
   patterns: (patterns
     (_) @variable.parameter))
@@ -78,7 +76,6 @@
   (operator)
   (constructor_operator)
   (all_names)
-  (wildcard)
   "."
   ".."
   "="
@@ -91,6 +88,8 @@
   "`"
   "@"
 ] @operator
+
+(wildcard) @character.special
 
 (module
   (module_id) @module)
@@ -144,7 +143,8 @@
   .
   (decl
     name: (variable) @variable)
-  match: (_)(#eq? @_name @variable))
+  match: (_)
+  (#eq? @_name @variable))
 
 ; but consider a type that involves 'IO' a decl/function
 (decl/signature
@@ -161,7 +161,8 @@
   .
   (decl
     name: (variable) @function)
-  match: (_)(#eq? @_name @function))
+  match: (_)
+  (#eq? @_name @function))
 
 ((decl/signature) @function
   .

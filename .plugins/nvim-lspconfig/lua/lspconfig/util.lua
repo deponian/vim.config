@@ -1,11 +1,10 @@
-local vim = vim
 local validate = vim.validate
 local api = vim.api
 local lsp = vim.lsp
-local uv = vim.loop
+local uv = vim.uv or vim.loop
 local nvim_eleven = vim.fn.has 'nvim-0.11' == 1
 
-local is_windows = uv.os_uname().version:match 'Windows'
+local iswin = uv.os_uname().version:match 'Windows'
 
 local M = {}
 
@@ -106,7 +105,7 @@ M.path = (function()
   --- @param path string
   --- @return string
   local function sanitize(path)
-    if is_windows then
+    if iswin then
       path = path:sub(1, 1):upper() .. path:sub(2)
       path = path:gsub('\\', '/')
     end
@@ -135,7 +134,7 @@ M.path = (function()
   --- @param path string
   --- @return boolean
   local function is_fs_root(path)
-    if is_windows then
+    if iswin then
       return path:match '^%a:$'
     else
       return path == '/'
@@ -145,7 +144,7 @@ M.path = (function()
   --- @param filename string
   --- @return boolean
   local function is_absolute(filename)
-    if is_windows then
+    if iswin then
       return filename:match '^%a:' or filename:match '^\\\\'
     else
       return filename:match '^/'
@@ -163,7 +162,7 @@ M.path = (function()
     end
     local result = path:gsub(strip_sep_pat, ''):gsub(strip_dir_pat, '')
     if #result == 0 then
-      if is_windows then
+      if iswin then
         return path:sub(1, 2):upper()
       else
         return '/'
@@ -227,7 +226,7 @@ M.path = (function()
     return dir == root
   end
 
-  local path_separator = is_windows and ';' or ':'
+  local path_separator = iswin and ';' or ':'
 
   return {
     escape_wildcards = escape_wildcards,
@@ -332,7 +331,7 @@ function M.insert_package_json(config_files, field, fname)
 
   if root_with_package then
     -- only add package.json if it contains field parameter
-    local path_sep = is_windows and '\\' or '/'
+    local path_sep = iswin and '\\' or '/'
     for line in io.lines(root_with_package .. path_sep .. 'package.json') do
       if line:find(field) then
         config_files[#config_files + 1] = 'package.json'

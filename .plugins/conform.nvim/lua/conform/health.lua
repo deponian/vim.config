@@ -1,13 +1,5 @@
 local M = {}
 
----@diagnostic disable: deprecated
--- The "report_" functions have been deprecated, so use the new ones if defined.
-local health_start = vim.health.start or vim.health.report_start
-local health_warn = vim.health.warn or vim.health.report_warn
-local health_info = vim.health.info or vim.health.report_info
-local health_ok = vim.health.ok or vim.health.report_ok
-local islist = vim.islist or vim.tbl_islist
-
 ---@param name string
 ---@return string[]
 local function get_formatter_filetypes(name)
@@ -16,14 +8,6 @@ local function get_formatter_filetypes(name)
   for filetype, formatters in pairs(conform.formatters_by_ft) do
     if type(formatters) == "function" then
       formatters = formatters(0)
-    -- support the old structure where formatters could be a subkey
-    elseif not islist(formatters) then
-      vim.notify_once(
-        "Using deprecated structure for formatters_by_ft. See :help conform-options for details.",
-        vim.log.levels.ERROR
-      )
-      ---@diagnostic disable-next-line: undefined-field
-      formatters = formatters.formatters
     end
 
     for _, ft_name in ipairs(formatters) do
@@ -45,23 +29,26 @@ end
 
 M.check = function()
   local conform = require("conform")
-  health_start("conform.nvim report")
+  vim.health.start("conform.nvim report")
 
   local log = require("conform.log")
-  health_info(string.format("Log file: %s", log.get_logfile()))
+  if vim.fn.has("nvim-0.10") == 0 then
+    vim.health.error("Neovim 0.10 or later is required")
+  end
+  vim.health.info(string.format("Log file: %s", log.get_logfile()))
 
   local all_formatters = conform.list_all_formatters()
   for _, formatter in ipairs(all_formatters) do
     if not formatter.available then
-      health_warn(string.format("%s unavailable: %s", formatter.name, formatter.available_msg))
+      vim.health.warn(string.format("%s unavailable: %s", formatter.name, formatter.available_msg))
     else
       local filetypes = get_formatter_filetypes(formatter.name)
-      health_ok(string.format("%s ready (%s)", formatter.name, table.concat(filetypes, ", ")))
+      vim.health.ok(string.format("%s ready (%s)", formatter.name, table.concat(filetypes, ", ")))
     end
   end
 end
 
----@param formatters conform.FormatterUnit[]
+---@param formatters conform.FiletypeFormatterInternal
 ---@return string[]
 local function flatten_formatters(formatters)
   local flat = {}
@@ -84,6 +71,12 @@ M.show_window = function()
   local lines = {}
   local highlights = {}
   local logfile = log.get_logfile()
+
+  if vim.fn.has("nvim-0.10") == 0 then
+    table.insert(lines, "Neovim 0.10 or later is required")
+    table.insert(highlights, { "DiagnosticError", #lines, 0, -1 })
+  end
+
   table.insert(lines, string.format("Log file: %s", logfile))
   table.insert(highlights, { "Title", #lines, 0, 10 })
   if vim.fn.filereadable(logfile) == 1 then
@@ -122,7 +115,7 @@ M.show_window = function()
       table.insert(lines, line)
       table.insert(
         highlights,
-        { "DiagnosticInfo", #lines, formatter.name:len(), formatter.name:len() + 6 }
+        { "DiagnosticOk", #lines, formatter.name:len(), formatter.name:len() + 6 }
       )
       table.insert(highlights, {
         "DiagnosticInfo",

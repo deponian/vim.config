@@ -72,12 +72,12 @@ M.get_diff_files = function(opts)
   local diff_files = {}
   local cmd = opts.git_status_cmd or config.globals.files.git_status_cmd
   if not cmd then return {} end
-  local start = os.time()
+  local start = uv.hrtime()
   local ok, status, err = pcall(utils.io_systemlist, path.git_cwd(cmd, opts))
-  local seconds = os.time() - start
-  if seconds >= 3 and opts.silent ~= true then
+  local seconds = (uv.hrtime() - start) / 1e9
+  if seconds >= 0.5 and opts.silent ~= true then
     local exec_str = string.format([[require"fzf-lua".utils.warn(]] ..
-      [["`git status` took %d seconds, consider using `:FzfLua files git_icons=false` in this repository.")]]
+      [["'git status' took %.2f seconds, consider using `git_icons=false` in this repository or use `silent=true` to supress this message.")]]
       , seconds)
     if not vim.g.fzf_lua_is_headless then
       loadstring(exec_str)()
@@ -171,13 +171,13 @@ M.preprocess = function(opts)
     local idx = tonumber(i) and tonumber(i) + 6 or #vim.v.argv
     local arg = vim.v.argv[idx]
     if debug == "v" or debug == "verbose" then
-      io.stdout:write(("[DEBUGV]: raw_argv(%d) = %s" .. EOL):format(idx, arg))
+      io.stdout:write(("[DEBUG] raw_argv(%d) = %s" .. EOL):format(idx, arg))
     end
     if utils.__IS_WINDOWS then
       arg = libuv.unescape_fzf(arg, opts.__FZF_VERSION)
     end
     if debug == "v" or debug == "verbose" then
-      io.stdout:write(("[DEBUGV]: esc_argv(%d) = %s" .. EOL):format(idx, libuv.shellescape(arg)))
+      io.stdout:write(("[DEBUG] esc_argv(%d) = %s" .. EOL):format(idx, libuv.shellescape(arg)))
     end
     return arg
   end
@@ -272,6 +272,12 @@ M.preprocess = function(opts)
   end
 
   return opts
+end
+
+M.postprocess = function(opts)
+  if opts.file_icons == "mini" and devicons.PLUGIN and devicons.PLUGIN.update_state_mini then
+    devicons.PLUGIN:update_state_mini()
+  end
 end
 
 M.lcol = function(entry, opts)
@@ -394,7 +400,8 @@ M.file = function(x, opts)
   else
     ret[#ret + 1] = file_is_ansi > 0
         -- filename is ansi escape colored, replace the inner string (#819)
-        and file_part:gsub(utils.lua_regex_escape(stripped_filepath), filepath)
+        -- escape `%` in path, since `string.gsub` also use it in target (#1443)
+        and file_part:gsub(utils.lua_regex_escape(stripped_filepath), (filepath:gsub("%%", "%%%%")))
         or filepath
   end
   -- multiline is only enabled with grep-like output PATH:LINE:COL:

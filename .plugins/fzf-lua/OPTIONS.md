@@ -196,9 +196,17 @@ require("fzf-lua").setup({ files = { formatter = "path.filename_first" } })
 
 #### globals.file_icons
 
-Type: `boolean`, Default: `true`
+Type: `boolean|string`, Default: `true`
 
-If available, add devicons to files.
+If available, display file icons.
+
+Set to `true` will attempt to use "nvim-web-devicons" and fallback to "mini.icons", other possible
+values are `devicons` or `mini` which force loading a specific icons plugin, for example:
+
+```lua
+:FzfLua files file_icons=mini
+:lua require("fzf-lua").files({ file_icons = "devicons"  })
+```
 
 #### globals.git_icons
 
@@ -248,6 +256,12 @@ Type: `string|table`, Default: `rounded`
 
 Border of the fzf-lua float, possible values are `none|single|double|rounded|thicc|thiccc|thicccc`
 or a custom border character array passed as is to `nvim_open_win`.
+
+#### globals.winopts.backdrop
+
+Type: `boolean|number`, Default: `60`
+
+Backdrop opacity value, 0 for fully opaque, 100 for fully transparent (i.e. disabled).
 
 #### globals.winopts.fullscreen
 
@@ -429,6 +443,12 @@ Main fzf (terminal) window border highlight group.
 Type: `string`, Default: `FzfLuaTitle`
 
 Main fzf (terminal) window title highlight group.
+
+#### globals.hls.backdrop
+
+Type: `string`, Default: `FzfLuaBackdrop`
+
+Backdrop color, black by default, used to darken the background color when opening the UI.
 
 #### globals.hls.preview_normal
 
@@ -714,6 +734,10 @@ Location list (output of `:lopen`)
 
 Location list history (output of `:lhistory`)
 
+#### treesitter
+
+Current buffer treesitter symbols
+
 #### blines
 
 Current buffer lines
@@ -812,6 +836,22 @@ Grep on current buffer only
 
 "Live" grep on current buffer only
 
+#### grep_quickfix
+
+Grep the quickfix list
+
+#### lgrep_quickfix
+
+"Live" grep the quickfix list
+
+#### grep_loclist
+
+Grep the location list
+
+#### lgrep_loclist
+
+"Live" grep the location list
+
 ---
 
 ### CTags
@@ -859,6 +899,10 @@ Git commits (project)
 #### git_bcommits
 
 Git commits (buffer)
+
+#### git_blame
+
+Git blame (buffer)
 
 #### git_branches
 

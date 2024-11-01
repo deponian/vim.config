@@ -1,5 +1,4 @@
-local core = require "nvim-tree.core"
-local filters = require "nvim-tree.explorer.filters"
+local core = require("nvim-tree.core")
 local find_file = require("nvim-tree.actions.finders.find-file").fn
 
 local M = {}
@@ -9,6 +8,11 @@ local M = {}
 ---@return string|nil
 local function search(search_dir, input_path)
   local realpaths_searched = {}
+  local explorer = core.get_explorer()
+
+  if not explorer then
+    return
+  end
 
   if not search_dir then
     return
@@ -19,7 +23,7 @@ local function search(search_dir, input_path)
   local function iter(dir)
     local realpath, path, name, stat, handle, _
 
-    local filter_status = filters.prepare()
+    local filter_status = explorer.filters:prepare()
 
     handle, _ = vim.loop.fs_scandir(dir)
     if not handle then
@@ -42,7 +46,7 @@ local function search(search_dir, input_path)
         break
       end
 
-      if not filters.should_filter(path, stat, filter_status) then
+      if not explorer.filters:should_filter(path, stat, filter_status) then
         if string.find(path, "/" .. input_path .. "$") then
           return path
         end
@@ -71,7 +75,7 @@ function M.fn()
   local bufnr = vim.api.nvim_get_current_buf()
 
   local path_existed, path_opt
-  if vim.fn.has "nvim-0.10" == 1 then
+  if vim.fn.has("nvim-0.10") == 1 then
     path_existed, path_opt = pcall(vim.api.nvim_get_option_value, "path", { buf = bufnr })
     vim.api.nvim_set_option_value("path", core.get_cwd() .. "/**", { buf = bufnr })
   else
@@ -85,13 +89,13 @@ function M.fn()
     end
     -- reset &path
     if path_existed then
-      if vim.fn.has "nvim-0.10" == 1 then
+      if vim.fn.has("nvim-0.10") == 1 then
         vim.api.nvim_set_option_value("path", path_opt, { buf = bufnr })
       else
         vim.api.nvim_buf_set_option(bufnr, "path", path_opt) ---@diagnostic disable-line: deprecated
       end
     else
-      if vim.fn.has "nvim-0.10" == 1 then
+      if vim.fn.has("nvim-0.10") == 1 then
         vim.api.nvim_set_option_value("path", nil, { buf = bufnr })
       else
         vim.api.nvim_buf_set_option(bufnr, "path", nil) ---@diagnostic disable-line: deprecated

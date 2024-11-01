@@ -40,7 +40,7 @@
 ; Decorators
 ((decorator
   "@" @attribute)
-  (#set! "priority" 101))
+  (#set! priority 101))
 
 (decorator
   (identifier) @attribute)
@@ -250,19 +250,14 @@
 
 [
   "async"
-  "await"
   "exec"
-  "nonlocal"
   "pass"
   "print"
   "with"
   "as"
 ] @keyword
 
-[
-  "async"
-  "await"
-] @keyword.coroutine
+"async" @keyword.coroutine
 
 "return" @keyword.return
 

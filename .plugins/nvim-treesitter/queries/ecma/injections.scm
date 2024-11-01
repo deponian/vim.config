@@ -7,11 +7,7 @@
 
 ; html(`...`), html`...`, sql(`...`), etc.
 (call_expression
-  function: [
-    (await_expression
-      (identifier) @injection.language)
-    (identifier) @injection.language
-  ]
+  function: (identifier) @injection.language
   arguments: [
     (arguments
       (template_string) @injection.content)
@@ -27,13 +23,8 @@
 
 ; svg`...` or svg(`...`)
 (call_expression
-  function: [
-    (await_expression
-      (identifier) @_name
-      (#eq? @_name "svg"))
-    ((identifier) @_name
-      (#eq? @_name "svg"))
-  ]
+  function: (identifier) @_name
+  (#eq? @_name "svg")
   arguments: [
     (arguments
       (template_string) @injection.content)
@@ -43,48 +34,44 @@
   (#set! injection.include-children)
   (#set! injection.language "html"))
 
+; Vercel PostgreSQL
+; foo.sql`...` or foo.sql(`...`)
 (call_expression
-  function: [
-    (await_expression
-      (identifier) @_name
-      (#eq? @_name "gql"))
-    ((identifier) @_name
-      (#eq? @_name "gql"))
+  function: (member_expression
+    property: (property_identifier) @injection.language)
+  arguments: [
+    (arguments
+      (template_string) @injection.content)
+    (template_string) @injection.content
   ]
-  arguments: ((template_string) @injection.content
-    (#offset! @injection.content 0 1 0 -1)
-    (#set! injection.include-children)
-    (#set! injection.language "graphql")))
+  (#eq? @injection.language "sql")
+  (#offset! @injection.content 0 1 0 -1)
+  (#set! injection.include-children))
 
 (call_expression
-  function: [
-    (await_expression
-      (identifier) @_name
-      (#eq? @_name "hbs"))
-    ((identifier) @_name
-      (#eq? @_name "hbs"))
-  ]
-  arguments: ((template_string) @injection.content
-    (#offset! @injection.content 0 1 0 -1)
-    (#set! injection.include-children)
-    (#set! injection.language "glimmer")))
+  function: (identifier) @_name
+  (#eq? @_name "gql")
+  arguments: (template_string) @injection.content
+  (#offset! @injection.content 0 1 0 -1)
+  (#set! injection.include-children)
+  (#set! injection.language "graphql"))
 
-((glimmer_template) @injection.content
+(call_expression
+  function: (identifier) @_name
+  (#eq? @_name "hbs")
+  arguments: (template_string) @injection.content
+  (#offset! @injection.content 0 1 0 -1)
+  (#set! injection.include-children)
   (#set! injection.language "glimmer"))
 
 ; css`<css>`, keyframes`<css>`
 (call_expression
-  function: [
-    (await_expression
-      (identifier) @_name
-      (#any-of? @_name "css" "keyframes"))
-    ((identifier) @_name
-      (#any-of? @_name "css" "keyframes"))
-  ]
-  arguments: ((template_string) @injection.content
-    (#offset! @injection.content 0 1 0 -1)
-    (#set! injection.include-children)
-    (#set! injection.language "styled")))
+  function: (identifier) @_name
+  (#any-of? @_name "css" "keyframes")
+  arguments: (template_string) @injection.content
+  (#offset! @injection.content 0 1 0 -1)
+  (#set! injection.include-children)
+  (#set! injection.language "styled"))
 
 ; styled.div`<css>`
 (call_expression

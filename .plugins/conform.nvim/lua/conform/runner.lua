@@ -9,15 +9,20 @@ local M = {}
 ---@class (exact) conform.RunOpts
 ---@field exclusive boolean If true, ensure only a single formatter is running per buffer
 ---@field dry_run boolean If true, do not apply changes and stop after the first formatter attempts to do so
+---@field undojoin boolean Use undojoin to merge formatting changes with previous edit
 
 ---@param formatter_name string
 ---@param ctx conform.Context
 ---@param config conform.JobFormatterConfig
----@return string|string[]
+---@return string[]
 M.build_cmd = function(formatter_name, ctx, config)
   local command = config.command
   if type(command) == "function" then
     command = command(config, ctx)
+  end
+  local exepath = vim.fn.exepath(command)
+  if exepath ~= "" then
+    command = exepath
   end
   ---@type string|string[]
   local args = {}
@@ -28,8 +33,7 @@ M.build_cmd = function(formatter_name, ctx, config)
     local computed_args = config.args
     if type(computed_args) == "function" then
       args = computed_args(config, ctx)
-    else
-      ---@diagnostic disable-next-line: cast-local-type
+    elseif computed_args then
       args = computed_args
     end
   end
@@ -47,10 +51,10 @@ M.build_cmd = function(formatter_name, ctx, config)
       :gsub("$FILENAME", ctx.filename)
       :gsub("$DIRNAME", ctx.dirname)
       :gsub("$RELATIVE_FILEPATH", compute_relative_filepath)
-    return command .. " " .. interpolated
+      :gsub("$EXTENSION", ctx.filename:match(".*(%..*)$") or "")
+    return util.shell_build_argv(command .. " " .. interpolated)
   else
     local cmd = { command }
-    ---@diagnostic disable-next-line: param-type-mismatch
     for _, v in ipairs(args) do
       if v == "$FILENAME" then
         v = ctx.filename
@@ -58,6 +62,8 @@ M.build_cmd = function(formatter_name, ctx, config)
         v = ctx.dirname
       elseif v == "$RELATIVE_FILEPATH" then
         v = compute_relative_filepath()
+      elseif v == "$EXTENSION" then
+        v = ctx.filename:match(".*(%..*)$") or ""
       end
       table.insert(cmd, v)
     end
@@ -168,8 +174,18 @@ end
 ---@param new_lines string[]
 ---@param range? conform.Range
 ---@param only_apply_range boolean
+---@param dry_run boolean
+---@param undojoin boolean
 ---@return boolean any_changes
-M.apply_format = function(bufnr, original_lines, new_lines, range, only_apply_range, dry_run)
+M.apply_format = function(
+  bufnr,
+  original_lines,
+  new_lines,
+  range,
+  only_apply_range,
+  dry_run,
+  undojoin
+)
   if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
@@ -251,11 +267,20 @@ M.apply_format = function(bufnr, original_lines, new_lines, range, only_apply_ra
 
   if not dry_run then
     log.trace("Applying text edits: %s", text_edits)
+    if undojoin then
+      vim.cmd.undojoin()
+    end
     vim.lsp.util.apply_text_edits(text_edits, bufnr, "utf-8")
     log.trace("Done formatting %s", bufname)
   end
 
   return not vim.tbl_isempty(text_edits)
+end
+
+---@param output? string[]
+---@return boolean
+local function is_empty_output(output)
+  return not output or vim.tbl_isempty(output) or (#output == 1 and output[1] == "")
 end
 
 ---Map of formatter name to if the last run of that formatter produced an error
@@ -284,13 +309,20 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
     end
   end)
   if config.format then
+    local err_string_cb = function(err, ...)
+      if err then
+        callback({
+          code = errors.ERROR_CODE.RUNTIME,
+          message = err,
+        }, ...)
+      else
+        callback(nil, ...)
+      end
+    end
     ---@cast config conform.LuaFormatterConfig
-    local ok, err = pcall(config.format, config, ctx, input_lines, callback)
+    local ok, err = pcall(config.format, config, ctx, input_lines, err_string_cb)
     if not ok then
-      callback({
-        code = errors.ERROR_CODE.RUNTIME,
-        message = string.format("Formatter '%s' error: %s", formatter.name, err),
-      })
+      err_string_cb(string.format("Formatter '%s' error: %s", formatter.name, err))
     end
     return
   end
@@ -336,40 +368,29 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
   if env then
     log.debug("Run ENV: %s", env)
   end
-  local stdout
-  local stderr
   local exit_codes = config.exit_codes or { 0 }
-  local jid
-  local ok, jid_or_err = pcall(vim.fn.jobstart, cmd, {
-    cwd = cwd,
-    env = env,
-    stdout_buffered = true,
-    stderr_buffered = true,
-    stdin = config.stdin and "pipe" or "null",
-    on_stdout = function(_, data)
-      if config.stdin then
-        stdout = data
-      end
-    end,
-    on_stderr = function(_, data)
-      stderr = data
-    end,
-    on_exit = function(_, code)
+  local pid
+  local ok, job_or_err = pcall(
+    vim.system,
+    cmd,
+    {
+      cwd = cwd,
+      env = env,
+      stdin = config.stdin and buffer_text,
+      text = true,
+    },
+    vim.schedule_wrap(function(result)
+      local code = result.code
+      local stdout = result.stdout and vim.split(result.stdout, "\n") or {}
+      local stderr = result.stderr and vim.split(result.stderr, "\n") or {}
       if vim.tbl_contains(exit_codes, code) then
-        local output
+        local output = stdout
         if not config.stdin then
           local fd = assert(uv.fs_open(ctx.filename, "r", 448)) -- 0700
           local stat = assert(uv.fs_fstat(fd))
           local content = assert(uv.fs_read(fd, stat.size))
           uv.fs_close(fd)
-          output = vim.split(content, "\r?\n", {})
-        else
-          output = stdout
-          -- trim trailing \r in every line
-          -- so that both branches of this if block behaves the same
-          for i, line in ipairs(output) do
-            output[i] = string.gsub(line, "\r$", "")
-          end
+          output = vim.split(content, "\r?\n")
         end
         -- Remove the trailing newline from the output to convert back to vim lines representation
         if add_extra_newline and output[#output] == "" then
@@ -388,14 +409,16 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
         log.debug("%s stdout: %s", formatter.name, stdout)
         log.debug("%s stderr: %s", formatter.name, stderr)
         local err_str
-        if stderr and not vim.tbl_isempty(stderr) then
+        if not is_empty_output(stderr) then
           err_str = table.concat(stderr, "\n")
-        elseif stdout and not vim.tbl_isempty(stdout) then
+        elseif not is_empty_output(stdout) then
           err_str = table.concat(stdout, "\n")
+        else
+          err_str = "unknown error"
         end
         if
           vim.api.nvim_buf_is_valid(bufnr)
-          and jid ~= vim.b[bufnr].conform_jid
+          and pid ~= vim.b[bufnr].conform_pid
           and opts.exclusive
         then
           callback({
@@ -409,35 +432,21 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
           })
         end
       end
-    end,
-  })
+    end)
+  )
   if not ok then
     callback({
-      code = errors.ERROR_CODE.JOBSTART,
-      message = string.format("Formatter '%s' error in jobstart: %s", formatter.name, jid_or_err),
+      code = errors.ERROR_CODE.VIM_SYSTEM,
+      message = string.format("Formatter '%s' error in vim.system: %s", formatter.name, job_or_err),
     })
     return
   end
-  jid = jid_or_err
-  if jid == 0 then
-    callback({
-      code = errors.ERROR_CODE.INVALID_ARGS,
-      message = string.format("Formatter '%s' invalid arguments", formatter.name),
-    })
-  elseif jid == -1 then
-    callback({
-      code = errors.ERROR_CODE.NOT_EXECUTABLE,
-      message = string.format("Formatter '%s' command is not executable", formatter.name),
-    })
-  elseif config.stdin then
-    vim.api.nvim_chan_send(jid, buffer_text)
-    vim.fn.chanclose(jid, "stdin")
-  end
+  pid = job_or_err.pid
   if opts.exclusive then
-    vim.b[bufnr].conform_jid = jid
+    vim.b[bufnr].conform_pid = pid
   end
 
-  return jid
+  return pid
 end
 
 ---@param bufnr integer
@@ -502,9 +511,9 @@ M.format_async = function(bufnr, formatters, range, opts, callback)
   end
 
   -- kill previous jobs for buffer
-  local prev_jid = vim.b[bufnr].conform_jid
-  if prev_jid and opts.exclusive then
-    if vim.fn.jobstop(prev_jid) == 1 then
+  local prev_pid = vim.b[bufnr].conform_pid
+  if prev_pid and opts.exclusive then
+    if uv.kill(prev_pid) == 0 then
       log.info("Canceled previous format job for %s", vim.api.nvim_buf_get_name(bufnr))
     end
   end
@@ -535,7 +544,8 @@ M.format_async = function(bufnr, formatters, range, opts, callback)
           output_lines,
           range,
           not all_support_range_formatting,
-          opts.dry_run
+          opts.dry_run,
+          opts.undojoin
         )
       end
       callback(err, did_edit)
@@ -593,9 +603,9 @@ M.format_sync = function(bufnr, formatters, timeout_ms, range, opts)
   local original_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
   -- kill previous jobs for buffer
-  local prev_jid = vim.b[bufnr].conform_jid
-  if prev_jid and opts.exclusive then
-    if vim.fn.jobstop(prev_jid) == 1 then
+  local prev_pid = vim.b[bufnr].conform_pid
+  if prev_pid and opts.exclusive then
+    if uv.kill(prev_pid) == 0 then
       log.info("Canceled previous format job for %s", vim.api.nvim_buf_get_name(bufnr))
     end
   end
@@ -609,7 +619,8 @@ M.format_sync = function(bufnr, formatters, timeout_ms, range, opts)
     final_result,
     range,
     not all_support_range_formatting,
-    opts.dry_run
+    opts.dry_run,
+    opts.undojoin
   )
   return err, did_edit
 end
@@ -645,7 +656,7 @@ M.format_lines_sync = function(bufnr, formatters, timeout_ms, range, input_lines
     ---@type conform.FormatterConfig
     local config = assert(require("conform").get_formatter_config(formatter.name, bufnr))
     local ctx = M.build_context(bufnr, config, range)
-    local jid = run_formatter(
+    local pid = run_formatter(
       bufnr,
       formatter,
       config,
@@ -665,8 +676,8 @@ M.format_lines_sync = function(bufnr, formatters, timeout_ms, range, input_lines
     end, 5)
 
     if not wait_result then
-      if jid then
-        vim.fn.jobstop(jid)
+      if pid then
+        uv.kill(pid)
       end
       if wait_reason == -1 then
         return errors.coalesce(final_err, {

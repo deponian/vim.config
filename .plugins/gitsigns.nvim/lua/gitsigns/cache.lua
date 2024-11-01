@@ -20,14 +20,20 @@ local M = {
 --- @field gitdir_watcher?    uv.uv_fs_event_t
 --- @field git_obj            Gitsigns.GitObj
 --- @field blame?             table<integer,Gitsigns.BlameInfo?>
+---
+--- @field update_lock?       true Update in progress
 local CacheEntry = M.CacheEntry
 
 function CacheEntry:get_rev_bufname(rev, nofile)
   rev = rev or self.git_obj.revision or ':0'
   if nofile then
-    return string.format('gitsigns://%s/%s', self.git_obj.repo.gitdir, rev)
+    return string.format('gitsigns://%s//%s', self.git_obj.repo.gitdir, rev)
   end
-  return string.format('gitsigns://%s/%s:%s', self.git_obj.repo.gitdir, rev, self.git_obj.relpath)
+  return string.format('gitsigns://%s//%s:%s', self.git_obj.repo.gitdir, rev, self.git_obj.relpath)
+end
+
+function CacheEntry:locked()
+  return self.git_obj.lock or self.update_lock or false
 end
 
 --- Invalidate any state dependent on the buffer content.
@@ -131,6 +137,7 @@ function CacheEntry:destroy()
   if w and not w:is_closing() then
     w:close()
   end
+  self.git_obj.repo:unref()
 end
 
 ---@type table<integer,Gitsigns.CacheEntry?>

@@ -34,6 +34,17 @@ M.defaults = {
     -- then set the below to false. This should work, but is NOT supported and will
     -- increase downloads a lot.
     filter = true,
+    -- rate of network related git operations (clone, fetch, checkout)
+    throttle = {
+      enabled = false, -- not enabled by default
+      -- max 2 ops every 5 seconds
+      rate = 2,
+      duration = 5 * 1000, -- in ms
+    },
+    -- Time in seconds to wait before running fetch again for a plugin.
+    -- Repeated update/check operations will not run again until this
+    -- cooldown period has passed.
+    cooldown = 0,
   },
   pkg = {
     enabled = true,
@@ -56,7 +67,9 @@ M.defaults = {
     hererocks = nil,
   },
   dev = {
-    ---@type string | fun(plugin: LazyPlugin): string directory where you store your local plugin projects
+    -- Directory where you store your local plugin projects. If a function is used,
+    -- the plugin directory (e.g. `~/projects/plugin-name`) must be returned.
+    ---@type string | fun(plugin: LazyPlugin): string
     path = "~/projects",
     ---@type string[] plugins that match these patterns will use your local versions instead of being fetched from GitHub
     patterns = {}, -- For example {"folke"}
@@ -205,7 +218,7 @@ M.defaults = {
     enabled = true,
     root = vim.fn.stdpath("state") .. "/lazy/readme",
     files = { "README.md", "lua/**/README.md" },
-    -- only generate markdown helptags for plugins that dont have docs
+    -- only generate markdown helptags for plugins that don't have docs
     skip_if_doc_exists = true,
   },
   state = vim.fn.stdpath("state") .. "/lazy/state.json", -- state info for checker and other things
@@ -228,7 +241,7 @@ function M.hererocks()
   return M.options.rocks.hererocks
 end
 
-M.version = "11.9.1" -- x-release-please-version
+M.version = "11.14.1" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 
@@ -253,8 +266,10 @@ M.mapleader = nil
 ---@type string
 M.maplocalleader = nil
 
+M.suspended = false
+
 function M.headless()
-  return #vim.api.nvim_list_uis() == 0
+  return not M.suspended and #vim.api.nvim_list_uis() == 0
 end
 
 ---@param opts? LazyConfig
@@ -282,6 +297,9 @@ function M.setup(opts)
 
   M.me = debug.getinfo(1, "S").source:sub(2)
   M.me = Util.norm(vim.fn.fnamemodify(M.me, ":p:h:h:h:h"))
+  local lib = vim.fn.fnamemodify(vim.v.progpath, ":p:h:h") .. "/lib"
+  lib = vim.uv.fs_stat(lib .. "64") and (lib .. "64") or lib
+  lib = lib .. "/nvim"
   if M.options.performance.rtp.reset then
     ---@type vim.Option
     vim.opt.rtp = {
@@ -289,7 +307,7 @@ function M.setup(opts)
       vim.fn.stdpath("data") .. "/site",
       M.me,
       vim.env.VIMRUNTIME,
-      vim.fn.fnamemodify(vim.v.progpath, ":p:h:h") .. "/lib/nvim",
+      lib,
       vim.fn.stdpath("config") .. "/after",
     }
   end
@@ -335,6 +353,12 @@ function M.setup(opts)
             if plugin then
               require("lazy").pkg({ plugins = { plugin } })
             end
+          end,
+        })
+
+        vim.api.nvim_create_autocmd({ "VimSuspend", "VimResume" }, {
+          callback = function(ev)
+            M.suspended = ev.event == "VimSuspend"
           end,
         })
       end,

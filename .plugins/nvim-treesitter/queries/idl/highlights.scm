@@ -77,6 +77,8 @@
   (map_type)
   (object_type)
   (value_base_type)
+  (wide_string_type)
+  (wide_char_type)
 ] @type.builtin
 
 (escape_sequence) @string.escape
@@ -85,11 +87,20 @@
 
 (boolean_literal) @boolean
 
-(number_literal) @number
+(integer_literal) @number
+
+[
+  (floating_pt_literal)
+  (fixed_pt_literal)
+] @number.float
 
 (char_literal) @character
 
+(wide_character_literal) @character
+
 (string_literal) @string
+
+(wide_string_literal) @string
 
 [
   "("
@@ -132,11 +143,8 @@
 (annotation_appl
   "@" @attribute)
 
-(annotation_appl
+(annotation_appl_custom_body
   (scoped_name) @attribute)
-
-(annotation_appl
-  (annotation_built_name) @attribute.builtin)
 
 (op_dcl
   (identifier) @function.method)
@@ -160,7 +168,7 @@
 
 (preproc_call
   directive: (preproc_directive) @keyword.directive
-  argument: (_) @constant)
+  argument: (_)? @constant)
 
 (module_dcl
   (identifier) @module)
@@ -339,3 +347,33 @@
 
 (element_spec
   (declarator) @variable.member)
+
+(preproc_include
+  (keyword_include) @type
+  path: (_) @string)
+
+(system_lib_string
+  "<" @string
+  ">" @string)
+
+(extend_annotation_appl
+  "//@" @attribute
+  (annotation_appl_custom_body))
+
+(extend_annotation_appl
+  "//@" @attribute.builtin
+  (annotation_appl_builtin_body))
+
+[
+  (autoid_kind)
+  (extensibility_kind)
+  (verbatim_language)
+  (placement_kind)
+  (service_platform)
+  (try_construct_fail_action)
+  (data_representation_mask)
+] @constant
+
+(anno_name) @attribute.builtin
+
+(range_kind) @attribute.builtin

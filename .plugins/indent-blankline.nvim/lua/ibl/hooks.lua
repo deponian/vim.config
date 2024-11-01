@@ -48,7 +48,7 @@ local count = 0
 --- Each hook type takes a callback a different function, and a configuration table
 ---@param type ibl.hooks.type
 ---@param cb function
----@param opts ibl.hooks.options
+---@param opts ibl.hooks.options?
 ---@overload fun(type: 'ACTIVE', cb: ibl.hooks.cb.active, opts: ibl.hooks.options?): string
 ---@overload fun(type: 'SCOPE_ACTIVE', cb: ibl.hooks.cb.scope_active, opts: ibl.hooks.options?): string
 ---@overload fun(type: 'SKIP_LINE', cb: ibl.hooks.cb.skip_line, opts: ibl.hooks.options?): string
@@ -58,7 +58,7 @@ local count = 0
 ---@overload fun(type: 'CLEAR', cb: ibl.hooks.cb.clear, opts: ibl.hooks.options?): string
 ---@overload fun(type: 'HIGHLIGHT_SETUP', cb: ibl.hooks.cb.highlight_setup, opts: ibl.hooks.options?): string
 M.register = function(type, cb, opts)
-    vim.validate {
+    utils.validate {
         type = {
             type,
             function(t)
@@ -70,7 +70,7 @@ M.register = function(type, cb, opts)
         opts = { opts, "table", true },
     }
     opts = vim.tbl_deep_extend("keep", opts or {}, default_opts)
-    vim.validate {
+    utils.validate {
         bufnr = { opts.bufnr, "number", true },
     }
     if opts.bufnr then
@@ -105,7 +105,7 @@ end
 ---
 ---@param id string
 M.clear = function(id)
-    vim.validate { id = { id, "string" } }
+    utils.validate { id = { id, "string" } }
     local type, hook_id = unpack(utils.split(id, "_"))
     if not type or not hook_id or not utils.tbl_contains(M.type, type) then
         return

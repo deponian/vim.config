@@ -21,6 +21,23 @@ function M._preview_pager_fn()
   return vim.fn.executable("delta") == 1 and "delta --width=$COLUMNS" or nil
 end
 
+function M._man_cmd_fn(bat_pager)
+  local cmd = utils.is_darwin() and "man -P cat {page} | col -bx"
+      or vim.fn.executable("mandb") == 1 and "man {page} | col -bx"
+      or "man -c {page} | col -bx"
+  if bat_pager then
+    local bat_cmd = (function()
+      for _, bin in ipairs({ "batcat", "bat" }) do
+        if vim.fn.executable(bin) == 1 then return bin end
+      end
+    end)()
+    if bat_cmd then
+      cmd = string.format("%s | %s --color=always -p -l man", cmd, bat_cmd)
+    end
+  end
+  return cmd:gsub("{page}", "%%s")
+end
+
 M.defaults                      = {
   nbsp          = utils.nbsp,
   winopts       = {
@@ -29,6 +46,8 @@ M.defaults                      = {
     row        = 0.35,
     col        = 0.55,
     border     = "rounded",
+    zindex     = 50,
+    backdrop   = 60,
     fullscreen = false,
     preview    = {
       default      = "builtin",
@@ -61,12 +80,14 @@ M.defaults                      = {
         scrolloff      = 1,
       },
     },
-    on_create  = function()
+    on_create  = function(_)
       -- vim.cmd("set winhl=Normal:Normal,FloatBorder:Normal")
+      -- utils.keymap_set("t", "<A-Esc>", actions.hide, { nowait = true, buffer = e.bufnr })
     end,
   },
   keymap        = {
     builtin = {
+      ["<M-Esc>"]    = "hide",
       ["<F1>"]       = "toggle-help",
       ["<F2>"]       = "toggle-fullscreen",
       -- Only valid with the 'builtin' previewer
@@ -87,6 +108,8 @@ M.defaults                      = {
       ["ctrl-a"]         = "beginning-of-line",
       ["ctrl-e"]         = "end-of-line",
       ["alt-a"]          = "toggle-all",
+      ["alt-g"]          = "last",
+      ["alt-G"]          = "first",
       -- Only valid with fzf previewers (bat/cat/git/etc)
       ["f3"]             = "toggle-preview-wrap",
       ["f4"]             = "toggle-preview",
@@ -98,19 +121,13 @@ M.defaults                      = {
   },
   actions       = {
     files = {
-      ["default"] = actions.file_edit_or_qf,
-      ["ctrl-s"]  = actions.file_split,
-      ["ctrl-v"]  = actions.file_vsplit,
-      ["ctrl-t"]  = actions.file_tabedit,
-      ["alt-q"]   = actions.file_sel_to_qf,
-      ["alt-l"]   = actions.file_sel_to_ll,
+      ["enter"]  = actions.file_edit_or_qf,
+      ["ctrl-s"] = actions.file_split,
+      ["ctrl-v"] = actions.file_vsplit,
+      ["ctrl-t"] = actions.file_tabedit,
+      ["alt-q"]  = actions.file_sel_to_qf,
+      ["alt-Q"]  = actions.file_sel_to_ll,
     },
-    buffers = {
-      ["default"] = actions.buf_edit,
-      ["ctrl-s"]  = actions.buf_split,
-      ["ctrl-v"]  = actions.buf_vsplit,
-      ["ctrl-t"]  = actions.buf_tabedit,
-    }
   },
   fzf_bin       = nil,
   fzf_opts      = {
@@ -160,11 +177,12 @@ M.defaults                      = {
       _ctor         = previewers.fzf.git_diff,
     },
     man = {
-      cmd   = utils.is_darwin() and "man -P cat %s | col -bx" or "man -c %s | col -bx",
       _ctor = previewers.builtin.man_pages,
+      cmd = M._man_cmd_fn(),
     },
     man_native = {
       _ctor = previewers.fzf.man_pages,
+      cmd = M._man_cmd_fn(true),
     },
     help_tags = {
       _ctor = previewers.builtin.help_tags,
@@ -365,10 +383,11 @@ M.defaults.git                  = {
     preview       = "git show --color {1}",
     preview_pager = M._preview_pager_fn,
     actions       = {
-      ["default"] = actions.git_checkout,
-      ["ctrl-y"]  = { fn = actions.git_yank_commit, exec_silent = true },
+      ["enter"]  = actions.git_checkout,
+      ["ctrl-y"] = { fn = actions.git_yank_commit, exec_silent = true },
     },
     fzf_opts      = { ["--no-multi"] = true },
+    _multiline    = false,
   },
   bcommits = {
     prompt        = "BCommits> ",
@@ -377,37 +396,55 @@ M.defaults.git                  = {
     preview       = "git show --color {1} -- {file}",
     preview_pager = M._preview_pager_fn,
     actions       = {
-      ["default"] = actions.git_buf_edit,
-      ["ctrl-s"]  = actions.git_buf_split,
-      ["ctrl-v"]  = actions.git_buf_vsplit,
-      ["ctrl-t"]  = actions.git_buf_tabedit,
-      ["ctrl-y"]  = { fn = actions.git_yank_commit, exec_silent = true },
+      ["enter"]  = actions.git_buf_edit,
+      ["ctrl-s"] = actions.git_buf_split,
+      ["ctrl-v"] = actions.git_buf_vsplit,
+      ["ctrl-t"] = actions.git_buf_tabedit,
+      ["ctrl-y"] = { fn = actions.git_yank_commit, exec_silent = true },
     },
     fzf_opts      = { ["--no-multi"] = true },
+    _multiline    = false,
+  },
+  blame = {
+    prompt        = "Blame> ",
+    cmd           = [[git blame --color-lines {file}]],
+    preview       = "git show --color {1} -- {file}",
+    preview_pager = M._preview_pager_fn,
+    actions       = {
+      ["enter"]  = actions.git_goto_line,
+      ["ctrl-s"] = actions.git_buf_split,
+      ["ctrl-v"] = actions.git_buf_vsplit,
+      ["ctrl-t"] = actions.git_buf_tabedit,
+      ["ctrl-y"] = { fn = actions.git_yank_commit, exec_silent = true },
+    },
+    fzf_opts      = { ["--no-multi"] = true },
+    _multiline    = false,
   },
   branches = {
-    prompt   = "Branches> ",
-    cmd      = "git branch --all --color",
-    preview  = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
-    fzf_opts = { ["--no-multi"] = true },
-    actions  = {
-      ["default"] = actions.git_switch,
-      ["ctrl-x"]  = { fn = actions.git_branch_del, reload = true },
-      ["ctrl-a"]  = { fn = actions.git_branch_add, field_index = "{q}", reload = true },
+    prompt     = "Branches> ",
+    cmd        = "git branch --all --color",
+    preview    = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
+    actions    = {
+      ["enter"]  = actions.git_switch,
+      ["ctrl-x"] = { fn = actions.git_branch_del, reload = true },
+      ["ctrl-a"] = { fn = actions.git_branch_add, field_index = "{q}", reload = true },
     },
-    cmd_add  = { "git", "branch" },
-    cmd_del  = { "git", "branch", "--delete" },
+    cmd_add    = { "git", "branch" },
+    cmd_del    = { "git", "branch", "--delete" },
+    fzf_opts   = { ["--no-multi"] = true },
+    _multiline = false,
   },
   tags = {
-    prompt   = "Tags> ",
-    cmd      = [[git for-each-ref --color --sort="-taggerdate" --format ]]
+    prompt     = "Tags> ",
+    cmd        = [[git for-each-ref --color --sort="-taggerdate" --format ]]
         .. [["%(color:yellow)%(refname:short)%(color:reset) ]]
         .. [[%(color:green)(%(taggerdate:relative))%(color:reset)]]
         .. [[ %(subject) %(color:blue)%(taggername)%(color:reset)" refs/tags]],
-    preview  = [[git log --graph --color --pretty=format:"%C(yellow)%h%Creset ]]
+    preview    = [[git log --graph --color --pretty=format:"%C(yellow)%h%Creset ]]
         .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset" {1}]],
-    fzf_opts = { ["--no-multi"] = true },
-    actions  = { ["default"] = actions.git_checkout },
+    actions    = { ["enter"] = actions.git_checkout },
+    fzf_opts   = { ["--no-multi"] = true },
+    _multiline = false,
   },
   stash = {
     prompt        = "Stash> ",
@@ -415,8 +452,8 @@ M.defaults.git                  = {
     preview       = "git --no-pager stash show --patch --color {1}",
     preview_pager = M._preview_pager_fn,
     actions       = {
-      ["default"] = actions.git_stash_apply,
-      ["ctrl-x"]  = { fn = actions.git_stash_drop, reload = true },
+      ["enter"]  = actions.git_stash_apply,
+      ["ctrl-x"] = { fn = actions.git_stash_drop, reload = true },
     },
     fzf_opts      = {
       -- TODO: multiselect requires more work as dropping
@@ -445,7 +482,7 @@ M.defaults.grep                 = {
   multiprocess   = true,
   file_icons     = true and M._has_devicons,
   color_icons    = true,
-  git_icons      = true,
+  git_icons      = false,
   fzf_opts       = { ["--multi"] = true },
   grep_opts      = utils.is_darwin()
       and "--binary-files=without-match --line-number --recursive --color=always "
@@ -504,7 +541,7 @@ M.defaults.quickfix_stack       = {
   marker    = ">",
   previewer = { _ctor = previewers.builtin.quickfix, },
   fzf_opts  = { ["--no-multi"] = true },
-  actions   = { ["default"] = actions.set_qflist, },
+  actions   = { ["enter"] = actions.set_qflist, },
 }
 
 M.defaults.loclist              = {
@@ -525,7 +562,7 @@ M.defaults.loclist_stack        = {
   marker    = ">",
   previewer = { _ctor = previewers.builtin.quickfix, },
   fzf_opts  = { ["--no-multi"] = true },
-  actions   = { ["default"] = actions.set_qflist, },
+  actions   = { ["enter"] = actions.set_qflist, },
 }
 
 M.defaults.buffers              = {
@@ -540,7 +577,9 @@ M.defaults.buffers              = {
   cwd_only              = false,
   cwd                   = nil,
   fzf_opts              = { ["--tiebreak"] = "index", ["--multi"] = true },
-  _actions              = function() return M.globals.actions.buffers end,
+  _actions              = function()
+    return M.globals.actions.buffers or M.globals.actions.files
+  end,
   actions               = { ["ctrl-x"] = { fn = actions.buf_del, reload = true } },
   _cached_hls           = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "path_linenr" },
 }
@@ -552,15 +591,17 @@ M.defaults.tabs                 = {
   tab_marker  = "<<",
   file_icons  = true and M._has_devicons,
   color_icons = true,
-  _actions    = function() return M.globals.actions.buffers end,
+  _actions    = function()
+    return M.globals.actions.buffers or M.globals.actions.files
+  end,
   actions     = {
-    ["default"] = actions.buf_switch,
-    ["ctrl-x"]  = { fn = actions.buf_del, reload = true },
+    ["enter"]  = actions.buf_switch,
+    ["ctrl-x"] = { fn = actions.buf_del, reload = true },
   },
   fzf_opts    = {
     ["--multi"]     = true,
     ["--delimiter"] = "[\\):]",
-    ["--with-nth"]  = "3..",
+    ["--with-nth"]  = "5..",
   },
   _cached_hls = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker", "path_linenr" },
 }
@@ -580,11 +621,13 @@ M.defaults.lines                = {
     ["--tiebreak"]  = "index",
   },
   line_field_index = "{3}",
-  _actions         = function() return M.globals.actions.buffers end,
+  _actions         = function()
+    return M.globals.actions.buffers or M.globals.actions.files
+  end,
   actions          = {
-    ["default"] = actions.buf_edit_or_qf,
-    ["alt-q"]   = actions.buf_sel_to_qf,
-    ["alt-l"]   = actions.buf_sel_to_ll
+    ["enter"] = actions.buf_edit_or_qf,
+    ["alt-q"] = actions.buf_sel_to_qf,
+    ["alt-l"] = actions.buf_sel_to_ll
   },
   _cached_hls      = { "buf_name", "buf_nr", "path_linenr" },
 }
@@ -603,13 +646,32 @@ M.defaults.blines               = {
     ["--tiebreak"]  = "index",
   },
   line_field_index = "{2}",
-  _actions         = function() return M.globals.actions.buffers end,
+  _actions         = function()
+    return M.globals.actions.buffers or M.globals.actions.files
+  end,
   actions          = {
-    ["default"] = actions.buf_edit_or_qf,
-    ["alt-q"]   = actions.buf_sel_to_qf,
-    ["alt-l"]   = actions.buf_sel_to_ll
+    ["enter"] = actions.buf_edit_or_qf,
+    ["alt-q"] = actions.buf_sel_to_qf,
+    ["alt-l"] = actions.buf_sel_to_ll
   },
   _cached_hls      = { "buf_name", "buf_nr", "path_linenr" },
+}
+
+M.defaults.treesitter           = {
+  previewer        = M._default_previewer_fn,
+  prompt           = "Treesitter> ",
+  file_icons       = false,
+  color_icons      = false,
+  fzf_opts         = {
+    ["--multi"]     = true,
+    ["--delimiter"] = "[:]",
+    ["--with-nth"]  = "2..",
+  },
+  line_field_index = "{2}",
+  _actions         = function()
+    return M.globals.actions.buffers or M.globals.actions.files
+  end,
+  _cached_hls      = { "buf_name", "buf_nr", "path_linenr", "path_colnr" },
 }
 
 M.defaults.tags                 = {
@@ -658,9 +720,9 @@ M.defaults.btags                = {
 M.defaults.colorschemes         = {
   prompt       = "Colorschemes> ",
   live_preview = true,
-  winopts      = { height = 0.55, width = 0.50 },
+  winopts      = { height = 0.55, width = 0.50, backdrop = false },
   fzf_opts     = { ["--no-multi"] = true },
-  actions      = { ["default"] = actions.colorscheme },
+  actions      = { ["enter"] = actions.colorscheme },
 }
 
 M.defaults.highlights           = {
@@ -671,7 +733,7 @@ M.defaults.highlights           = {
 
 M.defaults.awesome_colorschemes = {
   prompt       = "Awesome Colorschemes> ",
-  winopts      = { row = 0, col = 0.99, width = 0.50 },
+  winopts      = { row = 0, col = 0.99, width = 0.50, backdrop = false },
   live_preview = true,
   max_threads  = 5,
   fzf_opts     = {
@@ -686,20 +748,20 @@ M.defaults.awesome_colorschemes = {
     return path.join({ vim.fn.stdpath("cache"), "fzf-lua" })
   end,
   actions      = {
-    ["default"] = actions.colorscheme,
-    ["ctrl-g"]  = { fn = actions.toggle_bg, exec_silent = true },
-    ["ctrl-r"]  = { fn = actions.cs_update, reload = true },
-    ["ctrl-x"]  = { fn = actions.cs_delete, reload = true },
+    ["enter"]  = actions.colorscheme,
+    ["ctrl-g"] = { fn = actions.toggle_bg, exec_silent = true },
+    ["ctrl-r"] = { fn = actions.cs_update, reload = true },
+    ["ctrl-x"] = { fn = actions.cs_delete, reload = true },
   }
 }
 
 M.defaults.helptags             = {
   prompt    = "Help> ",
   actions   = {
-    ["default"] = actions.help,
-    ["ctrl-s"]  = actions.help,
-    ["ctrl-v"]  = actions.help_vert,
-    ["ctrl-t"]  = actions.help_tab,
+    ["enter"]  = actions.help,
+    ["ctrl-s"] = actions.help,
+    ["ctrl-v"] = actions.help_vert,
+    ["ctrl-t"] = actions.help_tab,
   },
   fzf_opts  = {
     ["--no-multi"]  = true,
@@ -716,10 +778,10 @@ M.defaults.manpages             = {
   prompt    = "Man> ",
   cmd       = "man -k .",
   actions   = {
-    ["default"] = actions.man,
-    ["ctrl-s"]  = actions.man,
-    ["ctrl-v"]  = actions.man_vert,
-    ["ctrl-t"]  = actions.man_tab,
+    ["enter"]  = actions.man,
+    ["ctrl-s"] = actions.man,
+    ["ctrl-v"] = actions.man_vert,
+    ["ctrl-t"] = actions.man_tab,
   },
   fzf_opts  = { ["--tiebreak"] = "begin", ["--no-multi"] = true },
   previewer = "man",
@@ -735,6 +797,8 @@ M.defaults.lsp                  = {
   fzf_opts         = { ["--multi"] = true },
   _actions         = function() return M.globals.actions.files end,
   _cached_hls      = { "path_colnr", "path_linenr" },
+  -- Signals actions to use uri triggering the use of `lsp.util.show_document`
+  _uri             = true,
 }
 
 M.defaults.lsp.symbols          = {
@@ -805,6 +869,7 @@ M.defaults.lsp.symbols          = {
   _actions         = function() return M.globals.actions.files end,
   actions          = { ["ctrl-g"] = { actions.sym_lsym } },
   _cached_hls      = { "live_sym", "path_colnr", "path_linenr" },
+  _uri             = true,
 }
 
 M.defaults.lsp.finder           = {
@@ -839,6 +904,7 @@ M.defaults.lsp.finder           = {
   },
   fzf_opts    = { ["--multi"] = true },
   _cached_hls = { "path_colnr", "path_linenr" },
+  _uri        = true,
 }
 
 M.defaults.lsp.code_actions     = {
@@ -880,7 +946,7 @@ M.defaults.builtin              = {
     width  = 0.50,
   },
   fzf_opts = { ["--no-multi"] = true },
-  actions  = { ["default"] = actions.run_builtin },
+  actions  = { ["enter"] = actions.run_builtin },
 }
 
 M.defaults.profiles             = {
@@ -891,13 +957,13 @@ M.defaults.profiles             = {
     ["--with-nth"]  = "-1..",
     ["--no-multi"]  = true,
   },
-  actions   = { ["default"] = actions.apply_profile },
+  actions   = { ["enter"] = actions.apply_profile },
 }
 
 M.defaults.marks                = {
   prompt    = "Marks> ",
   fzf_opts  = { ["--no-multi"] = true },
-  actions   = { ["default"] = actions.goto_mark },
+  actions   = { ["enter"] = actions.goto_mark },
   previewer = { _ctor = previewers.builtin.marks },
 }
 
@@ -911,7 +977,7 @@ M.defaults.jumps                = {
   prompt    = "Jumps> ",
   cmd       = "jumps",
   fzf_opts  = { ["--no-multi"] = true },
-  actions   = { ["default"] = actions.goto_jump },
+  actions   = { ["enter"] = actions.goto_jump },
   previewer = { _ctor = previewers.builtin.jumps },
 }
 
@@ -926,10 +992,9 @@ M.defaults.tagstack             = {
 }
 
 M.defaults.commands             = {
-  prompt  = "Commands> ",
-  actions = {
-    ["default"] = actions.ex_run,
-  },
+  prompt          = "Commands> ",
+  actions         = { ["enter"] = actions.ex_run },
+  include_builtin = true,
 }
 
 M.defaults.autocmds             = {
@@ -947,8 +1012,8 @@ M.defaults.command_history      = {
   prompt   = "Command History> ",
   fzf_opts = { ["--tiebreak"] = "index", ["--no-multi"] = true },
   actions  = {
-    ["default"] = actions.ex_run_cr,
-    ["ctrl-e"]  = actions.ex_run,
+    ["enter"]  = actions.ex_run_cr,
+    ["ctrl-e"] = actions.ex_run,
   },
 }
 
@@ -956,15 +1021,16 @@ M.defaults.search_history       = {
   prompt   = "Search History> ",
   fzf_opts = { ["--tiebreak"] = "index", ["--no-multi"] = true },
   actions  = {
-    ["default"] = actions.search_cr,
-    ["ctrl-e"]  = actions.search,
+    ["enter"]  = actions.search_cr,
+    ["ctrl-e"] = actions.search,
   },
 }
 
 M.defaults.registers            = {
   prompt       = "Registers> ",
+  multiline    = true,
   ignore_empty = true,
-  actions      = { ["default"] = actions.paste_register },
+  actions      = { ["enter"] = actions.paste_register },
   fzf_opts     = { ["--no-multi"] = true },
 }
 
@@ -974,39 +1040,46 @@ M.defaults.keymaps              = {
   winopts         = { preview = { layout = "vertical" } },
   fzf_opts        = { ["--tiebreak"] = "index", ["--no-multi"] = true },
   ignore_patterns = { "^<SNR>", "^<Plug>" },
+  show_details    = true,
   actions         = {
-    ["default"] = actions.keymap_apply,
-    ["ctrl-s"]  = actions.keymap_split,
-    ["ctrl-v"]  = actions.keymap_vsplit,
-    ["ctrl-t"]  = actions.keymap_tabedit,
+    ["enter"]  = actions.keymap_apply,
+    ["ctrl-s"] = actions.keymap_split,
+    ["ctrl-v"] = actions.keymap_vsplit,
+    ["ctrl-t"] = actions.keymap_tabedit,
   },
 }
 
 M.defaults.spell_suggest        = {
   prompt  = "Spelling Suggestions> ",
+  winopts = {
+    relative = "cursor",
+    row      = 1,
+    col      = 0,
+    height   = 0.40,
+    width    = 0.30,
+  },
   actions = {
-    ["default"] = actions.spell_apply,
+    ["enter"] = actions.spell_apply,
   },
 }
 
 M.defaults.filetypes            = {
-  prompt  = "Filetypes> ",
-  actions = {
-    ["default"] = actions.set_filetype,
-  },
+  prompt     = "Filetypes> ",
+  file_icons = false,
+  actions    = { ["enter"] = actions.set_filetype },
 }
 
 M.defaults.packadd              = {
   prompt  = "packadd> ",
   actions = {
-    ["default"] = actions.packadd,
+    ["enter"] = actions.packadd,
   },
 }
 
 M.defaults.menus                = {
   prompt  = "Menu> ",
   actions = {
-    ["default"] = actions.exec_menu,
+    ["enter"] = actions.exec_menu,
   },
 }
 
@@ -1015,7 +1088,7 @@ M.defaults.tmux                 = {
     prompt   = "Tmux Buffers> ",
     cmd      = "tmux list-buffers",
     register = [["]],
-    actions  = { ["default"] = actions.tmux_buf_set_reg },
+    actions  = { ["enter"] = actions.tmux_buf_set_reg },
     fzf_opts = { ["--no-multi"] = true, ["--delimiter"] = "[:]" }
   },
 }
@@ -1061,7 +1134,7 @@ M.defaults.complete_path        = {
   multiprocess      = true,
   fzf_opts          = { ["--no-multi"] = true },
   _fzf_nth_devicons = true,
-  actions           = { ["default"] = actions.complete },
+  actions           = { ["enter"] = actions.complete },
 }
 
 M.defaults.complete_file        = {
@@ -1071,7 +1144,7 @@ M.defaults.complete_file        = {
   color_icons       = true,
   git_icons         = false,
   _actions          = function() return M.globals.actions.files end,
-  actions           = { ["default"] = actions.complete },
+  actions           = { ["enter"] = actions.complete },
   previewer         = M._default_previewer_fn,
   winopts           = { preview = { hidden = "hidden" } },
   fzf_opts          = { ["--no-multi"] = true },
@@ -1088,6 +1161,7 @@ M.defaults.__HLS                = {
   normal         = "FzfLuaNormal",
   border         = "FzfLuaBorder",
   title          = "FzfLuaTitle",
+  backdrop       = "FzfLuaBackdrop",
   help_normal    = "FzfLuaHelpNormal",
   help_border    = "FzfLuaHelpBorder",
   preview_normal = "FzfLuaPreviewNormal",

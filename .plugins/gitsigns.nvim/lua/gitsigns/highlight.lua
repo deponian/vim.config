@@ -135,6 +135,48 @@ M.hls = {
     },
   },
 
+  {
+    GitSignsAddCul = {
+      'GitSignsAdd',
+      desc = "Used for the text of 'add' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
+  {
+    GitSignsChangeCul = {
+      'GitSignsChange',
+      desc = "Used for the text of 'change' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
+  {
+    GitSignsDeleteCul = {
+      'GitSignsDelete',
+      desc = "Used for the text of 'delete' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
+  {
+    GitSignsChangedeleteCul = {
+      'GitSignsChangeCul',
+      desc = "Used for the text of 'changedelete' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
+  {
+    GitSignsTopdeleteCul = {
+      'GitSignsDeleteCul',
+      desc = "Used for the text of 'topdelete' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
+  {
+    GitSignsUntrackedCul = {
+      'GitSignsAddCul',
+      desc = "Used for the text of 'untracked' signs when the cursor is on the same line as the sign.",
+    },
+  },
+
   -- Don't set GitSignsDeleteLn by default
   -- {GitSignsDeleteLn = {}},
 
@@ -153,6 +195,11 @@ M.hls = {
   { GitSignsStagedDeleteLn = { 'GitSignsDeleteLn', fg_factor = 0.5, hidden = true } },
   { GitSignsStagedChangedeleteLn = { 'GitSignsChangedeleteLn', fg_factor = 0.5, hidden = true } },
   { GitSignsStagedTopdeleteLn = { 'GitSignsTopdeleteLn', fg_factor = 0.5, hidden = true } },
+  { GitSignsStagedAddCul = { 'GitSignsAddCul', fg_factor = 0.5, hidden = true } },
+  { GitSignsStagedChangeCul = { 'GitSignsChangeCul', fg_factor = 0.5, hidden = true } },
+  { GitSignsStagedDeleteCul = { 'GitSignsDeleteCul', fg_factor = 0.5, hidden = true } },
+  { GitSignsStagedChangedeleteCul = { 'GitSignsChangedeleteCul', fg_factor = 0.5, hidden = true } },
+  { GitSignsStagedTopdeleteCul = { 'GitSignsTopdeleteCul', fg_factor = 0.5, hidden = true } },
 
   {
     GitSignsAddPreview = {
@@ -249,19 +296,19 @@ M.hls = {
 ---@param name string
 ---@return table<string, any>
 local function get_hl(name)
-  --- @diagnostic disable-next-line:deprecated
-  return api.nvim_get_hl_by_name(name, true)
+  return api.nvim_get_hl(0, { name = name, link = false })
 end
 
 --- @param hl_name string
 --- @return boolean
 local function is_hl_set(hl_name)
-  -- TODO: this only works with `set termguicolors`
-  local exists, hl = pcall(get_hl, hl_name)
-  if not exists then
-    return false
-  end
-  local color = hl.foreground or hl.background or hl.reverse
+  local hl = get_hl(hl_name)
+  local color = hl.fg
+    or hl.bg
+    or hl.reverse
+    or hl.ctermfg
+    or hl.ctermbg
+    or hl.cterm and hl.cterm.reverse
   return color ~= nil
 end
 
@@ -294,12 +341,11 @@ local function derive(hl, hldef)
     if is_hl_set(d) then
       dprintf('Deriving %s from %s', hl, d)
       if hldef.fg_factor then
-        hldef.fg_factor = hldef.fg_factor or 1
         local dh = get_hl(d)
         api.nvim_set_hl(0, hl, {
           default = true,
-          fg = cmul(dh.foreground, hldef.fg_factor),
-          bg = dh.background,
+          fg = cmul(dh.fg, hldef.fg_factor),
+          bg = dh.bg,
         })
       else
         api.nvim_set_hl(0, hl, { default = true, link = d })

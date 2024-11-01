@@ -35,7 +35,7 @@ if not vim.g.fzf_lua_directory and #vim.api.nvim_list_uis() == 0 then
   local tmpdir = vim.fn.fnamemodify(vim.fn.tempname(), ":h")
   if tmpdir and #tmpdir > 0 then
     vim.fn.delete(tmpdir, "rf")
-    -- io.stdout:write("[DEBUG]: "..tmpdir.."\n")
+    -- io.stdout:write("[DEBUG] "..tmpdir.."\n")
   end
   -- neovim might also automatically start the RPC server which will
   -- generate a named pipe temp file, e.g. `/run/user/1000/nvim.14249.0`
@@ -118,7 +118,7 @@ local function coroutinify(fn)
   end
 end
 
----@param opts {cwd: string, cmd: string|table, env: table?, cb_finish: function, cb_write: function, cb_err: function, cb_pid: function, fn_transform: function?, EOL: string?}
+---@param opts {cwd: string, cmd: string|table, env: table?, cb_finish: function, cb_write: function, cb_err: function, cb_pid: function, fn_transform: function?, EOL: string?, process1: boolean?, profile: boolean?}
 ---@param fn_transform function?
 ---@param fn_done function?
 M.spawn = function(opts, fn_transform, fn_done)
@@ -144,7 +144,7 @@ M.spawn = function(opts, fn_transform, fn_done)
 
   -- https://github.com/luvit/luv/blob/master/docs.md
   -- uv.spawn returns tuple: handle, pid
-  local shell = _is_win and "cmd" or "sh"
+  local shell = _is_win and "cmd.exe" or "sh"
   local args = _is_win and { "/d", "/e:off", "/f:off", "/v:on", "/c" } or { "-c" }
   if type(opts.cmd) == "table" then
     if _is_win then
@@ -206,7 +206,10 @@ M.spawn = function(opts, fn_transform, fn_done)
   end ]]
   local function process_lines(data)
     local lines = {}
+    local nlines = 0
     local start_idx = 1
+    local t_st = opts.profile and uv.hrtime()
+    if t_st then write_cb(string.format("[DEBUG] start: %.0f (ns)" .. EOL, t_st)) end
     repeat
       local nl_idx = find_next_newline(data, start_idx)
       local line = data:sub(start_idx, nl_idx - 1)
@@ -219,14 +222,25 @@ M.spawn = function(opts, fn_transform, fn_done)
       --   #line, line:sub(1,256)))
       -- end
       line = fn_transform(line)
-      if line then table.insert(lines, line) end
+      if line then
+        nlines = nlines + 1
+        if opts.process1 then
+          write_cb(line .. EOL)
+        else
+          table.insert(lines, line)
+        end
+      end
       start_idx = nl_idx + 1
     until start_idx >= #data
-    -- testing shows better performance writing the entire
-    -- table at once as opposed to calling 'write_cb' for
-    -- every line after 'fn_transform'
-    if #lines > 0 then
-      write_cb(table.concat(lines, EOL) .. EOL)
+    -- Testing shows better performance writing the entire table at once as opposed to
+    -- calling 'write_cb' for every line after 'fn_transform', we therefore only use
+    -- `process1` when using "mini.icons" as `vim.filetype.match` causes a signigicant
+    -- delay and having to wait for all lines to be processed has an apparent lag
+    if #lines > 0 then write_cb(table.concat(lines, EOL) .. EOL) end
+    if t_st then
+      local t_e = vim.uv.hrtime()
+      write_cb(string.format("[DEBUG] finish:%.0f (ns) %d lines took %.0f (ms)" .. EOL,
+        t_e, nlines, (t_e - t_st) / 1e6))
     end
   end
 
@@ -295,20 +309,24 @@ end
 
 M.async_spawn = coroutinify(M.spawn)
 
----@param opts {cmd: string, cwd: string, cb_pid: function, cb_finish: function, cb_write: function}
+---@param opts {cmd: string, cwd: string, cb_pid: function, cb_finish: function, cb_write: function, multiline: boolean?, process1: boolean?, profile: boolean?}
 ---@param fn_transform function?
 ---@param fn_preprocess function?
-M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess)
+---@param fn_postprocess function?
+M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess, fn_postprocess)
   assert(not fn_transform or type(fn_transform) == "function")
 
   return function(_, fzf_cb, _)
-    if fn_preprocess and type(fn_preprocess) == "function" then
+    if type(fn_preprocess) == "function" then
       -- run the preprocessing fn
       fn_preprocess(opts)
     end
 
     local function on_finish(_, _)
       fzf_cb(nil)
+      if type(fn_postprocess) == "function" then
+        fn_postprocess(opts)
+      end
     end
 
     local function on_write(data, cb)
@@ -329,7 +347,9 @@ M.spawn_nvim_fzf_cmd = function(opts, fn_transform, fn_preprocess)
       cb_finish = on_finish,
       cb_write = on_write,
       cb_pid = opts.cb_pid,
-      EOL = opts.multiline and "\0" or "\n"
+      process1 = opts.process1,
+      profile = opts.profile,
+      EOL = opts.multiline and "\0" or "\n",
     }, fn_transform)
   end
 end
@@ -337,7 +357,8 @@ end
 ---@param opts table
 ---@param fn_transform_str string
 ---@param fn_preprocess_str string
-M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
+---@param fn_postprocess_str string
+M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str, fn_postprocess_str)
   -- attempt base64 decoding on all params
   ---@param str string|table
   ---@return string|table
@@ -364,6 +385,7 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
   opts = base64_conditional_decode(opts)
   fn_transform_str = base64_conditional_decode(fn_transform_str)
   fn_preprocess_str = base64_conditional_decode(fn_preprocess_str)
+  fn_postprocess_str = base64_conditional_decode(fn_postprocess_str)
 
   -- opts must be a table, if opts is a string deserialize
   if type(opts) == "string" then
@@ -391,12 +413,13 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
   for k, v in pairs(opts.g or {}) do
     _G[k] = v
     if opts.debug == "v" or opts.debug == "verbose" then
-      io.stdout:write(string.format("[DEBUGV]: %s=%s" .. EOL, k, v))
+      io.stdout:write(string.format("[DEBUG] %s=%s" .. EOL, k, v))
     end
   end
 
   local fn_transform = load_fn(fn_transform_str)
   local fn_preprocess = load_fn(fn_preprocess_str)
+  local fn_postprocess = load_fn(fn_postprocess_str)
 
 
   -- run the preprocessing fn
@@ -404,12 +427,13 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
 
   if opts.debug == "v" or opts.debug == "verbose" then
     for k, v in pairs(opts) do
-      io.stdout:write(string.format("[DEBUGV]: %s=%s" .. EOL, k, v))
+      io.stdout:write(string.format("[DEBUG] %s=%s" .. EOL, k, v))
     end
-    io.stdout:write(string.format("[DEBUGV]: fn_transform=%s" .. EOL, fn_transform_str))
-    io.stdout:write(string.format("[DEBUGV]: fn_preprocess=%s" .. EOL, fn_preprocess_str))
+    io.stdout:write(string.format("[DEBUG] fn_transform=%s" .. EOL, fn_transform_str))
+    io.stdout:write(string.format("[DEBUG] fn_preprocess=%s" .. EOL, fn_preprocess_str))
+    io.stdout:write(string.format("[DEBUG] fn_postprocess=%s" .. EOL, fn_postprocess_str))
   elseif opts.debug then
-    io.stdout:write("[DEBUG]: " .. opts.cmd .. EOL)
+    io.stdout:write("[DEBUG] " .. opts.cmd .. EOL)
   end
 
   local stderr, stdout = nil, nil
@@ -471,7 +495,14 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
       function(code)
         pipe_close(stdout)
         pipe_close(stderr)
-        exit(code)
+        if fn_postprocess then
+          vim.schedule(function()
+            fn_postprocess(opts)
+            exit(code)
+          end)
+        else
+          exit(code)
+        end
       end
 
   local on_write = opts.on_write or
@@ -511,6 +542,8 @@ M.spawn_stdio = function(opts, fn_transform_str, fn_preprocess_str)
       cb_finish = on_finish,
       cb_write = on_write,
       cb_err = on_err,
+      process1 = opts.process1,
+      profile = opts.profile,
       EOL = EOL,
     },
     fn_transform and function(x)
@@ -705,11 +738,22 @@ M.escape_fzf = function(s, fzf_version, is_win)
   return ret
 end
 
+-- `vim.fn.escape` 
+-- (1) On *NIX: double the backslashes as they will be reduced by expand
+-- (2) ... other issues we will surely find with special chars
+M.expand = function(s)
+  if not _is_win then
+    s = s:gsub([[\]], [[\\]])
+  end
+  return vim.fn.expand(s)
+end
+
 ---@param opts string
 ---@param fn_transform string?
 ---@param fn_preprocess string?
+---@param fn_postprocess string?
 ---@return string
-M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess)
+M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess, fn_postprocess)
   assert(opts and type(opts) == "string")
   assert(not fn_transform or type(fn_transform) == "string")
   local nvim_bin = os.getenv("FZF_LUA_NVIM_BIN") or vim.v.progpath
@@ -718,10 +762,10 @@ M.wrap_spawn_stdio = function(opts, fn_transform, fn_preprocess)
         _is_win and [[set VIMRUNTIME=%s& ]] or "VIMRUNTIME=%s ",
         _is_win and vim.fs.normalize(vim.env.VIMRUNTIME) or M.shellescape(vim.env.VIMRUNTIME)
       )
-  local lua_cmd = ("lua %sloadfile([[%s]])().spawn_stdio(%s,%s,%s)"):format(
+  local lua_cmd = ("lua %sloadfile([[%s]])().spawn_stdio(%s,%s,%s,%s)"):format(
     _has_nvim_010 and "vim.g.did_load_filetypes=1; " or "",
     _is_win and vim.fs.normalize(__FILE__) or __FILE__,
-    opts, fn_transform, fn_preprocess
+    opts, fn_transform, fn_preprocess, fn_postprocess
   )
   local cmd_str = ("%s%s -n --headless --clean --cmd %s"):format(
     nvim_runtime,

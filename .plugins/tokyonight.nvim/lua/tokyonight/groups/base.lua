@@ -46,14 +46,16 @@ function M.get(c, opts)
     FloatBorder                 = { fg = c.border_highlight, bg = c.bg_float },
     FloatTitle                  = { fg = c.border_highlight, bg = c.bg_float },
     Pmenu                       = { bg = c.bg_popup, fg = c.fg }, -- Popup menu: normal item.
-    PmenuSel                    = { bg = Util.darken(c.fg_gutter, 0.8) }, -- Popup menu: selected item.
-    PmenuSbar                   = { bg = Util.lighten(c.bg_popup, 0.95) }, -- Popup menu: scrollbar.
+    PmenuMatch                  = { bg = c.bg_popup, fg = c.blue1 }, -- Popup menu: Matched text in normal item.
+    PmenuSel                    = { bg = Util.blend_bg(c.fg_gutter, 0.8) }, -- Popup menu: selected item.
+    PmenuMatchSel               = { bg = Util.blend_bg(c.fg_gutter, 0.8), fg = c.blue1 }, -- Popup menu: Matched text in selected item.
+    PmenuSbar                   = { bg = Util.blend_fg(c.bg_popup, 0.95) }, -- Popup menu: scrollbar.
     PmenuThumb                  = { bg = c.fg_gutter }, -- Popup menu: Thumb of the scrollbar.
     Question                    = { fg = c.blue }, -- |hit-enter| prompt and yes/no questions
     QuickFixLine                = { bg = c.bg_visual, bold = true }, -- Current |quickfix| item in the quickfix window. Combined with |hl-CursorLine| when the cursor is there.
     Search                      = { bg = c.bg_search, fg = c.fg }, -- Last search pattern highlighting (see 'hlsearch').  Also used for similar items that need to stand out.
     IncSearch                   = { bg = c.orange, fg = c.black }, -- 'incsearch' highlighting; also used for the text replaced with ":s///c"
-    CurSearch                   = { link = "IncSearch" },
+    CurSearch                   =  "IncSearch",
     SpecialKey                  = { fg = c.dark3 }, -- Unprintable characters: text displayed differently from what it really is.  But not 'listchars' whitespace. |hl-Whitespace|
     SpellBad                    = { sp = c.error, undercurl = true }, -- Word that is not recognized by the spellchecker. |spell| Combined with the highlighting used otherwise.
     SpellCap                    = { sp = c.warning, undercurl = true }, -- Word that should start with a capital. |spell| Combined with the highlighting used otherwise.
@@ -70,14 +72,14 @@ function M.get(c, opts)
     WarningMsg                  = { fg = c.warning }, -- warning messages
     Whitespace                  = { fg = c.fg_gutter }, -- "nbsp", "space", "tab" and "trail" in 'listchars'
     WildMenu                    = { bg = c.bg_visual }, -- current match in 'wildmenu' completion
-    WinBar                      = { link = "StatusLine" }, -- window bar
-    WinBarNC                    = { link = "StatusLineNC" }, -- window bar in inactive windows
+    WinBar                      = "StatusLine" , -- window bar
+    WinBarNC                    = "StatusLineNC", -- window bar in inactive windows
 
     Bold                        = { bold = true, fg = c.fg }, -- (preferred) any bold text
     Character                   = { fg = c.green }, --  a character constant: 'c', '\n'
     Constant                    = { fg = c.orange }, -- (preferred) any constant
     Debug                       = { fg = c.orange }, --    debugging statements
-    Delimiter                   = { link = "Special" }, --  character that needs attention
+    Delimiter                   =  "Special", --  character that needs attention
     Error                       = { fg = c.error }, -- (preferred) any erroneous construct
     Function                    = { fg = c.blue, style = opts.styles.functions }, -- function name (also: methods for classes)
     Identifier                  = { fg = c.magenta, style = opts.styles.variables }, -- (preferred) any variable name
@@ -91,9 +93,9 @@ function M.get(c, opts)
     Todo                        = { bg = c.yellow, fg = c.bg }, -- (preferred) anything that needs extra attention; mostly the keywords TODO FIXME and XXX
     Type                        = { fg = c.blue1 }, -- (preferred) int, long, char, etc.
     Underlined                  = { underline = true }, -- (preferred) text that stands out, HTML links
-    debugBreakpoint             = { bg = Util.darken(c.info, 0.1), fg = c.info }, -- used for breakpoint colors in terminal-debug
+    debugBreakpoint             = { bg = Util.blend_bg(c.info, 0.1), fg = c.info }, -- used for breakpoint colors in terminal-debug
     debugPC                     = { bg = c.bg_sidebar }, -- used for highlighting the current line in terminal-debug
-    dosIniLabel                 = { link = "@property" },
+    dosIniLabel                 = "@property",
     helpCommand                 = { bg = c.terminal_black, fg = c.blue },
     htmlH1                      = { fg = c.magenta, bold = true },
     htmlH2                      = { fg = c.blue, bold = true },
@@ -105,9 +107,9 @@ function M.get(c, opts)
     LspReferenceText            = { bg = c.fg_gutter }, -- used for highlighting "text" references
     LspReferenceRead            = { bg = c.fg_gutter }, -- used for highlighting "read" references
     LspReferenceWrite           = { bg = c.fg_gutter }, -- used for highlighting "write" references
-    LspSignatureActiveParameter = { bg = Util.darken(c.bg_visual, 0.4), bold = true },
+    LspSignatureActiveParameter = { bg = Util.blend_bg(c.bg_visual, 0.4), bold = true },
     LspCodeLens                 = { fg = c.comment },
-    LspInlayHint                = { bg = Util.darken(c.blue7, 0.1), fg = c.dark3 },
+    LspInlayHint                = { bg = Util.blend_bg(c.blue7, 0.1), fg = c.dark3 },
     LspInfoBorder               = { fg = c.border_highlight, bg = c.bg_float },
 
     -- diagnostics
@@ -116,10 +118,10 @@ function M.get(c, opts)
     DiagnosticInfo              = { fg = c.info }, -- Used as the base highlight group. Other Diagnostic highlights link to this by default
     DiagnosticHint              = { fg = c.hint }, -- Used as the base highlight group. Other Diagnostic highlights link to this by default
     DiagnosticUnnecessary       = { fg = c.terminal_black }, -- Used as the base highlight group. Other Diagnostic highlights link to this by default
-    DiagnosticVirtualTextError  = { bg = Util.darken(c.error, 0.1), fg = c.error }, -- Used for "Error" diagnostic virtual text
-    DiagnosticVirtualTextWarn   = { bg = Util.darken(c.warning, 0.1), fg = c.warning }, -- Used for "Warning" diagnostic virtual text
-    DiagnosticVirtualTextInfo   = { bg = Util.darken(c.info, 0.1), fg = c.info }, -- Used for "Information" diagnostic virtual text
-    DiagnosticVirtualTextHint   = { bg = Util.darken(c.hint, 0.1), fg = c.hint }, -- Used for "Hint" diagnostic virtual text
+    DiagnosticVirtualTextError  = { bg = Util.blend_bg(c.error, 0.1), fg = c.error }, -- Used for "Error" diagnostic virtual text
+    DiagnosticVirtualTextWarn   = { bg = Util.blend_bg(c.warning, 0.1), fg = c.warning }, -- Used for "Warning" diagnostic virtual text
+    DiagnosticVirtualTextInfo   = { bg = Util.blend_bg(c.info, 0.1), fg = c.info }, -- Used for "Information" diagnostic virtual text
+    DiagnosticVirtualTextHint   = { bg = Util.blend_bg(c.hint, 0.1), fg = c.hint }, -- Used for "Hint" diagnostic virtual text
     DiagnosticUnderlineError    = { undercurl = true, sp = c.error }, -- Used to underline "Error" diagnostics
     DiagnosticUnderlineWarn     = { undercurl = true, sp = c.warning }, -- Used to underline "Warning" diagnostics
     DiagnosticUnderlineInfo     = { undercurl = true, sp = c.info }, -- Used to underline "Information" diagnostics
@@ -139,6 +141,7 @@ function M.get(c, opts)
     diffFile                    = { fg = c.blue },
     diffLine                    = { fg = c.comment },
     diffIndexLine               = { fg = c.magenta },
+    helpExample                 = { fg = c.comment },
   }
 end
 

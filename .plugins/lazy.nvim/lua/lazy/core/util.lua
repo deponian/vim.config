@@ -66,7 +66,7 @@ end
 ---@param name string
 ---@return string
 function M.normname(name)
-  local ret = name:lower():gsub("^n?vim%-", ""):gsub("%.n?vim$", ""):gsub("%.lua", ""):gsub("[^a-z]+", "")
+  local ret = name:lower():gsub("^n?vim%-", ""):gsub("%.n?vim$", ""):gsub("[%.%-]lua", ""):gsub("[^a-z]+", "")
   return ret
 end
 
@@ -171,7 +171,9 @@ function M.very_lazy()
         return
       end
       vim.g.did_very_lazy = true
+      M.track({ event = "VeryLazy" })
       vim.api.nvim_exec_autocmds("User", { pattern = "VeryLazy", modeline = false })
+      M.track()
     end)
   end
 

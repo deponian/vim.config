@@ -1,11 +1,9 @@
-local api = vim.api
-
-local cache = require('gitsigns.cache').cache
-local util = require('gitsigns.util')
 local async = require('gitsigns.async')
-
+local cache = require('gitsigns.cache').cache
 local log = require('gitsigns.debug.log')
-local dprint = log.dprint
+local util = require('gitsigns.util')
+
+local api = vim.api
 
 local hash_colors = {} --- @type table<integer,string>
 
@@ -115,8 +113,9 @@ local function render(blame, win, main_win, buf_sha)
     })
 
     if commit_lines[i] then
-      api.nvim_buf_set_extmark(bufnr, ns, i - 1, win_width - 10, {
-        end_col = win_width,
+      local width = string.len(lines[i])
+      api.nvim_buf_set_extmark(bufnr, ns, i - 1, width - 10, {
+        end_col = width,
         hl_group = 'Title',
       })
     else
@@ -153,10 +152,14 @@ end
 --- @param blame table<integer,Gitsigns.BlameInfo?>
 --- @param win integer
 --- @param revision? string
-local function reblame(blame, win, revision)
+--- @param parent? boolean
+local function reblame(blame, win, revision, parent)
   local blm_win = api.nvim_get_current_win()
   local lnum = unpack(api.nvim_win_get_cursor(blm_win))
   local sha = blame[lnum].commit.sha
+  if parent then
+    sha = sha .. '^'
+  end
   if sha == revision then
     return
   end
@@ -185,14 +188,26 @@ end
 local show_commit = async.create(3, function(win, open, bcache)
   local cursor = api.nvim_win_get_cursor(win)[1]
   local sha = bcache.blame[cursor].commit.sha
-  local res = bcache.git_obj:command({ 'show', sha })
+  local res = bcache.git_obj.repo:command({ 'show', sha })
   async.scheduler()
-  local commit_buf = api.nvim_create_buf(true, true)
-  api.nvim_buf_set_name(commit_buf, bcache:get_rev_bufname(sha, true))
-  api.nvim_buf_set_lines(commit_buf, 0, -1, false, res)
+  local buffer_name = bcache:get_rev_bufname(sha, true)
+  local commit_buf = nil
+  -- find preexisting commit buffer or create a new one
+  for _, bufnr in ipairs(api.nvim_list_bufs()) do
+    if api.nvim_buf_get_name(bufnr) == buffer_name then
+      commit_buf = bufnr
+      break
+    end
+  end
+  if commit_buf == nil then
+    commit_buf = api.nvim_create_buf(true, true)
+    api.nvim_buf_set_name(commit_buf, buffer_name)
+    api.nvim_buf_set_lines(commit_buf, 0, -1, false, res)
+  end
   vim.cmd[open]({ mods = { keepalt = true } })
   api.nvim_win_set_buf(0, commit_buf)
   vim.bo[commit_buf].filetype = 'git'
+  vim.bo[commit_buf].bufhidden = 'wipe'
 end)
 
 --- @param augroup integer
@@ -207,7 +222,9 @@ local function sync_cursors(augroup, wins)
       buffer = b,
       group = augroup,
       callback = function()
-        cursor_save = unpack(api.nvim_win_get_cursor(w))
+        if api.nvim_win_is_valid(w) then
+          cursor_save = unpack(api.nvim_win_get_cursor(w))
+        end
       end,
     })
 
@@ -215,6 +232,9 @@ local function sync_cursors(augroup, wins)
       group = augroup,
       buffer = b,
       callback = function()
+        if not api.nvim_win_is_valid(w) then
+          return
+        end
         local cur_cursor, cur_cursor_col = unpack(api.nvim_win_get_cursor(w))
         if cursor_save and cursor_save ~= cur_cursor then
           api.nvim_win_set_cursor(w, { cursor_save, vim.o.startofline and 0 or cur_cursor_col })
@@ -253,7 +273,7 @@ M.blame = function()
   local win = api.nvim_get_current_win()
   local bcache = cache[bufnr]
   if not bcache then
-    dprint('Not attached')
+    log.dprint('Not attached')
     return
   end
 
@@ -276,7 +296,7 @@ M.blame = function()
   blm_bo.buftype = 'nofile'
   blm_bo.bufhidden = 'wipe'
   blm_bo.modifiable = false
-  blm_bo.filetype = 'gitsigns.blame'
+  blm_bo.filetype = 'gitsigns-blame'
 
   local blm_wlo = vim.wo[blm_win][0]
   blm_wlo.foldcolumn = '0'
@@ -304,6 +324,7 @@ M.blame = function()
   vim.cmd('normal! 0')
 
   local cur_wlo = vim.wo[win][0]
+  local cur_orig_wlo = { cur_wlo.foldenable, cur_wlo.scrollbind, cur_wlo.wrap }
   cur_wlo.foldenable = false
   cur_wlo.scrollbind = true
   cur_wlo.wrap = false
@@ -325,6 +346,13 @@ M.blame = function()
     buffer = blm_bufnr,
   })
 
+  vim.keymap.set('n', 'R', function()
+    reblame(blame, win, bcache.git_obj.revision, true)
+  end, {
+    desc = 'Reblame at commit parent',
+    buffer = blm_bufnr,
+  })
+
   vim.keymap.set('n', 's', function()
     show_commit(blm_win, 'vsplit', bcache)
   end, {
@@ -341,6 +369,7 @@ M.blame = function()
 
   menu('GitsignsBlame', {
     { 'Reblame at commit', 'r' },
+    { 'Reblame at commit parent', 'R' },
     { 'Show commit (vsplit)', 's' },
     { '            (tab)', 'S' },
   })
@@ -378,6 +407,9 @@ M.blame = function()
     group = group,
     callback = function()
       api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+      if api.nvim_win_is_valid(win) then
+        cur_wlo.foldenable, cur_wlo.scrollbind, cur_wlo.wrap = unpack(cur_orig_wlo)
+      end
     end,
   })
 

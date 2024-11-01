@@ -1,6 +1,7 @@
 local uv = vim.uv or vim.loop
 local utils = require "fzf-lua.utils"
 local path = require "fzf-lua.path"
+local libuv = require "fzf-lua.libuv"
 
 local M = {}
 
@@ -12,23 +13,33 @@ M.expect = function(actions, opts)
   local expect = {}
   local binds = {}
   for k, v in pairs(actions) do
-    if not v then goto continue end
-    k = k == "default" and "enter" or k
-    v = type(v) == "table" and v or { fn = v }
-    if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
-      -- `print(...)` action was only added with fzf 0.53
-      -- NOTE: we can no longer combine `--expect` and `--bind` as this will
-      -- print an extra empty line regardless of the pressaed keybind (#1241)
-      table.insert(binds, string.format("%s:print(%s)%s%s+accept",
-        k,
-        k,
-        v.prefix and "+" or "",
-        v.prefix and v.prefix:gsub("accept$", ""):gsub("%+$", "") or ""
-      ))
-    elseif k ~= "enter" then
-      table.insert(expect, k)
-    end
-    ::continue::
+    -- actions that starts with _underscore are internal ashouldn't be set as fzf binds
+    -- the user can then use a custom bind and map it to the _underscore action using:
+    --   keymap = { fzf = { ["backward-eof"] = "print(_myaction)+accept" } },
+    --   actions = { ["_myaction"] = function(sel, opts) ... end,
+    (function()
+      -- Lua 5.1 goto compatiblity hack (function wrap)
+      if not v or k:match("^_") then return end
+      k = k == "default" and "enter" or k
+      v = type(v) == "table" and v or { fn = v }
+      if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
+        -- `print(...)` action was only added with fzf 0.53
+        -- NOTE: we can no longer combine `--expect` and `--bind` as this will
+        -- print an extra empty line regardless of the pressaed keybind (#1241)
+        table.insert(binds, string.format("%s:print(%s)%s%s+accept",
+          k,
+          k,
+          v.prefix and "+" or "",
+          v.prefix and v.prefix:gsub("accept$", ""):gsub("%+$", "") or ""
+        ))
+      elseif k ~= "enter" then
+        -- Skim does not support case sensitive alt-shift binds
+        -- which are supported with fzf since version 0.25
+        if not opts._is_skim or not k:match("^alt%-%u") then
+          table.insert(expect, k)
+        end
+      end
+    end)()
   end
   return #expect > 0 and expect or nil, #binds > 0 and binds or nil
 end
@@ -102,112 +113,138 @@ M.resume = function(_, _)
   loadstring([[require("fzf-lua").resume()]])()
 end
 
-M.vimcmd = function(vimcmd, selected, noesc)
-  for _, sel in ipairs(selected) do
-    vim.cmd(("%s %s"):format(vimcmd, noesc and sel or vim.fn.fnameescape(sel)))
-  end
-end
-
-M.vimcmd_file = function(vimcmd, selected, opts, pcall_vimcmd)
-  local curbuf = vim.api.nvim_buf_get_name(0)
-  local is_term = utils.is_term_buffer(0)
-  for i = 1, #selected do
-    local entry = path.entry_to_file(selected[i], opts, opts.force_uri)
-    if entry.path == "<none>" then goto continue end
-    entry.ctag = opts._ctag and path.entry_to_ctag(selected[i])
-    local fullpath = entry.path or entry.uri and entry.uri:match("^%a+://(.*)")
-    if not path.is_absolute(fullpath) then
-      fullpath = path.join({ opts.cwd or opts._cwd or uv.cwd(), fullpath })
-    end
-    if vimcmd == "e"
-        and curbuf ~= fullpath
-        and not vim.o.hidden
-        and not vim.o.autowriteall
-        and utils.buffer_is_dirty(nil, false, true) then
-      -- confirm with user when trying to switch
-      -- from a dirty buffer when `:set nohidden`
-      -- abort if the user declines
-      -- save the buffer if requested
-      if utils.save_dialog(nil) then
-        vimcmd = vimcmd .. "!"
-      else
+M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
+  for i, sel in ipairs(selected) do
+    (function()
+      -- Lua 5.1 goto compatiblity hack (function wrap)
+      local entry = path.entry_to_file(sel, opts, opts._uri)
+      -- "<none>" could be set by `autocmds`
+      if entry.path == "<none>" then return end
+      local fullpath = entry.bufname or entry.uri and entry.uri:match("^%a+://(.*)") or entry.path
+      -- Something is not right, goto next entry
+      if not fullpath then return end
+      if not path.is_absolute(fullpath) then
+        fullpath = path.join({ opts.cwd or opts._cwd or uv.cwd(), fullpath })
+      end
+      -- Adjust "<auto>" edits based on entry being buffer or filename
+      local vimcmd = _vimcmd:gsub("<auto>", entry.bufnr and entry.bufname and "b" or "e")
+      -- Do not execute "edit" commands if we already have the same buffer/file open
+      -- or if we are dealing with a URI as it's open with `vim.lsp.util.show_document`
+      -- opts.__CTX isn't guaranteed by API users (#1414)
+      local CTX = opts.__CTX or utils.CTX()
+      if vimcmd == "e" and (entry.uri or path.equals(fullpath, CTX.bname))
+          or vimcmd == "b" and entry.bufnr and entry.bufnr == CTX.bufnr
+      then
+        vimcmd = nil
+      end
+      -- ":b" and ":e" commands replace the current buffer
+      local will_replace_curbuf = vimcmd == "e" or vimcmd == "b"
+      if will_replace_curbuf
+          and not vim.o.hidden
+          and not vim.o.autowriteall
+          and utils.buffer_is_dirty(nil, false, true) then
+        -- when `:set nohidden`, confirm with the user when trying to switch
+        -- from a dirty buffer, abort if declined, save buffer if requested
+        if utils.save_dialog(nil) then
+          vimcmd = vimcmd .. "!"
+        else
+          return
+        end
+      end
+      if will_replace_curbuf
+          and vim.fn.exists("&winfixbuf") == 1
+          and vim.wo.winfixbuf
+      then
+        utils.warn("'winfixbuf' is set for current window, will open in a split.")
+        vimcmd = "split | " .. vimcmd
+      end
+      -- Can't be called from term window (for example, "reload" actions) due to
+      -- nvim_exec2(): Vim(normal):Can't re-enter normal mode from terminal mode
+      -- NOTE: we do not use `opts.__CTX.bufnr` as caller might be the fzf term
+      if not utils.is_term_buffer(0) then
+        vim.cmd("normal! m`")
+      end
+      if vimcmd then
+        -- Killing term buffers requires "!" (#1078)
+        if entry.terminal and vimcmd == "bd" then
+          vimcmd = vimcmd .. "!"
+        end
+        -- URI entries only execute new buffers (new|vnew|tabnew)
+        if not entry.uri then
+          -- Force full paths when `autochdir=true` (#882)
+          vimcmd = string.format("%s %s", vimcmd, (function()
+            -- `:argdel|:argadd` uses only paths
+            if vimcmd:match("^arg") then return entry.path end
+            if entry.bufnr then return tostring(entry.bufnr) end
+            -- We normalize the path or Windows will fail with directories starting
+            -- with special characters, for example "C:\app\(web)" will be translated
+            -- by neovim to "c:\app(web)" (#1082)
+            local relpath = vim.o.autochdir and fullpath or path.relative_to(entry.path, uv.cwd())
+            return vim.fn.fnameescape(path.normalize(relpath))
+          end)())
+        end
+        if pcall_vimcmd ~= false then
+          local ok, err = pcall(function() vim.cmd(vimcmd) end)
+          if not ok then utils.warn(string.format("':%s' failed: %s", vimcmd, err)) end
+        else
+          vim.cmd(vimcmd)
+        end
+      end
+      -- Reload actions from fzf's (buf/arg del, etc) window end here
+      if utils.is_term_buffer(0) and vim.bo.ft == "fzf" then
         return
       end
-    end
-    if utils.__HAS_NVIM_010
-        and vim.wo.winfixbuf
-        and vimcmd == "e"
-        and curbuf ~= fullpath
-    then
-      utils.warn("'winfixbuf' is set for current window, unable to change buffer.")
-      return
-    end
-    -- add current location to jumplist
-    if not is_term then vim.cmd("normal! m`") end
-    -- only change buffer if we need to (issue #122)
-    if vimcmd ~= "e" or not path.equals(curbuf, fullpath) then
-      if entry.path then
-        -- do not run ':<cmd> <file>' for uri entries (#341)
-        local relpath = path.relative_to(entry.path, uv.cwd())
-        if vim.o.autochdir then
-          -- force full paths when `autochdir=true` (#882)
-          relpath = fullpath
-        end
-        -- we normalize the path or Windows will fail with directories starting
-        -- with special characters, for example "C:\app\(web)" will be translated
-        -- by neovim to "c:\app(web)" (#1082)
-        local cmd = vimcmd .. " " .. vim.fn.fnameescape(path.normalize(relpath))
-        if pcall_vimcmd then
-          pcall(vim.cmd, cmd)
+      -- Java LSP entries, 'jdt://...' or LSP locations
+      if entry.uri then
+        if utils.is_term_bufname(entry.uri) then
+          -- nvim_exec2(): Vim(normal):Can't re-enter normal mode from terminal mode
+          pcall(utils.jump_to_location, entry, "utf-16")
         else
-          vim.cmd(cmd)
+          utils.jump_to_location(entry, "utf-16")
         end
-      elseif vimcmd ~= "e" then
-        -- uri entries only execute new buffers (new|vnew|tabnew)
-        vim.cmd(vimcmd)
+      elseif entry.ctag then
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        vim.fn.search(entry.ctag, "W")
+      elseif not opts.no_action_set_cursor and entry.line > 0 or entry.col > 0 then
+        -- Make sure we have valid line/column
+        -- e.g. qf lists from files (no line/col), dap_breakpoints
+        pcall(vim.api.nvim_win_set_cursor, 0, {
+          math.max(1, entry.line),
+          math.max(1, entry.col) - 1
+        })
       end
-    end
-    -- Java LSP entries, 'jdt://...' or LSP locations
-    if entry.uri then
-      vim.lsp.util.jump_to_location(entry, "utf-16")
-    elseif entry.ctag then
-      vim.api.nvim_win_set_cursor(0, { 1, 0 })
-      vim.fn.search(entry.ctag, "W")
-    elseif entry.line > 1 or entry.col > 1 then
-      -- make sure we have valid column
-      -- 'nvim-dap' for example sets columns to 0
-      entry.col = entry.col and entry.col > 0 and entry.col or 1
-      pcall(vim.api.nvim_win_set_cursor, 0, { tonumber(entry.line), tonumber(entry.col) - 1 })
-    end
-    if not is_term and not opts.no_action_zz then vim.cmd("norm! zvzz") end
-    ::continue::
+      -- Only "zz" after the last entry is loaded into the origin buffer
+      if i == #selected and not opts.no_action_zz and not utils.is_term_buffer(0) then
+        vim.cmd("norm! zvzz")
+      end
+    end)()
   end
 end
 
 -- file actions
 M.file_edit = function(selected, opts)
-  local vimcmd = "e"
-  M.vimcmd_file(vimcmd, selected, opts)
+  local vimcmd = "<auto>"
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
 M.file_split = function(selected, opts)
-  local vimcmd = "split"
-  M.vimcmd_file(vimcmd, selected, opts)
+  local vimcmd = "split | <auto>"
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
 M.file_vsplit = function(selected, opts)
-  local vimcmd = "vsplit"
-  M.vimcmd_file(vimcmd, selected, opts)
+  local vimcmd = "vsplit | <auto>"
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
 M.file_tabedit = function(selected, opts)
-  local vimcmd = "tab split"
-  M.vimcmd_file(vimcmd, selected, opts)
+  local vimcmd = "tab split | <auto>"
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
 M.file_open_in_background = function(selected, opts)
   local vimcmd = "badd"
-  M.vimcmd_file(vimcmd, selected, opts)
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
 local sel_to_qf = function(selected, opts, is_loclist)
@@ -216,12 +253,24 @@ local sel_to_qf = function(selected, opts, is_loclist)
     local file = path.entry_to_file(selected[i], opts)
     local text = file.stripped:match(":%d+:%d?%d?%d?%d?:?(.*)$")
     table.insert(qf_list, {
+      bufnr = file.bufnr,
       filename = file.bufname or file.path or file.uri,
       lnum = file.line,
       col = file.col,
       text = text,
     })
   end
+  table.sort(qf_list, function(a, b)
+    if a.filename == b.filename then
+      if a.lnum == b.lnum then
+        return math.max(0, a.col) < math.max(0, b.col)
+      else
+        return math.max(0, a.lnum) < math.max(0, b.lnum)
+      end
+    else
+      return a.filename < b.filename
+    end
+  end)
   local title = string.format("[FzfLua] %s%s",
     opts.__INFO and opts.__INFO.cmd .. ": " or "",
     utils.resume_get("query", opts) or "")
@@ -270,157 +319,82 @@ M.file_edit_or_qf = function(selected, opts)
 end
 
 M.file_switch = function(selected, opts)
-  local bufnr = nil
-  local entry = path.entry_to_file(selected[1])
-  local fullpath = entry.path
-  if not path.is_absolute(fullpath) then
-    fullpath = path.join({ opts.cwd or uv.cwd(), fullpath })
+  if not selected[1] then return false end
+  -- If called from `:FzfLua tabs` switch to requested tab/win
+  local tabh, winid = selected[1]:match("(%d+):(%d+)%)")
+  if tabh and winid then
+    vim.api.nvim_set_current_tabpage(tonumber(tabh))
+    if tonumber(winid) > 0 then
+      vim.api.nvim_set_current_win(tonumber(winid))
+    end
+    return true
   end
-  for _, b in ipairs(vim.api.nvim_list_bufs()) do
-    local bname = vim.api.nvim_buf_get_name(b)
-    if bname == fullpath then
-      bufnr = b
-      break
+  local entry = path.entry_to_file(selected[1])
+  if not entry.bufnr then
+    -- Search for the current entry's filepath in buffer list
+    local fullpath = entry.path
+    if not path.is_absolute(fullpath) then
+      fullpath = path.join({ opts.cwd or uv.cwd(), fullpath })
+    end
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+      local bname = vim.api.nvim_buf_get_name(b)
+      if bname == fullpath then
+        entry.bufnr = b
+        break
+      end
     end
   end
-  if not bufnr then return false end
-  local is_term = utils.is_term_buffer(0)
-  if not is_term then vim.cmd("normal! m`") end
-  local winid = utils.winid_from_tabh(0, bufnr)
-  if winid then vim.api.nvim_set_current_win(winid) end
-  if entry.line > 1 or entry.col > 1 then
-    vim.api.nvim_win_set_cursor(0, { tonumber(entry.line), tonumber(entry.col) - 1 })
+  -- Entry isn't an existing buffer, abort
+  if not entry.bufnr then return false end
+  if not utils.is_term_buffer(0) then vim.cmd("normal! m`") end
+  winid = utils.winid_from_tabh(0, entry.bufnr)
+  if not winid then return false end
+  vim.api.nvim_set_current_win(winid)
+  if entry.line > 0 or entry.col > 0 then
+    pcall(vim.api.nvim_win_set_cursor, 0, {
+      math.max(1, entry.line),
+      math.max(1, entry.col) - 1
+    })
   end
-  if not is_term and not opts.no_action_zz then vim.cmd("norm! zvzz") end
+  if not utils.is_term_buffer(0) and not opts.no_action_zz then vim.cmd("norm! zvzz") end
   return true
 end
 
-M.file_switch_or_edit = function(...)
-  M.file_switch(...)
-  M.file_edit(...)
-end
-
--- buffer actions
-M.vimcmd_buf = function(vimcmd, selected, opts)
-  local curbuf = vim.api.nvim_get_current_buf()
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
-  local is_term = utils.is_term_buffer(0)
-  for i = 1, #selected do
-    local entry = path.entry_to_file(selected[i], opts)
-    if not entry.bufnr then return end
-    assert(type(entry.bufnr) == "number")
-    if vimcmd == "b"
-        and curbuf ~= entry.bufnr
-        and not vim.o.hidden
-        and not vim.o.autowriteall
-        and utils.buffer_is_dirty(nil, false, true) then
-      -- confirm with user when trying to switch
-      -- from a dirty buffer when `:set nohidden`
-      -- abort if the user declines
-      -- save the buffer if requested
-      if utils.save_dialog(nil) then
-        vimcmd = vimcmd .. "!"
-      else
-        return
-      end
-    end
-    if utils.__HAS_NVIM_010
-        and vim.wo.winfixbuf
-        and vimcmd == "b"
-        and curbuf ~= entry.bufnr
-    then
-      utils.warn("'winfixbuf' is set for current window, unable to change buffer.")
-      return
-    end
-    -- add current location to jumplist
-    if not is_term then vim.cmd("normal! m`") end
-    if vimcmd ~= "b" or curbuf ~= entry.bufnr then
-      if vimcmd == "bd" and utils.is_term_bufname(entry.bufname) then
-        -- killing terminal buffers requires ! (#1078)
-        vimcmd = vimcmd .. "!"
-      end
-      local cmd = vimcmd .. " " .. entry.bufnr
-      local ok, res = pcall(vim.cmd, cmd)
-      if not ok then
-        utils.warn(("':%s' failed: %s"):format(cmd, res))
-      end
-    end
-    if vimcmd ~= "bd" and not opts.no_action_set_cursor then
-      if curbuf ~= entry.bufnr or lnum ~= entry.line then
-        -- make sure we have valid column
-        entry.col = entry.col and entry.col > 0 and entry.col or 1
-        vim.api.nvim_win_set_cursor(0, { tonumber(entry.line), tonumber(entry.col) - 1 })
-      end
-      if not is_term and not opts.no_action_zz then vim.cmd("norm! zvzz") end
-    end
+M.file_switch_or_edit = function(selected, opts)
+  if not M.file_switch({ selected[1] }, opts) then
+    M.file_edit({ selected[1] }, opts)
   end
 end
 
-M.buf_edit = function(selected, opts)
-  local vimcmd = "b"
-  M.vimcmd_buf(vimcmd, selected, opts)
-end
-
-M.buf_split = function(selected, opts)
-  local vimcmd = "split | b"
-  M.vimcmd_buf(vimcmd, selected, opts)
-end
-
-M.buf_vsplit = function(selected, opts)
-  local vimcmd = "vertical split | b"
-  M.vimcmd_buf(vimcmd, selected, opts)
-end
-
-M.buf_tabedit = function(selected, opts)
-  local vimcmd = "tab split | b"
-  M.vimcmd_buf(vimcmd, selected, opts)
-end
+M.buf_edit = M.file_edit
+M.buf_split = M.file_split
+M.buf_vsplit = M.file_vsplit
+M.buf_tabedit = M.file_tabedit
+M.buf_sel_to_qf = M.file_sel_to_qf
+M.buf_sel_to_ll = M.file_sel_to_ll
+M.buf_edit_or_qf = M.file_edit_or_qf
+M.buf_switch = M.file_switch
+M.buf_switch_or_edit = M.file_switch_or_edit
 
 M.buf_del = function(selected, opts)
-  local vimcmd = "bd"
-  local bufnrs = vim.tbl_filter(function(line)
-    local b = tonumber(line:match("%[(%d+)"))
-    return b and not utils.buffer_is_dirty(b, true, false)
-  end, selected)
-  M.vimcmd_buf(vimcmd, bufnrs, opts)
-end
-
-M.buf_switch = function(selected, _)
-  local tabidx = tonumber(selected[1]:match("(%d+)%)"))
-  local tabh = tabidx and vim.api.nvim_list_tabpages()[tabidx]
-  if tabh then
-    -- `:tabn` will result in the wrong tab
-    -- if `:tabmove` was previously used (#515)
-    vim.api.nvim_set_current_tabpage(tabh)
-  else
-    tabh = vim.api.nvim_win_get_tabpage(0)
-  end
-  local bufnr = tonumber(string.match(selected[1], "%[(%d+)"))
-  if bufnr then
-    local winid = utils.winid_from_tabh(tabh, bufnr)
-    if winid then vim.api.nvim_set_current_win(winid) end
+  for _, sel in ipairs(selected) do
+    local entry = path.entry_to_file(sel, opts)
+    if entry.bufnr and not utils.buffer_is_dirty(entry.bufnr, true, false) then
+      vim.api.nvim_buf_delete(entry.bufnr, { force = true })
+    end
   end
 end
 
-M.buf_switch_or_edit = function(...)
-  M.buf_switch(...)
-  M.buf_edit(...)
+M.arg_add = function(selected, opts)
+  local vimcmd = "argadd"
+  M.vimcmd_entry(vimcmd, selected, opts)
 end
 
-M.buf_sel_to_qf = function(selected, opts)
-  return sel_to_qf(selected, opts)
-end
-
-M.buf_sel_to_ll = function(selected, opts)
-  return sel_to_qf(selected, opts, true)
-end
-
-M.buf_edit_or_qf = function(selected, opts)
-  if #selected > 1 then
-    return M.buf_sel_to_qf(selected, opts)
-  else
-    return M.buf_edit(selected, opts)
-  end
+M.arg_del = function(selected, opts)
+  local vimcmd = "argdel"
+  -- since we don't dedup argdel can fail if file is added
+  -- more than once into the arglist
+  M.vimcmd_entry(vimcmd, selected, opts, true)
 end
 
 M.colorscheme = function(selected, opts)
@@ -510,7 +484,7 @@ M.goto_jump = function(selected, opts)
     end
   else
     local _, lnum, col, filepath = selected[1]:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
-    local ok, res = pcall(vim.fn.expand, filepath)
+    local ok, res = pcall(libuv.expand, filepath)
     if not ok then
       filepath = ""
     else
@@ -548,7 +522,7 @@ M.spell_apply = function(selected)
 end
 
 M.set_filetype = function(selected)
-  vim.bo.filetype = selected[1]
+  vim.bo.filetype = selected[1]:match("[^" .. utils.nbsp .. "]+$")
 end
 
 M.packadd = function(selected)
@@ -557,25 +531,31 @@ M.packadd = function(selected)
   end
 end
 
-local function helptags(s)
+local function helptags(s, opts)
   return vim.tbl_map(function(x)
+    local entry = path.entry_to_file(x, opts)
+    if entry and entry.path and package.loaded.lazy then
+      -- make sure the plugin is loaded. This won't do anything if already loaded
+      local lazyConfig = require("lazy.core.config")
+      local _, plugin = path.normalize(entry.path):match("(/([^/]+)/doc/)")
+      if plugin and lazyConfig.plugins[plugin] then
+        require("lazy").load({ plugins = { plugin } })
+      end
+    end
     return x:match("[^%s]+")
   end, s)
 end
 
-M.help = function(selected)
-  local vimcmd = "help"
-  M.vimcmd(vimcmd, helptags(selected), true)
+M.help = function(selected, opts)
+  vim.cmd("help " .. helptags(selected, opts)[1])
 end
 
-M.help_vert = function(selected)
-  local vimcmd = "vert help"
-  M.vimcmd(vimcmd, helptags(selected), true)
+M.help_vert = function(selected, opts)
+  vim.cmd("vert help " .. helptags(selected, opts)[1])
 end
 
-M.help_tab = function(selected)
-  local vimcmd = "tab help"
-  M.vimcmd(vimcmd, helptags(selected), true)
+M.help_tab = function(selected, opts)
+  vim.cmd("tab help " .. helptags(selected, opts)[1])
 end
 
 local function mantags(s)
@@ -583,20 +563,16 @@ local function mantags(s)
 end
 
 M.man = function(selected)
-  local vimcmd = "Man"
-  M.vimcmd(vimcmd, mantags(selected))
+  vim.cmd("Man " .. mantags(selected)[1])
 end
 
 M.man_vert = function(selected)
-  local vimcmd = "vert Man"
-  M.vimcmd(vimcmd, mantags(selected))
+  vim.cmd("vert Man " .. mantags(selected)[1])
 end
 
 M.man_tab = function(selected)
-  local vimcmd = "tab Man"
-  M.vimcmd(vimcmd, mantags(selected))
+  vim.cmd("tab Man " .. mantags(selected)[1])
 end
-
 
 M.git_switch = function(selected, opts)
   if not selected[1] then return end
@@ -652,7 +628,7 @@ M.git_branch_del = function(selected, opts)
     utils.warn(string.format("Cannot delete active branch '%s'", branch))
     return
   end
-  if utils.input("Delete branch " .. branch .. "? [y/n] ") == "y" then
+  if vim.fn.confirm("Delete branch " .. branch .. "?", "&Yes\n&No") == 1 then
     table.insert(cmd_del_branch, branch)
     local output, rc = utils.io_systemlist(cmd_del_branch)
     if rc ~= 0 then
@@ -689,7 +665,7 @@ M.git_checkout = function(selected, opts)
   local commit_hash = match_commit_hash(selected[1], opts)
   local current_commit = utils.io_systemlist(cmd_cur_commit)[1]
   if commit_hash == current_commit then return end
-  if utils.input("Checkout commit " .. commit_hash .. "? [y/n] ") == "y" then
+  if vim.fn.confirm("Checkout commit " .. commit_hash .. "?", "&Yes\n&No") == 1 then
     local cmd_checkout = path.git_cwd({ "git", "checkout" }, opts)
     table.insert(cmd_checkout, commit_hash)
     local output, rc = utils.io_systemlist(cmd_checkout)
@@ -747,25 +723,29 @@ M.git_stage_unstage = function(selected, opts)
 end
 
 M.git_reset = function(selected, opts)
-  for _, s in ipairs(selected) do
-    s = utils.strip_ansi_coloring(s)
-    local is_untracked = s:sub(5, 5) == "?"
-    local cmd = is_untracked
-        and path.git_cwd({ "git", "clean", "-f" }, opts)
-        or path.git_cwd({ "git", "checkout", "HEAD", "--" }, opts)
-    git_exec({ s }, opts, cmd)
-    -- trigger autoread or warn the users buffer(s) was changed
-    vim.cmd("checktime")
+  if vim.fn.confirm("Reset " .. #selected .. " file(s)?", "&Yes\n&No") == 1 then
+    for _, s in ipairs(selected) do
+      s = utils.strip_ansi_coloring(s)
+      local is_untracked = s:sub(5, 5) == "?"
+      local cmd = is_untracked
+          and path.git_cwd({ "git", "clean", "-f" }, opts)
+          or path.git_cwd({ "git", "checkout", "HEAD", "--" }, opts)
+      git_exec({ s }, opts, cmd)
+      -- trigger autoread or warn the users buffer(s) was changed
+      vim.cmd("checktime")
+    end
   end
 end
 
 M.git_stash_drop = function(selected, opts)
-  local cmd = path.git_cwd({ "git", "stash", "drop" }, opts)
-  git_exec(selected, opts, cmd)
+  if vim.fn.confirm("Drop " .. #selected .. " stash(es)?", "&Yes\n&No") == 1 then
+    local cmd = path.git_cwd({ "git", "stash", "drop" }, opts)
+    git_exec(selected, opts, cmd)
+  end
 end
 
 M.git_stash_pop = function(selected, opts)
-  if utils.input("Pop " .. #selected .. " stash(es)? [y/n] ") == "y" then
+  if vim.fn.confirm("Pop " .. #selected .. " stash(es)?", "&Yes\n&No") == 1 then
     local cmd = path.git_cwd({ "git", "stash", "pop" }, opts)
     git_exec(selected, opts, cmd)
     -- trigger autoread or warn the users buffer(s) was changed
@@ -774,7 +754,7 @@ M.git_stash_pop = function(selected, opts)
 end
 
 M.git_stash_apply = function(selected, opts)
-  if utils.input("Apply " .. #selected .. " stash(es)? [y/n] ") == "y" then
+  if vim.fn.confirm("Apply " .. #selected .. " stash(es)?", "&Yes\n&No") == 1 then
     local cmd = path.git_cwd({ "git", "stash", "apply" }, opts)
     git_exec(selected, opts, cmd)
     -- trigger autoread or warn the users buffer(s) was changed
@@ -817,16 +797,11 @@ M.git_buf_vsplit = function(selected, opts)
   M.git_buf_edit(selected, opts)
 end
 
-M.arg_add = function(selected, opts)
-  local vimcmd = "argadd"
-  M.vimcmd_file(vimcmd, selected, opts)
-end
-
-M.arg_del = function(selected, opts)
-  local vimcmd = "argdel"
-  -- since we don't dedup argdel can fail if file is added
-  -- more than once into the arglist
-  M.vimcmd_file(vimcmd, selected, opts, true)
+M.git_goto_line = function(selected, _)
+  local line = selected[1] and selected[1]:match("^.-(%d+)%)")
+  if tonumber(line) then
+    vim.api.nvim_win_set_cursor(0, { tonumber(line), 0 })
+  end
 end
 
 M.grep_lgrep = function(_, opts)
@@ -848,7 +823,7 @@ M.sym_lsym = function(_, opts)
 end
 
 M.toggle_flag = function(_, opts)
-  local o = { resume = true, cwd = opts.cwd }
+  local o = vim.tbl_deep_extend("keep", { resume = true }, opts.__call_opts)
   local flag = opts.toggle_flag
   if not flag then
     utils.err("'toggle_flag' not set")
@@ -946,8 +921,8 @@ M.dap_bp_del = function(selected, opts)
   local dap_bps = require("dap.breakpoints")
   for _, e in ipairs(selected) do
     local entry = path.entry_to_file(e, opts)
-    if entry.bufnr > 0 and entry.line then
-      dap_bps.remove(entry.bufnr, entry.line)
+    if entry.bufnr > 0 and tonumber(entry.line) and entry.line > 0 then
+      dap_bps.remove(entry.bufnr, tonumber(entry.line))
       table.insert(bufnrs, tonumber(entry.bufnr))
     end
   end

@@ -1,23 +1,25 @@
-local marks = require "nvim-tree.marks"
-
 local HL_POSITION = require("nvim-tree.enum").HL_POSITION
 local ICON_PLACEMENT = require("nvim-tree.enum").ICON_PLACEMENT
 
-local Decorator = require "nvim-tree.renderer.decorator"
+local Decorator = require("nvim-tree.renderer.decorator")
 
----@class DecoratorBookmarks: Decorator
----@field icon HighlightedString
+---@class (exact) DecoratorBookmarks: Decorator
+---@field icon HighlightedString?
 local DecoratorBookmarks = Decorator:new()
 
+---Static factory method
 ---@param opts table
+---@param explorer Explorer
 ---@return DecoratorBookmarks
-function DecoratorBookmarks:new(opts)
-  local o = Decorator.new(self, {
+function DecoratorBookmarks:create(opts, explorer)
+  ---@type DecoratorBookmarks
+  local o = {
+    explorer = explorer,
     enabled = true,
     hl_pos = HL_POSITION[opts.renderer.highlight_bookmarks] or HL_POSITION.none,
     icon_placement = ICON_PLACEMENT[opts.renderer.icons.bookmarks_placement] or ICON_PLACEMENT.none,
-  })
-  ---@cast o DecoratorBookmarks
+  }
+  o = self:new(o) --[[@as DecoratorBookmarks]]
 
   if opts.renderer.icons.show.bookmarks then
     o.icon = {
@@ -34,7 +36,7 @@ end
 ---@param node Node
 ---@return HighlightedString[]|nil icons
 function DecoratorBookmarks:calculate_icons(node)
-  if marks.get_mark(node) then
+  if self.explorer.marks:get(node) then
     return { self.icon }
   end
 end
@@ -43,7 +45,7 @@ end
 ---@param node Node
 ---@return string|nil group
 function DecoratorBookmarks:calculate_highlight(node)
-  if self.hl_pos ~= HL_POSITION.none and marks.get_mark(node) then
+  if self.hl_pos ~= HL_POSITION.none and self.explorer.marks:get(node) then
     return "NvimTreeBookmarkHL"
   end
 end

@@ -1,6 +1,7 @@
 ; Scopes       @local.scope
 ; -------------------------
 [
+  (asm_function)
   (global_function)
   (init_function)
   (bounced_function)
@@ -13,6 +14,9 @@
 ; Definitions  @local.definition
 ; ------------------------------
 ; variables
+(storage_variable
+  name: (identifier) @local.definition.var)
+
 (let_statement
   name: (identifier) @local.definition.var)
 
@@ -24,6 +28,10 @@
   name: (identifier) @local.definition.constant)
 
 ; functions
+(asm_function
+  name: (identifier) @local.definition.function
+  (#set! definition.var.scope parent))
+
 (global_function
   name: (identifier) @local.definition.function
   (#set! definition.var.scope parent))
@@ -71,5 +79,5 @@
 (value_expression
   (identifier) @local.reference)
 
-(lvalue
-  (identifier) @local.reference)
+(field_access_expression
+  name: (identifier) @local.reference)

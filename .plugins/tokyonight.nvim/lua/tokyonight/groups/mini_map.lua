@@ -1,13 +1,15 @@
 local M = {}
 
+M.url = "https://github.com/echasnovski/mini.map"
+
 ---@type tokyonight.HighlightsFn
 function M.get(c)
   -- stylua: ignore
   return {
-    MiniMapNormal      = { link = "NormalFloat" },
-    MiniMapSymbolCount = { link = "Special" },
-    MiniMapSymbolLine  = { link = "Title" },
-    MiniMapSymbolView  = { link = "Delimiter" },
+    MiniMapNormal      = "NormalFloat",
+    MiniMapSymbolCount = "Special",
+    MiniMapSymbolLine  = "Title",
+    MiniMapSymbolView  = "Delimiter",
   }
 end
 

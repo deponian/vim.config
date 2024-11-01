@@ -6,16 +6,14 @@ M._modified = {}
 ---refresh M._modified
 function M.reload_modified()
   M._modified = {}
-  local bufs = vim.fn.getbufinfo { bufmodified = 1, buflisted = 1 }
+  local bufs = vim.fn.getbufinfo({ bufmodified = 1, buflisted = 1 })
   for _, buf in pairs(bufs) do
     local path = buf.name
     if path ~= "" then -- not a [No Name] buffer
       -- mark all the parent as modified as well
-      while
-        M._modified[path] ~= true
+      while M._modified[path] ~= true do
         -- no need to keep going if already recorded
         -- This also prevents an infinite loop
-      do
         M._modified[path] = true
         path = vim.fn.fnamemodify(path, ":h")
       end
@@ -23,7 +21,7 @@ function M.reload_modified()
   end
 end
 
----@param node table
+---@param node Node
 ---@return boolean
 function M.is_modified(node)
   return node
@@ -34,7 +32,7 @@ function M.is_modified(node)
 end
 
 ---A buffer exists for the node's absolute path
----@param node table
+---@param node Node
 ---@return boolean
 function M.is_opened(node)
   return node and vim.fn.bufloaded(node.absolute_path) > 0

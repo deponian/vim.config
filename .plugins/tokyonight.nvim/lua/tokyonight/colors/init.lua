@@ -2,40 +2,43 @@ local Util = require("tokyonight.util")
 
 local M = {}
 
----@alias tokyonight.Config.colors tokyonight.Config|{transform?: boolean, light?: boolean}
+---@type table<string, Palette|fun(opts:tokyonight.Config):Palette>
+M.styles = setmetatable({}, {
+  __index = function(_, style)
+    return vim.deepcopy(Util.mod("tokyonight.colors." .. style))
+  end,
+})
 
----@param opts tokyonight.Config.colors
+---@param opts? tokyonight.Config
 function M.setup(opts)
   opts = require("tokyonight.config").extend(opts)
 
-  ---@cast opts tokyonight.Config.colors
+  Util.day_brightness = opts.day_brightness
 
-  if opts.style == "day" or (opts.use_background and vim.o.background == "light") then
-    opts.style = opts.light_style == "day" and "night" or opts.light_style
-    opts.light = true
+  local palette = M.styles[opts.style]
+  if type(palette) == "function" then
+    palette = palette(opts) --[[@as Palette]]
   end
-
-  ---@type Palette
-  local palette = vim.deepcopy(Util.mod("tokyonight.colors." .. opts.style))
 
   -- Color Palette
   ---@class ColorScheme: Palette
   local colors = palette
 
-  colors.none = "NONE"
   Util.bg = colors.bg
-  Util.day_brightness = opts.day_brightness
+  Util.fg = colors.fg
+
+  colors.none = "NONE"
 
   colors.diff = {
-    add = Util.darken(colors.green2, 0.15),
-    delete = Util.darken(colors.red1, 0.15),
-    change = Util.darken(colors.blue7, 0.15),
+    add = Util.blend_bg(colors.green2, 0.15),
+    delete = Util.blend_bg(colors.red1, 0.15),
+    change = Util.blend_bg(colors.blue7, 0.15),
     text = colors.blue7,
   }
 
   colors.git.ignore = colors.dark3
-  colors.black = Util.darken(colors.bg, 0.8, "#000000")
-  colors.border_highlight = Util.darken(colors.blue1, 0.8)
+  colors.black = Util.blend_bg(colors.bg, 0.8, "#000000")
+  colors.border_highlight = Util.blend_bg(colors.blue1, 0.8)
   colors.border = colors.black
 
   -- Popups and statusline always get a dark background
@@ -51,7 +54,7 @@ function M.setup(opts)
     or opts.styles.floats == "dark" and colors.bg_dark
     or colors.bg
 
-  colors.bg_visual = Util.darken(colors.blue0, 0.4)
+  colors.bg_visual = Util.blend_bg(colors.blue0, 0.4)
   colors.bg_search = colors.blue0
   colors.fg_sidebar = colors.fg_dark
   colors.fg_float = colors.fg
@@ -64,9 +67,28 @@ function M.setup(opts)
 
   colors.rainbow = { colors.blue, colors.yellow, colors.green, colors.teal, colors.magenta, colors.purple }
 
-  if opts.light and opts.transform ~= false then
-    Util.invert_colors(colors)
-  end
+  -- stylua: ignore
+  --- @class TerminalColors
+  colors.terminal = {
+    black          = colors.black,
+    black_bright   = colors.terminal_black,
+    red            = colors.red,
+    red_bright     = Util.brighten(colors.red),
+    green          = colors.green,
+    green_bright   = Util.brighten(colors.green),
+    yellow         = colors.yellow,
+    yellow_bright  = Util.brighten(colors.yellow),
+    blue           = colors.blue,
+    blue_bright    = Util.brighten(colors.blue),
+    magenta        = colors.magenta,
+    magenta_bright = Util.brighten(colors.magenta),
+    cyan           = colors.cyan,
+    cyan_bright    = Util.brighten(colors.cyan),
+    white          = colors.fg_dark,
+    white_bright   = colors.fg,
+  }
+
+  opts.on_colors(colors)
 
   return colors, opts
 end

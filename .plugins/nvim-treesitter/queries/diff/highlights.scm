@@ -1,3 +1,5 @@
+(comment) @comment @spell
+
 [
   (addition)
   (new_file)
@@ -20,7 +22,7 @@
 
 (mode) @number
 
-[
+([
   ".."
   "+"
   "++"
@@ -31,6 +33,7 @@
   "---"
   "----"
 ] @punctuation.special
+  (#set! priority 95))
 
 [
   (binary_change)

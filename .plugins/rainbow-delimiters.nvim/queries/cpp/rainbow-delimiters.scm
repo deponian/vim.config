@@ -26,7 +26,7 @@
 
 (cast_expression
   "(" @delimiter
-  ")" @delimiter @sentinel)
+  ")" @delimiter @sentinel) @container
 
 (initializer_list
   "{" @delimiter
@@ -51,10 +51,6 @@
 (template_parameter_list
   "<" @delimiter
   ">" @delimiter @sentinel) @container
-
-(initializer_list
-  "{" @delimiter
-  "}" @delimiter @sentinel) @container
 
 (template_argument_list
   "<" @delimiter

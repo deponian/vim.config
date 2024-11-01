@@ -1,6 +1,6 @@
 local M = {}
 
-M.version = "4.0.0" -- x-release-please-version
+M.version = "4.9.0" -- x-release-please-version
 
 ---@class tokyonight.Config
 ---@field on_colors fun(colors: ColorScheme)
@@ -35,7 +35,6 @@ M.defaults = {
   ---@param highlights tokyonight.Highlights
   ---@param colors ColorScheme
   on_highlights = function(highlights, colors) end,
-  use_background = true, -- can be light/dark/auto. When auto, background will be set to vim.o.background
 
   cache = true, -- When set to true, the theme will be cached for better performance
 
@@ -65,10 +64,6 @@ end
 ---@param opts? tokyonight.Config
 function M.extend(opts)
   return opts and vim.tbl_deep_extend("force", {}, M.options, opts) or M.options
-end
-
-function M.is_day()
-  return M.options.style == "day" or M.options.use_background and vim.o.background == "light"
 end
 
 setmetatable(M, {

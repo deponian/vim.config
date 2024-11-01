@@ -1,23 +1,27 @@
-local buffers = require "nvim-tree.buffers"
+local buffers = require("nvim-tree.buffers")
 
 local HL_POSITION = require("nvim-tree.enum").HL_POSITION
 local ICON_PLACEMENT = require("nvim-tree.enum").ICON_PLACEMENT
 
-local Decorator = require "nvim-tree.renderer.decorator"
+local Decorator = require("nvim-tree.renderer.decorator")
 
----@class DecoratorModified: Decorator
+---@class (exact) DecoratorModified: Decorator
 ---@field icon HighlightedString|nil
 local DecoratorModified = Decorator:new()
 
+---Static factory method
 ---@param opts table
+---@param explorer Explorer
 ---@return DecoratorModified
-function DecoratorModified:new(opts)
-  local o = Decorator.new(self, {
+function DecoratorModified:create(opts, explorer)
+  ---@type DecoratorModified
+  local o = {
+    explorer = explorer,
     enabled = opts.modified.enable,
     hl_pos = HL_POSITION[opts.renderer.highlight_modified] or HL_POSITION.none,
     icon_placement = ICON_PLACEMENT[opts.renderer.icons.modified_placement] or ICON_PLACEMENT.none,
-  })
-  ---@cast o DecoratorModified
+  }
+  o = self:new(o) --[[@as DecoratorModified]]
 
   if not o.enabled then
     return o

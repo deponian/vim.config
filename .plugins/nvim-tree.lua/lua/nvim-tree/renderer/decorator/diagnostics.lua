@@ -1,9 +1,9 @@
-local diagnostics = require "nvim-tree.diagnostics"
+local diagnostics = require("nvim-tree.diagnostics")
 
 local HL_POSITION = require("nvim-tree.enum").HL_POSITION
 local ICON_PLACEMENT = require("nvim-tree.enum").ICON_PLACEMENT
 
-local Decorator = require "nvim-tree.renderer.decorator"
+local Decorator = require("nvim-tree.renderer.decorator")
 
 -- highlight groups by severity
 local HG_ICON = {
@@ -32,19 +32,23 @@ local ICON_KEYS = {
   ["hint"] = vim.diagnostic.severity.HINT,
 }
 
----@class DecoratorDiagnostics: Decorator
----@field icons HighlightedString[]
+---@class (exact) DecoratorDiagnostics: Decorator
+---@field icons HighlightedString[]?
 local DecoratorDiagnostics = Decorator:new()
 
+---Static factory method
 ---@param opts table
+---@param explorer Explorer
 ---@return DecoratorDiagnostics
-function DecoratorDiagnostics:new(opts)
-  local o = Decorator.new(self, {
+function DecoratorDiagnostics:create(opts, explorer)
+  ---@type DecoratorDiagnostics
+  local o = {
+    explorer = explorer,
     enabled = opts.diagnostics.enable,
     hl_pos = HL_POSITION[opts.renderer.highlight_diagnostics] or HL_POSITION.none,
     icon_placement = ICON_PLACEMENT[opts.renderer.icons.diagnostics_placement] or ICON_PLACEMENT.none,
-  })
-  ---@cast o DecoratorDiagnostics
+  }
+  o = self:new(o) --[[@as DecoratorDiagnostics]]
 
   if not o.enabled then
     return o

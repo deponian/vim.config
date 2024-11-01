@@ -57,6 +57,60 @@ To run tests the `g:bustedprg` variable must be set to `'./test/busted'`, which
 is the path to the shim script.  If the `exrc` option is set the variable will
 be set automatically.
 
+Highlight testing
+=================
+
+Highlights are tested by comparing the current highlights of a sample file with
+previously recorded highlights known to be correct.  Of course this does
+nothing when defining new patterns or making changes to a sample file; in this
+case a human has to initially approve of the highlighting.  Once that is done
+the current state can be recorded.  Automated highlighting tests are useful
+when making changes to the highlighting logic itself to ensure the results
+remain unchanged.
+
+Execute `make highlight-test` to run highlighting tests.
+
+Definitions
+-----------
+
+Sample file
+    A file in the language we want to highlight.  The contents have to be
+    syntactically correct, and ideally the file should compile, but it does not
+    have to make sense.  Sample files are stored under an arbitrary name
+    (although `regular` is the most common) in `test/highlight/samples/<lang>`.
+
+Specification or spec
+    A Lua file which records all rainbow delimiter extmarks for a given
+    combination of sample file and query.  Why Lua?  It could have been JSON,
+    but generating nicely formatted Lua was simpler, that's all.  Each spec is
+    just a table, there is no logic.
+
+Recording
+    The act of reading a sample file, extracting all highlighting information
+    and writing it to a spec.  You could write all the specs by hand, but there
+    is a helper function for that instead.
+
+
+Recording highlighting
+----------------------
+
+First make the necessary changes to the sample file or query.  Then call the
+`record_extmarks` function from the `rainbow-delimiters._test.highlight`
+module.  This module is not part of the runtime plugin code, so it is
+undocumented.  The function takes three optional arguments (all strings):
+
+- `language`: The language in question
+- `sample`: Name of the sample file
+- `query`: Name of the query
+
+If any one of these is missing the specs for all applicable languages, samples
+or queries are recorded.  You should at least specify the language, otherwise
+the function can take a lot of time.
+
+
+Running highlight tests
+-----------------------
+
 
 
 Design decisions
@@ -160,7 +214,16 @@ In order to correctly highlight containers we need to know the nesting level of
 each container relative to the other containers in the document.  We can use
 the order in which matches are returned by the `iter_matches` method of a
 query.  The iterator traverses the document tree in a depth-first manner
-according to the visitor patter, but matches are created upon exiting a node.
+according to the visitor patter, but matches are created whenever the match is
+complete.  This happens upon exiting the node if the child nodes are sandwiched
+in-between delimiters, as is the case with delimiters like parentheses or
+`begin`/`end` blocks.  However, if the child nodes are outside the delimiters
+(e.g. when using Python keywords like `def` or `while` as delimiters) the child
+nodes are not sandwiched between delimiters and the match will be returned upon
+entering the node.
+
+Sandwiching delimiters
+----------------------
 
 Let us look at a practical example.  Here is a hypothetical tree:
 
@@ -193,22 +256,141 @@ Start with an empty stack `s = []`.  For each match `m` do the following:
 
 #) Keep popping matches off `s` up until we find a match `m'` whose
    `@container` node is not a descendant of the container node of `m`. Collect
-   the popped matches (excluding `m'`) onto a new stack `s_m` (order does not
+   the popped matches (excluding `m'`) onto a new set `s_m` (order does not
    matter)
-#) Set `s_m` as the child match stack of `m`
+#) Set `s_m` as the child match set of `m`
 #) Add `m` to `s`
 
 Eventually `s` will only contain root-level matches, i.e. matches of nesting
 level one.  To apply the highlighting we can then traverse the match tree,
 incrementing the highlighting level by one each time we descend a level.
 
-The order of matches among siblings in the tree does not matter.  The above
-algorithm uses a stack when collecting children, but any unordered
-one-dimensional sequence will do.  The stack `s` is important for determining
-the relationship between nodes: since we know that no ancestors will be skipped
-we can be certain that we can stop checking the stack for descendants of `m`
-once we encounter the first non-descendant match.  Otherwise we would have to
-compare each match with each other match, which would tank the performance.
+The order of matches among siblings in the tree does not matter.  The stack
+`s` is important for determining the relationship between nodes: since we know
+that no ancestors will be skipped we can be certain that we can stop checking
+the stack for descendants of `m` once we encounter the first non-descendant
+match.  Otherwise we would have to compare each match with each other match,
+which would tank the performance.
+
+Here is a step-by-step illustration of the algorithm applied to the above
+example.  The left-hand side is the current stack (with the bottom of the stack
+on the left) and current node, the right-hand side is the resulting stack for
+that iteration.  If a match has no children I have omitted the braces for
+brevity.
+
++-------------------------+-------+--------------------------------------------+
+| Current stack           | Match | New stack and popped-of match              |
++=========================+=======+============================================+
+| `[]`                    | `D`   | `[D]`                                      |
++-------------------------+-------+--------------------------------------------+
+| `[D]`                   | `C`   | `[]`, `C{D}`                               |
+|                         |       +--------------------------------------------+
+|                         |       | `[C{D}]`                                   |
++-------------------------+-------+--------------------------------------------+
+| `[C{D}]`                | `B`   | `[]`, `B{C{D}}`                            |
+|                         |       +--------------------------------------------+
+|                         |       | `[B{C{D}}]`                                |
++-------------------------+-------+--------------------------------------------+
+| `[B{C{D}}]`             | `F`   | `[B{C{D}}, F]`                             |
++-------------------------+-------+--------------------------------------------+
+| `[B{C{D}}, F]`          | `G`   | `[B{C{D}}, F, G]`                          |
++-------------------------+-------+--------------------------------------------+
+| `[B{C{D}}, F, G]`       | `E`   | `[B{C{D}}, F]`, `E{G}`                     |
+|                         |       +--------------------------------------------+
+|                         |       | `[B{C{D}}]`, `E{G, F}`                     |
+|                         |       +--------------------------------------------+
+|                         |       | `[B{C{D}}, E{F, G}]`                       |
++-------------------------+-------+--------------------------------------------+
+| `[B{C{D}}, E{F, G}]`    | `A`   | `[B{C{D}}]`, `A{E{F, G}}`                  |
+|                         |       +--------------------------------------------+
+|                         |       | `[]`, `A{B{C{D}}, E{F, G}}`                |
+|                         |       +--------------------------------------------+
+|                         |       | `[A{B{C{D}}, E{F, G}}]`                    |
++-------------------------+-------+--------------------------------------------+
+| `[A{B{C{D}}, E{F, G}}]`                                                      |
++------------------------------------------------------------------------------+
+
+
+Without sandwiching
+-------------------
+
+In some languages like Python it makes sense to define block-level delimiters
+which have only one delimiter.  Here is an example:
+
+.. code:: python
+
+   def derp():
+       for (k, v) in {'a': 1, 'b': 2}:
+           print(k, v)
+
+We want to highlight the `def` of the function definition and the `for`/`in` of
+the loop.  This means we have a mix of sandwiching and no sandwiching.  The
+order of matches is:
+
+#) `def` (because it is completed first)
+#) `()` (the parentheses of `def`)
+#) `(k, v)` (because it is completed before `for`/`in`)
+#) `for`/`in`
+#) `{...}`
+#) `print(k, v)`
+
+The intended match tree should look like this according to the syntax tree:
+
+.. code::
+
+   def
+   ├ ()
+   └ for/in
+     ├ (k, v)
+     ├ {...}
+     └ print(k, v)
+
+Eyeballing the code however suggest a match tree like this:
+
+.. code::
+
+   ├def
+   └ ()
+     ├ for/in
+     │ ├ (k, v)
+     │ └ print(k, v)
+     └ {...}
+
+The idea is that matches which logicaly appear together (such as the head of a
+for-loop) should be cousins.  This raises the question of what belongs
+together.  I will probably need to add a new capture like `@body` which matches
+the delimited content.  In the sandwich case the body was implicitly that which
+is between both delimiters, but here we would need to be explicit about it.
+Example:
+
+.. code:: query
+
+   (for_statement
+     "for" @delimiter
+     "in" @delimiter
+     body: _ @body) @container
+
+   (list
+     "[" @delimiter
+     _ @body
+     "]" @delimiter) @container
+
+Then a match is a child of a parent if and only if the `@container` of the
+child is contained inside the `@body` of the parent.
+
+Not only can the parent-child order be reversed, we can also skip over
+generations.  In the above example `(k, v)` is a grandchild of `def`, but it
+comes directly after it.  We need to revise the algorithm to account for this
+case.  All in all we have the following cases:
+
+- The new node and the top of the stack are cousins
+- The new node is an ancestor of the top node
+- The new node is a descendant of the top node
+
+Here the term “cousin” is cross-generational, i.e. if A is the parent of B and
+C, and D the child of C, then B and D are considered cousins.  They have a
+common ancestor, but share no lineage from one to the other.  Siblings are also
+considered cousins.
 
 
 The local highlight strategy

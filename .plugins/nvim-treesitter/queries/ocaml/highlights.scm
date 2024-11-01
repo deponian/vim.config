@@ -32,6 +32,9 @@
 
 (value_pattern) @variable.parameter
 
+((value_pattern) @character.special
+  (#eq? @character.special "_"))
+
 ; Functions
 ;----------
 (let_binding
@@ -89,7 +92,7 @@
 ;----------
 ; Don't let normal parens take priority over this
 ((unit) @constant.builtin
-  (#set! "priority" 105))
+  (#set! priority 105))
 
 (boolean) @boolean
 
@@ -271,6 +274,9 @@
   ":="
   ".."
 ] @punctuation.delimiter
+
+(range_pattern
+  ".." @character.special)
 
 ; Operators
 ;----------

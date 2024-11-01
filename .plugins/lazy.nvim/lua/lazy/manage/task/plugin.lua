@@ -19,6 +19,9 @@ local B = {}
 ---@param task LazyTask
 ---@param build string
 function B.cmd(task, build)
+  if task.plugin.build ~= "rockspec" then
+    Loader.load(task.plugin, { task = "build" })
+  end
   local cmd = vim.api.nvim_parse_cmd(build:sub(2), {}) --[[@as vim.api.keyset.cmd]]
   task:log(vim.api.nvim_cmd(cmd, { output = true }))
 end
@@ -47,10 +50,6 @@ M.build = {
   ---@async
   run = function(self)
     vim.cmd([[silent! runtime plugin/rplugin.vim]])
-
-    if self.plugin.build ~= "rockspec" then
-      Loader.load(self.plugin, { task = "build" })
-    end
 
     local builders = self.plugin.build
 
@@ -91,7 +90,7 @@ M.docs = {
     return not plugin._.dirty
   end,
   run = function(self)
-    local docs = self.plugin.dir .. "/doc/"
+    local docs = self.plugin.dir .. "/doc"
     if Util.file_exists(docs) then
       self:log(vim.api.nvim_cmd({ cmd = "helptags", args = { docs } }, { output = true }))
     end

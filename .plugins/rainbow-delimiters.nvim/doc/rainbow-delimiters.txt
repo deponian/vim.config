@@ -5,7 +5,7 @@
 
 Author: Alejandro "HiPhish" Sanchez
 License: Apache-2.0
-Version: 0.4.0
+Version: 0.6.2
 
 
 ==============================================================================
@@ -22,6 +22,7 @@ TABLE OF CONTENTS                                     *rb-delimiters-contents*
    3.2 Custom queries ........................ |rb-delimiters-custom-query|
    3.3 Custom strategies ..................... |rb-delimiters-custom-strategy|
    3.4 Adding new languages .................. |rb-delimiters-custom-lang|
+   3.5 Adding highlight tests ................ |rb-delimiters-highlight-test|
 4. Recipes ................................... |rb-delimiters-recipes|
 5. Acknowledgements .......................... |rb-delimiters-credit|
 6. Further reading ........................... |rb-delimiters-reading|
@@ -76,6 +77,17 @@ keys are recognized:
 `blacklist`
   List of Tree-sitter languages for which to disabled rainbow delimiters.
   Rainbow delimiters will be enabled for all other languages.
+
+`condition`
+  Function which receives the current buffer number and returns a boolean; can
+  be used to dynamically decide whether to enable (true) or disable (false)
+  rainbow delimiters for a given buffer.  You could for example use this
+  predicate to disable rainbow delimiters for large files.
+
+  Superceeded by the blacklist, but superceedes the whitelist.  This means if
+  the file type is blacklisted the condtion is ignored, but if the file type
+  is whitelisted or not blacklisted the condition will be evaluated and
+  honoured.
 
 `log`
   Settings for logging information.  This is a dictionary which contains
@@ -697,6 +709,19 @@ ADDING SUPPORT FOR NEW LANGUAGES                   *rb-delimiters-custom-lang*
 Supporting a new new language requires creating one or more queries for the
 language.  If the query is mature enough please consider upstreaming it so
 everyone can benefit.
+
+
+------------------------------------------------------------------------------
+ADDING HIGHLIGHT TESTS                          *rb-delimiters-highlight-test*
+
+Whenever you make changes to a query or add support for a new language you
+should also add highlighting tests if you want to upsteam your changes.  There
+are two steps:
+
+- Add a sample file to show off the highlighting
+- Record the state of highlighting
+
+See the `CONTRIBUTING` file of this repository for details.
 
 
 ==============================================================================

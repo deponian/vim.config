@@ -43,7 +43,6 @@
   ","
   "."
   ":"
-  "?"
   "("
   ")"
 ] @punctuation.delimiter
@@ -97,7 +96,6 @@
 [
   "ABOVE"
   "ABOVE_OR_BELOW"
-  "ALL_ROWS"
   "ALL"
   "AS"
   "ASC"

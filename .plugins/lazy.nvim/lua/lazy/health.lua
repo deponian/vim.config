@@ -1,4 +1,5 @@
 local Config = require("lazy.core.config")
+local Process = require("lazy.manage.process")
 local uv = vim.uv or vim.loop
 
 local M = {}
@@ -36,14 +37,18 @@ function M.have(cmd, opts)
   local found
   for _, c in ipairs(cmd) do
     if vim.fn.executable(c) == 1 then
-      local version = vim.fn.system(c .. " " .. opts.version) or ""
-      version = vim.trim(vim.split(version, "\n")[1])
-      version = version:gsub("^%s*" .. vim.pesc(c) .. "%s*", "")
-      if opts.version_pattern and not version:find(opts.version_pattern, 1, true) then
-        opts.warn(("`%s` version `%s` needed, but found `%s`"):format(c, opts.version_pattern, version))
+      local out, exit_code = Process.exec({ c, opts.version })
+      if exit_code ~= 0 then
+        opts.error(("failed to get version of {%s}\n%s"):format(c, table.concat(out, "\n")))
       else
-        found = ("{%s} `%s`"):format(c, version)
-        break
+        local version = vim.trim(out[1] or "")
+        version = version:gsub("^%s*" .. vim.pesc(c) .. "%s*", "")
+        if opts.version_pattern and not version:find(opts.version_pattern, 1, true) then
+          opts.warn(("`%s` version `%s` needed, but found `%s`"):format(c, opts.version_pattern, version))
+        else
+          found = ("{%s} `%s`"):format(c, version)
+          break
+        end
       end
     end
   end

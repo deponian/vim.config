@@ -1,5 +1,5 @@
-local log = require "nvim-tree.log"
-local utils = require "nvim-tree.utils"
+local log = require("nvim-tree.log")
+local utils = require("nvim-tree.utils")
 local Watcher = require("nvim-tree.watcher").Watcher
 
 local M = {
@@ -53,7 +53,7 @@ local function is_folder_ignored(path)
   return false
 end
 
----@param node Node
+---@param node DirectoryNode
 ---@return Watcher|nil
 function M.create_watcher(node)
   if not M.config.filesystem_watchers.enable or type(node) ~= "table" then
@@ -76,9 +76,7 @@ function M.create_watcher(node)
       else
         log.line("watcher", "node event executing refresh '%s'", node.absolute_path)
       end
-      require("nvim-tree.explorer.reload").refresh_node(node, function()
-        require("nvim-tree.renderer").draw()
-      end)
+      node:refresh()
     end)
   end
 

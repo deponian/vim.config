@@ -1,10 +1,13 @@
-local log = require "nvim-tree.log"
-local utils = require "nvim-tree.utils"
-local git_utils = require "nvim-tree.git.utils"
-local Runner = require "nvim-tree.git.runner"
+local log = require("nvim-tree.log")
+local utils = require("nvim-tree.utils")
+local git_utils = require("nvim-tree.git.utils")
+local Runner = require("nvim-tree.git.runner")
 local Watcher = require("nvim-tree.watcher").Watcher
-local Iterator = require "nvim-tree.iterators.node-iterator"
-local explorer_node = require "nvim-tree.explorer.node"
+local Iterator = require("nvim-tree.iterators.node-iterator")
+
+---@class GitStatus
+---@field file string|nil
+---@field dir table|nil
 
 local M = {
   config = {},
@@ -23,10 +26,10 @@ local M = {
 -- Utilities (like watchman) can also write to this directory (often) and aren't useful for us.
 local WATCHED_FILES = {
   "FETCH_HEAD", -- remote ref
-  "HEAD", -- local ref
-  "HEAD.lock", -- HEAD will not always be updated e.g. revert
-  "config", -- user config
-  "index", -- staging area
+  "HEAD",       -- local ref
+  "HEAD.lock",  -- HEAD will not always be updated e.g. revert
+  "config",     -- user config
+  "index",      -- staging area
 }
 
 ---@param toplevel string|nil
@@ -115,7 +118,7 @@ function M.reload_project(toplevel, path, callback)
       callback()
     end)
   else
-    -- TODO use callback once async/await is available
+    -- TODO #1974 use callback once async/await is available
     local git_status = Runner.run(opts)
     reload_git_status(toplevel, path, project, git_status)
   end
@@ -208,15 +211,15 @@ local function reload_tree_at(toplevel)
     Iterator.builder(root_node.nodes)
       :hidden()
       :applier(function(node)
-        local parent_ignored = explorer_node.is_git_ignored(node.parent)
-        explorer_node.update_git_status(node, parent_ignored, git_status)
+        local parent_ignored = node.parent and node.parent:is_git_ignored() or false
+        node:update_git_status(parent_ignored, git_status)
       end)
       :recursor(function(node)
         return node.nodes and #node.nodes > 0 and node.nodes
       end)
       :iterate()
 
-    require("nvim-tree.renderer").draw()
+    root_node.explorer.renderer:draw()
   end)
 end
 
@@ -240,12 +243,12 @@ function M.load_project_status(path)
     return status
   end
 
-  local git_status = Runner.run {
+  local git_status = Runner.run({
     toplevel = toplevel,
     list_untracked = git_utils.should_show_untracked(toplevel),
     list_ignored = true,
     timeout = M.config.git.timeout,
-  }
+  })
 
   local watcher = nil
   if M.config.filesystem_watchers.enable then
@@ -261,7 +264,7 @@ function M.load_project_status(path)
       end)
     end
 
-    local git_dir = vim.env.GIT_DIR or M._git_dirs_by_toplevel[toplevel] or utils.path_join { toplevel, ".git" }
+    local git_dir = vim.env.GIT_DIR or M._git_dirs_by_toplevel[toplevel] or utils.path_join({ toplevel, ".git" })
     watcher = Watcher:new(git_dir, WATCHED_FILES, callback, {
       toplevel = toplevel,
     })
@@ -278,6 +281,48 @@ function M.load_project_status(path)
     M._toplevels_by_path[path] = false
     return {}
   end
+end
+
+---Git file and directory status for an absolute path with optional file fallback
+---@param parent_ignored boolean
+---@param status table|nil
+---@param path string
+---@param path_file string? alternative file path when no other file status
+---@return GitStatus|nil
+function M.git_status_dir(parent_ignored, status, path, path_file)
+  if parent_ignored then
+    return { file = "!!" }
+  end
+
+  if status then
+    return {
+      file = status.files and (status.files[path] or status.files[path_file]),
+      dir = status.dirs and {
+        direct = status.dirs.direct and status.dirs.direct[path],
+        indirect = status.dirs.indirect and status.dirs.indirect[path],
+      },
+    }
+  end
+end
+
+---Git file status for an absolute path with optional fallback
+---@param parent_ignored boolean
+---@param status table|nil
+---@param path string
+---@param path_fallback string?
+---@return GitStatus
+function M.git_status_file(parent_ignored, status, path, path_fallback)
+  if parent_ignored then
+    return { file = "!!" }
+  end
+
+  if not status or not status.files then
+    return {}
+  end
+
+  return {
+    file = status.files[path] or status.files[path_fallback]
+  }
 end
 
 function M.purge_state()
