@@ -17,6 +17,7 @@ lualine-contributing	lualine.txt	/*lualine-contributing*
 lualine-datetime-component-options	lualine.txt	/*lualine-datetime-component-options*
 lualine-diagnostics-component-options	lualine.txt	/*lualine-diagnostics-component-options*
 lualine-diff-component-options	lualine.txt	/*lualine-diff-component-options*
+lualine-encoding-component-options	lualine.txt	/*lualine-encoding-component-options*
 lualine-fileformat-component-options	lualine.txt	/*lualine-fileformat-component-options*
 lualine-filename-component-options	lualine.txt	/*lualine-filename-component-options*
 lualine-filetype-component-options	lualine.txt	/*lualine-filetype-component-options*

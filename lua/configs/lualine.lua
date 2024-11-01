@@ -22,6 +22,7 @@ M.opts = function ()
       },
       ignore_focus = {},
       always_divide_middle = true,
+      always_show_tabline = false,
       globalstatus = true,
       refresh = {
         statusline = 1000,
@@ -104,25 +105,6 @@ M.opts = function ()
       require('deponian.lualine.man')
     }
   }
-end
-
-M.config = function(_, opts)
-  -- setup plugin settings
-  require("lualine").setup(opts)
-
-  -- temporary fix for https://github.com/nvim-lualine/lualine.nvim/pull/1013
-  require('lualine').hide({place = {'tabline'}})
-  local lualine_tmp = vim.api.nvim_create_augroup('lualine_tmp', { clear = true })
-  vim.api.nvim_create_autocmd({ 'TabNew', 'TabClosed' }, {
-    group = lualine_tmp,
-    callback = function()
-      if vim.fn.tabpagenr('$') == 1 then
-        require('lualine').hide({place = {'tabline'}})
-      else
-        require('lualine').hide({place = {'tabline'}, unhide = true})
-      end
-    end,
-  })
 end
 
 return M
