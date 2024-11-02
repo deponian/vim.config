@@ -170,6 +170,13 @@ M.config = function ()
     handlers = handlers,
     on_attach = on_attach,
   })
+
+  require("lspconfig").typos_lsp.setup({
+    enabled = not vim.g.server_mode,
+    capabilities = capabilities,
+    handlers = handlers,
+    on_attach = on_attach,
+  })
 end
 
 return M
