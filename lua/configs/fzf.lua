@@ -141,7 +141,7 @@ M.keys = {
       require("fzf-lua").files()
     end,
     silent = true },
-  { "<Leader>T", ":lua require('fzf-lua').files({cwd = ''})<Left><Left><Left>" },
+  { "<Leader>T", ":lua require('fzf-lua').files({cwd = '~/projects'})<Left><Left><Left>" },
 
   -- <Leader>f -- Recursively find some string or selected sequence in all files in the project
   -- (mnemonic: find)
