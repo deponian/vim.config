@@ -6,7 +6,9 @@ CmpItemKind	cmp.txt	/*CmpItemKind*
 CmpItemKind%KIND_NAME%	cmp.txt	/*CmpItemKind%KIND_NAME%*
 CmpItemMenu	cmp.txt	/*CmpItemMenu*
 CmpReady	cmp.txt	/*CmpReady*
+CmpRegisterSource	cmp.txt	/*CmpRegisterSource*
 CmpStatus	cmp.txt	/*CmpStatus*
+CmpUnregisterSource	cmp.txt	/*CmpUnregisterSource*
 cmp	cmp.txt	/*cmp*
 cmp-abstract	cmp.txt	/*cmp-abstract*
 cmp-autocmd	cmp.txt	/*cmp-autocmd*
@@ -86,6 +88,7 @@ cmp.confirm	cmp.txt	/*cmp.confirm*
 cmp.event:on	cmp.txt	/*cmp.event:on*
 cmp.get_active_entry	cmp.txt	/*cmp.get_active_entry*
 cmp.get_entries	cmp.txt	/*cmp.get_entries*
+cmp.get_registered_sources	cmp.txt	/*cmp.get_registered_sources*
 cmp.get_selected_entry	cmp.txt	/*cmp.get_selected_entry*
 cmp.mapping.abort	cmp.txt	/*cmp.mapping.abort*
 cmp.mapping.close	cmp.txt	/*cmp.mapping.close*

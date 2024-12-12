@@ -1,30 +1,35 @@
----Helper function to parse argb
-local bit = require "bit"
+--- This module provides a parser for identifying and converting `#RRGGBBAA` hexadecimal color values to RGB hexadecimal format.
+-- It is commonly used in Android apps for colors with an alpha (transparency) component.
+-- The function reads the color, applies the alpha to each RGB channel, and returns the resulting RGB hex string.
+-- @module colorizer.parser.rgba_hex
+
+local M = {}
+
+local bit = require("bit")
 local floor, min = math.floor, math.min
 local band, rshift, lshift = bit.band, bit.rshift, bit.lshift
 
-local utils = require "colorizer.utils"
-local byte_is_alphanumeric = utils.byte_is_alphanumeric
-local byte_is_hex = utils.byte_is_hex
-local parse_hex = utils.parse_hex
+local utils = require("colorizer.utils")
 
-local parser = {}
-
----parse for #rrggbbaa and return rgb hex.
--- a format used in android apps
----@param line string: line to parse
----@param i number: index of line from where to start parsing
----@param opts table: Containing minlen, maxlen, valid_lengths
----@return number|nil: index of line where the hex value ended
----@return string|nil: rgb hex value
-function parser.rgba_hex_parser(line, i, opts)
+--- Parses `#RRGGBBAA` hexadecimal colors and converts them to RGB hex format.
+-- This function matches `#RRGGBBAA` format colors within a line, handling alpha transparency if specified.
+-- It checks the length of the color string to match expected valid lengths (e.g., 4, 7, 9 characters).
+-- @param line string The line of text to parse for the hex color
+-- @param i number The starting index within the line where parsing should begin
+-- @param opts table Options containing:
+--   - `minlen` (number): Minimum length of the color string
+--   - `maxlen` (number): Maximum length of the color string
+--   - `valid_lengths` (table): Set of valid lengths (e.g., `{4, 7, 9}`)
+-- @return number|nil The end index of the parsed hex color within the line, or `nil` if parsing failed
+-- @return string|nil The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
+function M.rgba_hex_parser(line, i, opts)
   local minlen, maxlen, valid_lengths = opts.minlen, opts.maxlen, opts.valid_lengths
   local j = i + 1
   if #line < j + minlen - 1 then
     return
   end
 
-  if i > 1 and byte_is_alphanumeric(line:byte(i - 1)) then
+  if i > 1 and utils.byte_is_alphanumeric(line:byte(i - 1)) then
     return
   end
 
@@ -34,18 +39,18 @@ function parser.rgba_hex_parser(line, i, opts)
 
   while j <= min(n, #line) do
     local b = line:byte(j)
-    if not byte_is_hex(b) then
+    if not utils.byte_is_hex(b) then
       break
     end
     if j - i >= 7 then
-      alpha = parse_hex(b) + lshift(alpha or 0, 4)
+      alpha = utils.parse_hex(b) + lshift(alpha or 0, 4)
     else
-      v = parse_hex(b) + lshift(v, 4)
+      v = utils.parse_hex(b) + lshift(v, 4)
     end
     j = j + 1
   end
 
-  if #line >= j and byte_is_alphanumeric(line:byte(j)) then
+  if #line >= j and utils.byte_is_alphanumeric(line:byte(j)) then
     return
   end
 
@@ -65,4 +70,4 @@ function parser.rgba_hex_parser(line, i, opts)
   return (valid_lengths[length - 1] and length), line:sub(i + 1, i + length - 1)
 end
 
-return parser.rgba_hex_parser
+return M.rgba_hex_parser

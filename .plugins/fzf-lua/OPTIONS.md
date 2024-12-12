@@ -265,9 +265,18 @@ Backdrop opacity value, 0 for fully opaque, 100 for fully transparent (i.e. disa
 
 #### globals.winopts.fullscreen
 
-Type: `fullscreen`, Default: `false`
+Type: `boolean`, Default: `false`
 
 Use fullscreen for the fzf-load floating window.
+
+#### globals.winopts.treesitter
+
+Type: `boolean`, Default: `false`
+
+Use treesitter highlighting in fzf's main window.
+
+> **NOTE**: Only works for file-like entires where treesitter parser exists and is loaded
+> for the filetype.
 
 #### globals.winopts.on_create
 
@@ -306,12 +315,13 @@ Preview border for native fzf previewers (i.e. `bat`, `git_status`), set to `nob
 
 Type: `string`, Default: `flex`
 
-Preview layout, possible values are `horizontal|vertical|flex`, when set to `flex` neovim width is
-tested against `winopts.preview.flip_columns`, when <= `vertical` is used, otherwise `horizontal`.
+Preview layout, possible values are `horizontal|vertical|flex`, when set to `flex` fzf window
+width is tested against `winopts.preview.flip_columns`, when <= `vertical` is used, otherwise
+`horizontal`.
 
 #### globals.winopts.preview.flip_columns
 
-Type: `number`, Default: `120`
+Type: `number`, Default: `100`
 
 Auto-detect the preview layout based on available width, see above note in `winopts.preview.layout`.
 

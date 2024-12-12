@@ -26,6 +26,7 @@
 <br/>
 <h1>colorizer</h1>
 
+
 <ul>
   <li><a href="../index.html">Index</a></li>
 </ul>
@@ -41,8 +42,9 @@
   <li><a href="../modules/colorizer.html">colorizer</a></li>
   <li><a href="../modules/colorizer.buffer.html">buffer</a></li>
   <li><a href="../modules/colorizer.color.html">color</a></li>
+  <li><a href="../modules/colorizer.config.html">config</a></li>
   <li><a href="../modules/colorizer.matcher.html">matcher</a></li>
-  <li><a href="../modules/colorizer.parser.argb_hex.html">parser.argb_hex</a></li>
+  <li><a href="../modules/colorizer.parser.rgb_hex.html">parser.rgb_hex</a></li>
   <li><a href="../modules/colorizer.parser.hsl.html">parser.hsl</a></li>
   <li><a href="../modules/colorizer.parser.names.html">parser.names</a></li>
   <li><a href="../modules/colorizer.parser.rgb.html">parser.rgb</a></li>
@@ -50,6 +52,7 @@
   <li><a href="../modules/colorizer.sass.html">sass</a></li>
   <li><a href="../modules/colorizer.tailwind.html">tailwind</a></li>
   <li><a href="../modules/colorizer.trie.html">trie</a></li>
+  <li><a href="../modules/colorizer.usercmds.html">usercmds</a></li>
   <li><strong>utils</strong></li>
 </ul>
 
@@ -58,25 +61,25 @@
 <div id="content">
 
 <h1>Module <code>colorizer.utils</code></h1>
-<p>Helper utils</p>
+<p>Provides utility functions for color handling and file operations.</p>
 <p>
-
-</p>
+ This module contains helper functions for checking byte categories, merging tables,
+ parsing colors, managing file watchers, and handling buffer lines.</p>
 
 
 <h2><a href="#Functions">Functions</a></h2>
 <table class="function_list">
 	<tr>
 	<td class="name" nowrap><a href="#byte_is_alphanumeric">byte_is_alphanumeric (byte)</a></td>
-	<td class="summary">Obvious.</td>
+	<td class="summary">Checks if a byte represents an alphanumeric character.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#byte_is_hex">byte_is_hex (byte)</a></td>
-	<td class="summary">Obvious.</td>
+	<td class="summary">Checks if a byte represents a hexadecimal character.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#byte_is_valid_colorchar">byte_is_valid_colorchar (byte)</a></td>
-	<td class="summary">Valid colorchars are alphanumeric and - ( tailwind colors )</td>
+	<td class="summary">Checks if a byte is valid as a color character (alphanumeric or `-` for Tailwind colors).</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#count">count (str, pattern)</a></td>
@@ -92,11 +95,15 @@
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#parse_hex">parse_hex (byte)</a></td>
-	<td class="summary">Obvious.</td>
+	<td class="summary">Parses a hexadecimal byte.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#watch_file">watch_file (path, callback, ...)</a></td>
 	<td class="summary">Watch a file for changes and execute callback</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#bufme">bufme (bufnr)</a></td>
+	<td class="summary">Validates and returns a buffer number.</td>
 	</tr>
 </table>
 
@@ -112,20 +119,20 @@
     <strong>byte_is_alphanumeric (byte)</strong>
     </dt>
     <dd>
-    Obvious.
+    Checks if a byte represents an alphanumeric character.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">byte</span>
-         number
+         number The byte to check.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        boolean
+        boolean `true` if the byte is alphanumeric, otherwise `false`.
     </ol>
 
 
@@ -137,20 +144,20 @@
     <strong>byte_is_hex (byte)</strong>
     </dt>
     <dd>
-    Obvious.
+    Checks if a byte represents a hexadecimal character.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">byte</span>
-         number
+         number The byte to check.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        boolean
+        boolean `true` if the byte is hexadecimal, otherwise `false`.
     </ol>
 
 
@@ -162,20 +169,20 @@
     <strong>byte_is_valid_colorchar (byte)</strong>
     </dt>
     <dd>
-    Valid colorchars are alphanumeric and - ( tailwind colors )
+    Checks if a byte is valid as a color character (alphanumeric or `-` for Tailwind colors).
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">byte</span>
-         number
+         number The byte to check.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        boolean
+        boolean `true` if the byte is valid, otherwise `false`.
     </ol>
 
 
@@ -240,16 +247,13 @@
     <strong>merge (...)</strong>
     </dt>
     <dd>
-    Merge two tables. </p>
-
-<p> todo: Remove this and use <code>vim.tbl_deep_extend</code>
+    Merge two tables.
+ todo: Remove this and use `vim.tbl_deep_extend`
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">...</span>
-
-
 
         </li>
     </ul>
@@ -269,20 +273,20 @@
     <strong>parse_hex (byte)</strong>
     </dt>
     <dd>
-    Obvious.
+    Parses a hexadecimal byte.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">byte</span>
-         number
+         number The byte to parse.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        number
+        number The parsed hexadecimal value of the byte.
     </ol>
 
 
@@ -313,7 +317,33 @@
     <h3>Returns:</h3>
     <ol>
 
-        function|nil
+        uv_fs_event_t|nil
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "bufme"></a>
+    <strong>bufme (bufnr)</strong>
+    </dt>
+    <dd>
+    Validates and returns a buffer number.
+ If the provided buffer number is invalid, defaults to the current buffer.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bufnr</span>
+         number|nil: The buffer number to validate.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        number The validated buffer number.
     </ol>
 
 
@@ -326,8 +356,8 @@
 </div> <!-- id="content" -->
 </div> <!-- id="main" -->
 <div id="about">
-<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated - February </i>
+<i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
+<i style="float:right;">Last updated - November </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

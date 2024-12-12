@@ -2,34 +2,36 @@ local notify = require("nvim-tree.notify")
 local utils = require("nvim-tree.utils")
 local view = require("nvim-tree.view")
 
-local DirectoryLinkNode = require("nvim-tree.node.directory-link")
-local DirectoryNode = require("nvim-tree.node.directory")
-local FileLinkNode = require("nvim-tree.node.file-link")
+local Class = require("nvim-tree.classic")
 
-local DecoratorBookmarks = require("nvim-tree.renderer.decorator.bookmarks")
-local DecoratorCopied = require("nvim-tree.renderer.decorator.copied")
-local DecoratorCut = require("nvim-tree.renderer.decorator.cut")
-local DecoratorDiagnostics = require("nvim-tree.renderer.decorator.diagnostics")
-local DecoratorGit = require("nvim-tree.renderer.decorator.git")
-local DecoratorModified = require("nvim-tree.renderer.decorator.modified")
-local DecoratorHidden = require("nvim-tree.renderer.decorator.hidden")
-local DecoratorOpened = require("nvim-tree.renderer.decorator.opened")
+local DirectoryNode = require("nvim-tree.node.directory")
+
+local BookmarkDecorator = require("nvim-tree.renderer.decorator.bookmarks")
+local CopiedDecorator = require("nvim-tree.renderer.decorator.copied")
+local CutDecorator = require("nvim-tree.renderer.decorator.cut")
+local DiagnosticsDecorator = require("nvim-tree.renderer.decorator.diagnostics")
+local GitDecorator = require("nvim-tree.renderer.decorator.git")
+local HiddenDecorator = require("nvim-tree.renderer.decorator.hidden")
+local ModifiedDecorator = require("nvim-tree.renderer.decorator.modified")
+local OpenDecorator = require("nvim-tree.renderer.decorator.opened")
+local UserDecorator = require("nvim-tree.renderer.decorator.user")
 
 local pad = require("nvim-tree.renderer.components.padding")
-local icons = require("nvim-tree.renderer.components.icons")
 
-local PICTURE_MAP = {
-  jpg = true,
-  jpeg = true,
-  png = true,
-  gif = true,
-  webp = true,
-  jxl = true,
+---@alias HighlightedString nvim_tree.api.HighlightedString
+
+-- Builtin Decorators
+---@type table<nvim_tree.api.decorator.Name, Decorator>
+local BUILTIN_DECORATORS = {
+  Git = GitDecorator,
+  Open = OpenDecorator,
+  Hidden = HiddenDecorator,
+  Modified = ModifiedDecorator,
+  Bookmark = BookmarkDecorator,
+  Diagnostics = DiagnosticsDecorator,
+  Copied = CopiedDecorator,
+  Cut = CutDecorator,
 }
-
----@class (exact) HighlightedString
----@field str string
----@field hl string[]
 
 ---@class (exact) AddHighlightArgs
 ---@field group string[]
@@ -38,7 +40,6 @@ local PICTURE_MAP = {
 ---@field col_end number
 
 ---@class (exact) Builder
----@field private __index? table
 ---@field lines string[] includes icons etc.
 ---@field hl_args AddHighlightArgs[] line highlights
 ---@field signs string[] line signs
@@ -51,43 +52,52 @@ local PICTURE_MAP = {
 ---@field private markers boolean[] indent markers
 ---@field private decorators Decorator[]
 ---@field private hidden_display fun(node: Node): string|nil
-local Builder = {}
+---@field private api_nodes table<number, nvim_tree.api.Node>? optional map of uids to api node for user decorators
+local Builder = Class:extend()
 
----@param opts table user options
----@param explorer Explorer
----@return Builder
-function Builder:new(opts, explorer)
-  ---@type Builder
-  local o = {
-    opts = opts,
-    explorer = explorer,
-    index = 0,
-    depth = 0,
-    hl_args = {},
-    combined_groups = {},
-    lines = {},
-    markers = {},
-    signs = {},
-    extmarks = {},
-    virtual_lines = {},
-    decorators = {
-      -- priority order
-      DecoratorCut:create(opts, explorer),
-      DecoratorCopied:create(opts, explorer),
-      DecoratorDiagnostics:create(opts, explorer),
-      DecoratorBookmarks:create(opts, explorer),
-      DecoratorModified:create(opts, explorer),
-      DecoratorHidden:create(opts, explorer),
-      DecoratorOpened:create(opts, explorer),
-      DecoratorGit:create(opts, explorer),
-    },
-    hidden_display = Builder:setup_hidden_display_function(opts),
-  }
+---@class Builder
+---@overload fun(args: BuilderArgs): Builder
 
-  setmetatable(o, self)
-  self.__index = self
+---@class (exact) BuilderArgs
+---@field explorer Explorer
 
-  return o
+---@protected
+---@param args BuilderArgs
+function Builder:new(args)
+  self.explorer        = args.explorer
+  self.index           = 0
+  self.depth           = 0
+  self.hl_args         = {}
+  self.combined_groups = {}
+  self.lines           = {}
+  self.markers         = {}
+  self.signs           = {}
+  self.extmarks        = {}
+  self.virtual_lines   = {}
+  self.decorators      = {}
+  self.hidden_display  = Builder:setup_hidden_display_function(self.explorer.opts)
+
+  -- instantiate all the builtin and user decorator instances
+  local builtin, user
+  for _, d in ipairs(self.explorer.opts.renderer.decorators) do
+    ---@type Decorator
+    builtin = BUILTIN_DECORATORS[d]
+
+    ---@type UserDecorator
+    user = type(d) == "table" and type(d.as) == "function" and d:as(UserDecorator)
+
+    if builtin then
+      table.insert(self.decorators, builtin({ explorer = self.explorer }))
+    elseif user then
+      table.insert(self.decorators, user())
+
+      -- clone user nodes once
+      if not self.api_nodes then
+        self.api_nodes = {}
+        self.explorer:clone(self.api_nodes)
+      end
+    end
+  end
 end
 
 ---Insert ranged highlight groups into self.highlights
@@ -97,27 +107,6 @@ end
 ---@param end_ number|nil
 function Builder:insert_highlight(groups, start, end_)
   table.insert(self.hl_args, { groups, self.index, start, end_ or -1 })
-end
-
----@private
-function Builder:get_folder_name(node)
-  local name = node.name
-  local next = node.group_next
-  while next do
-    name = string.format("%s/%s", name, next.name)
-    next = next.group_next
-  end
-
-  if node.group_next and type(self.opts.renderer.group_empty) == "function" then
-    local new_name = self.opts.renderer.group_empty(name)
-    if type(new_name) == "string" then
-      name = new_name
-    else
-      notify.warn(string.format("Invalid return type for field renderer.group_empty. Expected string, got %s", type(new_name)))
-    end
-  end
-
-  return string.format("%s%s", name, self.opts.renderer.add_trailing and "/" or "")
 end
 
 ---@private
@@ -141,78 +130,6 @@ function Builder:unwrap_highlighted_strings(highlighted_strings)
 end
 
 ---@private
----@param node Node
----@return HighlightedString icon
----@return HighlightedString name
-function Builder:build_folder(node)
-  local has_children = #node.nodes ~= 0 or node.has_children
-  local icon, icon_hl = icons.get_folder_icon(node, has_children)
-  local foldername = self:get_folder_name(node)
-
-  if #icon > 0 and icon_hl == nil then
-    if node.open then
-      icon_hl = "NvimTreeOpenedFolderIcon"
-    else
-      icon_hl = "NvimTreeClosedFolderIcon"
-    end
-  end
-
-  local foldername_hl = "NvimTreeFolderName"
-  if node.link_to and self.opts.renderer.symlink_destination then
-    local arrow = icons.i.symlink_arrow
-    local link_to = utils.path_relative(node.link_to, self.explorer.absolute_path)
-    foldername = string.format("%s%s%s", foldername, arrow, link_to)
-    foldername_hl = "NvimTreeSymlinkFolderName"
-  elseif
-    vim.tbl_contains(self.opts.renderer.special_files, node.absolute_path) or vim.tbl_contains(self.opts.renderer.special_files, node.name)
-  then
-    foldername_hl = "NvimTreeSpecialFolderName"
-  elseif node.open then
-    foldername_hl = "NvimTreeOpenedFolderName"
-  elseif not has_children then
-    foldername_hl = "NvimTreeEmptyFolderName"
-  end
-
-  return { str = icon, hl = { icon_hl } }, { str = foldername, hl = { foldername_hl } }
-end
-
----@private
----@param node table
----@return HighlightedString icon
----@return HighlightedString name
-function Builder:build_symlink(node)
-  local icon = icons.i.symlink
-  local arrow = icons.i.symlink_arrow
-  local symlink_formatted = node.name
-  if self.opts.renderer.symlink_destination then
-    local link_to = utils.path_relative(node.link_to, self.explorer.absolute_path)
-    symlink_formatted = string.format("%s%s%s", symlink_formatted, arrow, link_to)
-  end
-
-  return { str = icon, hl = { "NvimTreeSymlinkIcon" } }, { str = symlink_formatted, hl = { "NvimTreeSymlink" } }
-end
-
----@private
----@param node Node
----@return HighlightedString icon
----@return HighlightedString name
-function Builder:build_file(node)
-  local hl
-  if
-    vim.tbl_contains(self.opts.renderer.special_files, node.absolute_path) or vim.tbl_contains(self.opts.renderer.special_files, node.name)
-  then
-    hl = "NvimTreeSpecialFile"
-  elseif node.executable then
-    hl = "NvimTreeExecFile"
-  elseif PICTURE_MAP[node.extension] then
-    hl = "NvimTreeImageFile"
-  end
-
-  local icon, hl_group = icons.get_file_icon(node.name, node.extension)
-  return { str = icon, hl = { hl_group } }, { str = node.name, hl = { hl } }
-end
-
----@private
 ---@param indent_markers HighlightedString[]
 ---@param arrows HighlightedString[]|nil
 ---@param icon HighlightedString
@@ -227,7 +144,7 @@ function Builder:format_line(indent_markers, arrows, icon, name, node)
     end
     for _, v in ipairs(t2) do
       if added_len > 0 then
-        table.insert(t1, { str = self.opts.renderer.icons.padding })
+        table.insert(t1, { str = self.explorer.opts.renderer.icons.padding })
       end
       table.insert(t1, v)
     end
@@ -240,22 +157,25 @@ function Builder:format_line(indent_markers, arrows, icon, name, node)
     end
   end
 
+  -- use the api node for user decorators
+  local api_node = self.api_nodes and self.api_nodes[node.uid_node] --[[@as Node]]
+
   local line = { indent_markers, arrows }
   add_to_end(line, { icon })
 
-  for i = #self.decorators, 1, -1 do
-    add_to_end(line, self.decorators[i]:icons_before(node))
+  for _, d in ipairs(self.decorators) do
+    add_to_end(line, d:icons_before(not d:is(UserDecorator) and node or api_node))
   end
 
   add_to_end(line, { name })
 
-  for i = #self.decorators, 1, -1 do
-    add_to_end(line, self.decorators[i]:icons_after(node))
+  for _, d in ipairs(self.decorators) do
+    add_to_end(line, d:icons_after(not d:is(UserDecorator) and node or api_node))
   end
 
   local rights = {}
-  for i = #self.decorators, 1, -1 do
-    add_to_end(rights, self.decorators[i]:icons_right_align(node))
+  for _, d in ipairs(self.decorators) do
+    add_to_end(rights, d:icons_right_align(not d:is(UserDecorator) and node or api_node))
   end
   if #rights > 0 then
     self.extmarks[self.index] = rights
@@ -267,10 +187,14 @@ end
 ---@private
 ---@param node Node
 function Builder:build_signs(node)
+  -- use the api node for user decorators
+  local api_node = self.api_nodes and self.api_nodes[node.uid_node] --[[@as Node]]
+
   -- first in priority order
-  local sign_name
-  for _, d in ipairs(self.decorators) do
-    sign_name = d:sign_name(node)
+  local d, sign_name
+  for i = #self.decorators, 1, -1 do
+    d = self.decorators[i]
+    sign_name = d:sign_name(not d:is(UserDecorator) and node or api_node)
     if sign_name then
       self.signs[self.index] = sign_name
       break
@@ -306,43 +230,50 @@ function Builder:create_combined_group(groups)
   return combined_name
 end
 
----Calculate highlight group for icon and name. A combined highlight group will be created
----when there is more than one highlight.
+---Calculate decorated icon and name for a node.
+---A combined highlight group will be created when there is more than one highlight.
 ---A highlight group is always calculated and upserted for the case of highlights changing.
 ---@private
 ---@param node Node
----@return string|nil icon_hl_group
----@return string|nil name_hl_group
-function Builder:add_highlights(node)
-  -- result
-  local icon_hl_group, name_hl_group
+---@return HighlightedString icon
+---@return HighlightedString name
+function Builder:icon_name_decorated(node)
+  -- use the api node for user decorators
+  local api_node = self.api_nodes and self.api_nodes[node.uid_node] --[[@as Node]]
 
-  -- calculate all groups
+  -- base case
+  local icon = node:highlighted_icon()
+  local name = node:highlighted_name()
+
+  -- calculate node icon and all decorated highlight groups
   local icon_groups = {}
   local name_groups = {}
-  local d, icon, name
-  for i = #self.decorators, 1, -1 do
-    d = self.decorators[i]
-    icon, name = d:groups_icon_name(node)
-    table.insert(icon_groups, icon)
-    table.insert(name_groups, name)
+  local hl_icon, hl_name
+  for _, d in ipairs(self.decorators) do
+    -- maybe overridde icon
+    icon = d:icon_node((not d:is(UserDecorator) and node or api_node)) or icon
+
+    hl_icon, hl_name = d:highlight_group_icon_name((not d:is(UserDecorator) and node or api_node))
+
+    table.insert(icon_groups, hl_icon)
+    table.insert(name_groups, hl_name)
   end
 
-  -- one or many icon groups
+  -- add one or many icon groups
   if #icon_groups > 1 then
-    icon_hl_group = self:create_combined_group(icon_groups)
+    table.insert(icon.hl, self:create_combined_group(icon_groups))
   else
-    icon_hl_group = icon_groups[1]
+    table.insert(icon.hl, icon_groups[1])
   end
 
-  -- one or many name groups
+  -- add one or many name groups
   if #name_groups > 1 then
-    name_hl_group = self:create_combined_group(name_groups)
+    table.insert(name.hl, self:create_combined_group(name_groups))
   else
-    name_hl_group = name_groups[1]
+    table.insert(name.hl, name_groups[1])
   end
 
-  return icon_hl_group, name_hl_group
+  return icon, name
 end
 
 ---Insert node line into self.lines, calling Builder:build_lines for each directory
@@ -355,31 +286,20 @@ function Builder:build_line(node, idx, num_children)
   local indent_markers = pad.get_indent_markers(self.depth, idx, num_children, node, self.markers)
   local arrows = pad.get_arrows(node)
 
-  -- main components
-  local icon, name
-  if node:is(DirectoryNode) then
-    icon, name = self:build_folder(node)
-  elseif node:is(DirectoryLinkNode) or node:is(FileLinkNode) then
-    icon, name = self:build_symlink(node)
-  else
-    icon, name = self:build_file(node)
-  end
-
-  -- highighting
-  local icon_hl_group, name_hl_group = self:add_highlights(node)
-  table.insert(icon.hl, icon_hl_group)
-  table.insert(name.hl, name_hl_group)
+  -- decorated node icon and name
+  local icon, name = self:icon_name_decorated(node)
 
   local line = self:format_line(indent_markers, arrows, icon, name, node)
   table.insert(self.lines, self:unwrap_highlighted_strings(line))
 
   self.index = self.index + 1
 
-  if node:is(DirectoryNode) then
-    node = node:last_group_node()
-    if node.open then
+  local dir = node:as(DirectoryNode)
+  if dir then
+    dir = dir:last_group_node()
+    if dir.open then
       self.depth = self.depth + 1
-      self:build_lines(node)
+      self:build_lines(dir)
       self.depth = self.depth - 1
     end
   end
@@ -394,7 +314,7 @@ function Builder:add_hidden_count_string(node, idx, num_children)
   local hidden_count_string = self.hidden_display(node.hidden_stats)
   if hidden_count_string and hidden_count_string ~= "" then
     local indent_markers = pad.get_indent_markers(self.depth, idx or 0, num_children or 0, node, self.markers, 1)
-    local indent_width = self.opts.renderer.indent_width
+    local indent_width = self.explorer.opts.renderer.indent_width
 
     local indent_padding = string.rep(" ", indent_width)
     local indent_string = indent_padding .. indent_markers.str
@@ -464,16 +384,16 @@ end
 ---@private
 function Builder:build_header()
   if view.is_root_folder_visible(self.explorer.absolute_path) then
-    local root_name = self:format_root_name(self.opts.renderer.root_folder_label)
+    local root_name = self:format_root_name(self.explorer.opts.renderer.root_folder_label)
     table.insert(self.lines, root_name)
     self:insert_highlight({ "NvimTreeRootFolder" }, 0, string.len(root_name))
     self.index = 1
   end
 
   if self.explorer.live_filter.filter then
-    local filter_line = string.format("%s/%s/", self.opts.live_filter.prefix, self.explorer.live_filter.filter)
+    local filter_line = string.format("%s/%s/", self.explorer.opts.live_filter.prefix, self.explorer.live_filter.filter)
     table.insert(self.lines, filter_line)
-    local prefix_length = string.len(self.opts.live_filter.prefix)
+    local prefix_length = string.len(self.explorer.opts.live_filter.prefix)
     self:insert_highlight({ "NvimTreeLiveFilterPrefix" }, 0,             prefix_length)
     self:insert_highlight({ "NvimTreeLiveFilterValue" },  prefix_length, string.len(filter_line))
     self.index = self.index + 1
@@ -523,11 +443,11 @@ function Builder:setup_hidden_display_function(opts)
       -- In case of missing field such as live_filter we zero it, otherwise keep field as is
       hidden_stats = vim.tbl_deep_extend("force", {
         live_filter = 0,
-        git = 0,
-        buf = 0,
-        dotfile = 0,
-        custom = 0,
-        bookmark = 0,
+        git         = 0,
+        buf         = 0,
+        dotfile     = 0,
+        custom      = 0,
+        bookmark    = 0,
       }, hidden_stats or {})
 
       local ok, result = pcall(hidden_display, hidden_stats)

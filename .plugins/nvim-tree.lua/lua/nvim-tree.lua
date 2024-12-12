@@ -199,6 +199,10 @@ local function setup_autocommands(opts)
       callback = function()
         vim.schedule(function()
           vim.api.nvim_buf_call(0, function()
+            local is_term_mode = vim.api.nvim_get_mode().mode == "t"
+            if is_term_mode then
+              return
+            end
             vim.cmd([[norm! zz]])
           end)
         end)
@@ -208,16 +212,16 @@ local function setup_autocommands(opts)
 
   if opts.diagnostics.enable then
     create_nvim_tree_autocmd("DiagnosticChanged", {
-      callback = function()
+      callback = function(ev)
         log.line("diagnostics", "DiagnosticChanged")
-        require("nvim-tree.diagnostics").update()
+        require("nvim-tree.diagnostics").update_lsp(ev)
       end,
     })
     create_nvim_tree_autocmd("User", {
       pattern = "CocDiagnosticChange",
       callback = function()
         log.line("diagnostics", "CocDiagnosticChange")
-        require("nvim-tree.diagnostics").update()
+        require("nvim-tree.diagnostics").update_coc()
       end,
     })
   end
@@ -284,6 +288,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     special_files = { "Cargo.toml", "Makefile", "README.md", "readme.md" },
     hidden_display = "none",
     symlink_destination = true,
+    decorators = { "Git", "Open", "Hidden", "Modified", "Bookmark", "Diagnostics", "Copied", "Cut", },
     highlight_git = "none",
     highlight_diagnostics = "none",
     highlight_opened_files = "none",
@@ -386,7 +391,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     enable = false,
     show_on_dirs = false,
     show_on_open_dirs = true,
-    debounce_delay = 50,
+    debounce_delay = 500,
     severity = {
       min = vim.diagnostic.severity.HINT,
       max = vim.diagnostic.severity.ERROR,
@@ -451,6 +456,7 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
       quit_on_open = false,
       eject = true,
       resize_window = true,
+      relative_path = true,
       window_picker = {
         enable = true,
         picker = "default",
@@ -490,11 +496,6 @@ local DEFAULT_OPTS = { -- BEGIN_DEFAULT_OPTS
     },
   },
   experimental = {
-    actions = {
-      open_file = {
-        relative_path = false,
-      },
-    },
   },
   log = {
     enable = false,
@@ -736,9 +737,6 @@ function M.setup(conf)
   require("nvim-tree.buffers").setup(opts)
   require("nvim-tree.help").setup(opts)
   require("nvim-tree.watcher").setup(opts)
-  if M.config.renderer.icons.show.file and pcall(require, "nvim-web-devicons") then
-    require("nvim-web-devicons").setup()
-  end
 
   setup_autocommands(opts)
 

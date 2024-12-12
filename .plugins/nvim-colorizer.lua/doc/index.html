@@ -29,13 +29,15 @@
 
 
 
+
 <h2>Modules</h2>
 <ul class="nowrap">
   <li><a href="modules/colorizer.html">colorizer</a></li>
   <li><a href="modules/colorizer.buffer.html">buffer</a></li>
   <li><a href="modules/colorizer.color.html">color</a></li>
+  <li><a href="modules/colorizer.config.html">config</a></li>
   <li><a href="modules/colorizer.matcher.html">matcher</a></li>
-  <li><a href="modules/colorizer.parser.argb_hex.html">parser.argb_hex</a></li>
+  <li><a href="modules/colorizer.parser.rgb_hex.html">parser.rgb_hex</a></li>
   <li><a href="modules/colorizer.parser.hsl.html">parser.hsl</a></li>
   <li><a href="modules/colorizer.parser.names.html">parser.names</a></li>
   <li><a href="modules/colorizer.parser.rgb.html">parser.rgb</a></li>
@@ -43,6 +45,7 @@
   <li><a href="modules/colorizer.sass.html">sass</a></li>
   <li><a href="modules/colorizer.tailwind.html">tailwind</a></li>
   <li><a href="modules/colorizer.trie.html">trie</a></li>
+  <li><a href="modules/colorizer.usercmds.html">usercmds</a></li>
   <li><a href="modules/colorizer.utils.html">utils</a></li>
 </ul>
 
@@ -56,63 +59,71 @@
 <table class="module_list">
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.html">colorizer</a></td>
-		<td class="summary">Requires Neovim >= 0.7.0 and <code>set termguicolors</code></td>
+		<td class="summary">Requires Neovim >= 0.7.0 and `set termguicolors`</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.buffer.html">colorizer.buffer</a></td>
-		<td class="summary">Helper functions to highlight buffer smartly</td>
+		<td class="summary">Provides highlighting functions for buffer</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.color.html">colorizer.color</a></td>
-		<td class="summary">Helper color functions</td>
+		<td class="summary">Provides color conversion and utility functions for RGB and HSL values.</td>
+	</tr>
+	<tr>
+		<td class="name"  nowrap><a href="modules/colorizer.config.html">colorizer.config</a></td>
+		<td class="summary">Provides configuration options and utilities for setting up colorizer.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.matcher.html">colorizer.matcher</a></td>
-		<td class="summary">Helper functions for colorizer to enable required parsers</td>
+		<td class="summary">Manages matching and parsing of color patterns in buffers.</td>
 	</tr>
 	<tr>
-		<td class="name"  nowrap><a href="modules/colorizer.parser.argb_hex.html">colorizer.parser.argb_hex</a></td>
-		<td class="summary">Helper function to parse argb</td>
+		<td class="name"  nowrap><a href="modules/colorizer.parser.rgb_hex.html">colorizer.parser.rgb_hex</a></td>
+		<td class="summary">This module provides a parser for extracting `0xAARRGGBB` hexadecimal color values and converting them to RGB hex.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.parser.hsl.html">colorizer.parser.hsl</a></td>
-		<td class="summary">Helper function to parse argb</td>
+		<td class="summary">This module provides a parser for identifying and converting `hsl()` and `hsla()` CSS functions to RGB hexadecimal format.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.parser.names.html">colorizer.parser.names</a></td>
-		<td class="summary">Helper function to parse argb</td>
+		<td class="summary">This module provides a parser that identifies named colors from a given line of text.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.parser.rgb.html">colorizer.parser.rgb</a></td>
-		<td class="summary">Helper function to parse argb</td>
+		<td class="summary">This module provides a parser for identifying and converting `rgb()` and `rgba()` CSS functions to RGB hexadecimal format.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.parser.rgba_hex.html">colorizer.parser.rgba_hex</a></td>
-		<td class="summary">Helper function to parse argb</td>
+		<td class="summary">This module provides a parser for identifying and converting `#RRGGBBAA` hexadecimal color values to RGB hexadecimal format.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.sass.html">colorizer.sass</a></td>
-		<td class="summary">Helper functions to parse sass color variables</td>
+		<td class="summary">Manages Sass variable parsing and color detection for buffers.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.tailwind.html">colorizer.tailwind</a></td>
-		<td class="summary">Helper functions to parse tailwind color variables</td>
+		<td class="summary">Handles Tailwind CSS color highlighting within buffers.</td>
 	</tr>
 	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.trie.html">colorizer.trie</a></td>
 		<td class="summary">Trie implementation in luajit.</td>
 	</tr>
 	<tr>
+		<td class="name"  nowrap><a href="modules/colorizer.usercmds.html">colorizer.usercmds</a></td>
+		<td class="summary">This module provides functions for creating user commands for the Colorizer plugin in Neovim.</td>
+	</tr>
+	<tr>
 		<td class="name"  nowrap><a href="modules/colorizer.utils.html">colorizer.utils</a></td>
-		<td class="summary">Helper utils</td>
+		<td class="summary">Provides utility functions for color handling and file operations.</td>
 	</tr>
 </table>
 
 </div> <!-- id="content" -->
 </div> <!-- id="main" -->
 <div id="about">
-<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated - February </i>
+<i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
+<i style="float:right;">Last updated - November </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

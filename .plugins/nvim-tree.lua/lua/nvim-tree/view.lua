@@ -15,31 +15,31 @@ local DEFAULT_MAX_WIDTH = -1
 local DEFAULT_PADDING = 1
 
 M.View = {
-  adaptive_size = false,
+  adaptive_size        = false,
   centralize_selection = false,
-  tabpages = {},
-  cursors = {},
-  hide_root_folder = false,
-  live_filter = {
+  tabpages             = {},
+  cursors              = {},
+  hide_root_folder     = false,
+  live_filter          = {
     prev_focused_node = nil,
   },
-  winopts = {
+  winopts              = {
     relativenumber = false,
-    number = false,
-    list = false,
-    foldenable = false,
-    winfixwidth = true,
-    winfixheight = true,
-    spell = false,
-    signcolumn = "yes",
-    foldmethod = "manual",
-    foldcolumn = "0",
-    cursorcolumn = false,
-    cursorline = true,
-    cursorlineopt = "both",
-    colorcolumn = "0",
-    wrap = false,
-    winhl = table.concat({
+    number         = false,
+    list           = false,
+    foldenable     = false,
+    winfixwidth    = true,
+    winfixheight   = true,
+    spell          = false,
+    signcolumn     = "yes",
+    foldmethod     = "manual",
+    foldcolumn     = "0",
+    cursorcolumn   = false,
+    cursorline     = true,
+    cursorlineopt  = "both",
+    colorcolumn    = "0",
+    wrap           = false,
+    winhl          = table.concat({
       "EndOfBuffer:NvimTreeEndOfBuffer",
       "CursorLine:NvimTreeCursorLine",
       "CursorLineNr:NvimTreeCursorLineNr",
@@ -65,13 +65,15 @@ local tabinitial = {
 }
 
 local BUFNR_PER_TAB = {}
+
+---@type { name: string, value: any }[]
 local BUFFER_OPTIONS = {
-  swapfile = false,
-  buftype = "nofile",
-  modifiable = false,
-  filetype = "NvimTree",
-  bufhidden = "wipe",
-  buflisted = false,
+  { name = "bufhidden",  value = "wipe" },
+  { name = "buflisted",  value = false },
+  { name = "buftype",    value = "nofile" },
+  { name = "filetype",   value = "NvimTree" },
+  { name = "modifiable", value = false },
+  { name = "swapfile",   value = false },
 }
 
 ---@param bufnr integer
@@ -101,8 +103,9 @@ local function create_buffer(bufnr)
   BUFNR_PER_TAB[tab] = bufnr or vim.api.nvim_create_buf(false, false)
   vim.api.nvim_buf_set_name(M.get_bufnr(), "NvimTree_" .. tab)
 
-  for option, value in pairs(BUFFER_OPTIONS) do
-    vim.bo[M.get_bufnr()][option] = value
+  bufnr = M.get_bufnr()
+  for _, option in ipairs(BUFFER_OPTIONS) do
+    vim.api.nvim_set_option_value(option.name, option.value, { buf = bufnr })
   end
 
   require("nvim-tree.keymap").on_attach(M.get_bufnr())
@@ -116,7 +119,7 @@ local function get_size(size)
   if type(size) == "number" then
     return size
   elseif type(size) == "function" then
-    return size()
+    return get_size(size())
   end
   local size_as_number = tonumber(size:sub(0, -2))
   local percent_as_decimal = size_as_number / 100
@@ -147,12 +150,28 @@ end
 
 local function set_window_options_and_buffer()
   pcall(vim.api.nvim_command, "buffer " .. M.get_bufnr())
-  local eventignore = vim.opt.eventignore:get()
-  vim.opt.eventignore = "all"
-  for k, v in pairs(M.View.winopts) do
-    vim.opt_local[k] = v
+
+  if vim.fn.has("nvim-0.10") == 1 then
+    local eventignore = vim.api.nvim_get_option_value("eventignore", {})
+    vim.api.nvim_set_option_value("eventignore", "all", {})
+
+    for k, v in pairs(M.View.winopts) do
+      vim.api.nvim_set_option_value(k, v, { scope = "local" })
+    end
+
+    vim.api.nvim_set_option_value("eventignore", eventignore, {})
+  else
+    local eventignore = vim.api.nvim_get_option("eventignore") ---@diagnostic disable-line: deprecated
+    vim.api.nvim_set_option("eventignore", "all") ---@diagnostic disable-line: deprecated
+
+    -- #3009 vim.api.nvim_win_set_option does not set local scope without explicit winid.
+    -- Revert to opt_local instead of propagating it through for just the 0.10 path.
+    for k, v in pairs(M.View.winopts) do
+      vim.opt_local[k] = v
+    end
+
+    vim.api.nvim_set_option("eventignore", eventignore) ---@diagnostic disable-line: deprecated
   end
-  vim.opt.eventignore = eventignore
 end
 
 ---@return table
@@ -495,12 +514,6 @@ end
 ---@return number
 function M.get_bufnr()
   return BUFNR_PER_TAB[vim.api.nvim_get_current_tabpage()]
-end
-
----@param bufnr number
----@return boolean
-function M.is_buf_valid(bufnr)
-  return bufnr and vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr)
 end
 
 function M._prevent_buffer_override()

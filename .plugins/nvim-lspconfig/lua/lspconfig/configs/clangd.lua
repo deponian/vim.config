@@ -27,7 +27,8 @@ local function symbol_info()
   if not clangd_client or not clangd_client.supports_method 'textDocument/symbolInfo' then
     return vim.notify('Clangd client not found', vim.log.levels.ERROR)
   end
-  local params = vim.lsp.util.make_position_params()
+  local win = vim.api.nvim_get_current_win()
+  local params = vim.lsp.util.make_position_params(win, clangd_client.offset_encoding)
   clangd_client.request('textDocument/symbolInfo', params, function(err, res)
     if err or #res == 0 then
       -- Clangd always returns an error, there is not reason to parse it
@@ -40,7 +41,7 @@ local function symbol_info()
       width = math.max(string.len(name), string.len(container)),
       focusable = false,
       focus = false,
-      border = require('lspconfig.ui.windows').default_options.border or 'single',
+      border = 'single',
       title = 'Symbol Info',
     })
   end, bufnr)

@@ -2,14 +2,16 @@ local core = require("nvim-tree.core")
 local view = require("nvim-tree.view")
 local utils = require("nvim-tree.utils")
 local actions = require("nvim-tree.actions")
-local appearance_diagnostics = require("nvim-tree.appearance.diagnostics")
+local appearance_hi_test = require("nvim-tree.appearance.hi-test")
 local events = require("nvim-tree.events")
 local help = require("nvim-tree.help")
 local keymap = require("nvim-tree.keymap")
 local notify = require("nvim-tree.notify")
 
 local DirectoryNode = require("nvim-tree.node.directory")
+local FileLinkNode = require("nvim-tree.node.file-link")
 local RootNode = require("nvim-tree.node.root")
+local UserDecorator = require("nvim-tree.renderer.decorator.user")
 
 local Api = {
   tree = {},
@@ -38,6 +40,7 @@ local Api = {
   },
   commands = {},
   diagnostics = {},
+  decorator = {},
 }
 
 ---Print error when setup not called.
@@ -68,7 +71,7 @@ end
 
 ---Inject the node as the first argument if present otherwise do nothing.
 ---@param fn fun(node: Node, ...): any
----@return fun(node: Node, ...): any
+---@return fun(node: Node?, ...): any
 local function wrap_node(fn)
   return function(node, ...)
     node = node or wrap_explorer("get_node_at_cursor")()
@@ -79,13 +82,29 @@ local function wrap_node(fn)
 end
 
 ---Inject the node or nil as the first argument if absent.
----@param fn fun(node: Node, ...): any
----@return fun(node: Node, ...): any
+---@param fn fun(node: Node?, ...): any
+---@return fun(node: Node?, ...): any
 local function wrap_node_or_nil(fn)
   return function(node, ...)
     node = node or wrap_explorer("get_node_at_cursor")()
     return fn(node, ...)
   end
+end
+
+---Invoke a member's method on the singleton explorer.
+---Print error when setup not called.
+---@param explorer_member string explorer member name
+---@param member_method string method name to invoke on member
+---@param ... any passed to method
+---@return fun(...): any
+local function wrap_explorer_member_args(explorer_member, member_method, ...)
+  local method_args = ...
+  return wrap(function(...)
+    local explorer = core.get_explorer()
+    if explorer then
+      return explorer[explorer_member][member_method](explorer[explorer_member], method_args, ...)
+    end
+  end)
 end
 
 ---Invoke a member's method on the singleton explorer.
@@ -140,8 +159,11 @@ end)
 Api.tree.change_root_to_node = wrap_node(function(node)
   if node.name == ".." or node:is(RootNode) then
     actions.root.change_dir.fn("..")
-  elseif node:is(DirectoryNode) then
-    actions.root.change_dir.fn(node:last_group_node().absolute_path)
+  else
+    node = node:as(DirectoryNode)
+    if node then
+      actions.root.change_dir.fn(node:last_group_node().absolute_path)
+    end
   end
 end)
 
@@ -161,13 +183,13 @@ Api.tree.find_file = wrap(actions.tree.find_file.fn)
 Api.tree.search_node = wrap(actions.finders.search_node.fn)
 Api.tree.collapse_all = wrap(actions.tree.modifiers.collapse_all.fn)
 Api.tree.expand_all = wrap_node(actions.tree.modifiers.expand_all.fn)
-Api.tree.toggle_enable_filters = wrap(actions.tree.modifiers.toggles.enable)
-Api.tree.toggle_gitignore_filter = wrap(actions.tree.modifiers.toggles.git_ignored)
-Api.tree.toggle_git_clean_filter = wrap(actions.tree.modifiers.toggles.git_clean)
-Api.tree.toggle_no_buffer_filter = wrap(actions.tree.modifiers.toggles.no_buffer)
-Api.tree.toggle_custom_filter = wrap(actions.tree.modifiers.toggles.custom)
-Api.tree.toggle_hidden_filter = wrap(actions.tree.modifiers.toggles.dotfiles)
-Api.tree.toggle_no_bookmark_filter = wrap(actions.tree.modifiers.toggles.no_bookmark)
+Api.tree.toggle_enable_filters = wrap_explorer_member("filters", "toggle")
+Api.tree.toggle_gitignore_filter = wrap_explorer_member_args("filters", "toggle", "git_ignored")
+Api.tree.toggle_git_clean_filter = wrap_explorer_member_args("filters", "toggle", "git_clean")
+Api.tree.toggle_no_buffer_filter = wrap_explorer_member_args("filters", "toggle", "no_buffer")
+Api.tree.toggle_custom_filter = wrap_explorer_member_args("filters", "toggle", "custom")
+Api.tree.toggle_hidden_filter = wrap_explorer_member_args("filters", "toggle", "dotfiles")
+Api.tree.toggle_no_bookmark_filter = wrap_explorer_member_args("filters", "toggle", "no_bookmark")
 Api.tree.toggle_help = wrap(help.toggle)
 Api.tree.is_tree_buf = wrap(utils.is_nvim_tree_buf)
 
@@ -203,10 +225,8 @@ Api.fs.copy.relative_path = wrap_node(wrap_explorer_member("clipboard", "copy_pa
 ---@param mode string
 ---@param node Node
 local function edit(mode, node)
-  local path = node.absolute_path
-  if node.link_to and not node.nodes then
-    path = node.link_to
-  end
+  local file_link = node:as(FileLinkNode)
+  local path = file_link and file_link.link_to or node.absolute_path
   actions.node.open_file.fn(mode, path)
 end
 
@@ -216,10 +236,13 @@ end
 local function open_or_expand_or_dir_up(mode, toggle_group)
   ---@param node Node
   return function(node)
-    if node.name == ".." then
+    local root = node:as(RootNode)
+    local dir = node:as(DirectoryNode)
+
+    if root or node.name == ".." then
       actions.root.change_dir.fn("..")
-    elseif node:is(DirectoryNode) then
-      node:expand_or_collapse(toggle_group)
+    elseif dir then
+      dir:expand_or_collapse(toggle_group)
     elseif not toggle_group then
       edit(mode, node)
     end
@@ -284,10 +307,15 @@ Api.config.mappings.get_keymap = wrap(keymap.get_keymap)
 Api.config.mappings.get_keymap_default = wrap(keymap.get_keymap_default)
 Api.config.mappings.default_on_attach = keymap.default_on_attach
 
-Api.diagnostics.hi_test = wrap(appearance_diagnostics.hi_test)
+Api.diagnostics.hi_test = wrap(appearance_hi_test)
 
 Api.commands.get = wrap(function()
   return require("nvim-tree.commands").get()
 end)
+
+---Create a decorator class by calling :extend()
+---See :help nvim-tree-decorators
+---@type nvim_tree.api.decorator.UserDecorator
+Api.decorator.UserDecorator = UserDecorator --[[@as nvim_tree.api.decorator.UserDecorator]]
 
 return Api

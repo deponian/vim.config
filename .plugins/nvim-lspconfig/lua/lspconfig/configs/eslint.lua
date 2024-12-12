@@ -125,7 +125,7 @@ return {
       -- Support Yarn2 (PnP) projects
       local pnp_cjs = util.path.join(new_root_dir, '.pnp.cjs')
       local pnp_js = util.path.join(new_root_dir, '.pnp.js')
-      if util.path.exists(pnp_cjs) or util.path.exists(pnp_js) then
+      if vim.loop.fs_stat(pnp_cjs) or vim.loop.fs_stat(pnp_js) then
         config.cmd = vim.list_extend({ 'yarn', 'exec' }, config.cmd)
       end
     end,
@@ -134,7 +134,7 @@ return {
         if not result then
           return
         end
-        local sysname = vim.uv.os_uname().sysname
+        local sysname = vim.loop.os_uname().sysname
         if sysname:match 'Windows' then
           os.execute(string.format('start %q', result.url))
         elseif sysname:match 'Linux' then

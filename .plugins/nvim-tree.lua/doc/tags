@@ -120,6 +120,8 @@ nvim-tree-api.tree.toggle_no_bookmark_filter()	nvim-tree-lua.txt	/*nvim-tree-api
 nvim-tree-api.tree.toggle_no_buffer_filter()	nvim-tree-lua.txt	/*nvim-tree-api.tree.toggle_no_buffer_filter()*
 nvim-tree-api.tree.winid()	nvim-tree-lua.txt	/*nvim-tree-api.tree.winid()*
 nvim-tree-commands	nvim-tree-lua.txt	/*nvim-tree-commands*
+nvim-tree-decorator-example	nvim-tree-lua.txt	/*nvim-tree-decorator-example*
+nvim-tree-decorators	nvim-tree-lua.txt	/*nvim-tree-decorators*
 nvim-tree-events	nvim-tree-lua.txt	/*nvim-tree-events*
 nvim-tree-highlight	nvim-tree-lua.txt	/*nvim-tree-highlight*
 nvim-tree-highlight-default	nvim-tree-lua.txt	/*nvim-tree-highlight-default*
@@ -241,6 +243,7 @@ nvim-tree.on_attach	nvim-tree-lua.txt	/*nvim-tree.on_attach*
 nvim-tree.prefer_startup_root	nvim-tree-lua.txt	/*nvim-tree.prefer_startup_root*
 nvim-tree.reload_on_bufenter	nvim-tree-lua.txt	/*nvim-tree.reload_on_bufenter*
 nvim-tree.renderer.add_trailing	nvim-tree-lua.txt	/*nvim-tree.renderer.add_trailing*
+nvim-tree.renderer.decorators	nvim-tree-lua.txt	/*nvim-tree.renderer.decorators*
 nvim-tree.renderer.full_name	nvim-tree-lua.txt	/*nvim-tree.renderer.full_name*
 nvim-tree.renderer.group_empty	nvim-tree-lua.txt	/*nvim-tree.renderer.group_empty*
 nvim-tree.renderer.hidden_display	nvim-tree-lua.txt	/*nvim-tree.renderer.hidden_display*

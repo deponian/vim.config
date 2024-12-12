@@ -57,7 +57,7 @@ M.defaults                      = {
       vertical     = "down:45%",
       horizontal   = "right:60%",
       layout       = "flex",
-      flip_columns = 120,
+      flip_columns = 100,
       title        = true,
       title_pos    = "center",
       scrollbar    = "border",
@@ -95,6 +95,8 @@ M.defaults                      = {
       ["<F4>"]       = "toggle-preview",
       ["<F5>"]       = "toggle-preview-ccw",
       ["<F6>"]       = "toggle-preview-cw",
+      ["<F7>"]       = "toggle-preview-ts-ctx",
+      ["<S-Left>"]   = "preview-reset",
       ["<S-down>"]   = "preview-page-down",
       ["<S-up>"]     = "preview-page-up",
       ["<M-S-down>"] = "preview-down",
@@ -108,8 +110,8 @@ M.defaults                      = {
       ["ctrl-a"]         = "beginning-of-line",
       ["ctrl-e"]         = "end-of-line",
       ["alt-a"]          = "toggle-all",
-      ["alt-g"]          = "last",
-      ["alt-G"]          = "first",
+      ["alt-g"]          = "first",
+      ["alt-G"]          = "last",
       -- Only valid with fzf previewers (bat/cat/git/etc)
       ["f3"]             = "toggle-preview-wrap",
       ["f4"]             = "toggle-preview",
@@ -196,9 +198,16 @@ M.defaults                      = {
       syntax_limit_l    = 0,
       syntax_limit_b    = 1024 * 1024,      -- 1MB
       limit_b           = 1024 * 1024 * 10, -- 10MB
-      treesitter        = { enable = true, disable = {} },
+      treesitter        = {
+        enable = true,
+        disable = {},
+        -- nvim-treesitter-context config options
+        -- https://github.com/nvim-treesitter/nvim-treesitter-context
+        context = { max_lines = 1, trim_scope = "inner" }
+      },
       ueberzug_scaler   = "cover",
       title_fnamemodify = function(s) return path.tail(s) end,
+      render_markdown   = { enable = true, filetypes = { ["markdown"] = true } },
       _ctor             = previewers.builtin.buffer_or_file,
     },
     codeaction = {

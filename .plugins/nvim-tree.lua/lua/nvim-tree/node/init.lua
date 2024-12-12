@@ -1,50 +1,58 @@
-local git = require("nvim-tree.git")
-
-local Class = require("nvim-tree.class")
+local Class = require("nvim-tree.classic")
 
 ---Abstract Node class.
----Uses the abstract factory pattern to instantiate child instances.
 ---@class (exact) Node: Class
----@field type NODE_TYPE
+---@field uid_node number vim.loop.hrtime() at construction time
+---@field type "file" | "directory" | "link" uv.fs_stat.result.type
 ---@field explorer Explorer
 ---@field absolute_path string
 ---@field executable boolean
 ---@field fs_stat uv.fs_stat.result?
----@field git_status GitStatus?
+---@field git_status GitNodeStatus?
 ---@field hidden boolean
 ---@field name string
 ---@field parent DirectoryNode?
 ---@field diag_status DiagStatus?
----@field is_dot boolean cached is_dotfile
-local Node = Class:new()
+---@field private is_dot boolean cached is_dotfile
+local Node = Class:extend()
+
+---@class (exact) NodeArgs
+---@field explorer Explorer
+---@field parent DirectoryNode?
+---@field absolute_path string
+---@field name string
+---@field fs_stat uv.fs_stat.result?
+
+---@protected
+---@param args NodeArgs
+function Node:new(args)
+  self.uid_node      = vim.loop.hrtime()
+  self.explorer      = args.explorer
+  self.absolute_path = args.absolute_path
+  self.executable    = false
+  self.fs_stat       = args.fs_stat
+  self.git_status    = nil
+  self.hidden        = false
+  self.name          = args.name
+  self.parent        = args.parent
+  self.diag_status   = nil
+  self.is_dot        = false
+end
 
 function Node:destroy()
 end
 
---luacheck: push ignore 212
----Update the GitStatus of the node
+---Update the git_status of the node
+---Abstract
 ---@param parent_ignored boolean
----@param status table?
-function Node:update_git_status(parent_ignored, status) ---@diagnostic disable-line: unused-local
-  ---TODO find a way to declare abstract methods
+---@param project GitProject?
+function Node:update_git_status(parent_ignored, project)
+  self:nop(parent_ignored, project)
 end
 
---luacheck: pop
-
----@return GitStatus?
-function Node:get_git_status()
-end
-
----@param projects table
-function Node:reload_node_status(projects)
-  local toplevel = git.get_toplevel(self.absolute_path)
-  local status = projects[toplevel] or {}
-  for _, node in ipairs(self.nodes) do
-    node:update_git_status(self:is_git_ignored(), status)
-    if node.nodes and #node.nodes > 0 then
-      node:reload_node_status(projects)
-    end
-  end
+---Short-format statuses
+---@return GitXY[]?
+function Node:get_git_xy()
 end
 
 ---@return boolean
@@ -66,38 +74,6 @@ function Node:is_dotfile()
   return false
 end
 
----@param project table?
----@param root string?
-function Node:update_parent_statuses(project, root)
-  local node = self
-  while project and node do
-    -- step up to the containing project
-    if node.absolute_path == root then
-      -- stop at the top of the tree
-      if not node.parent then
-        break
-      end
-
-      root = git.get_toplevel(node.parent.absolute_path)
-
-      -- stop when no more projects
-      if not root then
-        break
-      end
-
-      -- update the containing project
-      project = git.get_project(root)
-      git.reload_project(root, node.absolute_path, nil)
-    end
-
-    -- update status
-    node:update_git_status(node.parent and node.parent:is_git_ignored() or false, project)
-
-    -- maybe parent
-    node = node.parent
-  end
-end
-
 ---Get the highest parent of grouped nodes, nil when not grouped
 ---@return DirectoryNode?
 function Node:get_parent_of_group()
@@ -115,26 +91,55 @@ function Node:get_parent_of_group()
   end
 end
 
----Create a sanitized partial copy of a node, populating children recursively.
----@return Node cloned
-function Node:clone()
-  ---@type Explorer
-  local explorer_placeholder = nil
+---Empty highlighted icon
+---@protected
+---@return HighlightedString icon
+function Node:highlighted_icon_empty()
+  return { str = "", hl = {} }
+end
 
-  ---@type Node
+---Highlighted icon for the node
+---Empty for base Node
+---@return HighlightedString icon
+function Node:highlighted_icon()
+  return self:highlighted_icon_empty()
+end
+
+---Empty highlighted name
+---@protected
+---@return HighlightedString name
+function Node:highlighted_name_empty()
+  return { str = "", hl = {} }
+end
+
+---Highlighted name for the node
+---Empty for base Node
+---@return HighlightedString name
+function Node:highlighted_name()
+  return self:highlighted_name_empty()
+end
+
+---Create a sanitized partial copy of a node, populating children recursively.
+---@param api_nodes table<number, nvim_tree.api.Node>? optional map of uids to api node to populate
+---@return nvim_tree.api.Node cloned
+function Node:clone(api_nodes)
+  ---@type nvim_tree.api.Node
   local clone = {
-    type = self.type,
-    explorer = explorer_placeholder,
+    uid_node      = self.uid_node,
+    type          = self.type,
     absolute_path = self.absolute_path,
-    executable = self.executable,
-    fs_stat = self.fs_stat,
-    git_status = self.git_status,
-    hidden = self.hidden,
-    is_dot = self.is_dot,
-    name = self.name,
-    parent = nil,
-    diag_status = nil,
+    executable    = self.executable,
+    fs_stat       = self.fs_stat,
+    git_status    = self.git_status,
+    hidden        = self.hidden,
+    name          = self.name,
+    parent        = nil,
+    diag_severity = self.diag_status and self.diag_status.value or nil,
   }
+
+  if api_nodes then
+    api_nodes[self.uid_node] = clone
+  end
 
   return clone
 end

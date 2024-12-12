@@ -19,6 +19,10 @@ local aliases = {
     to = 'ruby_lsp',
     version = '0.2.1',
   },
+  ruff_lsp = {
+    to = 'ruff',
+    version = '0.2.1',
+  },
   ['starlark-rust'] = {
     to = 'starlark_rust',
     version = '0.2.1',
@@ -29,6 +33,14 @@ local aliases = {
   },
   tsserver = {
     to = 'ts_ls',
+    version = '0.2.1',
+  },
+  bufls = {
+    to = 'buf_ls',
+    version = '0.2.1',
+  },
+  typst_lsp = {
+    to = 'tinymist',
     version = '0.2.1',
   },
 }

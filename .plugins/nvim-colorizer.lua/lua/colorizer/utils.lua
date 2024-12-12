@@ -1,11 +1,12 @@
----Helper utils
---@module colorizer.utils
-local bit, ffi = require "bit", require "ffi"
+--- Provides utility functions for color handling and file operations.
+-- This module contains helper functions for checking byte categories, merging tables,
+-- parsing colors, managing file watchers, and handling buffer lines.
+-- @module colorizer.utils
+
+local M = {}
+
+local bit, ffi = require("bit"), require("ffi")
 local band, bor, rshift, lshift = bit.band, bit.bor, bit.rshift, bit.lshift
-
-local uv = vim.loop
-
-local utils = {}
 
 -- -- TODO use rgb as the return value from the matcher functions
 -- -- instead of the rgb_hex. Can be the highlight key as well
@@ -18,16 +19,15 @@ local utils = {}
 
 -- Create a lookup table where the bottom 4 bits are used to indicate the
 -- category and the top 4 bits are the hex value of the ASCII byte.
-local BYTE_CATEGORY = ffi.new "uint8_t[256]"
-local CATEGORY_DIGIT = lshift(1, 0)
-local CATEGORY_ALPHA = lshift(1, 1)
-local CATEGORY_HEX = lshift(1, 2)
-local CATEGORY_ALPHANUM = bor(CATEGORY_ALPHA, CATEGORY_DIGIT)
+local byte_category = ffi.new("uint8_t[256]")
+local category_hex = lshift(1, 2)
+local category_alphanum = bor(lshift(1, 1) --[[alpha]], lshift(1, 0) --[[digit]])
 
 do
   -- do not run the loop multiple times
   local b = string.byte
-  local byte_values = { ["0"] = b "0", ["9"] = b "9", ["a"] = b "a", ["f"] = b "f", ["z"] = b "z" }
+  local byte_values =
+    { ["0"] = b("0"), ["9"] = b("9"), ["a"] = b("a"), ["f"] = b("f"), ["z"] = b("z") }
 
   for i = 0, 255 do
     local v = 0
@@ -45,51 +45,51 @@ do
         v = bor(v, lshift(lowercase - byte_values["a"] + 10, 4))
       end
     end
-    BYTE_CATEGORY[i] = v
+    byte_category[i] = v
   end
 end
 
----Obvious.
----@param byte number
----@return boolean
-function utils.byte_is_alphanumeric(byte)
-  local category = BYTE_CATEGORY[byte]
-  return band(category, CATEGORY_ALPHANUM) ~= 0
+--- Checks if a byte represents an alphanumeric character.
+---@param byte number The byte to check.
+---@return boolean `true` if the byte is alphanumeric, otherwise `false`.
+function M.byte_is_alphanumeric(byte)
+  local category = byte_category[byte]
+  return band(category, category_alphanum) ~= 0
 end
 
----Obvious.
----@param byte number
----@return boolean
-function utils.byte_is_hex(byte)
-  return band(BYTE_CATEGORY[byte], CATEGORY_HEX) ~= 0
+--- Checks if a byte represents a hexadecimal character.
+---@param byte number The byte to check.
+---@return boolean `true` if the byte is hexadecimal, otherwise `false`.
+function M.byte_is_hex(byte)
+  return band(byte_category[byte], category_hex) ~= 0
 end
 
----Valid colorchars are alphanumeric and - ( tailwind colors )
----@param byte number
----@return boolean
-function utils.byte_is_valid_colorchar(byte)
-  return utils.byte_is_alphanumeric(byte) or byte == ("-"):byte()
+--- Checks if a byte is valid as a color character (alphanumeric or `-` for Tailwind colors).
+---@param byte number The byte to check.
+---@return boolean `true` if the byte is valid, otherwise `false`.
+function M.byte_is_valid_colorchar(byte)
+  return M.byte_is_alphanumeric(byte) or byte == ("-"):byte()
 end
 
 ---Count the number of character in a string
 ---@param str string
 ---@param pattern string
 ---@return number
-function utils.count(str, pattern)
+function M.count(str, pattern)
   return select(2, string.gsub(str, pattern, ""))
 end
 
 --- Get last modified time of a file
 ---@param path string: file path
 ---@return number|nil: modified time
-function utils.get_last_modified(path)
-  local fd = uv.fs_open(path, "r", 438)
+function M.get_last_modified(path)
+  local fd = vim.loop.fs_open(path, "r", 438)
   if not fd then
     return
   end
 
-  local stat = uv.fs_fstat(fd)
-  uv.fs_close(fd)
+  local stat = vim.loop.fs_fstat(fd)
+  vim.loop.fs_close(fd)
   if stat then
     return stat.mtime.nsec
   else
@@ -98,10 +98,9 @@ function utils.get_last_modified(path)
 end
 
 ---Merge two tables.
---
 -- todo: Remove this and use `vim.tbl_deep_extend`
 ---@return table
-function utils.merge(...)
+function M.merge(...)
   local res = {}
   for i = 1, select("#", ...) do
     local o = select(i, ...)
@@ -115,24 +114,24 @@ function utils.merge(...)
   return res
 end
 
---- Obvious.
----@param byte number
----@return number
-function utils.parse_hex(byte)
-  return rshift(BYTE_CATEGORY[byte], 4)
+--- Parses a hexadecimal byte.
+---@param byte number The byte to parse.
+---@return number The parsed hexadecimal value of the byte.
+function M.parse_hex(byte)
+  return rshift(byte_category[byte], 4)
 end
 
 --- Watch a file for changes and execute callback
 ---@param path string: File path
 ---@param callback function: Callback to execute
 ---@param ... table: params for callback
----@return function|nil
-function utils.watch_file(path, callback, ...)
+---@return uv_fs_event_t|nil
+function M.watch_file(path, callback, ...)
   if not path or type(callback) ~= "function" then
     return
   end
 
-  local fullpath = uv.fs_realpath(path)
+  local fullpath = vim.loop.fs_realpath(path)
   if not fullpath then
     return
   end
@@ -140,19 +139,22 @@ function utils.watch_file(path, callback, ...)
   local start
   local args = { ... }
 
-  local handle = uv.new_fs_event()
+  local handle = vim.loop.new_fs_event()
+  if not handle then
+    return
+  end
   local function on_change(err, filename, _)
     -- Do work...
     callback(filename, unpack(args))
     -- Debounce: stop/start.
     handle:stop()
-    if not err or not utils.get_last_modified(filename) then
+    if not err or not M.get_last_modified(filename) then
       start()
     end
   end
 
   function start()
-    uv.fs_event_start(
+    vim.loop.fs_event_start(
       handle,
       fullpath,
       {},
@@ -166,4 +168,13 @@ function utils.watch_file(path, callback, ...)
   return handle
 end
 
-return utils
+--- Validates and returns a buffer number.
+-- If the provided buffer number is invalid, defaults to the current buffer.
+---@param bufnr number|nil: The buffer number to validate.
+---@return number The validated buffer number.
+function M.bufme(bufnr)
+  return bufnr and bufnr ~= 0 and vim.api.nvim_buf_is_valid(bufnr) and bufnr
+    or vim.api.nvim_get_current_buf()
+end
+
+return M

@@ -508,6 +508,14 @@ function M.normalize_opts(opts, globals, __resume_key)
       opts.fzf_opts = opts.fzf_opts or {}
       opts.fzf_opts["--border"] = false
     end
+  else
+    local SK_VERSION, rc, err = utils.sk_version(opts)
+    opts.__SK_VERSION = SK_VERSION
+    if not opts.__SK_VERSION then
+      utils.err(string.format(
+        "'sk --version' failed with error %s: %s", rc, err))
+      return nil
+    end
   end
 
   if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53
@@ -527,6 +535,8 @@ function M.normalize_opts(opts, globals, __resume_key)
       and opts.fzf_bin:match("fzf%-tmux$") and 1
       -- fzf v0.53 added native tmux integration
       or opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 and opts.fzf_opts["--tmux"] and 2
+      -- skim v0.15.5 added native tmux integration
+      or opts.__SK_VERSION and opts.__SK_VERSION >= 0.155 and opts.fzf_opts["--tmux"] and 2
   if opts._is_fzf_tmux then
     local out = utils.io_system({ "tmux", "display-message", "-p", "#{window_width}" })
     opts._tmux_columns = tonumber(out:match("%d+"))

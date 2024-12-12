@@ -268,7 +268,9 @@ M.apply_format = function(
   if not dry_run then
     log.trace("Applying text edits: %s", text_edits)
     if undojoin then
-      vim.cmd.undojoin()
+      -- may fail if after undo
+      -- Vim:E790: undojoin is not allowed after undo
+      pcall(vim.cmd.undojoin)
     end
     vim.lsp.util.apply_text_edits(text_edits, bufnr, "utf-8")
     log.trace("Done formatting %s", bufname)
@@ -376,7 +378,7 @@ local function run_formatter(bufnr, formatter, config, ctx, input_lines, opts, c
     {
       cwd = cwd,
       env = env,
-      stdin = config.stdin and buffer_text,
+      stdin = config.stdin and buffer_text or nil,
       text = true,
     },
     vim.schedule_wrap(function(result)
@@ -487,7 +489,7 @@ M.build_context = function(bufnr, config, range)
     end
     local basename = vim.fs.basename(filename)
     local tmpname =
-      template:gsub("$FILENAME", basename):gsub("$RANDOM", tostring(math.random(1000000, 9999999)))
+      template:gsub("$RANDOM", tostring(math.random(1000000, 9999999))):gsub("$FILENAME", basename)
     local parent = vim.fs.dirname(filename)
     filename = fs.join(parent, tmpname)
   end

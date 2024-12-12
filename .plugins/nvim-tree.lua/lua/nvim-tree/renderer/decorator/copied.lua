@@ -1,36 +1,29 @@
-local HL_POSITION = require("nvim-tree.enum").HL_POSITION
-local ICON_PLACEMENT = require("nvim-tree.enum").ICON_PLACEMENT
-
 local Decorator = require("nvim-tree.renderer.decorator")
 
----@class (exact) DecoratorCopied: Decorator
----@field icon HighlightedString?
-local DecoratorCopied = Decorator:new()
+---@class (exact) CopiedDecorator: Decorator
+---@field private explorer Explorer
+local CopiedDecorator = Decorator:extend()
 
----Static factory method
----@param opts table
----@param explorer Explorer
----@return DecoratorCopied
-function DecoratorCopied:create(opts, explorer)
-  ---@type DecoratorCopied
-  local o = {
-    explorer = explorer,
-    enabled = true,
-    hl_pos = HL_POSITION[opts.renderer.highlight_clipboard] or HL_POSITION.none,
-    icon_placement = ICON_PLACEMENT.none,
-  }
-  o = self:new(o) --[[@as DecoratorCopied]]
+---@class CopiedDecorator
+---@overload fun(args: DecoratorArgs): CopiedDecorator
 
-  return o
+---@protected
+---@param args DecoratorArgs
+function CopiedDecorator:new(args)
+  self.explorer   = args.explorer
+
+  self.enabled         = true
+  self.highlight_range = self.explorer.opts.renderer.highlight_clipboard or "none"
+  self.icon_placement  = "none"
 end
 
 ---Copied highlight: renderer.highlight_clipboard and node is copied
 ---@param node Node
----@return string|nil group
-function DecoratorCopied:calculate_highlight(node)
-  if self.hl_pos ~= HL_POSITION.none and self.explorer.clipboard:is_copied(node) then
+---@return string? highlight_group
+function CopiedDecorator:highlight_group(node)
+  if self.highlight_range ~= "none" and self.explorer.clipboard:is_copied(node) then
     return "NvimTreeCopiedHL"
   end
 end
 
-return DecoratorCopied
+return CopiedDecorator

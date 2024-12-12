@@ -4,13 +4,8 @@ import vim
 plugin_root = vim.eval("s:plugin_root")
 vim.command(f"py3file {plugin_root}/py/utils.py")
 
-prompt, role_options = parse_prompt_and_role(vim.eval("l:prompt"))
-config = normalize_config(vim.eval("l:config"))
-config_options = {
-    **config['options'],
-    **role_options['options_default'],
-    **role_options['options_chat'],
-}
+prompt, config = load_config_and_prompt()
+config_options = config['options']
 config_ui = config['ui']
 
 def initialize_chat_window():
@@ -50,13 +45,12 @@ initialize_chat_window()
 
 chat_options = parse_chat_header_options()
 options = {**config_options, **chat_options}
-openai_options = make_openai_options(options)
-http_options = make_http_options(options)
 
 initial_prompt = '\n'.join(options.get('initial_prompt', []))
 initial_messages = parse_chat_messages(initial_prompt)
 
 chat_content = vim.eval('trim(join(getline(1, "$"), "\n"))')
+printDebug("[chat] text:\n" + chat_content)
 chat_messages = parse_chat_messages(chat_content)
 is_selection = vim.eval("l:is_selection")
 
@@ -70,18 +64,7 @@ try:
         print('Answering...')
         vim.command("redraw")
 
-        request = {
-            'stream': True,
-            'messages': messages,
-            **openai_options
-        }
-        printDebug("[chat] request: {}", request)
-        url = options['endpoint_url']
-        response = openai_request(url, request, http_options)
-        def map_chunk(resp):
-            printDebug("[chat] response: {}", resp)
-            return resp['choices'][0]['delta'].get('content', '')
-        text_chunks = map(map_chunk, response)
+        text_chunks = make_chat_text_chunks(messages, options)
         render_text_chunks(text_chunks, is_selection)
 
         vim.command("normal! a\n\n>>> user\n\n")

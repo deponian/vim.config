@@ -263,7 +263,6 @@ FORMATTERS                                                    *conform-formatter
             pyflakes.
 `autopep8` - A tool that automatically formats Python code to conform to the PEP
            8 style guide.
-`awk` - Format awk programs with awk
 `bean-format` - Reformat Beancount files to right-align all the numbers at the
               same, minimal column.
 `beautysh` - A Bash beautifier for the masses.
@@ -293,6 +292,7 @@ FORMATTERS                                                    *conform-formatter
 `cljstyle` - Formatter for Clojure code.
 `cmake_format` - Parse cmake listfiles and format them nicely.
 `codespell` - Check code for common misspellings.
+`commitmsgfmt` - Formats commit messages better than fmt(1) and Vim.
 `crlfmt` - Formatter for CockroachDB's additions to the Go style guide.
 `crystal` - Format Crystal code.
 `csharpier` - The opinionated C# code formatter.
@@ -335,6 +335,7 @@ FORMATTERS                                                    *conform-formatter
 `fourmolu` - A fork of ormolu that uses four space indentation and allows
            arbitrary configuration.
 `fprettify` - Auto-formatter for modern fortran source code.
+`gawk` - Format awk programs with gawk.
 `gci` - GCI, a tool that controls Go package import order and makes it always
       deterministic.
 `gdformat` - A formatter for Godot's gdscript.
@@ -426,6 +427,7 @@ FORMATTERS                                                    *conform-formatter
            necessary.
 `prettierd` - prettier, as a daemon, for ludicrous formatting speed.
 `pretty-php` - The opinionated PHP code formatter.
+`prettypst` - Formatter for Typst.
 `puppet-lint` - Check that your Puppet manifests conform to the style guide.
 `purs-tidy` - A syntax tidy-upper for PureScript.
 `pyink` - A Python formatter, forked from Black with a few different formatting
@@ -462,6 +464,8 @@ FORMATTERS                                                    *conform-formatter
          in nature to Black, gofmt, and rustfmt (but for SQL)
 `squeeze_blanks` - Squeeze repeated blank lines into a single blank line via
                  `cat -s`.
+`standard-clj` - A JavaScript library to format Clojure code according to
+               Standard Clojure Style.
 `standardjs` - JavaScript Standard style guide, linter, and formatter.
 `standardrb` - Ruby's bikeshed-proof linter and formatter.
 `stylelint` - A mighty CSS linter that helps you avoid errors and enforce
@@ -475,11 +479,14 @@ FORMATTERS                                                    *conform-formatter
 `swiftformat` - SwiftFormat is a code library and command-line tool for
               reformatting `swift` code on macOS or Linux.
 `swiftlint` - A tool to enforce Swift style and conventions.
+`syntax_tree` - Syntax Tree is a suite of tools built on top of the internal
+              CRuby parser.
 `taplo` - A TOML toolkit written in Rust.
 `templ` - Formats templ template files.
 `terraform_fmt` - The terraform-fmt command rewrites `terraform` configuration
                 files to a canonical format and style.
 `terragrunt_hclfmt` - Format hcl files into a canonical format.
+`tex-fmt` - An extremely fast LaTeX formatter written in Rust.
 `tlint` - Tighten linter for Laravel conventions with support for auto-
         formatting.
 `tofu_fmt` - The tofu-fmt command rewrites OpenTofu configuration files to a
@@ -495,8 +502,8 @@ FORMATTERS                                                    *conform-formatter
 `usort` - Safe, minimal import sorting for Python projects.
 `verible` - The SystemVerilog formatter.
 `vsg` - Style guide enforcement for VHDL.
-`xmlformat` - xmlformatter is an Open Source Python package, which provides
-            formatting of XML documents.
+`xmlformatter` - xmlformatter is an Open Source Python package, which provides
+               formatting of XML documents.
 `xmllint` - Despite the name, xmllint can be used to format XML files as well as
           lint them.
 `xmlstarlet` - XMLStarlet is a command-line XML toolkit that can be used to

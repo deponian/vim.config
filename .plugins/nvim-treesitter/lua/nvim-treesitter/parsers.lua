@@ -21,6 +21,7 @@ for ft, lang in pairs {
   mysql = "sql",
   sbt = "scala",
   neomuttrc = "muttrc",
+  clientscript = "runescript",
   --- short-hand list from https://github.com/helix-editor/helix/blob/master/languages.toml
   rs = "rust",
   ex = "elixir",
@@ -248,6 +249,14 @@ list.chatito = {
   maintainers = { "@ObserverOfTime" },
 }
 
+list.circom = {
+  install_info = {
+    url = "https://github.com/Decurity/tree-sitter-circom",
+    files = { "src/parser.c" },
+  },
+  maintainers = { "@alexandr-martirosyan" },
+}
+
 list.clojure = {
   install_info = {
     url = "https://github.com/sogaiu/tree-sitter-clojure",
@@ -288,6 +297,7 @@ list.cooklang = {
     files = { "src/parser.c", "src/scanner.c" },
   },
   maintainers = { "@addcninblue" },
+  filetype = "cook",
 }
 
 list.corn = {
@@ -1147,7 +1157,7 @@ list.julia = {
     url = "https://github.com/tree-sitter/tree-sitter-julia",
     files = { "src/parser.c", "src/scanner.c" },
   },
-  maintainers = { "@theHamsta" },
+  maintainers = { "@fredrikekre" },
 }
 
 list.just = {
@@ -1466,6 +1476,14 @@ list.nqc = {
     files = { "src/parser.c" },
   },
   maintainers = { "@amaanq" },
+}
+
+list.nu = {
+  install_info = {
+    url = "https://github.com/nushell/tree-sitter-nu",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@abhisheksingh0x558" },
 }
 
 list.objc = {
@@ -1939,6 +1957,14 @@ list.ruby = {
   maintainers = { "@TravonteD" },
 }
 
+list.runescript = {
+  install_info = {
+    url = "https://github.com/2004Scape/tree-sitter-runescript",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@2004Scape" },
+}
+
 list.rust = {
   install_info = {
     url = "https://github.com/tree-sitter/tree-sitter-rust",
@@ -2161,6 +2187,14 @@ list.svelte = {
     files = { "src/parser.c", "src/scanner.c" },
   },
   maintainers = { "@amaanq" },
+}
+
+list.sway = {
+  install_info = {
+    url = "https://github.com/FuelLabs/tree-sitter-sway.git",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  maintainers = { "@ribru17" },
 }
 
 list.swift = {

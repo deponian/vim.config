@@ -1,37 +1,37 @@
----Helper functions to parse tailwind color variables
---@module colorizer.tailwind
-local api = vim.api
+--- Handles Tailwind CSS color highlighting within buffers.
+-- This module integrates with the Tailwind CSS Language Server Protocol (LSP) to retrieve and apply
+-- color highlights for Tailwind classes in a buffer. It manages LSP attachment, autocmds for color updates,
+-- and maintains state for efficient Tailwind highlighting.
+-- @module colorizer.tailwind
 
-local tailwind = {}
+local M = {}
 
 -- use a different namespace for tailwind as will be cleared if kept in Default namespace
-local DEFAULT_NAMESPACE_TAILWIND = api.nvim_create_namespace "colorizer_tailwind"
+local namespace = vim.api.nvim_create_namespace("colorizer_tailwind")
 
-local TAILWIND = {}
+local state = {}
 
 --- Cleanup tailwind variables and autocmd
----@param buf number
-function tailwind.cleanup(buf)
-  if TAILWIND[buf] and TAILWIND[buf].AU_ID and TAILWIND[buf].AU_ID[1] then
-    pcall(api.nvim_del_autocmd, TAILWIND[buf].AU_ID[1])
-    pcall(api.nvim_del_autocmd, TAILWIND[buf].AU_ID[2])
+---@param bufnr number: buffer number (0 for current)
+function M.cleanup(bufnr)
+  if state[bufnr] and state[bufnr].au_id and state[bufnr].au_id[1] then
+    pcall(vim.api.nvim_del_autocmd, state[bufnr].au_id[1])
+    pcall(vim.api.nvim_del_autocmd, state[bufnr].au_id[2])
   end
-  api.nvim_buf_clear_namespace(buf, DEFAULT_NAMESPACE_TAILWIND, 0, -1)
-  TAILWIND[buf] = nil
+  vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+  state[bufnr] = nil
 end
 
-local function highlight_tailwind(buf, ns, options, add_highlight)
+local function highlight_tailwind(bufnr, ns, options, add_highlight)
   -- it can take some time to actually fetch the results
   -- on top of that, tailwindcss is quite slow in neovim
   vim.defer_fn(function()
-    if not TAILWIND[buf] or not TAILWIND[buf].CLIENT or not TAILWIND[buf].CLIENT.request then
+    if not state[bufnr] or not state[bufnr].client or not state[bufnr].client.request then
       return
     end
 
     local opts = { textDocument = vim.lsp.util.make_text_document_params() }
-    --@local
-    ---@diagnostic disable-next-line: param-type-mismatch
-    TAILWIND[buf].CLIENT.request("textDocument/documentColor", opts, function(err, results, _, _)
+    state[bufnr].client.request("textDocument/documentColor", opts, function(err, results, _, _)
       if err == nil and results ~= nil then
         local data, line_start, line_end = {}, nil, nil
         for _, color in pairs(results) do
@@ -53,7 +53,11 @@ local function highlight_tailwind(buf, ns, options, add_highlight)
             line_end = end_line
           end
 
-          local r, g, b, a = color.color.red or 0, color.color.green or 0, color.color.blue or 0, color.color.alpha or 0
+          local r, g, b, a =
+            color.color.red or 0,
+            color.color.green or 0,
+            color.color.blue or 0,
+            color.color.alpha or 0
           local rgb_hex = string.format("%02x%02x%02x", r * a * 255, g * a * 255, b * a * 255)
           local first_col = color.range.start.character
           local end_col = color.range["end"].character
@@ -61,7 +65,7 @@ local function highlight_tailwind(buf, ns, options, add_highlight)
           data[cur_line] = data[cur_line] or {}
           table.insert(data[cur_line], { rgb_hex = rgb_hex, range = { first_col, end_col } })
         end
-        add_highlight(buf, ns, line_start or 0, line_end and (line_end + 2) or -1, data, options)
+        add_highlight(bufnr, ns, line_start or 0, line_end and (line_end + 2) or -1, data, options)
       end
     end)
   end, 10)
@@ -69,53 +73,56 @@ end
 
 --- highlight buffer using values returned by tailwindcss
 -- To see these table information, see |colorizer.buffer|
----@param buf number
+---@param bufnr number: Buffer number (0 for current)
 ---@param options table
 ---@param options_local table
 ---@param add_highlight function
-function tailwind.setup_lsp_colors(buf, options, options_local, add_highlight)
-  TAILWIND[buf] = TAILWIND[buf] or {}
-  TAILWIND[buf].AU_ID = TAILWIND[buf].AU_ID or {}
+function M.setup_lsp_colors(bufnr, options, options_local, add_highlight)
+  state[bufnr] = state[bufnr] or {}
+  state[bufnr].au_id = state[bufnr].au_id or {}
 
-  if not TAILWIND[buf].CLIENT or TAILWIND[buf].CLIENT.is_stopped() then
+  if not state[bufnr].client or state[bufnr].client.is_stopped() then
     if vim.version().minor >= 8 then
-      -- create the autocmds so tailwind colours only activate when tailwindcss lsp is active
-      if not TAILWIND[buf].AU_CREATED then
-        api.nvim_buf_clear_namespace(buf, DEFAULT_NAMESPACE_TAILWIND, 0, -1)
-        TAILWIND[buf].AU_ID[1] = api.nvim_create_autocmd("LspAttach", {
+      -- create the autocmds so tailwind colors only activate when tailwindcss lsp is active
+      if not state[bufnr].AU_CREATED then
+        vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+        state[bufnr].au_id[1] = vim.api.nvim_create_autocmd("LspAttach", {
           group = options_local.__augroup_id,
-          buffer = buf,
+          buffer = bufnr,
           callback = function(args)
             local ok, client = pcall(vim.lsp.get_client_by_id, args.data.client_id)
-            if ok then
-              if client.name == "tailwindcss" and client.supports_method "textDocument/documentColor" then
+            if ok and client then
+              if
+                client.name == "tailwindcss"
+                and client.supports_method("textDocument/documentColor")
+              then
                 -- wait 100 ms for the first request
-                TAILWIND[buf].CLIENT = client
+                state[bufnr].client = client
                 vim.defer_fn(function()
-                  highlight_tailwind(buf, DEFAULT_NAMESPACE_TAILWIND, options, add_highlight)
+                  highlight_tailwind(bufnr, namespace, options, add_highlight)
                 end, 100)
               end
             end
           end,
         })
         -- make sure the autocmds are deleted after lsp server is closed
-        TAILWIND[buf].AU_ID[2] = api.nvim_create_autocmd("LspDetach", {
+        state[bufnr].au_id[2] = vim.api.nvim_create_autocmd("LspDetach", {
           group = options_local.__augroup_id,
-          buffer = buf,
+          buffer = bufnr,
           callback = function()
-            tailwind.cleanup(buf)
+            M.cleanup(bufnr)
           end,
         })
-        TAILWIND[buf].AU_CREATED = true
+        state[bufnr].AU_CREATED = true
       end
     end
     -- this will be triggered when no lsp is attached
-    api.nvim_buf_clear_namespace(buf, DEFAULT_NAMESPACE_TAILWIND, 0, -1)
+    vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 
-    TAILWIND[buf].CLIENT = nil
+    state[bufnr].client = nil
 
     local ok, tailwind_client = pcall(function()
-      return vim.lsp.get_clients { bufnr = buf, name = "tailwindcss" }
+      return vim.lsp.get_clients({ bufnr = bufnr, name = "tailwindcss" })
     end)
     if not ok then
       return
@@ -136,26 +143,26 @@ function tailwind.setup_lsp_colors(buf, options, options_local, add_highlight)
         vim.tbl_isempty(tailwind_client or {})
         or not tailwind_client
         or not tailwind_client.supports_method
-        or not tailwind_client.supports_method "textDocument/documentColor"
+        or not tailwind_client.supports_method("textDocument/documentColor")
       )
     then
       return true
     end
 
-    TAILWIND[buf].CLIENT = tailwind_client
+    state[bufnr].client = tailwind_client
 
     -- wait 500 ms for the first request
     vim.defer_fn(function()
-      highlight_tailwind(buf, DEFAULT_NAMESPACE_TAILWIND, options, add_highlight)
+      highlight_tailwind(bufnr, namespace, options, add_highlight)
     end, 1000)
 
     return true
   end
 
   -- only try to do tailwindcss highlight if lsp is attached
-  if TAILWIND[buf].CLIENT then
-    highlight_tailwind(buf, DEFAULT_NAMESPACE_TAILWIND, options, add_highlight)
+  if state[bufnr].client then
+    highlight_tailwind(bufnr, namespace, options, add_highlight)
   end
 end
 
-return tailwind
+return M

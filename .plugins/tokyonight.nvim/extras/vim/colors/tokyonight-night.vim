@@ -20,6 +20,8 @@ hi ColorColumn guibg=#15161e
 hi Comment gui=italic guibg=NONE guifg=#565f89
 hi Conceal guibg=NONE guifg=#737aa2
 hi Constant guibg=NONE guifg=#ff9e64
+hi CopilotAnnotation guibg=NONE guifg=#414868
+hi CopilotSuggestion guibg=NONE guifg=#414868
 hi Cursor guibg=#c0caf5 guifg=#1a1b26
 hi CursorColumn guibg=#292e42
 hi CursorIM guibg=#c0caf5 guifg=#1a1b26
@@ -228,6 +230,8 @@ hi VimwikiHeader3 gui=bold guibg=NONE guifg=#9ece6a
 hi VimwikiHeader4 gui=bold guibg=NONE guifg=#1abc9c
 hi VimwikiHeader5 gui=bold guibg=NONE guifg=#bb9af7
 hi VimwikiHeader6 gui=bold guibg=NONE guifg=#9d7cd8
+hi VimwikiHeader7 gui=bold guibg=NONE guifg=#ff9e64
+hi VimwikiHeader8 gui=bold guibg=NONE guifg=#f7768e
 hi VimwikiHeaderChar guibg=NONE guifg=#e0af68
 hi VimwikiLink guibg=NONE guifg=#7aa2f7
 hi VimwikiList guibg=NONE guifg=#ff9e64

@@ -178,17 +178,23 @@ local function location_handler(opts, cb, _, result, ctx, _)
   end
 end
 
-local function call_hierarchy_handler(opts, cb, _, result, _, _)
+local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
+  local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
   for _, call_hierarchy_call in pairs(result) do
     --- "from" for incoming calls and "to" for outgoing calls
     local call_hierarchy_item = call_hierarchy_call.from or call_hierarchy_call.to
     for _, range in pairs(call_hierarchy_call.fromRanges) do
       local location = {
+        uri = call_hierarchy_item.uri,
+        range = range,
         filename = assert(vim.uri_to_fname(call_hierarchy_item.uri)),
         text = call_hierarchy_item.name,
         lnum = range.start.line + 1,
         col = range.start.character + 1,
       }
+      if opts.jump_to_single_result and #call_hierarchy_call.fromRanges == 1 then
+        jump_to_location(opts, location, encoding)
+      end
       local entry = make_entry.lcol(location, opts)
       entry = make_entry.file(entry, opts)
       if entry then cb(entry) end
@@ -466,10 +472,19 @@ local function gen_lsp_contents(opts)
   -- build positional params for the LSP query
   -- from the context buffer and cursor position
   if not lsp_params then
-    lsp_params = vim.lsp.util.make_position_params(core.CTX().winid)
-    lsp_params.context = {
-      includeDeclaration = opts.includeDeclaration == nil and true or opts.includeDeclaration
-    }
+    lsp_params = function(client)
+      local params = vim.lsp.util.make_position_params(core.CTX().winid,
+        -- nvim 0.11 requires offset_encoding param, `client` is first arg of called func
+        -- https://github.com/neovim/neovim/commit/629483e24eed3f2c07e55e0540c553361e0345a2
+        client and client.offset_encoding or nil)
+      params.context = {
+        includeDeclaration = opts.includeDeclaration == nil and true or opts.includeDeclaration
+      }
+      return params
+    end
+    if not utils.__HAS_NVIM_011 and type(lsp_params) == "function" then
+      lsp_params = lsp_params()
+    end
   end
 
   if not opts.async then
@@ -595,7 +610,11 @@ end
 
 -- see $VIMRUNTIME/lua/vim/buf.lua:pick_call_hierarchy_item()
 local function gen_lsp_contents_call_hierarchy(opts)
-  local lsp_params = opts.lsp_params or vim.lsp.util.make_position_params(core.CTX().winid)
+  local lsp_params = opts.lsp_params
+      or not utils.__HAS_NVIM_011 and vim.lsp.util.make_position_params(core.CTX().winid)
+      or function(client)
+        return vim.lsp.util.make_position_params(core.CTX().winid, client.offset_encoding)
+      end
   local method = "textDocument/prepareCallHierarchy"
   local res, err = vim.lsp.buf_request_sync(0, method, lsp_params, 2000)
   if err then
@@ -930,13 +949,22 @@ M.code_actions = function(opts)
     -- irrelevant for code actions and can cause
     -- single results to be skipped with 'async = false'
     opts.jump_to_single_result = false
-    opts.lsp_params = vim.lsp.util.make_range_params(0)
-    opts.lsp_params.context = opts.context or {
-      -- Neovim still uses `vim.lsp.diagnostic` API in "nvim/runtime/lua/vim/lsp/buf.lua"
-      -- continue to use it until proven otherwise, this also fixes #707 as diagnostics
-      -- must not be nil or some LSP servers will fail (e.g. ruff_lsp, rust_analyzer)
-      diagnostics = vim.lsp.diagnostic.get_line_diagnostics(core.CTX().bufnr) or {}
-    }
+    opts.lsp_params = function(client)
+      local params = vim.lsp.util.make_range_params(core.CTX().winid,
+        -- nvim 0.11 requires offset_encoding param, `client` is first arg of called func
+        -- https://github.com/neovim/neovim/commit/629483e24eed3f2c07e55e0540c553361e0345a2
+        client and client.offset_encoding or nil)
+      params.context = opts.context or {
+        -- Neovim still uses `vim.lsp.diagnostic` API in "nvim/runtime/lua/vim/lsp/buf.lua"
+        -- continue to use it until proven otherwise, this also fixes #707 as diagnostics
+        -- must not be nil or some LSP servers will fail (e.g. ruff_lsp, rust_analyzer)
+        diagnostics = vim.lsp.diagnostic.get_line_diagnostics(core.CTX().bufnr) or {}
+      }
+      return params
+    end
+    if not utils.__HAS_NVIM_011 and type(opts.lsp_params) == "function" then
+      opts.lsp_params = opts.lsp_params()
+    end
 
     -- make sure 'gen_lsp_contents' is run synchronously
     opts.async = false

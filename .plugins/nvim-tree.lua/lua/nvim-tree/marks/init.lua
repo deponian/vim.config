@@ -8,37 +8,33 @@ local rename_file = require("nvim-tree.actions.fs.rename-file")
 local trash = require("nvim-tree.actions.fs.trash")
 local utils = require("nvim-tree.utils")
 
+local Class = require("nvim-tree.classic")
 local DirectoryNode = require("nvim-tree.node.directory")
 
----@class Marks
----@field config table hydrated user opts.filters
+---@class (exact) Marks: Class
 ---@field private explorer Explorer
 ---@field private marks table<string, Node> by absolute path
-local Marks = {}
+local Marks = Class:extend()
 
----@return Marks
----@param opts table user options
----@param explorer Explorer
-function Marks:new(opts, explorer)
-  local o = {
-    explorer = explorer,
-    config = {
-      ui = opts.ui,
-      filesystem_watchers = opts.filesystem_watchers,
-    },
-    marks = {},
-  }
+---@class Marks
+---@overload fun(args: MarksArgs): Marks
 
-  setmetatable(o, self)
-  self.__index = self
-  return o
+---@class (exact) MarksArgs
+---@field explorer Explorer
+
+---@protected
+---@param args MarksArgs
+function Marks:new(args)
+  self.explorer = args.explorer
+
+  self.marks = {}
 end
 
 ---Clear all marks and reload if watchers disabled
 ---@private
 function Marks:clear_reload()
   self:clear()
-  if not self.config.filesystem_watchers.enable then
+  if not self.explorer.opts.filesystem_watchers.enable then
     self.explorer:reload_explorer()
   end
 end
@@ -100,7 +96,7 @@ function Marks:bulk_delete()
     self:clear_reload()
   end
 
-  if self.config.ui.confirm.remove then
+  if self.explorer.opts.ui.confirm.remove then
     local prompt_select = "Remove bookmarked ?"
     local prompt_input = prompt_select .. " y/N: "
     lib.prompt(prompt_input, prompt_select, { "", "y" }, { "No", "Yes" }, "nvimtree_bulk_delete", function(item_short)
@@ -129,7 +125,7 @@ function Marks:bulk_trash()
     self:clear_reload()
   end
 
-  if self.config.ui.confirm.trash then
+  if self.explorer.opts.ui.confirm.trash then
     local prompt_select = "Trash bookmarked ?"
     local prompt_input = prompt_select .. " y/N: "
     lib.prompt(prompt_input, prompt_select, { "", "y" }, { "No", "Yes" }, "nvimtree_bulk_trash", function(item_short)
@@ -200,7 +196,8 @@ function Marks:navigate(up)
 
   Iterator.builder(self.explorer.nodes)
     :recursor(function(n)
-      return n.open and n.nodes
+      local dir = n:as(DirectoryNode)
+      return dir and dir.open and dir.nodes
     end)
     :applier(function(n)
       if n.absolute_path == node.absolute_path then
@@ -263,7 +260,7 @@ function Marks:navigate_select()
       return
     end
     local node = self.marks[choice]
-    if node and not node.nodes and not utils.get_win_buf_from_path(node.absolute_path) then
+    if node and not node:is(DirectoryNode) and not utils.get_win_buf_from_path(node.absolute_path) then
       open_file.fn("edit", node.absolute_path)
     elseif node then
       utils.focus_file(node.absolute_path)

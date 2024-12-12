@@ -2,7 +2,7 @@ local util = require 'lspconfig.util'
 
 local function get_default_mavenrepo()
   local repo = util.path.join(vim.env.HOME, '.m2', 'repository', 'dk', 'au', 'ece', 'vdmj')
-  if util.path.exists(repo) then
+  if vim.loop.fs_stat(repo) then
     return repo
   else
     return util.path.join(vim.env.HOME, '.m2', 'repository', 'com', 'fujitsu')
@@ -22,7 +22,7 @@ local function get_latest_installed_version(repo)
   local sort = vim.fn.sort
 
   local subdirs = function(file)
-    local stat = vim.uv.fs_stat(util.path.join(path, file))
+    local stat = vim.loop.fs_stat(util.path.join(path, file))
     return stat.type == 'directory' and 1 or 0
   end
 
@@ -34,7 +34,7 @@ end
 -- Special case, as vdmj store particular settings under root_dir/.vscode
 local function find_vscode_ancestor(startpath)
   return util.search_ancestors(startpath, function(path)
-    if util.path.is_dir(util.path.join(path, '.vscode')) then
+    if vim.fn.isdirectory(util.path.join(path, '.vscode')) == 1 then
       return path
     end
   end)

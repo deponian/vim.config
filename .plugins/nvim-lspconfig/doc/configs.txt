@@ -37,6 +37,7 @@ Nvim by running `:help lspconfig-all`.
 - [bsl_ls](#bsl_ls)
 - [buck2](#buck2)
 - [buddy_ls](#buddy_ls)
+- [buf_ls](#buf_ls)
 - [bufls](#bufls)
 - [bzl](#bzl)
 - [c3_lsp](#c3_lsp)
@@ -159,6 +160,7 @@ Nvim by running `:help lspconfig-all`.
 - [lexical](#lexical)
 - [lsp_ai](#lsp_ai)
 - [ltex](#ltex)
+- [ltex_plus](#ltex_plus)
 - [lua_ls](#lua_ls)
 - [luau_lsp](#luau_lsp)
 - [lwc_ls](#lwc_ls)
@@ -182,6 +184,7 @@ Nvim by running `:help lspconfig-all`.
 - [mutt_ls](#mutt_ls)
 - [nelua_lsp](#nelua_lsp)
 - [neocmake](#neocmake)
+- [nextflow_ls](#nextflow_ls)
 - [nextls](#nextls)
 - [nginx_language_server](#nginx_language_server)
 - [nickel_ls](#nickel_ls)
@@ -242,6 +245,7 @@ Nvim by running `:help lspconfig-all`.
 - [rescriptls](#rescriptls)
 - [rls](#rls)
 - [rnix](#rnix)
+- [robotcode](#robotcode)
 - [robotframework_ls](#robotframework_ls)
 - [roc_ls](#roc_ls)
 - [rome](#rome)
@@ -1044,7 +1048,7 @@ Default config:
   ```
 - `filetypes` :
   ```lua
-  { "sh" }
+  { "bash", "sh" }
   ```
 - `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/bashls.lua:4](../lua/lspconfig/configs/bashls.lua#L4)
 - `settings` :
@@ -1453,6 +1457,31 @@ Default config:
 - `single_file_support` : `true`
 
 
+## buf_ls
+
+https://github.com/bufbuild/buf
+
+buf beta lsp included in the cli itself
+
+buf beta lsp is a Protobuf language server compatible with Buf modules and workspaces
+
+Snippet to enable the language server:
+```lua
+require'lspconfig'.buf_ls.setup{}
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "buf", "beta", "lsp", "--timeout=0", "--log-format=text" }
+  ```
+- `filetypes` :
+  ```lua
+  { "proto" }
+  ```
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/buf_ls.lua:2](../lua/lspconfig/configs/buf_ls.lua#L2)
+
+
 ## bufls
 
 https://github.com/bufbuild/buf-language-server
@@ -1750,7 +1779,7 @@ Default config:
   ```lua
   { "c", "cpp", "objc", "objcpp", "cuda", "proto" }
   ```
-- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/clangd.lua:50](../lua/lspconfig/configs/clangd.lua#L50)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/clangd.lua:51](../lua/lspconfig/configs/clangd.lua#L51)
 - `single_file_support` : `true`
 
 
@@ -3006,12 +3035,13 @@ https://github.com/elixir-lsp/elixir-ls
 
 `elixir-ls` can be installed by following the instructions [here](https://github.com/elixir-lsp/elixir-ls#building-and-running).
 
-```bash
-curl -fLO https://github.com/elixir-lsp/elixir-ls/releases/latest/download/elixir-ls.zip
-unzip elixir-ls.zip -d /path/to/elixir-ls
-# Unix
-chmod +x /path/to/elixir-ls/language_server.sh
-```
+1. Download the zip from https://github.com/elixir-lsp/elixir-ls/releases/latest/
+2. Unzip it and make it executable.
+   ```bash
+   unzip elixir-ls.zip -d /path/to/elixir-ls
+   # Unix
+   chmod +x /path/to/elixir-ls/language_server.sh
+   ```
 
 **By default, elixir-ls doesn't have a `cmd` set.** This is because nvim-lspconfig does not make assumptions about your path. You must add the following to your init.vim or init.lua to set `cmd` to the absolute path ($HOME and ~ are not expanded) of your unzipped elixir-ls.
 
@@ -3493,6 +3523,7 @@ Default config:
   ```lua
   {}
   ```
+- `single_file_support` : `true`
 
 
 ## fish_lsp
@@ -3818,12 +3849,12 @@ require'lspconfig'.gdscript.setup{}
 ```
 
 Default config:
-- `cmd` source (use "gF" to visit): [../lua/lspconfig/configs/gdscript.lua:11](../lua/lspconfig/configs/gdscript.lua#L11)
+- `cmd` source (use "gF" to visit): [../lua/lspconfig/configs/gdscript.lua:7](../lua/lspconfig/configs/gdscript.lua#L7)
 - `filetypes` :
   ```lua
   { "gd", "gdscript", "gdscript3" }
   ```
-- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/gdscript.lua:11](../lua/lspconfig/configs/gdscript.lua#L11)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/gdscript.lua:7](../lua/lspconfig/configs/gdscript.lua#L7)
 
 
 ## gdshader_lsp
@@ -4379,11 +4410,11 @@ Default config:
 
 ## harper_ls
 
-https://github.com/chilipepperhott/harper
+https://github.com/elijah-potter/harper
 
 The language server for Harper, the slim, clean language checker for developers.
 
-See [docs](https://github.com/chilipepperhott/harper/tree/master/harper-ls#configuration) for more information on settings.
+See [docs](https://github.com/elijah-potter/harper/blob/master/harper-ls/README.md#configuration) for more information on settings.
 
 In short, however, they should look something like this:
 ```lua
@@ -5347,7 +5378,7 @@ Default config:
   ```lua
   {}
   ```
-- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/kotlin_language_server.lua:23](../lua/lspconfig/configs/kotlin_language_server.lua#L23)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/kotlin_language_server.lua:20](../lua/lspconfig/configs/kotlin_language_server.lua#L20)
 
 
 ## kulala_ls
@@ -5613,6 +5644,57 @@ Default config:
 - `single_file_support` : `true`
 
 
+## ltex_plus
+
+https://github.com/ltex-plus/ltex-ls-plus
+
+LTeX Language Server: LSP language server for LanguageTool 🔍✔️ with support for LaTeX 🎓, Markdown 📝, and others
+
+To install, download the latest [release](https://github.com/ltex-plus/ltex-ls-plus) and ensure `ltex-ls-plus` is on your path.
+
+This server accepts configuration via the `settings` key.
+
+```lua
+  settings = {
+    ltex = {
+      language = "en-GB",
+    },
+  },
+```
+
+To support org files or R sweave, users can define a custom filetype autocommand (or use a plugin which defines these filetypes):
+
+```lua
+vim.cmd [[ autocmd BufRead,BufNewFile *.org set filetype=org ]]
+```
+
+Snippet to enable the language server:
+```lua
+require'lspconfig'.ltex_plus.setup{}
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "ltex-ls-plus" }
+  ```
+- `filetypes` :
+  ```lua
+  { "bib", "context", "gitcommit", "html", "markdown", "org", "pandoc", "plaintex", "quarto", "mail", "mdx", "rmd", "rnoweb", "rst", "tex", "text", "typst", "xhtml" }
+  ```
+- `get_language_id` source (use "gF" to visit): [../lua/lspconfig/configs/ltex_plus.lua:18](../lua/lspconfig/configs/ltex_plus.lua#L18)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/ltex_plus.lua:18](../lua/lspconfig/configs/ltex_plus.lua#L18)
+- `settings` :
+  ```lua
+  {
+    ltex = {
+      enabled = { "bib", "context", "gitcommit", "html", "markdown", "org", "pandoc", "plaintex", "quarto", "mail", "mdx", "rmd", "rnoweb", "rst", "tex", "text", "typst", "xhtml" }
+    }
+  }
+  ```
+- `single_file_support` : `true`
+
+
 ## lua_ls
 
 https://github.com/luals/lua-language-server
@@ -5632,7 +5714,7 @@ require'lspconfig'.lua_ls.setup {
   on_init = function(client)
     if client.workspace_folders then
       local path = client.workspace_folders[1].name
-      if vim.uv.fs_stat(path..'/.luarc.json') or vim.uv.fs_stat(path..'/.luarc.jsonc') then
+      if vim.loop.fs_stat(path..'/.luarc.json') or vim.loop.fs_stat(path..'/.luarc.jsonc') then
         return
       end
     end
@@ -6388,6 +6470,59 @@ Default config:
   ```
 - `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/neocmake.lua:4](../lua/lspconfig/configs/neocmake.lua#L4)
 - `single_file_support` : `true`
+
+
+## nextflow_ls
+
+https://github.com/nextflow-io/language-server
+
+Requirements:
+ - Java 17+
+
+`nextflow_ls` can be installed by following the instructions [here](https://github.com/nextflow-io/language-server#development).
+
+If you have installed nextflow language server, you can set the `cmd` custom path as follow:
+
+```lua
+require'lspconfig'.nextflow_ls.setup{
+    cmd = { 'java', '-jar', 'nextflow-language-server-all.jar' },
+    filetypes = { 'nextflow' },
+    root_dir = util.root_pattern('nextflow.config', '.git'),
+    settings = {
+      nextflow = {
+        files = {
+          exclude = { '.git', '.nf-test', 'work' },
+        },
+      },
+    },
+}
+```
+
+Snippet to enable the language server:
+```lua
+require'lspconfig'.nextflow_ls.setup{}
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "java", "-jar", "nextflow-language-server-all.jar" }
+  ```
+- `filetypes` :
+  ```lua
+  { "nextflow" }
+  ```
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/nextflow_ls.lua:4](../lua/lspconfig/configs/nextflow_ls.lua#L4)
+- `settings` :
+  ```lua
+  {
+    nextflow = {
+      files = {
+        exclude = { ".git", ".nf-test", "work" }
+      }
+    }
+  }
+  ```
 
 
 ## nextls
@@ -8346,6 +8481,31 @@ Default config:
   ```
 
 
+## robotcode
+
+https://robotcode.io
+
+RobotCode - Language Server Protocol implementation for Robot Framework.
+
+Snippet to enable the language server:
+```lua
+require'lspconfig'.robotcode.setup{}
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "robotcode", "language-server" }
+  ```
+- `filetypes` :
+  ```lua
+  { "robot", "resource" }
+  ```
+- `get_language_id` source (use "gF" to visit): [../lua/lspconfig/configs/robotcode.lua:4](../lua/lspconfig/configs/robotcode.lua#L4)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/robotcode.lua:4](../lua/lspconfig/configs/robotcode.lua#L4)
+- `single_file_support` : `true`
+
+
 ## robotframework_ls
 
 https://github.com/robocorp/robotframework-lsp
@@ -8473,7 +8633,7 @@ Default config:
   ```
 - `filetypes` :
   ```lua
-  { "ruby" }
+  { "ruby", "eruby" }
   ```
 - `init_options` :
   ```lua
@@ -9627,7 +9787,7 @@ require'lspconfig'.statix.setup{}
 Default config:
 - `cmd` :
   ```lua
-  { "statix" }
+  { "statix", "check", "--stdin" }
   ```
 - `filetypes` :
   ```lua
@@ -10246,7 +10406,7 @@ Default config:
   ```lua
   { "tex", "plaintex", "bib" }
   ```
-- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/texlab.lua:156](../lua/lspconfig/configs/texlab.lua#L156)
+- `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/texlab.lua:159](../lua/lspconfig/configs/texlab.lua#L159)
 - `settings` :
   ```lua
   {
@@ -10466,7 +10626,7 @@ Default config:
   { "typst" }
   ```
 - `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/tinymist.lua:4](../lua/lspconfig/configs/tinymist.lua#L4)
-- `single_file_support` : `false`
+- `single_file_support` : `true`
 
 
 ## ts_ls
@@ -11069,7 +11229,7 @@ Default config:
   ```
 - `filetypes` :
   ```lua
-  { "markdown", "text", "tex" }
+  { "markdown", "text", "tex", "rst" }
   ```
 - `root_dir` source (use "gF" to visit): [../lua/lspconfig/configs/vale_ls.lua:4](../lua/lspconfig/configs/vale_ls.lua#L4)
 - `single_file_support` : `true`
@@ -11377,82 +11537,76 @@ Default config:
 
 ## volar
 
-https://github.com/johnsoncodehk/volar/tree/20d713b/packages/vue-language-server
+https://github.com/vuejs/language-tools/tree/master/packages/language-server
 
 Volar language server for Vue
 
 Volar can be installed via npm:
-
 ```sh
 npm install -g @vue/language-server
 ```
 
-Volar by default supports Vue 3 projects. Vue 2 projects need
-[additional configuration](https://github.com/vuejs/language-tools/tree/master/packages/vscode-vue#usage).
+Volar by default supports Vue 3 projects.
+For Vue 2 projects, [additional configuration](https://github.com/vuejs/language-tools/blob/master/extensions/vscode/README.md?plain=1#L19) are required.
 
-**TypeScript support**
-As of release 2.0.0, Volar no longer wraps around ts_ls. For typescript
-support, `ts_ls` needs to be configured with the `@vue/typescript-plugin`
-plugin.
+**Hybrid Mode (by default)**
 
-**Take Over Mode**
+In this mode, the Vue Language Server exclusively manages the CSS/HTML sections.
+You need the `ts_ls` server with the `@vue/typescript-plugin` plugin to support TypeScript in `.vue` files.
+See `ts_ls` section for more information
 
-Volar (prior to 2.0.0), can serve as a language server for both Vue and TypeScript via [Take Over Mode](https://github.com/johnsoncodehk/volar/discussions/471).
+**No Hybrid Mode**
 
-To enable Take Over Mode, override the default filetypes in `setup{}` as follows:
-
+Volar will run embedded `ts_ls` therefore there is no need to run it separately.
 ```lua
-require'lspconfig'.volar.setup{
-  filetypes = {'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue', 'json'}
+local lspconfig = require('lspconfig')
+
+lspconfig.volar.setup {
+  -- add filetypes for typescript, javascript and vue
+  filetypes = { 'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue' },
+  init_options = {
+    vue = {
+      -- disable hybrid mode
+      hybridMode = false,
+    },
+  },
 }
+-- you must remove ts_ls setup
+-- lspconfig.ts_ls.setup {}
 ```
 
 **Overriding the default TypeScript Server used by Volar**
 
-The default config looks for TS in the local `node_modules`. This can lead to issues
+The default config looks for TypeScript in the local `node_modules`. This can lead to issues
 e.g. when working on a [monorepo](https://monorepo.tools/). The alternatives are:
 
 - use a global TypeScript Server installation
-
 ```lua
-require'lspconfig'.volar.setup{
+require'lspconfig'.volar.setup {
   init_options = {
     typescript = {
-      tsdk = '/path/to/.npm/lib/node_modules/typescript/lib'
-      -- Alternative location if installed as root:
-      -- tsdk = '/usr/local/lib/node_modules/typescript/lib'
+      -- replace with your global TypeScript library path
+      tsdk = '/path/to/node_modules/typescript/lib'
     }
   }
 }
 ```
 
 - use a local server and fall back to a global TypeScript Server installation
-
 ```lua
-local util = require 'lspconfig.util'
-local function get_typescript_server_path(root_dir)
-
-  local global_ts = '/home/[yourusernamehere]/.npm/lib/node_modules/typescript/lib'
-  -- Alternative location if installed as root:
-  -- local global_ts = '/usr/local/lib/node_modules/typescript/lib'
-  local found_ts = ''
-  local function check_dir(path)
-    found_ts =  util.path.join(path, 'node_modules', 'typescript', 'lib')
-    if util.path.exists(found_ts) then
-      return path
+require'lspconfig'.volar.setup {
+  init_options = {
+    typescript = {
+      -- replace with your global TypeScript library path
+      tsdk = '/path/to/node_modules/typescript/lib'
+    }
+  },
+  on_new_config = function(new_config, new_root_dir)
+    local lib_path = vim.fs.find('node_modules/typescript/lib', { path = new_root_dir, upward = true })[1]
+    if lib_path then
+      new_config.init_options.typescript.tsdk = lib_path
     end
   end
-  if util.search_ancestors(root_dir, check_dir) then
-    return found_ts
-  else
-    return global_ts
-  end
-end
-
-require'lspconfig'.volar.setup{
-  on_new_config = function(new_config, new_root_dir)
-    new_config.init_options.typescript.tsdk = get_typescript_server_path(new_root_dir)
-  end,
 }
 ```
 

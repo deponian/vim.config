@@ -19,11 +19,13 @@ debug_log_file = vim.eval("g:vim_ai_debug_log_file")
 class KnownError(Exception):
     pass
 
-def load_api_key():
-    config_file_path = os.path.expanduser(vim.eval("g:vim_ai_token_file_path"))
+def load_api_key(config_token_file_path):
+    # token precedence: config file path, global file path, env variable
+    global_token_file_path = vim.eval("g:vim_ai_token_file_path")
     api_key_param_value = os.getenv("OPENAI_API_KEY")
     try:
-        with open(config_file_path, 'r') as file:
+        token_file_path = config_token_file_path or global_token_file_path
+        with open(os.path.expanduser(token_file_path), 'r') as file:
             api_key_param_value = file.read()
     except Exception:
         pass
@@ -42,26 +44,41 @@ def load_api_key():
 
     return (api_key, org_id)
 
-def normalize_config(config):
-    normalized = { **config }
-    # initial prompt can be both a string and a list of strings, normalize it to list
-    if 'initial_prompt' in config['options'] and isinstance(config['options']['initial_prompt'], str):
-        normalized['options']['initial_prompt'] = normalized['options']['initial_prompt'].split('\n')
-    return normalized
+def load_config_and_prompt():
+    prompt, role_options = parse_prompt_and_role(vim.eval("l:prompt"))
+    config = vim.eval("l:config")
+    config['options'] = {
+        **normalize_options(config['options']),
+        **normalize_options(role_options['options_default']),
+        **normalize_options(role_options['options_chat']),
+    }
+    return prompt, config
 
+def normalize_options(options):
+    # initial prompt can be both a string and a list of strings, normalize it to list
+    if 'initial_prompt' in options and isinstance(options['initial_prompt'], str):
+        options['initial_prompt'] = options['initial_prompt'].split('\n')
+    return options
 
 def make_openai_options(options):
     max_tokens = int(options['max_tokens'])
-    return {
+    max_completion_tokens = int(options['max_completion_tokens'])
+    result = {
         'model': options['model'],
-        'max_tokens': max_tokens if max_tokens > 0 else None,
         'temperature': float(options['temperature']),
+        'stream': int(options['stream']) == 1,
     }
+    if max_tokens > 0:
+        result['max_tokens'] = max_tokens
+    if max_completion_tokens > 0:
+        result['max_completion_tokens'] = max_completion_tokens
+    return result
 
 def make_http_options(options):
     return {
         'request_timeout': float(options['request_timeout']),
         'enable_auth': bool(int(options['enable_auth'])),
+        'token_file_path': options['token_file_path'],
     }
 
 # During text manipulation in Vim's visual mode, we utilize "normal! c" command. This command deletes the highlighted text,
@@ -91,8 +108,10 @@ def render_text_chunks(chunks, is_selection):
     full_text = ''
     insert_before_cursor = need_insert_before_cursor(is_selection)
     for text in chunks:
-        if not text.strip() and not generating_text:
-            continue # trim newlines from the beginning
+        if not generating_text:
+            text = text.lstrip() # trim newlines from the beginning
+        if not text:
+            continue
         generating_text = True
         if insert_before_cursor:
             vim.command("normal! i" + text)
@@ -103,7 +122,7 @@ def render_text_chunks(chunks, is_selection):
         vim.command("redraw")
         full_text += text
     if not full_text.strip():
-        print_info_message('Empty response received. Tip: You can try modifying the prompt and retry.')
+        raise KnownError('Empty response received. Tip: You can try modifying the prompt and retry.')
 
 
 def parse_chat_messages(chat_content):
@@ -194,7 +213,8 @@ def printDebug(text, *args):
     if not is_debugging:
         return
     with open(debug_log_file, "a") as file:
-        file.write(f"[{datetime.datetime.now()}] " + text.format(*args) + "\n")
+        message = text.format(*args) if len(args) else text
+        file.write(f"[{datetime.datetime.now()}] " + message + "\n")
 
 OPENAI_RESP_DATA_PREFIX = 'data: '
 OPENAI_RESP_DONE = '[DONE]'
@@ -203,9 +223,10 @@ def openai_request(url, data, options):
     enable_auth=options['enable_auth']
     headers = {
         "Content-Type": "application/json",
+        "User-Agent": "VimAI",
     }
     if enable_auth:
-        (OPENAI_API_KEY, OPENAI_ORG_ID) = load_api_key()
+        (OPENAI_API_KEY, OPENAI_ORG_ID) = load_api_key(options['token_file_path'])
         headers['Authorization'] = f"Bearer {OPENAI_API_KEY}"
 
         if OPENAI_ORG_ID is not None:
@@ -218,7 +239,11 @@ def openai_request(url, data, options):
         headers=headers,
         method="POST",
     )
+
     with urllib.request.urlopen(req, timeout=request_timeout) as response:
+        if not data['stream']:
+            yield json.loads(response.read().decode())
+            return
         for line_bytes in response:
             line = line_bytes.decode("utf-8", errors="replace")
             if line.startswith(OPENAI_RESP_DATA_PREFIX):
@@ -230,29 +255,35 @@ def openai_request(url, data, options):
                     yield openai_obj
 
 def print_info_message(msg):
+    escaped_msg = msg.replace("'", "`")
     vim.command("redraw")
-    vim.command(r'call feedkeys("\<Esc>")')
     vim.command("echohl ErrorMsg")
-    vim.command(f"echomsg '{msg}'")
+    vim.command(f"echomsg '{escaped_msg}'")
     vim.command("echohl None")
+
+def parse_error_message(error):
+    try:
+        parsed = json.loads(error.read().decode())
+        return parsed["error"]["message"]
+    except:
+        pass
 
 def handle_completion_error(error):
     # nvim throws - pynvim.api.common.NvimError: Keyboard interrupt
     is_nvim_keyboard_interrupt = "Keyboard interrupt" in str(error)
     if isinstance(error, KeyboardInterrupt) or is_nvim_keyboard_interrupt:
         print_info_message("Completion cancelled...")
-    elif isinstance(error, URLError) and isinstance(error.reason, socket.timeout):
-        print_info_message("Request timeout...")
     elif isinstance(error, HTTPError):
         status_code = error.getcode()
+        error_message = parse_error_message(error)
         msg = f"OpenAI: HTTPError {status_code}"
-        if status_code == 401:
-            msg += ' (Hint: verify that your API key is valid)'
-        if status_code == 404:
-            msg += ' (Hint: verify that you have access to the OpenAI API and to the model)'
-        elif status_code == 429:
-            msg += ' (Hint: verify that your billing plan is "Pay as you go")'
+        if error_message:
+            msg += f": {error_message}"
         print_info_message(msg)
+    elif isinstance(error, URLError) and isinstance(error.reason, socket.timeout):
+        print_info_message("Request timeout...")
+    elif isinstance(error, URLError):
+        print_info_message(f"URLError: {error.reason}")
     elif isinstance(error, KnownError):
         print_info_message(str(error))
     else:
@@ -303,18 +334,74 @@ empty_role_options = {
     'options_chat': {},
 }
 
+def parse_roles(prompt):
+    chunks = prompt.split()
+    roles = []
+    for chunk in chunks:
+        if not chunk.startswith("/"):
+            break
+        roles.append(chunk)
+    return [raw_role[1:] for raw_role in roles]
+
+def merge_role_configs(configs):
+    merged_options = empty_role_options
+    merged_role = {}
+    for config in configs:
+        options = config['options']
+        merged_options = {
+            'options_default': { **merged_options['options_default'], **options['options_default'] },
+            'options_complete': { **merged_options['options_complete'], **options['options_complete'] },
+            'options_chat': { **merged_options['options_chat'], **options['options_chat'] },
+        }
+        merged_role ={ **merged_role, **config['role'] }
+    return { 'role': merged_role, 'options': merged_options }
+
 def parse_prompt_and_role(raw_prompt):
     prompt = raw_prompt.strip()
-    role = re.split(' |:', prompt)[0]
-    if not role.startswith('/'):
+    roles = parse_roles(prompt)
+    if not roles:
         # does not require role
         return (prompt, empty_role_options)
 
-    prompt = prompt[len(role):].strip()
-    role = role[1:]
+    last_role = roles[-1]
+    prompt = prompt[prompt.index(last_role) + len(last_role):].strip()
 
-    config = load_role_config(role)
+    role_configs = [load_role_config(role) for role in roles]
+    config = merge_role_configs(role_configs)
     if 'prompt' in config['role'] and config['role']['prompt']:
         delim = '' if prompt.startswith(':') else ':\n'
         prompt = config['role']['prompt'] + delim + prompt
     return (prompt, config['options'])
+
+def make_chat_text_chunks(messages, config_options):
+    openai_options = make_openai_options(config_options)
+    http_options = make_http_options(config_options)
+
+    request = {
+        'messages': messages,
+        **openai_options
+    }
+    printDebug("[engine-chat] request: {}", request)
+    url = config_options['endpoint_url']
+    response = openai_request(url, request, http_options)
+
+    def _choices(resp):
+        choices = resp.get('choices', [{}])
+
+        # NOTE choices may exist in the response, but be an empty list.
+        if not choices:
+            return [{}]
+
+        return choices
+
+    def map_chunk_no_stream(resp):
+        printDebug("[engine-chat] response: {}", resp)
+        return _choices(resp)[0].get('message', {}).get('content', '')
+
+    def map_chunk_stream(resp):
+        printDebug("[engine-chat] response: {}", resp)
+        return _choices(resp)[0].get('delta', {}).get('content', '')
+
+    map_chunk = map_chunk_stream if openai_options['stream'] else map_chunk_no_stream
+
+    return map(map_chunk, response)

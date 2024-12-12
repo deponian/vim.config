@@ -32,6 +32,14 @@ M.expect = function(actions, opts)
           v.prefix and "+" or "",
           v.prefix and v.prefix:gsub("accept$", ""):gsub("%+$", "") or ""
         ))
+      elseif opts.__SK_VERSION and opts.__SK_VERSION >= 0.14 then
+        -- sk 0.14 deprecated `--expect`, instead `accept(<key>)` should be used
+        -- skim does not yet support case sensitive alt-shift binds, they are ignored
+        -- if k:match("^alt%-%u") then return end
+        if type(v.prefix) == "string" and not v.prefix:match("%+$") then
+          v.prefix = v.prefix .. "+"
+        end
+        table.insert(binds, string.format("%s:%saccept(%s)", k, v.prefix or "", k))
       elseif k ~= "enter" then
         -- Skim does not support case sensitive alt-shift binds
         -- which are supported with fzf since version 0.25
@@ -202,7 +210,7 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
         else
           utils.jump_to_location(entry, "utf-16")
         end
-      elseif entry.ctag then
+      elseif entry.ctag and not entry.line then
         vim.api.nvim_win_set_cursor(0, { 1, 0 })
         vim.fn.search(entry.ctag, "W")
       elseif not opts.no_action_set_cursor and entry.line > 0 or entry.col > 0 then
@@ -255,7 +263,7 @@ local sel_to_qf = function(selected, opts, is_loclist)
     table.insert(qf_list, {
       bufnr = file.bufnr,
       filename = file.bufname or file.path or file.uri,
-      lnum = file.line,
+      lnum = file.line > 0 and file.line or 1,
       col = file.col,
       text = text,
     })
@@ -329,7 +337,7 @@ M.file_switch = function(selected, opts)
     end
     return true
   end
-  local entry = path.entry_to_file(selected[1])
+  local entry = path.entry_to_file(selected[1], opts)
   if not entry.bufnr then
     -- Search for the current entry's filepath in buffer list
     local fullpath = entry.path

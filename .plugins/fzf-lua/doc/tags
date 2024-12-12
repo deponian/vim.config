@@ -132,6 +132,7 @@ fzf-lua-opts-globals.winopts.preview.title	fzf-lua-opts.txt	/*fzf-lua-opts-globa
 fzf-lua-opts-globals.winopts.preview.wrap	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.preview.wrap*
 fzf-lua-opts-globals.winopts.row	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.row*
 fzf-lua-opts-globals.winopts.split	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.split*
+fzf-lua-opts-globals.winopts.treesitter	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.treesitter*
 fzf-lua-opts-globals.winopts.width	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.width*
 fzf-lua-opts-grep	fzf-lua-opts.txt	/*fzf-lua-opts-grep*
 fzf-lua-opts-grep_curbuf	fzf-lua-opts.txt	/*fzf-lua-opts-grep_curbuf*

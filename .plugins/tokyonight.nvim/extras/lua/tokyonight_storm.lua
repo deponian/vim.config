@@ -52,7 +52,7 @@ local colors = {
   none = "NONE",
   orange = "#ff9e64",
   purple = "#9d7cd8",
-  rainbow = { "#7aa2f7", "#e0af68", "#9ece6a", "#1abc9c", "#bb9af7", "#9d7cd8" },
+  rainbow = { "#7aa2f7", "#e0af68", "#9ece6a", "#1abc9c", "#bb9af7", "#9d7cd8", "#ff9e64", "#f7768e" },
   red = "#f7768e",
   red1 = "#db4b4b",
   teal = "#1abc9c",
@@ -227,6 +227,14 @@ local highlights = {
     bold = true,
     fg = "#9d7cd8"
   },
+  ["@markup.heading.7.markdown"] = {
+    bold = true,
+    fg = "#ff9e64"
+  },
+  ["@markup.heading.8.markdown"] = {
+    bold = true,
+    fg = "#f7768e"
+  },
   ["@markup.italic"] = {
     italic = true
   },
@@ -286,6 +294,9 @@ local highlights = {
   },
   ["@punctuation.special"] = {
     fg = "#89ddff"
+  },
+  ["@punctuation.special.markdown"] = {
+    fg = "#ff9e64"
   },
   ["@string"] = "String",
   ["@string.documentation"] = {
@@ -726,6 +737,9 @@ local highlights = {
   CodeBlock = {
     bg = "#1f2335"
   },
+  CodeiumSuggestion = {
+    fg = "#414868"
+  },
   ColorColumn = {
     bg = "#1d202f"
   },
@@ -738,6 +752,12 @@ local highlights = {
   },
   Constant = {
     fg = "#ff9e64"
+  },
+  CopilotAnnotation = {
+    fg = "#414868"
+  },
+  CopilotSuggestion = {
+    fg = "#414868"
   },
   CurSearch = "IncSearch",
   Cursor = {
@@ -774,7 +794,6 @@ local highlights = {
     fg = "#7aa2f7"
   },
   DashboardIcon = {
-    bold = true,
     fg = "#7dcfff"
   },
   DashboardKey = {
@@ -1047,6 +1066,12 @@ local highlights = {
   },
   Headline6 = {
     bg = "#2a2c43"
+  },
+  Headline7 = {
+    bg = "#2f2e3d"
+  },
+  Headline8 = {
+    bg = "#2f2c3f"
   },
   HopNextKey = {
     bold = true,
@@ -2022,6 +2047,20 @@ local highlights = {
     bold = true,
     fg = "#9d7cd8"
   },
+  RenderMarkdownH7Bg = {
+    bg = "#3a343f"
+  },
+  RenderMarkdownH7Fg = {
+    bold = true,
+    fg = "#ff9e64"
+  },
+  RenderMarkdownH8Bg = {
+    bg = "#393043"
+  },
+  RenderMarkdownH8Fg = {
+    bold = true,
+    fg = "#f7768e"
+  },
   RenderMarkdownTableHead = {
     fg = "#f7768e"
   },
@@ -2092,6 +2131,167 @@ local highlights = {
     bg = "#1f2335",
     fg = "#3b4261"
   },
+  SnacksDashboardDesc = {
+    fg = "#7dcfff"
+  },
+  SnacksDashboardDir = {
+    fg = "#545c7e"
+  },
+  SnacksDashboardFooter = {
+    fg = "#2ac3de"
+  },
+  SnacksDashboardHeader = {
+    fg = "#7aa2f7"
+  },
+  SnacksDashboardIcon = {
+    fg = "#2ac3de"
+  },
+  SnacksDashboardKey = {
+    fg = "#ff9e64"
+  },
+  SnacksDashboardSpecial = {
+    fg = "#9d7cd8"
+  },
+  SnacksIndent = {
+    fg = "#3b4261",
+    nocombine = true
+  },
+  SnacksIndent1 = {
+    fg = "#7aa2f7",
+    nocombine = true
+  },
+  SnacksIndent2 = {
+    fg = "#e0af68",
+    nocombine = true
+  },
+  SnacksIndent3 = {
+    fg = "#9ece6a",
+    nocombine = true
+  },
+  SnacksIndent4 = {
+    fg = "#1abc9c",
+    nocombine = true
+  },
+  SnacksIndent5 = {
+    fg = "#bb9af7",
+    nocombine = true
+  },
+  SnacksIndent6 = {
+    fg = "#9d7cd8",
+    nocombine = true
+  },
+  SnacksIndent7 = {
+    fg = "#ff9e64",
+    nocombine = true
+  },
+  SnacksIndent8 = {
+    fg = "#f7768e",
+    nocombine = true
+  },
+  SnacksIndentScope = {
+    fg = "#2ac3de",
+    nocombine = true
+  },
+  SnacksInputBorder = {
+    fg = "#e0af68"
+  },
+  SnacksInputIcon = {
+    fg = "#2ac3de"
+  },
+  SnacksInputTitle = {
+    fg = "#e0af68"
+  },
+  SnacksNotifierBorderDebug = {
+    bg = "#24283b",
+    fg = "#383e5a"
+  },
+  SnacksNotifierBorderError = {
+    bg = "#24283b",
+    fg = "#6d3641"
+  },
+  SnacksNotifierBorderInfo = {
+    bg = "#24283b",
+    fg = "#1b6279"
+  },
+  SnacksNotifierBorderTrace = {
+    bg = "#24283b",
+    fg = "#544a7a"
+  },
+  SnacksNotifierBorderWarn = {
+    bg = "#24283b",
+    fg = "#6f5e4d"
+  },
+  SnacksNotifierDebug = {
+    bg = "#24283b",
+    fg = "#c0caf5"
+  },
+  SnacksNotifierError = {
+    bg = "#24283b",
+    fg = "#c0caf5"
+  },
+  SnacksNotifierIconDebug = {
+    fg = "#565f89"
+  },
+  SnacksNotifierIconError = {
+    fg = "#db4b4b"
+  },
+  SnacksNotifierIconInfo = {
+    fg = "#0db9d7"
+  },
+  SnacksNotifierIconTrace = {
+    fg = "#9d7cd8"
+  },
+  SnacksNotifierIconWarn = {
+    fg = "#e0af68"
+  },
+  SnacksNotifierInfo = {
+    bg = "#24283b",
+    fg = "#c0caf5"
+  },
+  SnacksNotifierTitleDebug = {
+    fg = "#565f89"
+  },
+  SnacksNotifierTitleError = {
+    fg = "#db4b4b"
+  },
+  SnacksNotifierTitleInfo = {
+    fg = "#0db9d7"
+  },
+  SnacksNotifierTitleTrace = {
+    fg = "#9d7cd8"
+  },
+  SnacksNotifierTitleWarn = {
+    fg = "#e0af68"
+  },
+  SnacksNotifierTrace = {
+    bg = "#24283b",
+    fg = "#c0caf5"
+  },
+  SnacksNotifierWarn = {
+    bg = "#24283b",
+    fg = "#c0caf5"
+  },
+  SnacksProfilerBadgeInfo = {
+    bg = "#25384b",
+    fg = "#2ac3de"
+  },
+  SnacksProfilerBadgeTrace = {
+    bg = "#262c40",
+    fg = "#545c7e"
+  },
+  SnacksProfilerIconInfo = {
+    bg = "#26576c",
+    fg = "#2ac3de"
+  },
+  SnacksProfilerIconTrace = {
+    bg = "#2a334b",
+    fg = "#545c7e"
+  },
+  SnacksScratchDesc = "SnacksProfilerBadgeInfo",
+  SnacksScratchKey = "SnacksProfilerIconInfo",
+  SnacksZenIcon = {
+    fg = "#9d7cd8"
+  },
   Sneak = {
     bg = "#bb9af7",
     fg = "#292e42"
@@ -2138,6 +2338,9 @@ local highlights = {
   Substitute = {
     bg = "#f7768e",
     fg = "#1d202f"
+  },
+  SupermavenSuggestion = {
+    fg = "#414868"
   },
   TabLine = {
     bg = "#1f2335",
@@ -2236,6 +2439,16 @@ local highlights = {
     bg = "NONE",
     bold = true,
     fg = "#9d7cd8"
+  },
+  VimwikiHeader7 = {
+    bg = "NONE",
+    bold = true,
+    fg = "#ff9e64"
+  },
+  VimwikiHeader8 = {
+    bg = "NONE",
+    bold = true,
+    fg = "#f7768e"
   },
   VimwikiHeaderChar = {
     bg = "NONE",
