@@ -5,12 +5,15 @@ local base64 = require("base64")
 local function get_oneline_selection()
   local start = vim.fn.getpos("v")
   local finish = vim.fn.getcurpos()
-  local lines = math.abs(finish[2] - start[2]) + 1
-  if lines == 1 then
+  local n_lines = math.abs(finish[2] - start[2]) + 1
+  if n_lines == 1 then
     local line = vim.api.nvim_buf_get_lines(0, start[2] - 1, finish[2], false)[1]
     return string.sub(line, start[3], finish[3])
   else
-    error("multiline is not supported")
+    local lines = vim.api.nvim_buf_get_lines(0, start[2] - 1, finish[2], false)
+    lines[1] = string.sub(lines[1], start[3], -1)
+    lines[n_lines] = string.sub(lines[n_lines], 1, finish[3])
+    return table.concat(lines, '\n')
   end
 end
 
@@ -30,9 +33,9 @@ local function wrapper(action)
     -- leave visual mode
     vim.cmd([[execute "normal! \<esc>"]])
     -- reselect the area
-    vim.cmd("normal! gv")
+    vim.cmd("normal! gvc")
     -- replace text with encoded
-    vim.cmd([[execute "normal! c]] .. data .. [[\<esc>"]])
+    vim.api.nvim_put(vim.split(data, "\n"), "c", true, true)
   end
 end
 
