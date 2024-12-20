@@ -155,7 +155,7 @@ M.config = function()
       { name = 'rg',
         keyword_length = 3,
         option = {
-          additional_arguments = "--one-file-system --ignore-file ~/.vim/.ignore.rg",
+          additional_arguments = "--one-file-system --ignore-file ~/.config/nvim/.ignore.rg",
         },
       },
       {
@@ -177,7 +177,7 @@ M.config = function()
     formatting = {
       format = function(entry, vim_item)
         -- Kind icons
-        vim_item.kind = string.format('%s %s', kind_icons[vim_item.kind], vim_item.kind) -- This concatonates the icons with the name of the item kind
+        vim_item.kind = string.format('%s %s', kind_icons[vim_item.kind], vim_item.kind) -- This concatenates the icons with the name of the item kind
         -- Source
         vim_item.menu = ({
           buffer = "[Buffer]",
@@ -204,15 +204,10 @@ M.config = function()
     })
   })
 
-  -- Dictionary source
-  vim.opt.dictionary = vim.fn.stdpath("config") .. '/spell/en.utf-8.dict'
-  local nvim_cmp_dictionary = vim.api.nvim_create_augroup('nvim_cmp_dictionary', { clear = true })
-  vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-    group = nvim_cmp_dictionary,
-    once = true,
-    callback = function()
-      require("cmp_dictionary").update()
-    end,
+  -- Configure cmp-dictionary plugin
+  require("cmp_dictionary").setup({
+    paths = { vim.fn.stdpath("config") .. '/spell/en.utf-8.dict' },
+    exact_length = 2,
   })
 end
 
