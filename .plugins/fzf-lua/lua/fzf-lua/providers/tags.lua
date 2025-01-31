@@ -116,7 +116,7 @@ local function tags(opts)
     if M._TAGS2CWD[opts._ctags_file] then
       opts.cwd = opts.cwd or M._TAGS2CWD[opts._ctags_file]
     else
-      opts.cwd = opts.cwd or get_ctags_cwd(opts._ctags_file) or uv.cwd()
+      opts.cwd = opts.cwd or get_ctags_cwd(opts._ctags_file) or path.parent(opts.ctags_file)
       M._TAGS2CWD[opts._ctags_file] = opts.cwd
     end
   end
@@ -144,7 +144,7 @@ local function tags(opts)
   -- prevents 'file|git_icons=false' from overriding processing
   opts.requires_processing = true
   if opts.multiprocess then
-    opts.__mt_transform = [[return require("make_entry").tag]]
+    opts.__mt_transform = [[return require("fzf-lua.make_entry").tag]]
   else
     opts.__mt_transform = make_entry.tag
   end
@@ -160,7 +160,7 @@ local function tags(opts)
     opts.rg_glob = false
     -- tags has it's own formatter
     opts.formatter, opts._fmt = false, { _to = false, to = false, from = false }
-    opts.filename = opts._ctags_file
+    opts.filespec = libuv.shellescape(opts._ctags_file)
     if opts.multiprocess then
       return require "fzf-lua.providers.grep".live_grep_mt(opts)
     else

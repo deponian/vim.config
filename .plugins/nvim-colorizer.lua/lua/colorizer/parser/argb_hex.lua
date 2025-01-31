@@ -1,6 +1,7 @@
---- This module provides a parser for extracting `0xAARRGGBB` hexadecimal color values and converting them to RGB hex.
--- This format is commonly used in Android apps for color values, where the color includes an alpha (transparency) component.
--- The function parses the color, applies the alpha value to each RGB channel, and returns the resulting RGB hex string.
+--[[-- This module provides a parser for extracting `0xAARRGGBB` hexadecimal color values and converting them to RGB hex.
+This format is commonly used in Android apps for color values, where the color includes an alpha (transparency) component.
+The function parses the color, applies the alpha value to each RGB channel, and returns the resulting RGB hex string.
+]]
 -- @module colorizer.parser.rgb_hex
 local M = {}
 
@@ -14,11 +15,11 @@ local utils = require("colorizer.utils")
 -- This function reads a color from a line of text, expecting it in the `0xAARRGGBB` format (common in Android apps).
 -- It extracts the alpha (AA), red (RR), green (GG), and blue (BB) components, applies the alpha to the RGB channels, and outputs
 -- the resulting RGB color in hexadecimal format.
--- @param line string The line of text to parse
--- @param i number The starting index within the line where parsing should begin
--- @return number|nil The end index of the parsed hex value within the line, or `nil` if parsing failed
--- @return string|nil The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
-function M.argb_hex_parser(line, i)
+---@param line string: The line of text to parse
+---@param i number: The starting index within the line where parsing should begin
+---@return number|nil: The end index of the parsed hex value within the line, or `nil` if parsing failed
+---@return string|nil: The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
+function M.parser(line, i)
   -- Minimum length of a valid hex color (e.g., "0xRGB")
   local minlen = #"0xRGB" - 1
   -- Maximum length of a valid hex color (e.g., "0xAARRGGBB")
@@ -71,8 +72,8 @@ function M.argb_hex_parser(line, i)
     return
   end
 
-  local rgb_hex = string.format("%02x%02x%02x", r, g, b)
+  local rgb_hex = utils.rgb_to_hex(r, g, b)
   return length, rgb_hex
 end
 
-return M.argb_hex_parser
+return M

@@ -10,18 +10,6 @@ local M = {}
 -- set this so that make_entry won't get nil err when setting remotely
 M.__resume_data = {}
 
--- set|get the latest wrapped process PID
--- NOTE: we don't store this closure in `opts` (or store a ref to `opts`)
--- as together with `__resume_data` it can create a memory leak having to
--- store recursive copies of the `opts` table (#723)
-M.set_pid = function(pid)
-  M.__pid = pid
-end
-
-M.get_pid = function()
-  return M.__pid
-end
-
 M.resume_get = function(what, opts)
   assert(opts.__resume_key)
   if type(opts.__resume_get) == "function" then
@@ -194,6 +182,37 @@ function M.normalize_opts(opts, globals, __resume_key)
     opts = M.resume_opts(opts)
   end
 
+  local function convert_bool_opts()
+    -- Enforce conversion of boolean options that are tables with `enabled`
+    -- property, i.e. `winopts.treesitter = true` will be converted to
+    -- `winopts = { treesitter = { enabled = true, <defaults> } }`
+    -- Running a command and setting sub-values implies `enabled=true`, e.g:
+    --   `:FzfLua blines winopts.treesitter.fzf_colors=false`
+    --   `:FzfLua blines winopts.treesitter.fzf_colors={hl="-1:underline"}`
+    -- So the above will be converted to:
+    -- `winopts = { treesitter = { enabled = true, fzf_colors = false, <defaults> } }`
+    -- NOTE:  this function runs once before merging with globals and once
+    -- later down the line (after merges with globals/defaults), this is done
+    -- so that commands as the example above won't inherit `{ enabled = false }`
+    -- from the defaults (e.g. the default is `winopts.treesitter.enabled = false`)
+    for k, vfrom in pairs({
+      ["winopts.treesitter"] = "winopts.treesitter",
+      ["previewer.treesitter"] = "previewers.builtin.treesitter",
+      ["previewer.render_markdown"] = "previewers.builtin.render_markdown",
+    })
+    do
+      local v = utils.map_get(opts, k)
+      if v == false then
+        utils.map_set(opts, k, { enabled = false })
+      elseif v == true or type(v) == "table" then
+        local newv = vim.tbl_deep_extend("keep", type(v) == "table" and v or {},
+          { enabled = true }, utils.map_get(M.defaults, vfrom) or {})
+        utils.map_set(opts, k, newv)
+      end
+    end
+  end
+  convert_bool_opts()
+
   -- normalize all binds as lowercase or we can have duplicate keys (#654)
   ---@param m {fzf: table<string, unknown>, builtin: table<string, unknown>}
   ---@return {fzf: table<string, unknown>, builtin: table<string, unknown>}?
@@ -217,16 +236,49 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- merge with provider defaults from globals (defaults + setup options)
   opts = vim.tbl_deep_extend("keep", opts, utils.tbl_deep_clone(globals))
 
-  -- Merge required tables from globals
+  -- Backward compat: merge `winopts` with outputs from `winopts_fn`
+  local winopts_fn = opts.winopts_fn or M.globals.winopts_fn
+  if type(winopts_fn) == "function" then
+    if not opts.silent then
+      utils.warn(
+        "Deprecated option: 'winopts_fn' -> 'winopts'. Add 'silent=true' to hide this message.")
+    end
+    local ret = winopts_fn(opts) or {}
+    if not utils.tbl_isempty(ret) and (not opts.winopts or type(opts.winopts) == "table") then
+      opts.winopts = vim.tbl_deep_extend("force", opts.winopts or {}, ret)
+    end
+  end
+
+  -- Merge values from globals
   for _, k in ipairs({
-    "winopts", "keymap", "fzf_opts", "fzf_tmux_opts", "hls"
+    "winopts", "keymap", "fzf_opts", "fzf_colors", "fzf_tmux_opts", "hls"
   }) do
-    opts[k] = vim.tbl_deep_extend("keep",
+    local setup_val = M.globals[k]
+    if type(setup_val) == "function" then
+      setup_val = setup_val(opts)
+      if type(setup_val) == "table" then
+        local default_val = utils.map_get(M.defaults, k)
+        if type(default_val) == "table" then
+          setup_val = vim.tbl_deep_extend("force", {}, default_val, setup_val)
+        end
+      end
+    end
+    if type(setup_val) == "table" then
       -- must clone or map will be saved as reference
       -- and then overwritten if found in 'backward_compat'
-      type(opts[k]) == "function" and opts[k]() or opts[k] or {},
-      type(M.globals[k]) == "function" and M.globals[k]() or
-      type(M.globals[k]) == "table" and utils.tbl_deep_clone(M.globals[k]) or {})
+      setup_val = utils.tbl_deep_clone(setup_val)
+    end
+    if opts[k] == nil then
+      opts[k] = setup_val
+    else
+      if type(opts[k]) == "function" then
+        opts[k] = opts[k](opts)
+      end
+      if type(opts[k]) == "table" then
+        opts[k] = vim.tbl_deep_extend("keep",
+          opts[k], type(setup_val) == "table" and setup_val or {})
+      end
+    end
   end
 
   -- backward compat: no-value flags should be set to `true`, in the past these
@@ -234,6 +286,14 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- string as we automatically shell escape all fzf_opts
   for k, v in pairs(opts.fzf_opts) do
     if v == "" then opts.fzf_opts[k] = true end
+  end
+
+  -- backward compat for `winopts.preview.{wrap|hidden}`
+  for k, v in pairs({ wrap = "nowrap", hidden = "nohidden" }) do
+    local val = utils.map_get(opts, "winopts.preview." .. k)
+    if type(val) == "string" then
+      utils.map_set(opts, "winopts.preview." .. k, not val:match(v))
+    end
   end
 
   -- fzf.vim's `g:fzf_history_dir` (#1127)
@@ -245,24 +305,6 @@ function M.normalize_opts(opts, globals, __resume_key)
     if vim.fn.isdirectory(histdir) == 1 and type(opts.__resume_key) == "string" then
       opts.fzf_opts["--history"] = path.join({ histdir, opts.__resume_key })
     end
-  end
-
-  -- prioritize fzf-tmux split pane flags over the
-  -- popup flag `-p` from fzf-lua defaults (#865)
-  opts._is_fzf_tmux_popup = true
-  if type(opts.fzf_tmux_opts) == "table" then
-    for _, flag in ipairs({ "-u", "-d", "-l", "-r" }) do
-      if opts.fzf_tmux_opts[flag] then
-        opts._is_fzf_tmux_popup = false
-        opts.fzf_tmux_opts["-p"] = nil
-      end
-    end
-  end
-
-  -- Merge `winopts` with outputs from `winopts_fn`
-  local winopts_fn = opts.winopts_fn or M.globals.winopts_fn
-  if type(winopts_fn) == "function" then
-    opts.winopts = vim.tbl_deep_extend("force", opts.winopts, winopts_fn(opts) or {})
   end
 
   -- Merge arrays from globals|defaults, can't use 'vim.tbl_xxx'
@@ -288,13 +330,14 @@ function M.normalize_opts(opts, globals, __resume_key)
     "fzf_raw_args",
     "file_icon_padding",
     "dir_icon",
+    "help_open_win",
   }) do
     if opts[s] == nil then
       opts[s] = M.globals[s]
     end
     local pattern_prefix = "%-%-prompt="
     local pattern_prompt = ".-"
-    local surround = opts[s] and opts[s]:match(pattern_prefix .. "(.)")
+    local surround = type(opts[s]) == "string" and opts[s]:match(pattern_prefix .. "(.)")
     -- prompt was set without surrounding quotes
     -- technically an error but we can handle it gracefully instead
     if surround and surround ~= [[']] and surround ~= [["]] then
@@ -316,40 +359,45 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- backward compatibility, rhs overrides lhs
   -- (rhs being the "old" option)
   local backward_compat = {
-    { "winopts.row",                  "winopts.win_row" },
-    { "winopts.col",                  "winopts.win_col" },
-    { "winopts.width",                "winopts.win_width" },
-    { "winopts.height",               "winopts.win_height" },
-    { "winopts.border",               "winopts.win_border" },
-    { "winopts.on_create",            "winopts.window_on_create" },
-    { "winopts.preview.wrap",         "preview_wrap" },
-    { "winopts.preview.border",       "preview_border" },
-    { "winopts.preview.hidden",       "preview_opts" },
-    { "winopts.preview.vertical",     "preview_vertical" },
-    { "winopts.preview.horizontal",   "preview_horizontal" },
-    { "winopts.preview.layout",       "preview_layout" },
-    { "winopts.preview.flip_columns", "flip_columns" },
-    { "winopts.preview.default",      "default_previewer" },
-    { "winopts.preview.delay",        "previewers.builtin.delay" },
-    { "winopts.preview.title",        "previewers.builtin.title" },
-    { "winopts.preview.title_pos",    "winopts.preview.title_align" },
-    { "winopts.preview.scrollbar",    "previewers.builtin.scrollbar" },
-    { "winopts.preview.scrollchar",   "previewers.builtin.scrollchar" },
-    { "cwd_header",                   "show_cwd_header" },
-    { "cwd_prompt",                   "show_cwd_prompt" },
-    { "resume",                       "continue_last_search" },
-    { "resume",                       "repeat_last_search" },
-    { "hls.normal",                   "winopts.hl_normal" },
-    { "hls.border",                   "winopts.hl_border" },
-    { "hls.cursor",                   "previewers.builtin.hl_cursor" },
-    { "hls.cursorline",               "previewers.builtin.hl_cursorline" },
-    { "hls",                          "winopts.hl" },
+    { "winopts.row",                            "winopts.win_row" },
+    { "winopts.col",                            "winopts.win_col" },
+    { "winopts.width",                          "winopts.win_width" },
+    { "winopts.height",                         "winopts.win_height" },
+    { "winopts.border",                         "winopts.win_border" },
+    { "winopts.on_create",                      "winopts.window_on_create" },
+    { "winopts.preview.wrap",                   "preview_wrap" },
+    { "winopts.preview.border",                 "preview_border" },
+    { "winopts.preview.hidden",                 "preview_opts" },
+    { "winopts.preview.vertical",               "preview_vertical" },
+    { "winopts.preview.horizontal",             "preview_horizontal" },
+    { "winopts.preview.layout",                 "preview_layout" },
+    { "winopts.preview.flip_columns",           "flip_columns" },
+    { "winopts.preview.default",                "default_previewer" },
+    { "winopts.preview.delay",                  "previewers.builtin.delay" },
+    { "winopts.preview.title",                  "previewers.builtin.title" },
+    { "winopts.preview.title_pos",              "winopts.preview.title_align" },
+    { "winopts.preview.scrollbar",              "previewers.builtin.scrollbar" },
+    { "winopts.preview.scrollchar",             "previewers.builtin.scrollchar" },
+    { "cwd_header",                             "show_cwd_header" },
+    { "cwd_prompt",                             "show_cwd_prompt" },
+    { "resume",                                 "continue_last_search" },
+    { "resume",                                 "repeat_last_search" },
+    { "hls.normal",                             "winopts.hl_normal" },
+    { "hls.border",                             "winopts.hl_border" },
+    { "hls.cursor",                             "previewers.builtin.hl_cursor" },
+    { "hls.cursorline",                         "previewers.builtin.hl_cursorline" },
+    { "hls",                                    "winopts.hl" },
+    { "previewer.treesitter.enabled",           "previewer.treesitter.enable" },
+    { "previewer.treesitter.disabled",          "previewer.treesitter.disable" },
+    { "previewers.builtin.treesitter.enabled",  "previewers.builtin.treesitter.enable" },
+    { "previewers.builtin.treesitter.disabled", "previewers.builtin.treesitter.disable" },
   }
 
   -- iterate backward compat map, retrieve values from opts or globals
   for _, t in ipairs(backward_compat) do
     local new_key, old_key = t[1], t[2]
-    local old_val = utils.map_get(opts, old_key) or utils.map_get(M.globals, old_key)
+    local v_opts = utils.map_get(opts, old_key)
+    local old_val = v_opts == nil and utils.map_get(M.globals, old_key) or v_opts
     local new_val = utils.map_get(opts, new_key)
     if old_val ~= nil then
       if type(old_val) == "table" and type(new_val) == "table" then
@@ -358,7 +406,11 @@ function M.normalize_opts(opts, globals, __resume_key)
         utils.map_set(opts, new_key, old_val)
       end
       utils.map_set(opts, old_key, nil)
-      -- utils.warn(string.format("option moved/renamed: '%s' -> '%s'", old_key, new_key))
+      if not opts.silent then
+        utils.warn(string.format(
+          "Deprecated option: '%s' -> '%s'. Add 'silent=true' to hide this message.",
+          old_key, new_key))
+      end
     end
   end
 
@@ -419,10 +471,96 @@ function M.normalize_opts(opts, globals, __resume_key)
     -- globals.winopts.preview.default
     opts.previewer = opts.previewer()
   end
-  if type(opts.previewer) == "table" then
-    -- merge with the default builtin previewer
+  -- "Shortcut" values to the builtin previewer
+  -- merge with builtin previewer defaults
+  if type(opts.previewer) == "table"
+      or opts.previewer == true
+      or opts.previewer == "hidden"
+      or opts.previewer == "nohidden"
+  then
+    -- of type string, can only be "hidden|nohidden"
+    if type(opts.previewer) == "string" then
+      assert(opts.previewer == "hidden" or opts.previewer == "nohidden")
+      utils.map_set(opts, "winopts.preview.hidden", opts.previewer ~= "nohidden")
+    end
     opts.previewer = vim.tbl_deep_extend("keep",
-      opts.previewer, M.globals.previewers.builtin)
+      type(opts.previewer) == "table" and opts.previewer or {},
+      M.globals.previewers.builtin)
+  end
+
+  -- Convert again in case the bool option came from global opts
+  convert_bool_opts()
+
+  -- Auto-generate fzf's colorscheme
+  opts.fzf_colors = type(opts.fzf_colors) == "table" and opts.fzf_colors
+      or opts.fzf_colors == true and { true } or {}
+
+  -- Inerherit from fzf.vim's g:fzf_colors
+  -- fzf.vim:
+  --   vim.g.fzf_colors = {
+  --     ["fg"] = { "fg" , "Comment", "Normal" }
+  --   }
+  -- fzf-lua:
+  --   fzf_colors = {
+  --     ["fg"] = { "fg" , { "Comment", "Normal" } }
+  --   }
+  opts.fzf_colors = vim.tbl_extend("keep", opts.fzf_colors,
+    vim.tbl_map(function(v)
+      -- Value isn't guaranteed a table, e.g:
+      --   vim.g.fzf_colors = { ["gutter"] = "-1" }
+      if type(v) ~= "table" then return tostring(v) end
+      -- We accept both fzf.vim and fzf-lua style values
+      if type(v[2]) == "table" then return v end
+      local new_v = { v[1], { v[2] } }
+      for i = 3, #v do
+        table.insert(new_v[2], v[i])
+      end
+      return new_v
+    end, type(vim.g.fzf_colors) == "table" and vim.g.fzf_colors or {}))
+
+  if opts.fzf_colors[1] == true then
+    opts.fzf_colors[1] = nil
+    opts.fzf_colors = vim.tbl_deep_extend("keep", opts.fzf_colors, {
+      ["fg"]        = { "fg", opts.hls.fzf.normal },
+      ["bg"]        = { "bg", opts.hls.fzf.normal },
+      ["hl"]        = { "fg", opts.hls.fzf.match },
+      ["fg+"]       = { "fg", { opts.hls.fzf.cursorline, opts.hls.fzf.normal } },
+      ["bg+"]       = { "bg", opts.hls.fzf.cursorline },
+      ["hl+"]       = { "fg", opts.hls.fzf.match },
+      ["info"]      = { "fg", opts.hls.fzf.info },
+      ["border"]    = { "fg", opts.hls.fzf.border },
+      ["gutter"]    = { "bg", opts.hls.fzf.gutter },
+      ["query"]     = { "fg", opts.hls.fzf.query, "regular" },
+      ["prompt"]    = { "fg", opts.hls.fzf.prompt },
+      ["pointer"]   = { "fg", opts.hls.fzf.pointer },
+      ["marker"]    = { "fg", opts.hls.fzf.marker },
+      ["spinner"]   = { "fg", opts.hls.fzf.spinner },
+      ["header"]    = { "fg", opts.hls.fzf.header },
+      ["separator"] = { "fg", opts.hls.fzf.separator },
+      ["scrollbar"] = { "fg", opts.hls.fzf.scrollbar }
+    })
+  end
+
+  -- Adjust main fzf window treesitter settings
+  -- Disabled unless the picker is TS enabled with `_treesitter=true`
+  -- Unless `enabled=false` is specifically set `true` is asssumed
+  if not opts._treesitter then opts.winopts.treesitter = nil end
+  if not opts.winopts.treesitter or opts.winopts.treesitter.enabled == false then
+    opts.winopts.treesitter = nil
+  else
+    assert(type(opts.winopts.treesitter) == "table")
+    assert(not opts.fzf_colors or type(opts.fzf_colors) == "table")
+    -- Unless the caller specifically disables `fzf_colors` fuzzy matching
+    -- colors "hl,hl+" will be set to "-1:reverse" which sets the background
+    -- color for matches to the corresponding original foreground color
+    -- NOTE: `fzf_colors` inherited from `defaults.winopts.treesitter`
+    if opts.winopts.treesitter.fzf_colors ~= false then
+      opts.fzf_colors = vim.tbl_deep_extend("force",
+        type(opts.fzf_colors) == "table" and opts.fzf_colors or {},
+        M.defaults.winopts.treesitter.fzf_colors,
+        type(opts.winopts.treesitter.fzf_colors) == "table"
+        and opts.winopts.treesitter.fzf_colors or {})
+    end
   end
 
   -- we need the original `cwd` with `autochdir=true` (#882)
@@ -486,7 +624,7 @@ function M.normalize_opts(opts, globals, __resume_key)
   end
 
   -- are we using skim?
-  opts._is_skim = opts.fzf_bin:find("sk") ~= nil
+  opts._is_skim = opts.fzf_bin:match("sk$") ~= nil
 
   -- enforce fzf minimum requirements
   vim.g.fzf_lua_fzf_version = nil
@@ -495,57 +633,161 @@ function M.normalize_opts(opts, globals, __resume_key)
     opts.__FZF_VERSION = FZF_VERSION
     vim.g.fzf_lua_fzf_version = FZF_VERSION
     if not opts.__FZF_VERSION then
-      utils.err(string.format(
-        "'fzf --version' failed with error %s: %s", rc, err))
+      utils.err(string.format("'fzf --version' failed with error %s: %s", rc, err))
       return nil
-    elseif opts.__FZF_VERSION < 0.24 then
-      utils.err(string.format(
-        "fzf version %.2f is lower than minimum (0.24), aborting.",
-        opts.__FZF_VERSION))
+    elseif not utils.has(opts, "fzf", { 0, 25 }) then
+      utils.err(string.format("fzf version %s is lower than minimum (0.25), aborting.",
+        utils.ver2str(opts.__FZF_VERSION)))
       return nil
-    elseif opts.__FZF_VERSION < 0.27 then
-      -- remove `--border=none`, fails when < 0.27
-      opts.fzf_opts = opts.fzf_opts or {}
-      opts.fzf_opts["--border"] = false
     end
   else
     local SK_VERSION, rc, err = utils.sk_version(opts)
     opts.__SK_VERSION = SK_VERSION
     if not opts.__SK_VERSION then
-      utils.err(string.format(
-        "'sk --version' failed with error %s: %s", rc, err))
+      utils.err(string.format("'sk --version' failed with error %s: %s", rc, err))
       return nil
     end
   end
 
-  if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53
+  if utils.has(opts, "fzf", { 0, 53 })
       -- `_multiline` is used to override `multiline` inherited from `defaults = {}`
       and opts.multiline and opts._multiline ~= false then
     -- If `multiline` was specified we add both "read0" & "print0" flags
     opts.fzf_opts["--read0"] = true
     opts.fzf_opts["--print0"] = true
+    local gap = (tonumber(opts.multiline) or 1) - 1
+    if gap > 0 then opts.fzf_opts["--gap"] = gap end
   else
     -- If not possible (fzf v<0.53|skim), nullify the option
     opts.multiline = nil
   end
 
-  -- Are we using fzf-tmux? if so get available columns
-  opts._is_fzf_tmux = vim.env.TMUX
-      -- pre fzf v0.53 uses the fzf-tmux script
-      and opts.fzf_bin:match("fzf%-tmux$") and 1
-      -- fzf v0.53 added native tmux integration
-      or opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 and opts.fzf_opts["--tmux"] and 2
-      -- skim v0.15.5 added native tmux integration
-      or opts.__SK_VERSION and opts.__SK_VERSION >= 0.155 and opts.fzf_opts["--tmux"] and 2
-  if opts._is_fzf_tmux then
-    local out = utils.io_system({ "tmux", "display-message", "-p", "#{window_width}" })
-    opts._tmux_columns = tonumber(out:match("%d+"))
-    opts.winopts.split = nil
-    if opts._is_fzf_tmux == 2 then
-      -- native tmux integration is implemented using tmux popups
-      opts._is_fzf_tmux_popup = true
+  do
+    -- Remove incompatible flags / values
+    --   (1) `true` flags are removed entirely (regardless of value)
+    --   (2) `string` flags are removed only if the values match
+    --   (3) `table` flags are removed if the value is contained
+    local bin, version, changelog = (function()
+      if opts.__SK_VERSION then
+        return "sk", opts.__SK_VERSION, {
+          ["0.15.5"] = { fzf_opts = { ["--tmux"] = true } },
+          ["0.53"] = { fzf_opts = { ["--inline-info"] = true } },
+          -- All fzf flags not existing in skim
+          ["all"] = {
+            fzf_opts = {
+              ["--gap"]            = false,
+              ["--info"]           = false,
+              ["--border"]         = false,
+              ["--scrollbar"]      = false,
+              ["--no-scrollbar"]   = false,
+              ["--highlight-line"] = false,
+            }
+          },
+        }
+      else
+        return "fzf", opts.__FZF_VERSION, {
+          ["0.56"] = { fzf_opts = { ["--gap"] = true } },
+          ["0.54"] = {
+            fzf_opts = {
+              ["-wrap"]            = true,
+              ["-wrap-sign"]       = true,
+              ["--highlight-line"] = true,
+            }
+          },
+          ["0.53"] = { fzf_opts = { ["--tmux"] = true } },
+          ["0.52"] = { fzf_opts = { ["--highlight-line"] = true } },
+          ["0.42"] = {
+            fzf_opts = {
+              ["--info"] = { "right", "inline-right" },
+            }
+          },
+          ["0.39"] = { fzf_opts = { ["--track"] = true } },
+          ["0.36"] = {
+            fzf_opts = {
+              ["--listen"]       = true,
+              ["--scrollbar"]    = true,
+              ["--no-scrollbar"] = true,
+            }
+          },
+          ["0.35"] = {
+            fzf_opts = {
+              ["--border"]            = { "bold", "double" },
+              ["--border-label"]      = true,
+              ["--border-label-pos"]  = true,
+              ["--preview-label"]     = true,
+              ["--preview-label-pos"] = true,
+            }
+          },
+          ["0.33"] = { fzf_opts = { ["--scheme"] = true } },
+          ["0.30"] = { fzf_opts = { ["--ellipsis"] = true } },
+          ["0.28"] = {
+            fzf_opts = {
+              ["--header-first"] = true,
+              ["--scroll-off"]   = true,
+            }
+          },
+          ["0.27"] = { fzf_opts = { ["--border"] = "none" } },
+          -- All skim flags not existing in fzf
+          ["all"] = {
+            fzf_opts = {
+              ["--inline-info"] = false,
+            }
+          },
+        }
+      end
+    end)()
+    local function warn(flag, val, min_ver)
+      return utils.warn(string.format("Removed flag '%s%s', %s.",
+        flag, type(val) == "string" and "=" .. val or "",
+        not min_ver and string.format("not supported with %s", bin)
+        or string.format("only supported with %s v%s (has=%s)",
+          bin, utils.ver2str(min_ver), utils.ver2str(version))
+      ))
+    end
+    for min_verstr, ver_data in pairs(changelog) do
+      for flag, non_compat_value in pairs(ver_data.fzf_opts) do
+        (function()
+          local min_ver = utils.parse_verstr(min_verstr)
+          local opt_value = opts.fzf_opts[flag]
+          if not opt_value then return end
+          non_compat_value = type(non_compat_value) == "string"
+              and { non_compat_value } or non_compat_value
+          if not min_ver or not utils.has(opts, bin, min_ver)
+              and (non_compat_value == true or type(non_compat_value) == "table"
+                and utils.tbl_contains(non_compat_value, opt_value))
+          then
+            if opts.compat_warn == true then
+              warn(flag, opt_value, min_ver)
+            end
+            opts.fzf_opts[flag] = nil
+          end
+        end)()
+      end
     end
   end
+
+  -- Are we using fzf-tmux? if so get available columns
+  opts._is_fzf_tmux = (function()
+    if not vim.env.TMUX then return end
+    local is_tmux =
+        (opts.fzf_bin:match("fzf%-tmux$") or opts.fzf_bin:match("sk%-tmux$")) and 1
+        -- fzf v0.53 added native tmux integration
+        or utils.has(opts, "fzf", { 0, 53 }) and opts.fzf_opts["--tmux"] and 2
+        -- skim v0.15.5 added native tmux integration
+        or utils.has(opts, "sk", { 0, 15, 5 }) and opts.fzf_opts["--tmux"] and 2
+    if is_tmux == 1 then
+      -- backward compat when using the `fzf-tmux` script: prioritize fzf-tmux
+      -- split pane flags over the popup flag `-p` from fzf-lua defaults (#865)
+      if type(opts.fzf_tmux_opts) == "table" then
+        for _, flag in ipairs({ "-u", "-d", "-l", "-r" }) do
+          if opts.fzf_tmux_opts[flag] then
+            opts.fzf_tmux_opts["-p"] = nil
+          end
+        end
+      end
+    end
+    return is_tmux
+  end)()
 
   -- refresh highlights if background/colorscheme changed (#1092)
   if not M.__HLS_STATE
@@ -577,8 +819,13 @@ function M.normalize_opts(opts, globals, __resume_key)
         })
     then
       -- Disable file_icons if requested package isn't available
-      utils.warn(string.format("error loading '%s', disabling 'file_icons'.",
-        opts.file_icons == "mini" and "mini.icons" or "nvim-web-devicons"))
+      -- we set the default value to "1" but since it's the default
+      -- don't display the warning unless the user specifically set
+      -- file_icons to `true` or `mini|devicons`
+      if not tonumber(opts.file_icons) then
+        utils.warn(string.format("error loading '%s', disabling 'file_icons'.",
+          opts.file_icons == "mini" and "mini.icons" or "nvim-web-devicons"))
+      end
       opts.file_icons = nil
     end
     if opts.file_icons == "mini" then
@@ -589,16 +836,16 @@ function M.normalize_opts(opts, globals, __resume_key)
       -- We also want to store the cached extensions/filenames in the main thread
       -- which we do in "make_entry.postprocess"
       opts.__mt_postprocess = opts.multiprocess
-          and [[return require("make_entry").postprocess]]
+          and [[return require("fzf-lua.make_entry").postprocess]]
           -- NOTE: we don't need to update mini when running on main thread
           -- or require("fzf-lua.make_entry").postprocess
           or nil
     end
   end
 
-  -- libuv.spawn_nvim_fzf_cmd() pid callback
-  opts._set_pid = M.set_pid
-  opts._get_pid = M.get_pid
+  if type(opts.enrich) == "function" then
+    opts = opts.enrich(opts)
+  end
 
   -- mark as normalized
   opts._normalized = true
@@ -607,7 +854,7 @@ function M.normalize_opts(opts, globals, __resume_key)
 end
 
 M.bytecode = function(s, datatype)
-  local keys = utils.strsplit(s, ".")
+  local keys = utils.strsplit(s, "%.")
   local iter = M
   for i = 1, #keys do
     iter = iter[keys[i]]
@@ -696,6 +943,7 @@ M._action_to_helpstr = {
   [actions.arg_del]             = "arg-list-delete",
   [actions.toggle_ignore]       = "toggle-ignore",
   [actions.toggle_hidden]       = "toggle-hidden",
+  [actions.toggle_follow]       = "toggle-follow",
   [actions.grep_lgrep]          = "grep<->lgrep",
   [actions.sym_lsym]            = "sym<->lsym",
   [actions.tmux_buf_set_reg]    = "set-register",
@@ -708,6 +956,7 @@ M._action_to_helpstr = {
   [actions.cs_delete]           = "colorscheme-delete",
   [actions.cs_update]           = "colorscheme-update",
   [actions.toggle_bg]           = "toggle-background",
+  [actions.cd]                  = "change-directory",
 }
 
 return M

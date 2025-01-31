@@ -3,7 +3,7 @@ local M = { "ibhagwan/fzf-lua" }
 M.opts = {
   winopts = {
     fullscreen = true,
-    hl = {
+    hls = {
       normal = 'Normal',
       border = 'FloatBorder',
       preview_border = 'FloatBorder',
@@ -20,13 +20,13 @@ M.opts = {
       scrollborder_f = 'Delimiter',
     },
     preview = {
-      title_align = "center",
+      title_pos = "center",
       scrollchars = {'┃', '' },
     },
   },
   previewers = {
     builtin = {
-      treesitter = { enable = true, disable = {"yaml"} },
+      treesitter = { enabled = true, disabled = {"yaml"} },
       extensions = {
         ["bmp"] = { "chafa" },
         ["jpg"] = { "chafa" },

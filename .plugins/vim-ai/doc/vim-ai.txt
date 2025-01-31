@@ -150,15 +150,49 @@ Globbing is expanded out via `glob.gob` and relative paths to the current
 working directory (as determined by `getcwd()`) will be resolved to absolute
 paths.
 
-                                                *:AINewChat*
+                                                *:AIImage*
 
-:AINewChat {preset shortname}?      spawn a new conversation with a given open
-                                    chat preset - below, tab or right.
+<selection>? :AIImage {instruction}? generate image given the selection or
+                                     the instruction
+
+Options: >
+  let g:vim_ai_image_default = {
+  \  "prompt": "",
+  \  "options": {
+  \    "model": "dall-e-3",
+  \    "endpoint_url": "https://api.openai.com/v1/images/generations",
+  \    "quality": "standard",
+  \    "size": "1024x1024",
+  \    "style": "vivid",
+  \    "request_timeout": 20,
+  \    "enable_auth": 1,
+  \    "token_file_path": "",
+  \  },
+  \  "ui": {
+  \    "download_dir": "",
+  \  },
+  \}
+
+Check OpenAI docs for more information:
+https://platform.openai.com/docs/api-reference/images/create
 
                                                 *:AIRedo*
 
 :AIRedo                             repeat last AI command in order to re-try
                                     or get an alternative completion.
+
+                                                *:AIUtilOpenRoles*
+
+:AIUtilOpenRoles                    open role configuration file
+
+                                                *:AIUtilDebugOn*
+
+:AIUtilDebugOn                      turn on debug logging
+
+                                                *:AIUtilDebugOff*
+
+:AIUtilDebugOff                     turn off debug logging
+
 
 CONFIGURATION                                   *vim-ai-config*
 
@@ -172,10 +206,11 @@ a selection of options: >
   \  },
   \}
 
-Or modify options directly during the vim session: >
+Alternatively you can use special `default` role: >
 
-  let g:vim_ai_chat['options']['model'] = 'gpt-4'
-  let g:vim_ai_chat['options']['temperature'] = 0.2
+  [default.chat]
+  options.model=gpt-4
+  options.temperature=0.2
 
 You can also customize the options in the chat header: >
 
@@ -198,10 +233,7 @@ Example of a role: >
 
     [grammar]
     prompt = fix spelling and grammar
-
-    [grammar.options]
-    temperature = 0.4
-
+    options.temperature = 0.4
 
 Now you can select text and run it with command `:AIEdit /grammar`.
 See roles-example.ini for more examples.

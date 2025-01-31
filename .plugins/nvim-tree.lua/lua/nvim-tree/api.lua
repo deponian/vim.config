@@ -24,6 +24,7 @@ local Api = {
     },
     run = {},
     open = {},
+    buffer = {},
   },
   events = {},
   marks = {
@@ -255,7 +256,9 @@ Api.node.open.tab_drop = wrap_node(open_or_expand_or_dir_up("tab_drop"))
 Api.node.open.replace_tree_buffer = wrap_node(open_or_expand_or_dir_up("edit_in_place"))
 Api.node.open.no_window_picker = wrap_node(open_or_expand_or_dir_up("edit_no_picker"))
 Api.node.open.vertical = wrap_node(open_or_expand_or_dir_up("vsplit"))
+Api.node.open.vertical_no_picker = wrap_node(open_or_expand_or_dir_up("vsplit_no_picker"))
 Api.node.open.horizontal = wrap_node(open_or_expand_or_dir_up("split"))
+Api.node.open.horizontal_no_picker = wrap_node(open_or_expand_or_dir_up("split_no_picker"))
 Api.node.open.tab = wrap_node(open_or_expand_or_dir_up("tabnew"))
 Api.node.open.toggle_group_empty = wrap_node(open_or_expand_or_dir_up("toggle_group_empty", true))
 Api.node.open.preview = wrap_node(open_or_expand_or_dir_up("preview"))
@@ -283,6 +286,16 @@ Api.node.navigate.diagnostics.prev = wrap_node(actions.moves.item.fn({ where = "
 Api.node.navigate.diagnostics.prev_recursive = wrap_node(actions.moves.item.fn({ where = "prev", what = "diag", recurse = true }))
 Api.node.navigate.opened.next = wrap_node(actions.moves.item.fn({ where = "next", what = "opened" }))
 Api.node.navigate.opened.prev = wrap_node(actions.moves.item.fn({ where = "prev", what = "opened" }))
+
+---@class ApiNodeDeleteWipeBufferOpts
+---@field force boolean|nil default false
+
+Api.node.buffer.delete = wrap_node(function(node, opts)
+  actions.node.buffer.delete(node, opts)
+end)
+Api.node.buffer.wipe = wrap_node(function(node, opts)
+  actions.node.buffer.wipe(node, opts)
+end)
 
 Api.git.reload = wrap_explorer("reload_git")
 

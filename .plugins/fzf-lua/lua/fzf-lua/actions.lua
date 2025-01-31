@@ -19,10 +19,11 @@ M.expect = function(actions, opts)
     --   actions = { ["_myaction"] = function(sel, opts) ... end,
     (function()
       -- Lua 5.1 goto compatiblity hack (function wrap)
-      if not v or k:match("^_") then return end
+      -- Ignore `false` actions and execute-silent/reload actions
+      if not v or type(v) == "table" and v._ignore or k:match("^_") then return end
       k = k == "default" and "enter" or k
       v = type(v) == "table" and v or { fn = v }
-      if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
+      if utils.has(opts, "fzf", { 0, 53 }) then
         -- `print(...)` action was only added with fzf 0.53
         -- NOTE: we can no longer combine `--expect` and `--bind` as this will
         -- print an extra empty line regardless of the pressaed keybind (#1241)
@@ -32,7 +33,7 @@ M.expect = function(actions, opts)
           v.prefix and "+" or "",
           v.prefix and v.prefix:gsub("accept$", ""):gsub("%+$", "") or ""
         ))
-      elseif opts.__SK_VERSION and opts.__SK_VERSION >= 0.14 then
+      elseif utils.has(opts, "sk", { 0, 14 }) then
         -- sk 0.14 deprecated `--expect`, instead `accept(<key>)` should be used
         -- skim does not yet support case sensitive alt-shift binds, they are ignored
         -- if k:match("^alt%-%u") then return end
@@ -52,13 +53,22 @@ M.expect = function(actions, opts)
   return #expect > 0 and expect or nil, #binds > 0 and binds or nil
 end
 
-M.normalize_selected = function(actions, selected, opts)
+M.normalize_selected = function(selected, opts)
   -- The below separates the keybind from the item(s)
   -- and makes sure 'selected' contains only item(s) or {}
   -- so it can always be enumerated safely
-  if not actions or not selected then return end
-  if opts.__FZF_VERSION and opts.__FZF_VERSION >= 0.53 then
+  if not selected then return end
+  local actions = opts.actions
+  if utils.has(opts, "fzf", { 0, 53 }) or utils.has(opts, "sk", { 0, 14 }) then
     -- Using the new `print` action keybind is expected at `selected[1]`
+    -- NOTE: if `--select-1|-q` was used we'll be missing the keybind
+    -- since `-1` triggers "accept" assume "enter" (#1589)
+    -- NOTE2: pressing a bind when no results are present also meets
+    -- the condtion `#selected ==1` so make sure `selected[1]` is not
+    -- an action (e.g. pressing `esc` when no results, #1594)
+    if selected and #selected == 1 and not actions[selected[1]] then
+      table.insert(selected, 1, "enter")
+    end
     local entries = vim.deepcopy(selected)
     local keybind = table.remove(entries, 1)
     return keybind, entries
@@ -84,9 +94,12 @@ M.normalize_selected = function(actions, selected, opts)
   end
 end
 
-M.act = function(actions, selected, opts)
-  if not actions or not selected then return end
-  local keybind, entries = M.normalize_selected(actions, selected, opts)
+M.act = function(selected, opts)
+  if not selected then return end
+  local actions = opts.actions
+  local keybind, entries = M.normalize_selected(selected, opts)
+  -- fzf >= 0.53 and `--exit-0`
+  if not keybind then return end
   local action = actions[keybind]
   -- Backward compat, was action defined as "default"
   if not action and keybind == "enter" then
@@ -134,17 +147,25 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
       if not path.is_absolute(fullpath) then
         fullpath = path.join({ opts.cwd or opts._cwd or uv.cwd(), fullpath })
       end
-      -- Adjust "<auto>" edits based on entry being buffer or filename
-      local vimcmd = _vimcmd:gsub("<auto>", entry.bufnr and entry.bufname and "b" or "e")
-      -- Do not execute "edit" commands if we already have the same buffer/file open
-      -- or if we are dealing with a URI as it's open with `vim.lsp.util.show_document`
       -- opts.__CTX isn't guaranteed by API users (#1414)
       local CTX = opts.__CTX or utils.CTX()
-      if vimcmd == "e" and (entry.uri or path.equals(fullpath, CTX.bname))
-          or vimcmd == "b" and entry.bufnr and entry.bufnr == CTX.bufnr
-      then
-        vimcmd = nil
-      end
+      local target_equals_current = entry.bufnr and entry.bufnr == CTX.bufnr
+          or path.equals(fullpath, CTX.bname)
+      local vimcmd = (function()
+        -- Do not execute "edit" commands if we already have the same buffer/file open
+        -- or if we are dealing with a URI as it's open with `vim.lsp.util.show_document`
+        if _vimcmd == "<auto>" and (entry.uri or target_equals_current) then
+          return nil
+        end
+        -- Same buffer splits and URI entries only execute the split cmd
+        -- after a split we land in the same buffer, remove the piped edit
+        -- e.g. "vsplit | e" -> "vsplit" (#1677)
+        if _vimcmd:match("| <auto>") and (entry.uri or target_equals_current) then
+          return _vimcmd:gsub("| <auto>", "")
+        end
+        -- Replace "<auto>" based on entry being buffer or filename
+        return _vimcmd:gsub("<auto>", entry.bufnr and entry.bufname and "b" or "e")
+      end)()
       -- ":b" and ":e" commands replace the current buffer
       local will_replace_curbuf = vimcmd == "e" or vimcmd == "b"
       if will_replace_curbuf
@@ -178,7 +199,7 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
           vimcmd = vimcmd .. "!"
         end
         -- URI entries only execute new buffers (new|vnew|tabnew)
-        if not entry.uri then
+        if not entry.uri and not target_equals_current then
           -- Force full paths when `autochdir=true` (#882)
           vimcmd = string.format("%s %s", vimcmd, (function()
             -- `:argdel|:argadd` uses only paths
@@ -210,7 +231,7 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
         else
           utils.jump_to_location(entry, "utf-16")
         end
-      elseif entry.ctag and not entry.line then
+      elseif entry.ctag and entry.line == 0 then
         vim.api.nvim_win_set_cursor(0, { 1, 0 })
         vim.fn.search(entry.ctag, "W")
       elseif not opts.no_action_set_cursor and entry.line > 0 or entry.col > 0 then
@@ -387,8 +408,14 @@ M.buf_switch_or_edit = M.file_switch_or_edit
 M.buf_del = function(selected, opts)
   for _, sel in ipairs(selected) do
     local entry = path.entry_to_file(sel, opts)
-    if entry.bufnr and not utils.buffer_is_dirty(entry.bufnr, true, false) then
-      vim.api.nvim_buf_delete(entry.bufnr, { force = true })
+    if entry.bufnr then
+      if not utils.buffer_is_dirty(entry.bufnr, true, false)
+          or vim.api.nvim_buf_call(entry.bufnr, function()
+            return utils.save_dialog(entry.bufnr)
+          end)
+      then
+        vim.api.nvim_buf_delete(entry.bufnr, { force = true })
+      end
     end
   end
 end
@@ -595,7 +622,11 @@ M.git_switch = function(selected, opts)
   -- do nothing for active branch
   if branch:find("%*") ~= nil then return end
   if branch:find("^remotes/") then
-    table.insert(cmd, "--detach")
+    if opts.remotes == "detach" then
+      table.insert(cmd, "--detach")
+    else
+      branch = branch:match("remotes/.-/(.-)$")
+    end
   end
   table.insert(cmd, branch)
   local output, rc = utils.io_systemlist(cmd)
@@ -657,15 +688,19 @@ end
 
 M.git_yank_commit = function(selected, opts)
   local commit_hash = match_commit_hash(selected[1], opts)
+  local reg
   if vim.o.clipboard == "unnamed" then
-    vim.fn.setreg([[*]], commit_hash)
+    reg = [[*]]
   elseif vim.o.clipboard == "unnamedplus" then
-    vim.fn.setreg([[+]], commit_hash)
+    reg = [[+]]
   else
-    vim.fn.setreg([["]], commit_hash)
+    reg = [["]]
   end
   -- copy to the yank register regardless
+  vim.fn.setreg(reg, commit_hash)
   vim.fn.setreg([[0]], commit_hash)
+  utils.info(string.format("commit hash %s copied to register %s, use 'p' to paste.",
+    commit_hash, reg))
 end
 
 M.git_checkout = function(selected, opts)
@@ -830,37 +865,35 @@ M.sym_lsym = function(_, opts)
   opts.__ACT_TO({ resume = true })
 end
 
+-- NOTE: not used, left for backward compat
+-- some users may still be using this func
 M.toggle_flag = function(_, opts)
+  local o = vim.tbl_deep_extend("keep", {
+    -- grep|live_grep sets `opts._cmd` to the original
+    -- command without the search argument
+    cmd = utils.toggle_cmd_flag(opts._cmd or opts.cmd, opts.toggle_flag),
+    resume = true
+  }, opts.__call_opts)
+  opts.__call_fn(o)
+end
+
+M.toggle_opt = function(opts, opt_name)
+  -- opts.__call_opts[opt_name] = not opts[opt_name]
   local o = vim.tbl_deep_extend("keep", { resume = true }, opts.__call_opts)
-  local flag = opts.toggle_flag
-  if not flag then
-    utils.err("'toggle_flag' not set")
-    return
-  end
-  if not flag:match("^%s") then
-    -- flag must be preceded by whitespace
-    flag = " " .. flag
-  end
-  -- grep|live_grep sets `opts._cmd` to the original
-  -- command without the search argument
-  local cmd = opts._cmd or opts.cmd
-  if cmd:match(utils.lua_regex_escape(flag)) then
-    o.cmd = cmd:gsub(utils.lua_regex_escape(flag), "")
-  else
-    local bin, args = cmd:match("([^%s]+)(.*)$")
-    o.cmd = string.format("%s%s%s", bin, flag, args)
-  end
+  o[opt_name] = not opts[opt_name]
   opts.__call_fn(o)
 end
 
 M.toggle_ignore = function(_, opts)
-  local flag = opts.toggle_ignore_flag or "--no-ignore"
-  M.toggle_flag(_, vim.tbl_extend("force", opts, { toggle_flag = flag }))
+  M.toggle_opt(opts, "no_ignore")
 end
 
 M.toggle_hidden = function(_, opts)
-  local flag = opts.toggle_hidden_flag or "--hidden"
-  M.toggle_flag(_, vim.tbl_extend("force", opts, { toggle_flag = flag }))
+  M.toggle_opt(opts, "hidden")
+end
+
+M.toggle_follow = function(_, opts)
+  M.toggle_opt(opts, "follow")
 end
 
 M.tmux_buf_set_reg = function(selected, opts)
@@ -945,6 +978,21 @@ M.dap_bp_del = function(selected, opts)
       bps[b] = bps[b] or {}
     end
     session:set_breakpoints(bps)
+  end
+end
+
+M.cd = function(selected, opts)
+  local cwd = selected[1]:match("[^\t]+$") or selected[1]
+  if opts.cwd then
+    cwd = path.join({ opts.cwd, cwd })
+  end
+  local git_root = opts.git_root and path.git_root({ cwd = cwd }, true) or nil
+  cwd = git_root or cwd
+  if uv.fs_stat(cwd) then
+    vim.cmd("cd " .. cwd)
+    utils.info(("cwd set to %s'%s'"):format(git_root and "git root " or "", cwd))
+  else
+    utils.warn(("Unable to set cwd to '%s', directory is not accessible"):format(cwd))
   end
 end
 

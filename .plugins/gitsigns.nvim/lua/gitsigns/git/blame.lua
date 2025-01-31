@@ -161,7 +161,7 @@ end
 
 --- @param f fun(readline: fun(): string?))
 --- @return fun(data: string?)
-local function bufferred_line_reader(f)
+local function buffered_line_reader(f)
   --- @param data string?
   return coroutine.wrap(function(data)
     if not data then
@@ -182,7 +182,7 @@ local function bufferred_line_reader(f)
       end
 
       if peek then
-        return data_lines[ i+ 1]
+        return data_lines[i + 1]
       end
       i = i + 1
       return data_lines[i]
@@ -195,20 +195,21 @@ local function bufferred_line_reader(f)
 end
 
 --- @param obj Gitsigns.GitObj
---- @param lines string[]
+--- @param contents? string[]
 --- @param lnum? integer
 --- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer, Gitsigns.BlameInfo>
-function M.run_blame(obj, lines, lnum, revision, opts)
+function M.run_blame(obj, contents, lnum, revision, opts)
   local ret = {} --- @type table<integer,Gitsigns.BlameInfo>
 
   if not obj.object_name or obj.repo.abbrev_head == '' then
+    assert(contents, 'contents must be provided for untracked files')
     -- As we support attaching to untracked files we need to return something if
     -- the file isn't isn't tracked in git.
     -- If abbrev_head is empty, then assume the repo has no commits
     local commit = not_committed(obj.file)
-    for i in ipairs(lines) do
+    for i in ipairs(contents) do
       ret[i] = {
         orig_lnum = 0,
         final_lnum = i,
@@ -219,7 +220,10 @@ function M.run_blame(obj, lines, lnum, revision, opts)
     return ret
   end
 
-  local args = { 'blame', '--contents', '-', '--incremental' }
+  local args = { 'blame', '--incremental' }
+  if contents then
+    vim.list_extend(args, { '--contents', '-' })
+  end
 
   opts = opts or {}
 
@@ -246,7 +250,7 @@ function M.run_blame(obj, lines, lnum, revision, opts)
 
   local commits = {} --- @type table<string,Gitsigns.CommitInfo>
 
-  local reader = bufferred_line_reader(function(readline)
+  local reader = buffered_line_reader(function(readline)
     incremental_iter(readline, commits, ret)
   end)
 
@@ -255,7 +259,10 @@ function M.run_blame(obj, lines, lnum, revision, opts)
     reader(data)
   end
 
-  local _, stderr = obj.repo:command(args, { stdin = lines, stdout = on_stdout, ignore_error = true })
+  local contents_str = contents and table.concat(contents, '\n') or nil
+
+  local _, stderr =
+    obj.repo:command(args, { stdin = contents_str, stdout = on_stdout, ignore_error = true })
 
   if stderr then
     error_once('Error running git-blame: ' .. stderr)

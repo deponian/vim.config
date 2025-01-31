@@ -96,6 +96,7 @@ M.defaults = {
     icons = {
       cmd = " ",
       config = "",
+      debug = "● ",
       event = " ",
       favorite = " ",
       ft = " ",
@@ -241,7 +242,7 @@ function M.hererocks()
   return M.options.rocks.hererocks
 end
 
-M.version = "11.16.1" -- x-release-please-version
+M.version = "11.16.2" -- x-release-please-version
 
 M.ns = vim.api.nvim_create_namespace("lazy")
 

@@ -3,6 +3,7 @@ local colors = {
   _style = "day",
   bg = "#e1e2e7",
   bg_dark = "#d0d5e3",
+  bg_dark1 = "#c1c9df",
   bg_float = "#d0d5e3",
   bg_highlight = "#c4c8da",
   bg_popup = "#d0d5e3",
@@ -481,6 +482,22 @@ local highlights = {
   BlinkCmpLabelMatch = {
     bg = "NONE",
     fg = "#188092"
+  },
+  BlinkCmpMenu = {
+    bg = "#d0d5e3",
+    fg = "#3760bf"
+  },
+  BlinkCmpMenuBorder = {
+    bg = "#d0d5e3",
+    fg = "#4094a3"
+  },
+  BlinkCmpSignatureHelp = {
+    bg = "#d0d5e3",
+    fg = "#3760bf"
+  },
+  BlinkCmpSignatureHelpBorder = {
+    bg = "#d0d5e3",
+    fg = "#4094a3"
   },
   Bold = {
     bold = true,
@@ -2270,6 +2287,32 @@ local highlights = {
   SnacksNotifierWarn = {
     bg = "#e1e2e7",
     fg = "#3760bf"
+  },
+  SnacksPickerBoxTitle = {
+    bg = "#d0d5e3",
+    fg = "#b15c00"
+  },
+  SnacksPickerFlag = "SnacksProfilerBadgeInfo",
+  SnacksPickerInputBorder = {
+    bg = "#d0d5e3",
+    fg = "#b15c00"
+  },
+  SnacksPickerInputTitle = {
+    bg = "#d0d5e3",
+    fg = "#b15c00"
+  },
+  SnacksPickerPickWin = {
+    bg = "#7890dd",
+    bold = true,
+    fg = "#3760bf"
+  },
+  SnacksPickerPickWinCurrent = {
+    bg = "#d20065",
+    bold = true,
+    fg = "#3760bf"
+  },
+  SnacksPickerSelected = {
+    fg = "#d20065"
   },
   SnacksProfilerBadgeInfo = {
     bg = "#cdd8df",

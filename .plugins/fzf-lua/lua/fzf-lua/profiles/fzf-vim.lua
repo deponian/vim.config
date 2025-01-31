@@ -46,6 +46,7 @@ local function setup_commands(no_override, prefix)
 end
 
 return {
+  { "default-prompt" }, -- base profile
   fn_load = setup_commands,
   desc = "fzf.vim defaults",
   winopts = {
@@ -54,14 +55,9 @@ return {
     row = 0.48,
     col = 0.45,
     preview = {
-      hidden = "hidden",
+      hidden = true,
       vertical = "up:45%",
     },
-  },
-  hls = {
-    border = "FloatBorder",
-    help_border = "FloatBorder",
-    preview_border = "FloatBorder",
   },
   fzf_opts = {
     -- nullify fzf-lua's settings to inherit from FZF_DEFAULT_OPTS

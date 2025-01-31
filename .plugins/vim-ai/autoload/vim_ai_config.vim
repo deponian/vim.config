@@ -9,6 +9,7 @@ Do not provide any explanantion or comments if not requested.
 If you answer in a code, do not wrap it in markdown code block.
 END
 let g:vim_ai_complete_default = {
+\  "prompt": "",
 \  "engine": "chat",
 \  "options": {
 \    "model": "gpt-4o",
@@ -28,6 +29,7 @@ let g:vim_ai_complete_default = {
 \  },
 \}
 let g:vim_ai_edit_default = {
+\  "prompt": "",
 \  "engine": "chat",
 \  "options": {
 \    "model": "gpt-4o",
@@ -46,6 +48,22 @@ let g:vim_ai_edit_default = {
 \    "paste_mode": 1,
 \  },
 \}
+let g:vim_ai_image_default = {
+\  "prompt": "",
+\  "options": {
+\    "model": "dall-e-3",
+\    "endpoint_url": "https://api.openai.com/v1/images/generations",
+\    "quality": "standard",
+\    "size": "1024x1024",
+\    "style": "vivid",
+\    "request_timeout": 20,
+\    "enable_auth": 1,
+\    "token_file_path": "",
+\  },
+\  "ui": {
+\    "download_dir": "",
+\  },
+\}
 
 let s:initial_chat_prompt =<< trim END
 >>> system
@@ -54,6 +72,7 @@ You are a general assistant.
 If you attach a code block add syntax type after ``` to enable syntax highlighting.
 END
 let g:vim_ai_chat_default = {
+\  "prompt": "",
 \  "options": {
 \    "model": "gpt-4o",
 \    "endpoint_url": "https://api.openai.com/v1/chat/completions",
@@ -72,6 +91,7 @@ let g:vim_ai_chat_default = {
 \    "scratch_buffer_keep_open": 0,
 \    "populate_options": 0,
 \    "code_syntax_enabled": 1,
+\    "force_new_chat": 0,
 \    "paste_mode": 1,
 \  },
 \}
@@ -118,6 +138,7 @@ endfunction
 
 call s:MakeConfig("vim_ai_chat")
 call s:MakeConfig("vim_ai_complete")
+call s:MakeConfig("vim_ai_image")
 call s:MakeConfig("vim_ai_edit")
 
 function! vim_ai_config#load()

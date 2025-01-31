@@ -12,12 +12,20 @@ from urllib.error import URLError
 from urllib.error import HTTPError
 import traceback
 import configparser
+import base64
 
-is_debugging = vim.eval("g:vim_ai_debug") == "1"
-debug_log_file = vim.eval("g:vim_ai_debug_log_file")
+utils_py_imported = True
+
+DEFAULT_ROLE_NAME = 'default'
+
+def is_ai_debugging():
+    return vim.eval("g:vim_ai_debug") == "1"
 
 class KnownError(Exception):
     pass
+
+def unwrap(input_var):
+    return vim.eval(input_var)
 
 def load_api_key(config_token_file_path):
     # token precedence: config file path, global file path, env variable
@@ -44,21 +52,12 @@ def load_api_key(config_token_file_path):
 
     return (api_key, org_id)
 
-def load_config_and_prompt():
-    prompt, role_options = parse_prompt_and_role(vim.eval("l:prompt"))
-    config = vim.eval("l:config")
-    config['options'] = {
-        **normalize_options(config['options']),
-        **normalize_options(role_options['options_default']),
-        **normalize_options(role_options['options_chat']),
-    }
-    return prompt, config
-
-def normalize_options(options):
+def make_config(config):
+    options = config['options']
     # initial prompt can be both a string and a list of strings, normalize it to list
     if 'initial_prompt' in options and isinstance(options['initial_prompt'], str):
         options['initial_prompt'] = options['initial_prompt'].split('\n')
-    return options
+    return config
 
 def make_openai_options(options):
     max_tokens = int(options['max_tokens'])
@@ -81,32 +80,19 @@ def make_http_options(options):
         'token_file_path': options['token_file_path'],
     }
 
-# During text manipulation in Vim's visual mode, we utilize "normal! c" command. This command deletes the highlighted text,
-# immediately followed by entering insert mode where it generates desirable text.
-
-# Normally, Vim contemplates the position of the first character in selection to decide whether to place the entered text
-# before or after the cursor. For instance, if the given line is "abcd", and "abc" is selected for deletion and "1234" is
-# written in its place, the result is as expected "1234d" rather than "d1234". However, if "bc" is chosen for deletion, the
-# achieved output is "a1234d", whereas "1234ad" is not.
-
-# Despite this, post Vim script's execution of "normal! c", it takes an exit immediately returning to the normal mode. This
-# might trigger a potential misalignment issue especially when the most extreme left character is the line’s second character.
-
-# To avoid such pitfalls, the method "need_insert_before_cursor" checks not only the selection status, but also the character
-# at the first position of the highlighting. If the selection is off or the first position is not the second character in the line,
-# it determines no need for prefixing the cursor.
-def need_insert_before_cursor(is_selection):
-    if is_selection == False:
-        return False
+# when running AIEdit on selection and cursor ends on the first column, it needs to
+# be decided whether to append (a) or insert (i) to prevent missalignment.
+# Example: helloxxx<Esc>hhhvb:AIE translate<CR> - expected Holaxxx, not xHolaxx
+def need_insert_before_cursor():
     pos = vim.eval("getpos(\"'<\")[1:2]")
     if not isinstance(pos, list) or len(pos) != 2:
         raise ValueError("Unexpected getpos value, it should be a list with two elements")
     return pos[1] == "1" # determines if visual selection starts on the first window column
 
-def render_text_chunks(chunks, is_selection):
+def render_text_chunks(chunks):
     generating_text = False
     full_text = ''
-    insert_before_cursor = need_insert_before_cursor(is_selection)
+    insert_before_cursor = need_insert_before_cursor()
     for text in chunks:
         if not generating_text:
             text = text.lstrip() # trim newlines from the beginning
@@ -124,61 +110,84 @@ def render_text_chunks(chunks, is_selection):
     if not full_text.strip():
         raise KnownError('Empty response received. Tip: You can try modifying the prompt and retry.')
 
+def encode_image(image_path):
+    """Encodes an image file to a base64 string."""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+def is_image_path(path):
+    ext = path.strip().split('.')[-1]
+    return ext in ['jpg', 'jpeg', 'png', 'gif']
+
+def parse_include_paths(path):
+    if not path:
+        return []
+    pwd = vim.eval('getcwd()')
+
+    path = os.path.expanduser(path)
+    if not os.path.isabs(path):
+        path = os.path.join(pwd, path)
+
+    expanded_paths = [path]
+    if '*' in path:
+        expanded_paths = sorted(glob.glob(path, recursive=True))
+
+    return [path for path in expanded_paths if not os.path.isdir(path)]
+
+def make_image_message(path):
+    ext = path.split('.')[-1]
+    base64_image = encode_image(path)
+    return { 'type': 'image_url', 'image_url': { 'url': f"data:image/{ext.replace('.', '')};base64,{base64_image}" } }
+
+def make_text_file_message(path):
+    try:
+        with open(path, 'r') as file:
+            file_content = file.read().strip()
+            return { 'type': 'text', 'text': f'==> {path} <==\n' + file_content.strip() }
+    except UnicodeDecodeError:
+        return { 'type': 'text', 'text': f'==> {path} <==\nBinary file, cannot display' }
 
 def parse_chat_messages(chat_content):
     lines = chat_content.splitlines()
     messages = []
+
+    current_type = ''
     for line in lines:
-        if line.startswith(">>> system"):
-            messages.append({"role": "system", "content": ""})
-            continue
-        if line.startswith(">>> user"):
-            messages.append({"role": "user", "content": ""})
-            continue
-        if line.startswith(">>> include"):
-            messages.append({"role": "include", "content": ""})
-            continue
-        if line.startswith("<<< assistant"):
-            messages.append({"role": "assistant", "content": ""})
-            continue
-        if not messages:
-            continue
-        messages[-1]["content"] += "\n" + line
+        match line:
+            case '>>> system':
+                messages.append({'role': 'system', 'content': [{ 'type': 'text', 'text': '' }]})
+                current_type = 'system'
+            case '<<< assistant':
+                messages.append({'role': 'assistant', 'content': [{ 'type': 'text', 'text': '' }]})
+                current_type = 'assistant'
+            case '>>> user':
+                if messages and messages[-1]['role'] == 'user':
+                    messages[-1]['content'].append({ 'type': 'text', 'text': '' })
+                else:
+                    messages.append({'role': 'user', 'content': [{ 'type': 'text', 'text': '' }]})
+                current_type = 'user'
+            case '>>> include':
+                if not messages or messages[-1]['role'] != 'user':
+                    messages.append({'role': 'user', 'content': []})
+                current_type = 'include'
+            case _:
+                if not messages:
+                    continue
+                match current_type:
+                    case 'assistant' | 'system' | 'user':
+                        messages[-1]['content'][-1]['text'] += '\n' + line
+                    case 'include':
+                        paths = parse_include_paths(line)
+                        for path in paths:
+                            content = make_image_message(path) if is_image_path(path) else make_text_file_message(path)
+                            messages[-1]['content'].append(content)
 
     for message in messages:
-        # strip newlines from the content as it causes empty responses
-        message["content"] = message["content"].strip()
-
-        if message["role"] == "include":
-            message["role"] = "user"
-            paths = message["content"].split("\n")
-            message["content"] = ""
-
-            pwd = vim.eval("getcwd()")
-            for i in range(len(paths)):
-                path = os.path.expanduser(paths[i])
-                if not os.path.isabs(path):
-                    path = os.path.join(pwd, path)
-
-                paths[i] = path
-
-                if '**' in path:
-                    paths[i] = None
-                    paths.extend(glob.glob(path, recursive=True))
-
-            for path in paths:
-                if path is None:
-                    continue
-
-                if os.path.isdir(path):
-                    continue
-
-                try:
-                    with open(path, "r") as file:
-                        message["content"] += f"\n\n==> {path} <==\n" + file.read()
-                except UnicodeDecodeError:
-                    message["content"] += "\n\n" + f"==> {path} <=="
-                    message["content"] += "\n" + "Binary file, cannot display"
+        # strip newlines from the text content as it causes empty responses
+        for content in message['content']:
+            if content['type'] == 'text':
+                content['text'] = content['text'].strip()
 
     return messages
 
@@ -209,10 +218,10 @@ def vim_break_undo_sequence():
     # breaks undo sequence (https://vi.stackexchange.com/a/29087)
     vim.command("let &ul=&ul")
 
-def printDebug(text, *args):
-    if not is_debugging:
+def print_debug(text, *args):
+    if not is_ai_debugging():
         return
-    with open(debug_log_file, "a") as file:
+    with open(vim.eval("g:vim_ai_debug_log_file"), "a") as file:
         message = text.format(*args) if len(args) else text
         file.write(f"[{datetime.datetime.now()}] " + message + "\n")
 
@@ -241,7 +250,7 @@ def openai_request(url, data, options):
     )
 
     with urllib.request.urlopen(req, timeout=request_timeout) as response:
-        if not data['stream']:
+        if not data.get('stream', 0):
             yield json.loads(response.read().decode())
             return
         for line_bytes in response:
@@ -302,77 +311,6 @@ def enhance_roles_with_custom_function(roles):
         else:
             roles.update(vim.eval(roles_config_function + "()"))
 
-def load_role_config(role):
-    roles_config_path = os.path.expanduser(vim.eval("g:vim_ai_roles_config_file"))
-    if not os.path.exists(roles_config_path):
-        raise Exception(f"Role config file does not exist: {roles_config_path}")
-
-    roles = configparser.ConfigParser()
-    roles.read(roles_config_path)
-
-    enhance_roles_with_custom_function(roles)
-
-    if not role in roles:
-        raise Exception(f"Role `{role}` not found")
-
-    options = roles[f"{role}.options"] if f"{role}.options" in roles else {}
-    options_complete =roles[f"{role}.options-complete"] if f"{role}.options-complete" in roles else {}
-    options_chat = roles[f"{role}.options-chat"] if f"{role}.options-chat" in roles else {}
-
-    return {
-        'role': dict(roles[role]),
-        'options': {
-            'options_default': dict(options),
-            'options_complete': dict(options_complete),
-            'options_chat': dict(options_chat),
-        },
-    }
-
-empty_role_options = {
-    'options_default': {},
-    'options_complete': {},
-    'options_chat': {},
-}
-
-def parse_roles(prompt):
-    chunks = prompt.split()
-    roles = []
-    for chunk in chunks:
-        if not chunk.startswith("/"):
-            break
-        roles.append(chunk)
-    return [raw_role[1:] for raw_role in roles]
-
-def merge_role_configs(configs):
-    merged_options = empty_role_options
-    merged_role = {}
-    for config in configs:
-        options = config['options']
-        merged_options = {
-            'options_default': { **merged_options['options_default'], **options['options_default'] },
-            'options_complete': { **merged_options['options_complete'], **options['options_complete'] },
-            'options_chat': { **merged_options['options_chat'], **options['options_chat'] },
-        }
-        merged_role ={ **merged_role, **config['role'] }
-    return { 'role': merged_role, 'options': merged_options }
-
-def parse_prompt_and_role(raw_prompt):
-    prompt = raw_prompt.strip()
-    roles = parse_roles(prompt)
-    if not roles:
-        # does not require role
-        return (prompt, empty_role_options)
-
-    last_role = roles[-1]
-    prompt = prompt[prompt.index(last_role) + len(last_role):].strip()
-
-    role_configs = [load_role_config(role) for role in roles]
-    config = merge_role_configs(role_configs)
-    if 'prompt' in config['role'] and config['role']['prompt']:
-        delim = '' if prompt.startswith(':') else ':\n'
-        prompt = config['role']['prompt'] + delim + prompt
-    return (prompt, config['options'])
-
 def make_chat_text_chunks(messages, config_options):
     openai_options = make_openai_options(config_options)
     http_options = make_http_options(config_options)
@@ -381,7 +319,7 @@ def make_chat_text_chunks(messages, config_options):
         'messages': messages,
         **openai_options
     }
-    printDebug("[engine-chat] request: {}", request)
+    print_debug("[engine-chat] request: {}", request)
     url = config_options['endpoint_url']
     response = openai_request(url, request, http_options)
 
@@ -395,13 +333,29 @@ def make_chat_text_chunks(messages, config_options):
         return choices
 
     def map_chunk_no_stream(resp):
-        printDebug("[engine-chat] response: {}", resp)
+        print_debug("[engine-chat] response: {}", resp)
         return _choices(resp)[0].get('message', {}).get('content', '')
 
     def map_chunk_stream(resp):
-        printDebug("[engine-chat] response: {}", resp)
+        print_debug("[engine-chat] response: {}", resp)
         return _choices(resp)[0].get('delta', {}).get('content', '')
 
     map_chunk = map_chunk_stream if openai_options['stream'] else map_chunk_no_stream
 
     return map(map_chunk, response)
+
+def read_role_files():
+    plugin_root = vim.eval("s:plugin_root")
+    default_roles_config_path = str(os.path.join(plugin_root, "roles-default.ini"))
+    roles_config_path = os.path.expanduser(vim.eval("g:vim_ai_roles_config_file"))
+    if not os.path.exists(roles_config_path):
+        raise Exception(f"Role config file does not exist: {roles_config_path}")
+
+    roles = configparser.ConfigParser()
+    roles.read([default_roles_config_path, roles_config_path])
+    return roles
+
+def save_b64_to_file(path, b64_data):
+    f = open(path, "wb")
+    f.write(base64.b64decode(b64_data))
+    f.close()

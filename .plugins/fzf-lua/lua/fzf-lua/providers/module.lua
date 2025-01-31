@@ -57,6 +57,12 @@ M.profiles = function(opts)
   opts = config.normalize_opts(opts, "profiles")
   if not opts then return end
 
+  if opts.load then
+    -- silent = [2]
+    require("fzf-lua").setup({ opts.load, false })
+    return
+  end
+
   local dirs = {
     path.join({ vim.g.fzf_lua_directory, "profiles" })
   }

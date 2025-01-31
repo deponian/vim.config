@@ -45,7 +45,9 @@ local git_command = require('gitsigns.git.cmd')
 --- @param file_buf string
 --- @param indent_heuristic? boolean
 --- @param diff_algo string
---- @return string[] stdout, string? stderr
+--- @return string[] stdout
+--- @return string? stderr
+--- @return integer code
 function M.diff(file_cmp, file_buf, indent_heuristic, diff_algo)
   return git_command({
     '-c',
@@ -99,8 +101,9 @@ end
 --- @field object_name? string
 --- @field has_conflicts? true
 
+--- @return boolean
 function Obj:from_tree()
-  return self.revision and not vim.startswith(self.revision, ':')
+  return self.revision ~= nil and not vim.startswith(self.revision, ':')
 end
 
 --- @async
@@ -122,7 +125,7 @@ end
 --- @param silent? boolean
 --- @return Gitsigns.FileInfo
 function Obj:file_info_index(file, silent)
-  local has_eol = check_version({ 2, 9 })
+  local has_eol = check_version(2, 9)
 
   -- --others + --exclude-standard means ignored files won't return info, but
   -- untracked files will. Unlike file_info_tree which won't return untracked
@@ -269,13 +272,13 @@ function Obj:unstage_file()
 end
 
 --- @async
---- @param lines string[]
+--- @param contents? string[]
 --- @param lnum? integer
 --- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer,Gitsigns.BlameInfo?>
-function Obj:run_blame(lines, lnum, revision, opts)
-  return require('gitsigns.git.blame').run_blame(self, lines, lnum, revision, opts)
+function Obj:run_blame(contents, lnum, revision, opts)
+  return require('gitsigns.git.blame').run_blame(self, contents, lnum, revision, opts)
 end
 
 --- @async
@@ -305,13 +308,18 @@ end
 --- @param lines string[]
 function Obj:stage_lines(lines)
   self.lock = true
+
+  -- Concatenate the lines into a single string to ensure EOL
+  -- is respected
+  local text = table.concat(lines, '\n')
+
   local new_object = self.repo:command({
     'hash-object',
     '-w',
     '--path',
     self.relpath,
     '--stdin',
-  }, { stdin = lines })[1]
+  }, { stdin = text })[1]
 
   self.repo:command({
     'update-index',
@@ -323,7 +331,7 @@ function Obj:stage_lines(lines)
   autocmd_changed(self.file)
 end
 
-local sleep = async.wrap(2, function(duration, cb)
+local sleep = async.awrap(2, function(duration, cb)
   vim.defer_fn(cb, duration)
 end)
 
@@ -344,7 +352,7 @@ function Obj:stage_hunks(hunks, invert)
     end
   end
 
-  local stat, err = async.pcall(function()
+  local stat, err = pcall(function()
     self.repo:command({
       'apply',
       '--whitespace=nowarn',

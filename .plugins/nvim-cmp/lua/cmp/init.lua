@@ -328,6 +328,12 @@ cmp.status = function()
   end
 end
 
+---Ensures that cmp is the last receiver of the events specified.
+---@param events string[]
+cmp.resubscribe = function(events)
+  autocmd.resubscribe(events)
+end
+
 ---@type cmp.Setup
 cmp.setup = setmetatable({
   global = function(c)
@@ -379,7 +385,7 @@ autocmd.subscribe('CursorMovedI', function()
 end)
 
 -- If make this asynchronous, the completion menu will not close when the command output is displayed.
-autocmd.subscribe({ 'InsertLeave', 'CmdlineLeave' }, function()
+autocmd.subscribe({ 'InsertLeave', 'CmdlineLeave', 'CmdwinEnter' }, function()
   cmp.core:reset()
   cmp.core.view:close()
 end)

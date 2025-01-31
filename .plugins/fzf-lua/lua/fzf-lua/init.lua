@@ -1,13 +1,9 @@
--- make value truthy so we can load the path module and subsequently
--- the libuv module without overriding the global require used only
--- for spawn_stdio headless instances, this way we can call
--- require("fzf-lua") from test specs (which also run headless)
-vim.g.fzf_lua_directory = ""
-
 local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local config = require "fzf-lua.config"
+
+local M = {}
 
 do
   local function source_vimL(path_parts)
@@ -22,9 +18,6 @@ do
   vim.g.fzf_lua_directory = path.normalize(path.parent(currFile))
   vim.g.fzf_lua_root = path.parent(path.parent(vim.g.fzf_lua_directory))
 
-  -- Manually source the vimL script containing ':FzfLua' cmd
-  -- does nothing if already loaded due to `vim.g.loaded_fzf_lua`
-  source_vimL({ vim.g.fzf_lua_root, "plugin", "fzf-lua.vim" })
   -- Autoload scipts dynamically loaded on `vim.fn[fzf_lua#...]` call
   -- `vim.fn.exists("*fzf_lua#...")` will return 0 unless we manuall source
   source_vimL({ vim.g.fzf_lua_root, "autoload", "fzf_lua.vim" })
@@ -39,9 +32,10 @@ do
   if not vim.g.fzf_lua_server then
     vim.g.fzf_lua_server = vim.fn.serverstart("fzf-lua." .. os.time())
   end
-end
 
-local M = {}
+  -- Setup global var
+  _G.FzfLua = M
+end
 
 -- Setup fzf-lua's highlights, use `override=true` to reset all highlights
 function M.setup_highlights(override)
@@ -54,6 +48,7 @@ function M.setup_highlights(override)
     { "FzfLuaNormal",            "normal",         { default = default, link = "Normal" } },
     { "FzfLuaBorder",            "border",         { default = default, link = "Normal" } },
     { "FzfLuaTitle",             "title",          { default = default, link = "FzfLuaNormal" } },
+    { "FzfLuaTitleFlags",        "title_flags",    { default = default, link = "CursorLine" } },
     { "FzfLuaBackdrop",          "backdrop",       { default = default, bg = "Black" } },
     { "FzfLuaHelpNormal",        "help_normal",    { default = default, link = "FzfLuaNormal" } },
     { "FzfLuaHelpBorder",        "help_border",    { default = default, link = "FzfLuaBorder" } },
@@ -81,24 +76,28 @@ function M.setup_highlights(override)
       { default = default, fg = is_light and "MediumSpringGreen" or "BlanchedAlmond" } },
     { "FzfLuaHeaderText", "header_text",
       { default = default, fg = is_light and "Brown4" or "Brown1" } },
-    { "FzfLuaPathColNr", "path_colnr",   -- lines|blines|qf|diag|lsp
+    { "FzfLuaPathColNr", "path_colnr",   -- qf|diag|lsp
       { default = default, fg = is_light and "CadetBlue4" or "CadetBlue1" } },
-    { "FzfLuaPathLineNr", "path_linenr", -- lines|blines|qf|diag|lsp
+    { "FzfLuaPathLineNr", "path_linenr", -- qf|diag|lsp
       { default = default, fg = is_light and "MediumSpringGreen" or "LightGreen" } },
-    { "FzfLuaLiveSym", "live_sym",
-      { default = default, fg = is_light and "Brown4" or "Brown1" } },
-    -- Provider specific highlights
-    { "FzfLuaBufName", "buf_name",        -- lines|blines (hidden)
-      { default = default, fg = is_light and "DarkOrchid3" or "LightMagenta" } },
-    { "FzfLuaBufNr", "buf_nr",            -- buffers|tabs|lines|blines
+    { "FzfLuaLivePrompt", "live_prompt", -- "live" queries prompt text color
+      { default = default, fg = is_light and "PaleVioletRed1" or "PaleVioletRed1" } },
+    { "FzfLuaLiveSym", "live_sym",       -- lsp_live_workspace_symbols query
+      { default = default, fg = is_light and "PaleVioletRed1" or "PaleVioletRed1" } },
+    -- lines|blines|treesitter
+    { "FzfLuaBufId",     "buf_id",     { default = default, link = "TabLine" } },
+    { "FzfLuaBufName",   "buf_name",   { default = default, link = "Directory" } },
+    { "FzfLuaBufLineNr", "buf_linenr", { default = default, link = "LineNr" } },
+    -- buffers|tabs
+    { "FzfLuaBufNr", "buf_nr",
       { default = default, fg = is_light and "AquaMarine3" or "BlanchedAlmond" } },
-    { "FzfLuaBufFlagCur", "buf_flag_cur", -- buffers|tabs
+    { "FzfLuaBufFlagCur", "buf_flag_cur",
       { default = default, fg = is_light and "Brown4" or "Brown1" } },
-    { "FzfLuaBufFlagAlt", "buf_flag_alt", -- buffers|tabs
+    { "FzfLuaBufFlagAlt", "buf_flag_alt",
       { default = default, fg = is_light and "CadetBlue4" or "CadetBlue1" } },
-    { "FzfLuaTabTitle", "tab_title",      -- tabs
+    { "FzfLuaTabTitle", "tab_title",   -- tabs only
       { default = default, fg = is_light and "CadetBlue4" or "LightSkyBlue1", bold = true } },
-    { "FzfLuaTabMarker", "tab_marker",    -- tabs
+    { "FzfLuaTabMarker", "tab_marker", -- tabs only
       { default = default, fg = is_light and "MediumSpringGreen" or "BlanchedAlmond", bold = true } },
     -- highlight groups for `fzf_colors=true`
     { "FzfLuaFzfNormal",     "fzf.normal",     { default = default, link = "FzfLuaNormal" } },
@@ -125,26 +124,12 @@ function M.setup_highlights(override)
         hl_def.default = false
       end
     end
-    if utils.__HAS_NVIM_07 then
-      vim.api.nvim_set_hl(0, hl_name, hl_def)
-    else
-      if hl_def.link then
-        vim.cmd(string.format("hi! %s link %s %s",
-          hl_def.default and "default" or "",
-          hl_name, hl_def.link))
-      else
-        vim.cmd(string.format("hi! %s %s %s%s%s",
-          hl_def.default and "default" or "", hl_name,
-          hl_def.fg and string.format(" guifg=%s", hl_def.fg) or "",
-          hl_def.bg and string.format(" guibg=%s", hl_def.bg) or "",
-          hl_def.bold and " gui=bold" or ""))
-      end
-    end
+    vim.api.nvim_set_hl(0, hl_name, hl_def)
   end
 
   -- linking to a cleared hl is bugged in neovim 0.8.x
   -- resulting in a pink background for hls linked to `Normal`
-  if vim.fn.has("nvim-0.9") == 0 and vim.fn.has("nvim-0.8") == 1 then
+  if not utils.__HAS_NVIM_09 and utils.__HAS_NVIM_08 then
     for _, a in ipairs(highlights) do
       local hl_name, opt_name = a[1], a[2]
       if utils.is_hl_cleared(hl_name) then
@@ -164,35 +149,14 @@ end
 -- case the user decides not to call `setup()`
 M.setup_highlights()
 
-local function load_profiles(profiles)
-  local ret = {}
-  profiles = type(profiles) == "table" and profiles
-      or type(profiles) == "string" and { profiles }
-      or {}
-  for _, profile in ipairs(profiles) do
-    local fname = path.join({ vim.g.fzf_lua_directory, "profiles", profile .. ".lua" })
-    local profile_opts = utils.load_profile_fname(fname, nil, true)
-    if type(profile_opts) == "table" then
-      if profile_opts[1] then
-        -- profile requires loading base profile(s)
-        profile_opts = vim.tbl_deep_extend("keep",
-          profile_opts, load_profiles(profile_opts[1]))
-      end
-      if type(profile_opts.fn_load) == "function" then
-        profile_opts.fn_load()
-        profile_opts.fn_load = nil
-      end
-      ret = vim.tbl_deep_extend("force", ret, profile_opts)
-    end
-  end
-  return ret
-end
-
 function M.setup(opts, do_not_reset_defaults)
   opts = type(opts) == "table" and opts or {}
+  -- Defaults to picker info in win title if neovim version >= 0.9, prompt otherwise
+  opts[1] = opts[1] == nil and "default" or opts[1]
   if opts[1] then
     -- Did the user supply profile(s) to load?
-    opts = vim.tbl_deep_extend("keep", opts, load_profiles(opts[1]))
+    opts = vim.tbl_deep_extend("keep", opts,
+      utils.load_profiles(opts[1], opts[2] == nil and 1 or opts[2], opts))
   end
   if do_not_reset_defaults then
     -- no defaults reset requested, merge with previous setup options
@@ -206,6 +170,8 @@ function M.setup(opts, do_not_reset_defaults)
       opts.defaults = opts.defaults or {}
       opts.defaults[o] = opts[gopt]
       opts[gopt] = nil
+      utils.warn(string.format("Deprecated option: '%s = %s' -> 'defaults = { %s = %s }'",
+        gopt, tostring(opts.defaults[o]), o, tostring(opts.defaults[o])))
     end
   end
   -- set custom &nbsp if caller requested
@@ -322,6 +288,7 @@ do
     complete_file = { "fzf-lua.complete", "file" },
     complete_line = { "fzf-lua.complete", "line" },
     complete_bline = { "fzf-lua.complete", "bline" },
+    zoxide = { "fzf-lua.providers.files", "zoxide" },
   }
 
   for k, v in pairs(lazyloaded_modules) do

@@ -58,7 +58,7 @@ function M.new(o)
   return setmetatable(o, { __index = CacheEntry })
 end
 
-local sleep = async.wrap(2, function(duration, cb)
+local sleep = async.awrap(2, function(duration, cb)
   vim.defer_fn(cb, duration)
 end)
 
@@ -87,18 +87,52 @@ function CacheEntry:run_blame(lnum, opts)
   local bufnr = self.bufnr
   local blame --- @type table<integer,Gitsigns.BlameInfo?>?
   local lnum0 --- @type integer?
+
+  -- Always send contents if buffer represents an editable file on disk.
+  -- Otherwise do not sent contents buffer revision is from tree and git version
+  -- is below 2.41.
+  --
+  -- This avoids the error:
+  --   "fatal: cannot use --contents with final commit object name"
+  local send_contents = vim.bo[bufnr].buftype == ''
+    or (not self.git_obj:from_tree() and not require('gitsigns.git.version').check(2, 41))
+
   repeat
     local buftext = util.buf_lines(bufnr, true)
+    local contents = send_contents and buftext or nil
     local tick = vim.b[bufnr].changedtick
     lnum0 = #buftext > BLAME_THRESHOLD_LEN and lnum or nil
     -- TODO(lewis6991): Cancel blame on changedtick
-    blame = self.git_obj:run_blame(buftext, lnum0, self.git_obj.revision, opts)
+    blame = self.git_obj:run_blame(contents, lnum0, self.git_obj.revision, opts)
     async.scheduler()
     if not vim.api.nvim_buf_is_valid(bufnr) then
       return {}
     end
   until vim.b[bufnr].changedtick == tick
   return blame, lnum0 == nil
+end
+
+--- @private
+--- @param lnum? integer
+--- @return boolean
+function CacheEntry:blame_valid(lnum)
+  local blame = self.blame
+  if not blame then
+    return false
+  end
+
+  if lnum then
+    return blame[lnum] ~= nil
+  end
+
+  -- Need to check we have blame info for all lines
+  for i = 1, vim.api.nvim_buf_line_count(self.bufnr) do
+    if not blame[i] then
+      return false
+    end
+  end
+
+  return true
 end
 
 --- If lnum is nil then run blame for the entire buffer.
@@ -109,7 +143,7 @@ end
 function CacheEntry:get_blame(lnum, opts)
   local blame = self.blame
 
-  if not blame or (lnum and not blame[lnum]) then
+  if not blame or not self:blame_valid(lnum) then
     self:wait_for_hunks()
     blame = blame or {}
     local Hunks = require('gitsigns.hunks')

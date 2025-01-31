@@ -1,5 +1,6 @@
 return {
+  { "default-title" }, -- base profile
   desc = "fzf-lua defaults with `sk` as binary",
   fzf_bin = "sk",
-  fzf_opts = { ["--no-separator"] = false },
+  defaults = { compat_warn = false },
 }

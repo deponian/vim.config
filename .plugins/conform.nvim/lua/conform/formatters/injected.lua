@@ -6,16 +6,21 @@ local function in_range(range, start_lnum, end_lnum)
   return not range or (start_lnum <= range["end"][1] and range["start"][1] <= end_lnum)
 end
 
+---@param language? string
+local function prefix_pattern(language)
+  -- Handle markdown code blocks that are inside blockquotes
+  -- > ```lua
+  -- > local x = 1
+  -- > ```
+  return language == "markdown" and "^>?%s*" or "^%s*"
+end
+
 ---@param lines string[]
 ---@param language? string The language of the buffer
 ---@return string?
 local function get_indent(lines, language)
   local indent = nil
-  -- Handle markdown code blocks that are inside blockquotes
-  -- > ```lua
-  -- > local x = 1
-  -- > ```
-  local pattern = language == "markdown" and "^>?%s*" or "^%s*"
+  local pattern = prefix_pattern(language)
   for _, line in ipairs(lines) do
     if line ~= "" then
       local whitespace = line:match(pattern)
@@ -27,6 +32,19 @@ local function get_indent(lines, language)
     end
   end
   return indent
+end
+
+---@param root_lang string
+---@param lang string
+---@return boolean
+local function include_language_tree(root_lang, lang)
+  -- We should not attempt to format html inside markdown
+  -- See https://github.com/stevearc/conform.nvim/issues/485
+  if root_lang == "markdown" and lang == "html" then
+    return false
+  end
+  -- Don't format the root language with the injected formatter
+  return root_lang ~= lang
 end
 
 ---@class (exact) conform.Injected.Surrounding
@@ -80,7 +98,53 @@ local function restore_surrounding(lines, surrounding)
   end
 end
 
----@class LangRange
+---Merge adjacent ranges that have the same language and share a prefix
+---@param regions LangRange[]
+---@param bufnr integer
+---@param buf_lang? string
+---@return LangRange[]
+local function merge_ranges_with_prefix(regions, bufnr, buf_lang)
+  local ret = {}
+
+  local last_range = nil
+  local accum = {}
+
+  local function append_accum()
+    if #accum == 0 then
+      return
+    end
+    local lines = vim.api.nvim_buf_get_lines(bufnr, accum[1][2] - 1, accum[#accum][4], true)
+    local prefix = get_indent(lines, buf_lang)
+    if prefix then
+      local new_range = {
+        accum[1][1],
+        accum[1][2],
+        accum[1][3],
+        accum[#accum][4],
+        accum[#accum][5],
+      }
+      table.insert(ret, new_range)
+    else
+      vim.list_extend(ret, accum)
+    end
+    accum = {}
+  end
+
+  for _, range in ipairs(regions) do
+    if not last_range or range[1] ~= last_range[1] or range[2] ~= last_range[4] then
+      -- This is a new region entirely; new language, or not contiguous
+      append_accum()
+      accum = {}
+    end
+    table.insert(accum, range)
+    last_range = range
+  end
+  append_accum()
+
+  return ret
+end
+
+---@class (exact) LangRange
 ---@field [1] string language
 ---@field [2] integer start lnum
 ---@field [3] integer start col
@@ -104,6 +168,7 @@ end
 ---@class (exact) conform.InjectedFormatterOptions
 ---@field ignore_errors boolean
 ---@field lang_to_ext table<string, string>
+---@field lang_to_ft table<string, string>
 ---@field lang_to_formatters table<string, conform.FiletypeFormatter>
 
 ---@type conform.FileLuaFormatterConfig
@@ -116,6 +181,10 @@ return {
   options = {
     -- Set to true to ignore errors
     ignore_errors = false,
+    -- Map of treesitter language to filetype
+    lang_to_ft = {
+      bash = "sh",
+    },
     -- Map of treesitter language to file extension
     -- A temporary file name with this extension will be generated during formatting
     -- because some formatters care about the filename.
@@ -163,7 +232,8 @@ return {
     ---@param lang string
     ---@return nil|conform.FiletypeFormatter
     local function get_formatters(lang)
-      return options.lang_to_formatters[lang] or conform.formatters_by_ft[lang]
+      local ft = options.lang_to_ft[lang] or lang
+      return options.lang_to_formatters[ft] or conform.formatters_by_ft[ft]
     end
 
     --- Disable diagnostic to pass the typecheck github action
@@ -176,11 +246,13 @@ return {
     local regions = {}
 
     for lang, lang_tree in pairs(parser:children()) do
-      if lang ~= root_lang then
+      if include_language_tree(root_lang, lang) then
         for _, ranges in ipairs(lang_tree:included_regions()) do
           for _, region in ipairs(ranges) do
             local formatters = get_formatters(lang)
-            if formatters ~= nil then
+            if formatters == nil then
+              log.info("No formatters found for injected treesitter language %s", lang)
+            else
               -- The types are wrong. included_regions should be Range[][] not integer[][]
               ---@diagnostic disable-next-line: param-type-mismatch
               local start_row, start_col, _, end_row, end_col, _ = unpack(region)
@@ -190,6 +262,8 @@ return {
         end
       end
     end
+
+    regions = merge_ranges_with_prefix(regions, ctx.buf, buf_lang)
 
     if ctx.range then
       regions = vim.tbl_filter(function(region)
@@ -278,7 +352,16 @@ return {
         local input_lines = util.tbl_slice(lines, start_lnum, end_lnum)
         input_lines[#input_lines] = input_lines[#input_lines]:sub(1, end_col)
         if start_col > 0 then
-          input_lines[1] = input_lines[1]:sub(start_col + 1)
+          local prefix = input_lines[1]:sub(0, start_col)
+          if prefix:match(prefix_pattern(buf_lang)) == prefix then
+            -- The first line in the range doesn't start at col 0, but the text on that line before
+            -- it is just indentation nothing semantic.
+            -- Update the range to include the indentation so that remove_surrounding() below can
+            -- consider it as part of the indentation for the entire block.
+            region[3] = 0
+          else
+            input_lines[1] = input_lines[1]:sub(start_col + 1)
+          end
         end
         local ft_formatters = assert(get_formatters(lang))
         ---@type string[]
@@ -310,6 +393,7 @@ return {
         local extension = options.lang_to_ext[lang] or lang
         local buf =
           vim.fn.bufadd(string.format("%s.%d.%s", vim.api.nvim_buf_get_name(ctx.buf), i, extension))
+        vim.bo[buf].swapfile = false
         -- Actually load the buffer to set the buffer context which is required by some formatters such as `filetype`
         vim.fn.bufload(buf)
         tmp_bufs[buf] = true

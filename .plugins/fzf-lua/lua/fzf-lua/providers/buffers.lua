@@ -24,84 +24,99 @@ local filter_buffers = function(opts, unfiltered)
   end
 
   local excluded, max_bufnr = {}, 0
-  local bufnrs = vim.tbl_filter(function(b)
-    if not vim.api.nvim_buf_is_valid(b) then
-      excluded[b] = true
-    elseif not opts.show_unlisted and b ~= core.CTX().bufnr and vim.fn.buflisted(b) ~= 1 then
-      excluded[b] = true
-    elseif not opts.show_unloaded and not vim.api.nvim_buf_is_loaded(b) then
-      excluded[b] = true
-    elseif opts.ignore_current_buffer and b == core.CTX().bufnr then
-      excluded[b] = true
-    elseif opts.current_tab_only and not curtab_bufnrs[b] then
-      excluded[b] = true
-    elseif opts.no_term_buffers and utils.is_term_buffer(b) then
-      excluded[b] = true
-    elseif opts.cwd_only and not path.is_relative_to(vim.api.nvim_buf_get_name(b), uv.cwd()) then
-      excluded[b] = true
-    elseif opts.cwd and not path.is_relative_to(vim.api.nvim_buf_get_name(b), opts.cwd) then
-      excluded[b] = true
-    end
-    if utils.buf_is_qf(b) then
-      if opts.show_quickfix then
-        -- show_quickfix trumps show_unlisted
-        excluded[b] = nil
-      else
-        excluded[b] = true
-      end
-    end
-    if not excluded[b] and b > max_bufnr then
-      max_bufnr = b
-    end
-    return not excluded[b]
-  end, unfiltered)
+  local bufnrs = type(opts.buffers) == "table"
+      and vim.tbl_map(function(b)
+        max_bufnr = math.max(max_bufnr, b)
+        return b
+      end, opts.buffers)
+      or vim.tbl_filter(function(b)
+        if not vim.api.nvim_buf_is_valid(b) then
+          excluded[b] = true
+        elseif not opts.show_unlisted and b ~= core.CTX().bufnr and vim.fn.buflisted(b) ~= 1 then
+          excluded[b] = true
+        elseif not opts.show_unloaded and not vim.api.nvim_buf_is_loaded(b) then
+          excluded[b] = true
+        elseif opts.ignore_current_buffer and b == core.CTX().bufnr then
+          excluded[b] = true
+        elseif opts.current_tab_only and not curtab_bufnrs[b] then
+          excluded[b] = true
+        elseif opts.no_term_buffers and utils.is_term_buffer(b) then
+          excluded[b] = true
+        elseif opts.cwd_only and not path.is_relative_to(vim.api.nvim_buf_get_name(b), uv.cwd()) then
+          excluded[b] = true
+        elseif opts.cwd and not path.is_relative_to(vim.api.nvim_buf_get_name(b), opts.cwd) then
+          excluded[b] = true
+        end
+        if utils.buf_is_qf(b) then
+          if opts.show_quickfix then
+            -- show_quickfix trumps show_unlisted
+            excluded[b] = nil
+          else
+            excluded[b] = true
+          end
+        end
+        if not excluded[b] and b > max_bufnr then
+          max_bufnr = b
+        end
+        return not excluded[b]
+      end, unfiltered)
 
   return bufnrs, excluded, max_bufnr
+end
+
+
+local getbuf = function(buf)
+  return {
+    bufnr = buf,
+    flag = (buf == core.CTX().bufnr and "%")
+        or (buf == core.CTX().alt_bufnr and "#") or " ",
+    info = utils.getbufinfo(buf),
+    readonly = vim.bo[buf].readonly
+  }
+end
+
+-- switching buffers and opening 'buffers' in quick succession
+-- can lead to incorrect sort as 'lastused' isn't updated fast
+-- enough (neovim bug?), this makes sure the current buffer is
+-- always on top (#646)
+-- Hopefully this gets solved before the year 2100
+-- DON'T FORCE ME TO UPDATE THIS HACK NEOVIM LOL
+-- NOTE: reduced to 2038 due to 32bit sys limit (#1636)
+local _FUTURE = os.time({ year = 2038, month = 1, day = 1, hour = 0, minute = 00 })
+local get_unixtime = function(buf)
+  if tonumber(buf) then
+    -- When called from `buffer_lines`
+    buf = getbuf(buf)
+  end
+  if buf.flag == "%" then
+    return _FUTURE
+  elseif buf.flag == "#" then
+    return _FUTURE - 1
+  else
+    return buf.info.lastused
+  end
 end
 
 local populate_buffer_entries = function(opts, bufnrs, winid)
   local buffers = {}
   for _, bufnr in ipairs(bufnrs) do
-    local flag = (bufnr == core.CTX().bufnr and "%")
-        or (bufnr == core.CTX().alt_bufnr and "#") or " "
-
-    local element = {
-      bufnr = bufnr,
-      flag = flag,
-      info = utils.getbufinfo(bufnr),
-      readonly = vim.bo[bufnr].readonly
-    }
+    local buf = getbuf(bufnr)
 
     -- Get the name for missing/quickfix/location list buffers
     -- NOTE: we get it here due to `gen_buffer_entry` called within a fast event
-    if not element.info.name or #element.info.name == 0 then
-      element.info.name = utils.nvim_buf_get_name(element.bufnr, element.info)
+    if not buf.info.name or #buf.info.name == 0 then
+      buf.info.name = utils.nvim_buf_get_name(buf.bufnr, buf.info)
     end
 
     -- get the correct lnum for tabbed buffers
     if winid then
-      element.info.lnum = vim.api.nvim_win_get_cursor(winid)[1]
+      buf.info.lnum = vim.api.nvim_win_get_cursor(winid)[1]
     end
 
-    table.insert(buffers, element)
+    table.insert(buffers, buf)
   end
+
   if opts.sort_lastused then
-    -- switching buffers and opening 'buffers' in quick succession
-    -- can lead to incorrect sort as 'lastused' isn't updated fast
-    -- enough (neovim bug?), this makes sure the current buffer is
-    -- always on top (#646)
-    -- Hopefully this gets solved before the year 2100
-    -- DON'T FORCE ME TO UPDATE THIS HACK NEOVIM LOL
-    local future = os.time({ year = 2100, month = 1, day = 1, hour = 0, minute = 00 })
-    local get_unixtime = function(buf)
-      if buf.flag == "%" then
-        return future
-      elseif buf.flag == "#" then
-        return future - 1
-      else
-        return buf.info.lastused
-      end
-    end
     table.sort(buffers, function(a, b)
       return get_unixtime(a) > get_unixtime(b)
     end)
@@ -192,7 +207,7 @@ M.buffers = function(opts)
   -- save as a func ref for resume to reuse
   opts._fn_pre_fzf = function()
     shell.set_protected(id)
-    core.CTX(true) -- include `nvim_list_bufs` in context
+    core.CTX({ includeBuflist = true }) -- include `nvim_list_bufs` in context
   end
 
   if opts.fzf_opts["--header-lines"] == nil then
@@ -221,10 +236,7 @@ end
 M.buffer_lines = function(opts)
   if not opts then return end
 
-  -- formatter doesn't work with lines|blines as only filename is displayed
-  opts._fmt = false
-
-  opts.fn_pre_fzf = function() core.CTX(true) end
+  opts.fn_pre_fzf = function() core.CTX({ includeBuflist = true }) end
   opts.fn_pre_fzf()
 
   local contents = function(cb)
@@ -242,10 +254,28 @@ M.buffer_lines = function(opts)
       local buffers = filter_buffers(opts,
         opts.current_buffer_only and { core.CTX().bufnr } or core.CTX().buflist)
 
+      if opts.sort_lastused and utils.tbl_count(buffers) > 1 then
+        table.sort(buffers, function(a, b)
+          return get_unixtime(a) > get_unixtime(b)
+        end)
+      end
+
+      local bnames = {}
+      local longest_bname = 0
+      for _, b in ipairs(buffers) do
+        local bname = utils.nvim_buf_get_name(b)
+        if not bname:match("^%[") then
+          bname = path.shorten(vim.fn.fnamemodify(bname, ":~:."))
+        end
+        longest_bname = math.max(longest_bname, #bname)
+        bnames[tostring(b)] = bname
+      end
+      local len_bufnames = math.min(15, longest_bname)
+
       for _, bufnr in ipairs(buffers) do
         local data = {}
-        local bufname, buficon, hl
-        -- use vim.schedule to avoid
+
+        -- Use vim.schedule to avoid
         -- E5560: vimL function must not be called in a lua loop callback
         vim.schedule(function()
           local filepath = vim.api.nvim_buf_get_name(bufnr)
@@ -254,21 +284,34 @@ M.buffer_lines = function(opts)
           elseif vim.fn.filereadable(filepath) ~= 0 then
             data = vim.fn.readfile(filepath, "")
           end
-          bufname = path.basename(filepath)
-          if opts.file_icons then
-            buficon, hl = devicons.get_devicon(bufname)
-            if hl and opts.color_icons then
-              buficon = utils.ansi_from_rgb(hl, buficon)
-            end
-          end
-          if not bufname or #bufname == 0 then
-            bufname = utils.nvim_buf_get_name(bufnr)
-          end
           coroutine.resume(co)
         end)
 
         -- wait for vim.schedule
         coroutine.yield()
+
+        local bname, bicon = (function()
+          if not opts.show_bufname
+              or tonumber(opts.show_bufname) and tonumber(opts.show_bufname) > vim.o.columns
+          then
+            return
+          end
+          local bicon, hl = "", nil
+          local bname = bnames[tostring(bufnr)]
+          assert(bname)
+
+          if #bname > len_bufnames + 1 then
+            bname = "…" .. bname:sub(#bname - len_bufnames + 2)
+          end
+
+          if opts.file_icons then
+            bicon, hl = devicons.get_devicon(bname)
+            if hl and opts.color_icons then
+              bicon = utils.ansi_from_rgb(hl, bicon)
+            end
+          end
+          return bname, bicon and bicon .. utils.nbsp or nil
+        end)()
 
         local offset, lines = 0, #data
         if opts.current_buffer_only and opts.start == "cursor" then
@@ -281,14 +324,20 @@ M.buffer_lines = function(opts)
           if lnum > lines then
             lnum = lnum % lines
           end
-          add_entry(string.format("[%s]%s%s%s%s:%s: %s",
-            utils.ansi_codes[opts.hls.buf_nr](tostring(bufnr)),
-            utils.nbsp,
-            buficon or "",
-            buficon and utils.nbsp or "",
-            utils.ansi_codes[opts.hls.buf_name](bufname),
-            utils.ansi_codes[opts.hls.path_linenr](tostring(lnum)),
-            data[lnum]), co)
+
+          -- NOTE: Space after `lnum` is U+00A0 (decimal: 160)
+          add_entry(string.format("[%s]\t%s\t%s%s\t%s \t%s",
+            tostring(bufnr),
+            utils.ansi_codes[opts.hls.buf_id](string.format("%3d", bufnr)),
+            bicon or "",
+            not bname and "" or utils.ansi_codes[opts.hls.buf_name](string.format(
+              "%"
+              .. (opts.file_icons and "-" or "")
+              .. tostring(len_bufnames) .. "s",
+              bname)),
+            utils.ansi_codes[opts.hls.buf_linenr](string.format("%5d", lnum)),
+            data[lnum]
+          ), co)
         end
       end
       cb(nil)
@@ -399,7 +448,7 @@ M.tabs = function(opts)
   -- save as a func ref for resume to reuse
   opts._fn_pre_fzf = function()
     shell.set_protected(id)
-    core.CTX(true) -- include `nvim_list_bufs` in context
+    core.CTX({ includeBuflist = true }) -- include `nvim_list_bufs` in context
   end
 
   opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
@@ -450,11 +499,11 @@ M.treesitter = function(opts)
               local lnum, col, _, _ = vim.treesitter.get_node_range(node.node)
               local node_text = vim.treesitter.get_node_text(node.node, opts.bufnr)
               local node_kind = node.kind and utils.ansi_from_hl(kind2hl(node.kind), node.kind)
-              local entry = string.format("[%s]%s%s:%s:%s:\t[%s] %s",
+              local entry = string.format("[%s]%s%s:%s:%s\t\t[%s] %s",
                 utils.ansi_codes[opts.hls.buf_nr](tostring(opts.bufnr)),
                 utils.nbsp,
                 utils.ansi_codes[opts.hls.buf_name](opts._bufname),
-                utils.ansi_codes[opts.hls.path_linenr](tostring(lnum + 1)),
+                utils.ansi_codes[opts.hls.buf_linenr](tostring(lnum + 1)),
                 utils.ansi_codes[opts.hls.path_colnr](tostring(col + 1)),
                 node_kind or "",
                 node_text)

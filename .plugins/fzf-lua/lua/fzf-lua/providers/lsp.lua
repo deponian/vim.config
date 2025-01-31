@@ -507,12 +507,12 @@ local function gen_lsp_contents(opts)
         end
       end
       if utils.tbl_isempty(results) then
-        if not opts.fn_reload and not opts.silent then
-          utils.info(string.format("No %s found", string.lower(lsp_handler.label)))
-        else
+        if opts.fn_reload then
           -- return an empty set or the results wouldn't be
           -- cleared on live_workspace_symbols (#468)
           opts.__contents = {}
+        elseif not opts.silent then
+          utils.info(string.format("No %s found", string.lower(lsp_handler.label)))
         end
       elseif not (opts.jump_to_single_result and #results == 1) then
         -- LSP request was synchronous but we still asyncify the fzf feeding
@@ -660,7 +660,7 @@ local function fzf_lsp_locations(opts, fn_contents)
   if not opts then return end
   opts = core.set_fzf_field_index(opts)
   opts = fn_contents(opts)
-  if not opts.__contents then
+  if not opts or not opts.__contents then
     core.__CTX = nil
     return
   end
@@ -825,6 +825,9 @@ M.workspace_symbols = function(opts)
     core.__CTX = nil
     return
   end
+  if utils.has(opts, "fzf") and not opts.prompt and opts.lsp_query and #opts.lsp_query > 0 then
+    opts.prompt = utils.ansi_from_hl(opts.hls.live_prompt, opts.lsp_query) .. " > "
+  end
   if opts.symbol_style or opts.symbol_fmt then
     opts.fn_pre_fzf = function() gen_sym2style_map(opts) end
     opts.fn_post_fzf = function() M._sym2style = nil end
@@ -840,11 +843,12 @@ M.live_workspace_symbols = function(opts)
   -- needed by 'actions.sym_lsym'
   opts.__ACT_TO = opts.__ACT_TO or M.workspace_symbols
 
+  -- NOTE: no longer used since we hl the query with `FzfLuaLivePrompt`
   -- prepend prompt with "*" to indicate "live" query
-  opts.prompt = type(opts.prompt) == "string" and opts.prompt or ""
-  if opts.live_ast_prefix ~= false then
-    opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
-  end
+  -- opts.prompt = type(opts.prompt) == "string" and opts.prompt or "> "
+  -- if opts.live_ast_prefix ~= false then
+  --   opts.prompt = opts.prompt:match("^%*") and opts.prompt or ("*" .. opts.prompt)
+  -- end
 
   -- when using live_workspace_symbols there is no "query"
   -- the prompt input is the LSP query, store as "lsp_query"
@@ -899,10 +903,7 @@ end
 -- TODO: not needed anymore, it seems that `vim.lsp.buf.code_action` still
 -- uses the old `vim.lsp.diagnostic` API, we will do the same until neovim
 -- stops using this API
---[[ local function get_line_diagnostics(_)
-  if not vim.diagnostic then
-    return vim.lsp.diagnostic.get_line_diagnostics()
-  end
+local get_line_diagnostics = utils.__HAS_NVIM_011 and function(_)
   local diag = vim.diagnostic.get(core.CTX().bufnr, { lnum = vim.api.nvim_win_get_cursor(0)[1] - 1 })
   return diag and diag[1]
       and { {
@@ -926,7 +927,7 @@ end
       } }
       -- Must return an empty table or some LSP servers fail (#707)
       or {}
-end ]]
+end or vim.lsp.diagnostic.get_line_diagnostics
 
 M.code_actions = function(opts)
   opts = normalize_lsp_opts(opts, "lsp.code_actions")
@@ -958,7 +959,7 @@ M.code_actions = function(opts)
         -- Neovim still uses `vim.lsp.diagnostic` API in "nvim/runtime/lua/vim/lsp/buf.lua"
         -- continue to use it until proven otherwise, this also fixes #707 as diagnostics
         -- must not be nil or some LSP servers will fail (e.g. ruff_lsp, rust_analyzer)
-        diagnostics = vim.lsp.diagnostic.get_line_diagnostics(core.CTX().bufnr) or {}
+        diagnostics = get_line_diagnostics(core.CTX().bufnr) or {}
       }
       return params
     end
@@ -975,7 +976,10 @@ M.code_actions = function(opts)
     local _, has_code_actions = gen_lsp_contents(opts)
 
     -- error or no sync request no results
-    if not has_code_actions then return end
+    if not has_code_actions then
+      core.__CTX = nil
+      return
+    end
   end
 
   opts.actions = opts.actions or {}

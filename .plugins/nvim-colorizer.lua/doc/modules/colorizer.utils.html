@@ -43,6 +43,7 @@
   <li><a href="../modules/colorizer.buffer.html">buffer</a></li>
   <li><a href="../modules/colorizer.color.html">color</a></li>
   <li><a href="../modules/colorizer.config.html">config</a></li>
+  <li><a href="../modules/colorizer.constants.html">constants</a></li>
   <li><a href="../modules/colorizer.matcher.html">matcher</a></li>
   <li><a href="../modules/colorizer.parser.rgb_hex.html">parser.rgb_hex</a></li>
   <li><a href="../modules/colorizer.parser.hsl.html">parser.hsl</a></li>
@@ -51,7 +52,7 @@
   <li><a href="../modules/colorizer.parser.rgba_hex.html">parser.rgba_hex</a></li>
   <li><a href="../modules/colorizer.sass.html">sass</a></li>
   <li><a href="../modules/colorizer.tailwind.html">tailwind</a></li>
-  <li><a href="../modules/colorizer.trie.html">trie</a></li>
+  <li><a href="../modules/trie.html">trie</a></li>
   <li><a href="../modules/colorizer.usercmds.html">usercmds</a></li>
   <li><strong>utils</strong></li>
 </ul>
@@ -63,12 +64,16 @@
 <h1>Module <code>colorizer.utils</code></h1>
 <p>Provides utility functions for color handling and file operations.</p>
 <p>
- This module contains helper functions for checking byte categories, merging tables,
- parsing colors, managing file watchers, and handling buffer lines.</p>
+This module contains helper functions for checking byte categories, merging tables,
+parsing colors, managing file watchers, and handling buffer lines.</p>
 
 
 <h2><a href="#Functions">Functions</a></h2>
 <table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#rgb_to_hex">rgb_to_hex (r, g, b)</a></td>
+	<td class="summary">Returns HEX format from RGB values</td>
+	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#byte_is_alphanumeric">byte_is_alphanumeric (byte)</a></td>
 	<td class="summary">Checks if a byte represents an alphanumeric character.</td>
@@ -78,8 +83,16 @@
 	<td class="summary">Checks if a byte represents a hexadecimal character.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#byte_is_valid_colorchar">byte_is_valid_colorchar (byte)</a></td>
-	<td class="summary">Checks if a byte is valid as a color character (alphanumeric or `-` for Tailwind colors).</td>
+	<td class="name" nowrap><a href="#get_non_alphanum_keys">get_non_alphanum_keys (tbl)</a></td>
+	<td class="summary">Extract non-alphanumeric characters to add as a valid index in the Trie</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#add_additional_color_chars">add_additional_color_chars (chars)</a></td>
+	<td class="summary">Adds additional characters to the list of valid color characters.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#byte_is_valid_color_char">byte_is_valid_color_char (byte)</a></td>
+	<td class="summary">Checks if a byte is valid as a color character (alphanumeric, dynamically added chars, or hardcoded characters).</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#count">count (str, pattern)</a></td>
@@ -88,10 +101,6 @@
 	<tr>
 	<td class="name" nowrap><a href="#get_last_modified">get_last_modified (path)</a></td>
 	<td class="summary">Get last modified time of a file</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#merge">merge (...)</a></td>
-	<td class="summary">Merge two tables.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#parse_hex">parse_hex (byte)</a></td>
@@ -105,6 +114,14 @@
 	<td class="name" nowrap><a href="#bufme">bufme (bufnr)</a></td>
 	<td class="summary">Validates and returns a buffer number.</td>
 	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#visible_line_range">visible_line_range (bufnr)</a></td>
+	<td class="summary">Returns range of visible lines</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#hash_table">hash_table (tbl)</a></td>
+	<td class="summary">Returns sha256 hash of lua table</td>
+	</tr>
 </table>
 
 <br/>
@@ -114,6 +131,32 @@
     <h2 class="section-header "><a name="Functions"></a>Functions</h2>
 
     <dl class="function">
+    <dt>
+    <a name = "rgb_to_hex"></a>
+    <strong>rgb_to_hex (r, g, b)</strong>
+    </dt>
+    <dd>
+    Returns HEX format from RGB values
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">r</span>
+         number: Red value
+        </li>
+        <li><span class="parameter">g</span>
+         number: Green value
+        </li>
+        <li><span class="parameter">b</span>
+         number: Blue value
+        </li>
+    </ul>
+
+
+
+
+
+</dd>
     <dt>
     <a name = "byte_is_alphanumeric"></a>
     <strong>byte_is_alphanumeric (byte)</strong>
@@ -132,7 +175,7 @@
     <h3>Returns:</h3>
     <ol>
 
-        boolean `true` if the byte is alphanumeric, otherwise `false`.
+        boolean: `true` if the byte is alphanumeric, otherwise `false`.
     </ol>
 
 
@@ -157,7 +200,7 @@
     <h3>Returns:</h3>
     <ol>
 
-        boolean `true` if the byte is hexadecimal, otherwise `false`.
+        boolean: `true` if the byte is hexadecimal, otherwise `false`.
     </ol>
 
 
@@ -165,24 +208,74 @@
 
 </dd>
     <dt>
-    <a name = "byte_is_valid_colorchar"></a>
-    <strong>byte_is_valid_colorchar (byte)</strong>
+    <a name = "get_non_alphanum_keys"></a>
+    <strong>get_non_alphanum_keys (tbl)</strong>
     </dt>
     <dd>
-    Checks if a byte is valid as a color character (alphanumeric or `-` for Tailwind colors).
+    Extract non-alphanumeric characters to add as a valid index in the Trie
 
 
     <h3>Parameters:</h3>
     <ul>
-        <li><span class="parameter">byte</span>
-         number The byte to check.
+        <li><span class="parameter">tbl</span>
+         table: The table to extract non-alphanumeric characters from.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-        boolean `true` if the byte is valid, otherwise `false`.
+        string: The extracted non-alphanumeric characters.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "add_additional_color_chars"></a>
+    <strong>add_additional_color_chars (chars)</strong>
+    </dt>
+    <dd>
+    Adds additional characters to the list of valid color characters.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">chars</span>
+         string: The additional characters to add.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        boolean: `true` if the characters were added, otherwise `false`.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "byte_is_valid_color_char"></a>
+    <strong>byte_is_valid_color_char (byte)</strong>
+    </dt>
+    <dd>
+    Checks if a byte is valid as a color character (alphanumeric, dynamically added chars, or hardcoded characters).
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">byte</span>
+         number: The byte to check.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        boolean: `true` if the byte is valid, otherwise `false`.
     </ol>
 
 
@@ -243,32 +336,6 @@
 
 </dd>
     <dt>
-    <a name = "merge"></a>
-    <strong>merge (...)</strong>
-    </dt>
-    <dd>
-    Merge two tables.
- todo: Remove this and use `vim.tbl_deep_extend`
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">...</span>
-
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-        table
-    </ol>
-
-
-
-
-</dd>
-    <dt>
     <a name = "parse_hex"></a>
     <strong>parse_hex (byte)</strong>
     </dt>
@@ -286,7 +353,7 @@
     <h3>Returns:</h3>
     <ol>
 
-        number The parsed hexadecimal value of the byte.
+        number: The parsed hexadecimal value of the byte.
     </ol>
 
 
@@ -343,8 +410,53 @@
     <h3>Returns:</h3>
     <ol>
 
-        number The validated buffer number.
+        number: The validated buffer number.
     </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "visible_line_range"></a>
+    <strong>visible_line_range (bufnr)</strong>
+    </dt>
+    <dd>
+    Returns range of visible lines
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">bufnr</span>
+         number: Buffer number
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        number, number: Start (0-index) and end (exclusive) range of lines in viewport
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "hash_table"></a>
+    <strong>hash_table (tbl)</strong>
+    </dt>
+    <dd>
+    Returns sha256 hash of lua table
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">tbl</span>
+         table: Table to be hashed
+        </li>
+    </ul>
+
 
 
 
@@ -357,7 +469,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated - November </i>
+<i style="float:right;">Last updated - January </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

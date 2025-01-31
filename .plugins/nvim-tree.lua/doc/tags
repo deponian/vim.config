@@ -58,6 +58,8 @@ nvim-tree-api.marks.navigate.prev()	nvim-tree-lua.txt	/*nvim-tree-api.marks.navi
 nvim-tree-api.marks.navigate.select()	nvim-tree-lua.txt	/*nvim-tree-api.marks.navigate.select()*
 nvim-tree-api.marks.toggle()	nvim-tree-lua.txt	/*nvim-tree-api.marks.toggle()*
 nvim-tree-api.node	nvim-tree-lua.txt	/*nvim-tree-api.node*
+nvim-tree-api.node.buffer.delete()	nvim-tree-lua.txt	/*nvim-tree-api.node.buffer.delete()*
+nvim-tree-api.node.buffer.wipe()	nvim-tree-lua.txt	/*nvim-tree-api.node.buffer.wipe()*
 nvim-tree-api.node.navigate.diagnostics.next()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.next()*
 nvim-tree-api.node.navigate.diagnostics.next_recursive()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.next_recursive()*
 nvim-tree-api.node.navigate.diagnostics.prev()	nvim-tree-lua.txt	/*nvim-tree-api.node.navigate.diagnostics.prev()*
@@ -79,6 +81,7 @@ nvim-tree-api.node.navigate.sibling.prev()	nvim-tree-lua.txt	/*nvim-tree-api.nod
 nvim-tree-api.node.open.drop()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.drop()*
 nvim-tree-api.node.open.edit()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.edit()*
 nvim-tree-api.node.open.horizontal()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.horizontal()*
+nvim-tree-api.node.open.horizontal_no_picker()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.horizontal_no_picker()*
 nvim-tree-api.node.open.no_window_picker()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.no_window_picker()*
 nvim-tree-api.node.open.preview()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.preview()*
 nvim-tree-api.node.open.preview_no_picker()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.preview_no_picker()*
@@ -87,6 +90,7 @@ nvim-tree-api.node.open.tab()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.tab()*
 nvim-tree-api.node.open.tab_drop()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.tab_drop()*
 nvim-tree-api.node.open.toggle_group_empty()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.toggle_group_empty()*
 nvim-tree-api.node.open.vertical()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.vertical()*
+nvim-tree-api.node.open.vertical_no_picker()	nvim-tree-lua.txt	/*nvim-tree-api.node.open.vertical_no_picker()*
 nvim-tree-api.node.run.cmd()	nvim-tree-lua.txt	/*nvim-tree-api.node.run.cmd()*
 nvim-tree-api.node.run.system()	nvim-tree-lua.txt	/*nvim-tree-api.node.run.system()*
 nvim-tree-api.node.show_info_popup()	nvim-tree-lua.txt	/*nvim-tree-api.node.show_info_popup()*

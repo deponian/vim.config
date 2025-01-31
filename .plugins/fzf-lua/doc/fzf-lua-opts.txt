@@ -1,4 +1,4 @@
-*fzf-lua-opts.txt*      For Neovim >= 0.8.0      Last change: 2024 November 18
+*fzf-lua-opts.txt*       For Neovim >= 0.8.0      Last change: 2025 January 25
 
 ==============================================================================
 Table of Contents                             *fzf-lua-opts-table-of-contents*
@@ -15,7 +15,7 @@ LSP/Diagnostics ............................... |fzf-lua-opts-lsp/diagnostics|
 Misc ..................................................... |fzf-lua-opts-misc|
 Neovim API ......................................... |fzf-lua-opts-neovim-api|
 nvim-dap ............................................. |fzf-lua-opts-nvim-dap|
-tmux ..................................................... |fzf-lua-opts-tmux|
+shell integrations ......................... |fzf-lua-opts-shell-integrations|
 Completion Functions ..................... |fzf-lua-opts-completion-functions|
 
 ==============================================================================
@@ -148,6 +148,32 @@ If set to an `object`, fzf-lua expects a previewer class that will be
 initlaized with `object:new(...)`, see the advanced Wiki "Neovim builtin
 previewer" section for more info.
 
+
+                                                                              
+setup.help_open_win                         *fzf-lua-opts-setup.help_open_win*
+
+Type: `fun(number, boolean, table)`, Default: `vim.api.nvim_open_win`
+
+Function override for opening the help window (default bound to `<F1>`), will
+be called with the same arguments as `nvim_open_win(bufnr, enter, winopts)`.
+By default opens a floating window at the bottom of current screen.
+
+Override this function if you want to customize window configs of the help
+window (location, width, border, etc.).
+
+Example, opening a floating help window at the top of screen with single
+border:
+
+>lua
+        require("fzf-lua").setup({
+          help_open_win = function(buf, enter, opts)
+            opts.border = 'single'
+            opts.row = 0
+            opts.col = 0
+            return vim.api.nvim_open_win(buf, enter, opts)
+          end,
+        })
+<
 
 ------------------------------------------------------------------------------
 GLOBAL OPTIONS                                   *fzf-lua-opts-global-options*
@@ -352,6 +378,31 @@ Use fullscreen for the fzf-load floating window.
 
 
                                                                               
+globals.winopts.title                     *fzf-lua-opts-globals.winopts.title*
+
+Type: `string`, Default: `nil`
+
+Controls title display in the fzf window, set by the calling picker.
+
+
+                                                                              
+globals.winopts.title_pos             *fzf-lua-opts-globals.winopts.title_pos*
+
+Type: `string`, Default: `center`
+
+Controls title display in the fzf window, possible values are
+`left|right|center`.
+
+
+                                                                              
+globals.winopts.title_flags         *fzf-lua-opts-globals.winopts.title_flags*
+
+Type: `boolean`, Default: `nil`
+
+Set to `false` to disable fzf window title flags (hidden, ignore, etc).
+
+
+                                                                              
 globals.winopts.treesitter           *fzf-lua-opts-globals.winopts.treesitter*
 
 Type: `boolean`, Default: `false`
@@ -373,7 +424,7 @@ Callback after the creation of the fzf-lua main terminal window.
                                                                               
 globals.winopts.preview.delay     *fzf-lua-opts-globals.winopts.preview.delay*
 
-Type: `number`, Default: `100`
+Type: `number`, Default: `20`
 
 Debounce time (milliseconds) for displaying the preview buffer in the builtin
 previewer.
@@ -382,7 +433,7 @@ previewer.
                                                                               
 globals.winopts.preview.wrap       *fzf-lua-opts-globals.winopts.preview.wrap*
 
-Type: `string`, Default: `nowrap`
+Type: `boolean`, Default: `false`
 
 Line wrap in both native fzf and the builtin previewer, mapped to fzf's
 `--preview-window:[no]wrap` flag.
@@ -391,7 +442,7 @@ Line wrap in both native fzf and the builtin previewer, mapped to fzf's
                                                                               
 globals.winopts.preview.hidden   *fzf-lua-opts-globals.winopts.preview.hidden*
 
-Type: `string`, Default: `nohidden`
+Type: `boolean`, Default: `false`
 
 Preview startup visibility in both native fzf and the builtin previewer,
 mapped to fzf's `--preview-window:[no]hidden` flag.
@@ -478,21 +529,11 @@ values are `float|border`.
                                                                               
 globals.winopts.preview.scrolloff*fzf-lua-opts-globals.winopts.preview.scrolloff*
 
-Type: `number`, Default: `-2`
+Type: `number`, Default: `-1`
 
 Float style scrollbar offset from the right edge of the preview window.
 
 <sub><sup>*Requires `winopts.preview.scrollbar=float`</sup></sub>
-
-
-                                                                              
-globals.winopts.preview.scrollchars*fzf-lua-opts-globals.winopts.preview.scrollchars*
-
-Type: `table`, Default: `{'█', '' }`
-
-Border style scrollbar characters `{ <full>, <empty> }`.
-
-<sub><sup>*Requires `winopts.preview.scrollbar=border`</sup></sub>
 
 
                                                                               
@@ -597,6 +638,14 @@ globals.hls.title                             *fzf-lua-opts-globals.hls.title*
 Type: `string`, Default: `FzfLuaTitle`
 
 Main fzf (terminal) window title highlight group.
+
+
+                                                                              
+globals.hls.title_flags                 *fzf-lua-opts-globals.hls.title_flags*
+
+Type: `string`, Default: `CursorLine`
+
+Main fzf (terminal) window title flags highlight group (hidden, etc).
 
 
                                                                               
@@ -736,7 +785,7 @@ globals.hls.path_linenr                 *fzf-lua-opts-globals.hls.path_linenr*
 Type: `string`, Default: `FzfLuaPathLineNr`
 
 Highlight group for the line part of paths, e.g. `file:<line>:<col>:`, used in
-pickers such as `buffers`, `lines`, `quickfix`, `lsp`, `diagnostics`, etc.
+pickers such as `buffers`, `quickfix`, `lsp`, `diagnostics`, etc.
 
 
                                                                               
@@ -745,7 +794,7 @@ globals.hls.path_colnr                   *fzf-lua-opts-globals.hls.path_colnr*
 Type: `string`, Default: `FzfLuaPathColNr`
 
 Highlight group for the column part of paths, e.g. `file:<line>:<col>:`, used
-in pickers such as `buffers`, `lines`, `quickfix`, `lsp`, `diagnostics`, etc.
+in pickers such as `buffers`, `quickfix`, `lsp`, `diagnostics`, etc.
 
 
                                                                               
@@ -753,7 +802,15 @@ globals.hls.buf_name                       *fzf-lua-opts-globals.hls.buf_name*
 
 Type: `string`, Default: `FzfLuaBufName`
 
-Highlight group for buffer name in `lines`.
+Highlight group for buffer name (filepath) in `lines`.
+
+
+                                                                              
+globals.hls.buf_id                           *fzf-lua-opts-globals.hls.buf_id*
+
+Type: `string`, Default: `FzfLuaBufId`
+
+Highlight group for buffer id (number) in `lines`.
 
 
                                                                               
@@ -761,8 +818,15 @@ globals.hls.buf_nr                           *fzf-lua-opts-globals.hls.buf_nr*
 
 Type: `string`, Default: `FzfLuaBufNr`
 
-Highlight group for buffer number in buffer type pickers, i.e. `buffers`,
-`tabs`, `lines`.
+Highlight group for buffer number in `buffers`, `tabs`.
+
+
+                                                                              
+globals.hls.buf_linenr                   *fzf-lua-opts-globals.hls.buf_linenr*
+
+Type: `string`, Default: `FzfLuaBufLineNr`
+
+Highlight group for buffer line number in `lines`, `blines` and `treesitter`.
 
 
                                                                               
@@ -822,6 +886,14 @@ Type: `string`, Default: `FzfLuaFilePart`
 
 Highlight group for the directory part when using `path.dirname_first` or
 `path.filename_first` formatters.
+
+
+                                                                              
+globals.hls.live_prompt                 *fzf-lua-opts-globals.hls.live_prompt*
+
+Type: `string`, Default: `FzfLuaLivePrompt`
+
+Highlight group for the prompt text in "live" pickers.
 
 
                                                                               
@@ -1577,13 +1649,19 @@ DAP active session jump to frame
 
 
                                                                               
-TMUX                                                       *fzf-lua-opts-tmux*
+SHELL INTEGRATIONS                           *fzf-lua-opts-shell-integrations*
 
 
                                                                               
 tmux_buffers                                       *fzf-lua-opts-tmux_buffers*
 
 Tmux paste buffers
+
+
+                                                                              
+zoxide                                                   *fzf-lua-opts-zoxide*
+
+Zoxide recent directories
 
 
                                                                               

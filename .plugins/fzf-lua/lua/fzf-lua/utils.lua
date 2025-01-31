@@ -10,11 +10,10 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 
-M.__HAS_NVIM_06 = vim.fn.has("nvim-0.6") == 1
-M.__HAS_NVIM_07 = vim.fn.has("nvim-0.7") == 1
 M.__HAS_NVIM_08 = vim.fn.has("nvim-0.8") == 1
 M.__HAS_NVIM_09 = vim.fn.has("nvim-0.9") == 1
 M.__HAS_NVIM_010 = vim.fn.has("nvim-0.10") == 1
+M.__HAS_NVIM_0102 = vim.fn.has("nvim-0.10.2") == 1
 M.__HAS_NVIM_011 = vim.fn.has("nvim-0.11") == 1
 M.__IS_WINDOWS = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 -- `:help shellslash` (for more info see #1055)
@@ -119,41 +118,13 @@ end
 ---@return string[]
 M.strsplit = function(inputstr, sep)
   local t = {}
-  -- Also match any single character class (e.g. %s, %a, etc)
-  if #sep == 1 or sep:match("^%%.$") then
-    for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
-      table.insert(t, str)
-    end
-  else
-    local s, m, r = inputstr, nil, nil
-    repeat
-      m, r = s:match("^(.-)" .. sep .. "(.*)$")
-      s = r and r or s
-      table.insert(t, m or s)
-    until not m
-  end
+  local s, m, r = inputstr, nil, nil
+  repeat
+    m, r = s:match("^(.-)" .. sep .. "(.*)$")
+    s = r and r or s
+    table.insert(t, m or s)
+  until not m
   return t
-end
-
-local string_byte = string.byte
-
-M.find_last_char = function(str, c)
-  for i = #str, 1, -1 do
-    if string_byte(str, i) == c then
-      return i
-    end
-  end
-end
-
----@param str string
----@param c integer
----@param start_idx integer
-M.find_next_char = function(str, c, start_idx)
-  for i = start_idx or 1, #str do
-    if string_byte(str, i) == c then
-      return i
-    end
-  end
 end
 
 function M.round(num, limit)
@@ -438,7 +409,7 @@ end
 function M.map_get(m, k)
   if not m then return end
   if not k then return m end
-  local keys = type(k) == "table" and k or M.strsplit(k, ".")
+  local keys = type(k) == "table" and k or M.strsplit(k, "%.")
   local iter = m
   for i = 1, #keys do
     iter = iter[keys[i]]
@@ -460,7 +431,7 @@ end
 ---@return table<string, unknown>
 function M.map_set(m, k, v)
   m = m or {}
-  local keys = type(k) == "table" and k or M.strsplit(k, ".")
+  local keys = type(k) == "table" and k or M.strsplit(k, "%.")
   local map = m
   for i = 1, #keys do
     local key = keys[i]
@@ -828,6 +799,10 @@ function M.CTX()
   return loadstring("return require'fzf-lua'.core.CTX()")()
 end
 
+function M.__CTX()
+  return loadstring("return require'fzf-lua'.core.__CTX")()
+end
+
 function M.resume_get(what, opts)
   local f = loadstring("return require'fzf-lua'.config.resume_get")()
   return f(what, opts)
@@ -849,9 +824,9 @@ end
 
 ---@param fname string
 ---@param name string|nil
----@param silent boolean
+---@param silent boolean|integer
 function M.load_profile_fname(fname, name, silent)
-  local profile = name or fname:match("([^%p]+)%.lua$") or "<unknown>"
+  local profile = name or vim.fn.fnamemodify(fname, ":t:r") or "<unknown>"
   local ok, res = pcall(dofile, fname)
   if ok and type(res) == "table" then
     -- success
@@ -859,14 +834,46 @@ function M.load_profile_fname(fname, name, silent)
       M.info(string.format("Successfully loaded profile '%s'", profile))
     end
     return res
-  elseif silent then
-    return
   end
-  if not ok then
+  -- If called from `setup` we set `silent=1` so we can alert the user on
+  -- errors loading the requested profiles
+  if silent ~= true and not ok then
     M.warn(string.format("Unable to load profile '%s': %s", profile, res:match("[^\n]+")))
   elseif type(res) ~= "table" then
     M.warn(string.format("Unable to load profile '%s': wrong type %s", profile, type(res)))
   end
+end
+
+function M.load_profiles(profiles, silent, opts)
+  local ret = {}
+  local path = require("fzf-lua").path
+  profiles = type(profiles) == "table" and profiles
+      or type(profiles) == "string" and { profiles }
+      or {}
+  -- If the use specified only the "hide" profile, inherit the defaults
+  if #profiles == 1 and profiles[1] == "hide" then
+    table.insert(profiles, 1, "default")
+  end
+  for _, profile in ipairs(profiles) do
+    -- backward compat, renamed "borderless_full" > "borderless-full"
+    if profile == "borderless_full" then profile = "borderless-full" end
+    local fname = path.join({ vim.g.fzf_lua_directory, "profiles", profile .. ".lua" })
+    local profile_opts = M.load_profile_fname(fname, nil, silent)
+    if type(profile_opts) == "table" then
+      if profile_opts[1] then
+        -- profile requires loading base profile(s)
+        -- silent = 1, only warn if failed to load
+        profile_opts = vim.tbl_deep_extend("keep",
+          profile_opts, M.load_profiles(profile_opts[1], 1, opts))
+      end
+      if type(profile_opts.fn_load) == "function" then
+        profile_opts.fn_load(opts)
+        profile_opts.fn_load = nil
+      end
+      ret = vim.tbl_deep_extend("force", ret, profile_opts)
+    end
+  end
+  return ret
 end
 
 function M.send_ctrl_c()
@@ -922,7 +929,7 @@ function M.save_dialog(bufnr)
   end
   local res = vim.fn.confirm(string.format([[Save changes to "%s"?]], info.name),
     "&Yes\n&No\n&Cancel")
-  if res == 3 then
+  if res == 0 or res == 3 then
     -- user cancelled
     return false
   end
@@ -1084,27 +1091,6 @@ function M.getwininfo(winid)
   end
 end
 
--- Backward compat 'vim.keymap.set', will probably be deprecated soon
-function M.keymap_set(mode, lhs, rhs, opts)
-  if vim.keymap then
-    vim.keymap.set(mode, lhs, rhs, opts)
-  else
-    assert(type(mode) == "string" and type(rhs) == "string")
-    opts = opts or {}
-    -- `noremap` is the inverse of the new API `remap`
-    opts.noremap = not opts.remap
-    if opts.buffer then
-      -- when `buffer` is true replace with `0` for local buffer
-      -- mapping and remove from options
-      local bufnr = type(opts.buffer) == "number" and opts.buffer or 0
-      opts.buffer = nil
-      vim.api.nvim_buf_set_keymap(bufnr, mode, lhs, rhs, opts)
-    else
-      vim.api.nvim_set_keymap(mode, lhs, rhs, opts)
-    end
-  end
-end
-
 ---@param cmd string[]
 ---@return string[] lines in the stdout or stderr, separated by '\n'
 ---@return integer exit_code (0: success)
@@ -1181,11 +1167,47 @@ function M.neovim_bind_to_fzf(key)
   return key
 end
 
-local function version_str_to_num(str)
+function M.parse_verstr(str)
   if type(str) ~= "string" then return end
   local major, minor, patch = str:match("(%d+).(%d+)%.?(.*)")
-  if not major and str:match("HEAD") then return 5 end
-  return tonumber(string.format("%d.%d%d", major, minor, tonumber(patch) or 0))
+  -- Fzf on HEAD edge case
+  major = tonumber(major) or str:match("HEAD") and 100 or nil
+  return major and { major, tonumber(minor) or 0, tonumber(patch) or 0 } or nil
+end
+
+function M.ver2str(v)
+  if type(v) ~= "table" or not v[1] then return end
+  return string.format("%d.%d.%d", tonumber(v[1]) or 0, tonumber(v[2]) or 0, tonumber(v[3]) or 0)
+end
+
+function M.has(opts, ...)
+  assert(type(opts) == "table")
+  local what = select(1, ...)
+  if what == "fzf" or what == "sk" then
+    local has_ver = select(2, ...)
+    if not has_ver then
+      if what == "sk" and opts.__SK_VERSION then return true end
+      if what == "fzf" and opts.__FZF_VERSION then return true end
+    else
+      local curr_ver
+      if what == "sk" then curr_ver = opts.__SK_VERSION end
+      if what == "fzf" then curr_ver = opts.__FZF_VERSION end
+      if type(has_ver) == "string" then has_ver = M.parse_verstr(has_ver) end
+      if type(has_ver) == "table" and type(curr_ver) == "table" then
+        has_ver[2] = tonumber(has_ver[2]) or 0
+        has_ver[3] = tonumber(has_ver[3]) or 0
+        curr_ver[2] = tonumber(curr_ver[2]) or 0
+        curr_ver[3] = tonumber(curr_ver[3]) or 0
+        if curr_ver[1] > has_ver[1]
+            or curr_ver[1] == has_ver[1] and curr_ver[2] > has_ver[2]
+            or curr_ver[1] == has_ver[1] and curr_ver[2] == has_ver[2] and curr_ver[3] >= has_ver[3]
+        then
+          return true
+        end
+      end
+    end
+  end
+  return false
 end
 
 function M.fzf_version(opts)
@@ -1195,7 +1217,7 @@ function M.fzf_version(opts)
   vim.env.FZF_DEFAULT_OPTS = nil
   local out, rc = M.io_system({ opts and opts.fzf_bin or "fzf", "--version" })
   vim.env.FZF_DEFAULT_OPTS = FZF_DEFAULT_OPTS
-  return version_str_to_num(out), rc, out
+  return M.parse_verstr(out), rc, out
 end
 
 function M.sk_version(opts)
@@ -1205,7 +1227,7 @@ function M.sk_version(opts)
   vim.env.SKIM_DEFAULT_OPTIONS = nil
   local out, rc = M.io_system({ opts and opts.fzf_bin or "sk", "--version" })
   vim.env.SKIM_DEFAULT_OPTIONS = SKIM_DEFAULT_OPTIONS
-  return version_str_to_num(out), rc, out
+  return M.parse_verstr(out), rc, out
 end
 
 function M.git_version()
@@ -1258,6 +1280,14 @@ function M.create_user_command_callback(provider, arg, altmap)
   end
 end
 
+-- setmetatable wrapper, also enable `__gc`
+function M.setmetatable__gc(t, mt)
+  local prox = newproxy(true)
+  getmetatable(prox).__gc = function() mt.__gc(t) end
+  t[prox] = true
+  return setmetatable(t, mt)
+end
+
 --- Checks if treesitter parser for language is installed
 ---@param lang string
 function M.has_ts_parser(lang)
@@ -1280,6 +1310,52 @@ function M.jump_to_location(location, offset_encoding, reuse_win)
   else
     return vim.lsp.util.jump_to_location(location, offset_encoding, reuse_win)
   end
+end
+
+--- Wrapper around vim.fn.termopen which was deprecated in v0.11
+function M.termopen(cmd, opts)
+  -- Workaround for #1732 (nightly builds prior to jobstart/term patch)
+  if M.__HAS_NVIM_011 and M._JOBSTART_HAS_TERM == nil then
+    local ok, err = pcall(vim.fn.jobstart, "", { term = 1 })
+    M._JOBSTART_HAS_TERM = not ok
+        and err:match [[Vim:E475: Invalid argument: 'term' must be Boolean]]
+        and true or false
+  end
+  if M.__HAS_NVIM_011 and M._JOBSTART_HAS_TERM then
+    opts = opts or {}
+    opts.term = true
+    return vim.fn.jobstart(cmd, opts)
+  else
+    return vim.fn.termopen(cmd, opts)
+  end
+end
+
+function M.toggle_cmd_flag(cmd, flag, enabled, append)
+  if not flag then
+    M.err("'toggle_flag' not set")
+    return
+  end
+
+  -- flag must be preceded by whitespace
+  if not flag:match("^%s") then flag = " " .. flag end
+
+  -- auto-detect toggle when nil
+  if enabled == nil then
+    enabled = not cmd:match(M.lua_regex_escape(flag))
+  end
+
+  if not enabled then
+    cmd = cmd:gsub(M.lua_regex_escape(flag), "")
+  elseif not cmd:match(M.lua_regex_escape(flag)) then
+    local bin, args = cmd:match("([^%s]+)(.*)$")
+    if append then
+      cmd = string.format("%s %s", cmd, flag)
+    else
+      cmd = string.format("%s%s%s", bin, flag, args)
+    end
+  end
+
+  return cmd
 end
 
 return M

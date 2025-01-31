@@ -1,22 +1,22 @@
---- This module provides a parser for identifying and converting `rgb()` and `rgba()` CSS functions to RGB hexadecimal format.
--- It supports decimal and percentage values for RGB channels, as well as an optional alpha (transparency) component.
--- The function can interpret a variety of CSS syntax variations, making it useful for syntax highlighting or color parsing.
+--[[-- This module provides a parser for identifying and converting `rgb()` and `rgba()` CSS functions to RGB hexadecimal format.
+It supports decimal and percentage values for RGB channels, as well as an optional alpha (transparency) component.
+The function can interpret a variety of CSS syntax variations, making it useful for syntax highlighting or color parsing.
+]]
 -- @module colorizer.parser.rgb
-
 local M = {}
 
-local count = require("colorizer.utils").count
+local utils = require("colorizer.utils")
 
 --- Parses `rgb()` and `rgba()` CSS functions and converts them to RGB hexadecimal format.
 -- This function matches `rgb()` or `rgba()` functions in a line of text, extracting RGB and optional alpha values.
 -- It supports decimal and percentage formats, alpha transparency, and comma or space-separated CSS syntax.
--- @param line string The line of text to parse for the color function
--- @param i number The starting index within the line where parsing should begin
--- @param opts table Parsing options, including:
---   - `prefix` (string): "rgb" or "rgba" to specify the CSS function type
--- @return number|nil The end index of the parsed `rgb/rgba` function within the line, or `nil` if parsing failed
--- @return string|nil The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
-function M.rgb_function_parser(line, i, opts)
+---@param line string: The line of text to parse for the color function
+---@param i number: The starting index within the line where parsing should begin
+---@param opts table: Parsing options, including:
+--  - `prefix` (string): "rgb" or "rgba" to specify the CSS function type
+---@return number|nil: The end index of the parsed `rgb/rgba` function within the line, or `nil` if parsing failed
+---@return string|nil: The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
+function M.parser(line, i, opts)
   local min_len = #"rgba(0,0,0)" - 1
   local min_commas, min_spaces, min_percent = 2, 2, 3
   local pattern = "^"
@@ -45,7 +45,7 @@ function M.rgb_function_parser(line, i, opts)
 
   local units = ("%s%s%s"):format(unit1, unit2, unit3)
   if units:match("%%") then
-    if not ((count(units, "%%")) == min_percent) then
+    if not ((utils.count(units, "%%")) == min_percent) then
       return
     end
   end
@@ -54,11 +54,11 @@ function M.rgb_function_parser(line, i, opts)
   local s_seps = ("%s%s"):format(ssep1, ssep2)
   -- Comma separator syntax
   if c_seps:match(",") then
-    if not (count(c_seps, ",") == min_commas) then
+    if not (utils.count(c_seps, ",") == min_commas) then
       return
     end
     -- Space separator syntax with decimal or percentage alpha
-  elseif count(s_seps, "%s") >= min_spaces then
+  elseif utils.count(s_seps, "%s") >= min_spaces then
     if a then
       if not (c_seps == "/") then
         return
@@ -73,6 +73,9 @@ function M.rgb_function_parser(line, i, opts)
     a = 1
   else
     a = tonumber(a)
+    if not a then
+      return
+    end
     -- Convert percentage alpha to decimal if applicable
     if unit_a == "%" then
       a = a / 100
@@ -108,8 +111,8 @@ function M.rgb_function_parser(line, i, opts)
   end
 
   -- Convert to hex, applying alpha to each channel
-  local rgb_hex = string.format("%02x%02x%02x", r * a, g * a, b * a)
+  local rgb_hex = utils.rgb_to_hex(r, g, b)
   return match_end - 1, rgb_hex
 end
 
-return M.rgb_function_parser
+return M

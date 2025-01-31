@@ -13,7 +13,7 @@ return {
     width   = 0.8,
     height  = 0.9,
     preview = {
-      hidden       = "nohidden",
+      hidden       = false,
       vertical     = "up:45%",
       horizontal   = "right:50%",
       layout       = "flex",
@@ -50,7 +50,7 @@ return {
     ["hl+"] = { "fg", "TelescopeMatching" },
     ["info"] = { "fg", "TelescopeMultiSelection" },
     ["border"] = { "fg", "TelescopeBorder" },
-    ["gutter"] = { "bg", "TelescopeNormal" },
+    ["gutter"] = "-1",
     ["query"] = { "fg", "TelescopePromptNormal" },
     ["prompt"] = { "fg", "TelescopePromptPrefix" },
     ["pointer"] = { "fg", "TelescopeSelectionCaret" },

@@ -49,6 +49,14 @@ function M.get(c, opts)
     SnacksInputIcon           = { fg = c.blue1 },
     SnacksInputBorder         = { fg = c.yellow },
     SnacksInputTitle          = { fg = c.yellow },
+    -- Picker
+    SnacksPickerInputBorder   = { fg = c.orange, bg = c.bg_float },
+    SnacksPickerInputTitle         = { fg = c.orange, bg = c.bg_float },
+    SnacksPickerBoxTitle         = { fg = c.orange, bg = c.bg_float },
+    SnacksPickerSelected    = { fg = c.magenta2},
+    SnacksPickerFlag         = "SnacksProfilerBadgeInfo",
+    SnacksPickerPickWinCurrent   = { fg = c.fg, bg = c.magenta2, bold = true },
+    SnacksPickerPickWin   = { fg = c.fg, bg = c.bg_search, bold = true },
   }
   for i, color in ipairs(c.rainbow) do
     ret["SnacksIndent" .. i] = { fg = color, nocombine = true }

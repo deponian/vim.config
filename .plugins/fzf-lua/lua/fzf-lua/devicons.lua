@@ -44,10 +44,13 @@ function NvimWebDevicons:new()
   return self
 end
 
-function NvimWebDevicons:load()
+function NvimWebDevicons:load(do_not_lazy_load)
   -- limit devicons support to nvim >=0.8, although official support is >=0.7
   -- running setup on 0.7 errs with "W18: Invalid character in group name"
-  if not self._package_loaded and utils.__HAS_NVIM_07 then
+  if not self._package_loaded
+      -- do not trigger lazy loading
+      and (not do_not_lazy_load or package.loaded[self._package_name])
+  then
     self._package_loaded, self._package = pcall(require, self._package_name)
     if self._package_loaded then
       self._package_path = path.parent(path.parent(path.normalize(
@@ -176,8 +179,11 @@ function MiniIcons:new()
   return self
 end
 
-function MiniIcons:load()
-  if not self._package_loaded and utils.__HAS_NVIM_08 then
+function MiniIcons:load(do_not_lazy_load)
+  if not self._package_loaded and utils.__HAS_NVIM_08
+      -- do not trigger lazy loading
+      and (not do_not_lazy_load or package.loaded[self._package_name])
+  then
     self._package_loaded, self._package = pcall(require, self._package_name)
     if self._package_loaded then
       self._package_path = path.parent(path.parent(path.parent(path.normalize(
@@ -292,7 +298,7 @@ function FzfLuaServer:path()
   return _G._fzf_lua_server or vim.g.fzf_lua_server
 end
 
-function FzfLuaServer:load()
+function FzfLuaServer:load(_)
   return type(self:path()) == "string"
 end
 
@@ -342,9 +348,9 @@ M.__DEVICONS = NvimWebDevicons:new()
 
 -- Load an icons provider and sets the module local var `M.PLUGIN`
 -- "auto" prefers nvim-web-devicons, "srv" RPC-queries main instance
----@param provider boolean|string|"auto"|"devicons"|"mini"|"srv"
+---@param provider nil|boolean|string|"auto"|"devicons"|"mini"|"srv"
 ---@return boolean success
-M.plugin_load = function(provider)
+M.plugin_load = function(provider, do_not_lazy_load)
   -- Called from "make_entry.lua" without params (already loaded)
   if provider == nil and M.PLUGIN and M.PLUGIN:loaded() then
     return true
@@ -353,7 +359,7 @@ M.plugin_load = function(provider)
       or provider == "mini" and M.__MINI
       or provider == "devicons" and M.__DEVICONS
       or (function()
-        if vim.g.fzf_lua_is_headless then
+        if _G._fzf_lua_is_headless then
           -- headless instance, fzf-lua server exists, attempt
           -- to load icons from main neovim instance
           ---@diagnostic disable-next-line: undefined-field
@@ -379,12 +385,13 @@ M.plugin_load = function(provider)
         -- Load mini only if `_G.MiniIcons` is present or if using `mock_nvim_web_devicons()`
         -- at which point we would like to replace the mock with first-class MiniIcons (#1358)
         ---@diagnostic disable-next-line: undefined-field
-        if not M.__DEVICONS:load() and _G.MiniIcons or M.__DEVICONS:is_mock() and M.__MINI:load()
+        if not M.__DEVICONS:load(do_not_lazy_load) and _G.MiniIcons
+            or M.__DEVICONS:is_mock() and M.__MINI:load(do_not_lazy_load)
         then
           ret = M.__MINI
         end
         -- Load custom setup file
-        if vim.g.fzf_lua_is_headless
+        if _G._fzf_lua_is_headless
             ---@diagnostic disable-next-line: undefined-field
             and _G._devicons_setup and uv.fs_stat(_G._devicons_setup) then
           ---@diagnostic disable-next-line: undefined-field
@@ -393,11 +400,12 @@ M.plugin_load = function(provider)
         end
         return ret
       end)()
-  return M.PLUGIN:load()
+  return M.PLUGIN:load(do_not_lazy_load)
 end
 
--- Attemp to loadeLoa icons plugin at least once on require
-M.plugin_load()
+-- Attempt to load icons plugin at least once on init but
+-- do not use `require` so we do not lazy load the plugin
+M.plugin_load(nil, true)
 
 M.plugin_loaded = function()
   return M.PLUGIN:loaded()
