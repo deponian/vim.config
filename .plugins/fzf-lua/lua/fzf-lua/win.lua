@@ -1,5 +1,6 @@
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
+local libuv = require "fzf-lua.libuv"
 local config = require "fzf-lua.config"
 local actions = require "fzf-lua.actions"
 
@@ -171,7 +172,8 @@ function FzfWin:generate_layout(winopts)
   -- If previewer is hidden we use full fzf layout, when previewer toggle behavior
   -- is "extend" we still reduce fzf main layout as if the previewer is displayed
   if not self.previewer_is_builtin
-      or (self.preview_hidden and self._previewer.toggle_behavior ~= "extend")
+      or (self.preview_hidden
+        and (self._previewer.toggle_behavior ~= "extend" or self.fullscreen))
   then
     self.layout = {
       fzf = self:normalize_border({
@@ -578,7 +580,7 @@ function FzfWin:set_backdrop()
 
   -- Code from lazy.nvim (#1344)
   self.backdrop_buf = vim.api.nvim_create_buf(false, true)
-  self.backdrop_win = vim.api.nvim_open_win(self.backdrop_buf, false, {
+  self.backdrop_win = utils.nvim_open_win0(self.backdrop_buf, false, {
     relative = "editor",
     width = vim.o.columns,
     height = vim.o.lines,
@@ -588,6 +590,7 @@ function FzfWin:set_backdrop()
     focusable = false,
     -- -2 as preview border is -1
     zindex = self.winopts.zindex - 2,
+    border = "none",
   })
   utils.wo(self.backdrop_win, "winhighlight", "Normal:" .. self.hls.backdrop)
   utils.wo(self.backdrop_win, "winblend", self.winopts.backdrop)
@@ -612,7 +615,11 @@ end
 ---@param o table
 ---@return FzfWin
 function FzfWin:new(o)
-  if _self and not _self:hidden() then
+  if not _self then
+  elseif _self:was_hidden() then
+    TSInjector.clear_cache(_self._hidden_fzf_bufnr)
+    _self = nil
+  elseif not _self:hidden() then
     -- utils.warn("Please close fzf-lua before starting a new instance")
     _self._reuse = true
     -- switch to fzf-lua's main window in case the user switched out
@@ -625,7 +632,7 @@ function FzfWin:new(o)
     -- refersh treesitter settings as new picker might have it disabled
     _self._o.winopts.treesitter = o.winopts.treesitter
     return _self
-  elseif _self and _self:hidden() then
+  elseif _self:hidden() then
     -- Clear the hidden buffers
     vim.api.nvim_buf_delete(_self._hidden_fzf_bufnr, { force = true })
     TSInjector.clear_cache(_self._hidden_fzf_bufnr)
@@ -944,7 +951,11 @@ function FzfWin:set_tmp_buffer(no_wipe)
   -- makes sure the call to `fzf_win:close` (which is triggered by the buf del)
   -- won't trigger a close due to mismatched buffers condition on `self:close`
   self.fzf_bufnr = api.nvim_create_buf(false, true)
-  vim.api.nvim_win_set_buf(self.fzf_winid, self.fzf_bufnr)
+  -- `hidden` must be set to true or the detached buffer will be deleted (#1850)
+  local old_hidden = vim.o.hidden
+  vim.o.hidden = true
+  utils.win_set_buf_noautocmd(self.fzf_winid, self.fzf_bufnr)
+  vim.o.hidden = old_hidden
   -- close the previous fzf term buffer without triggering autocmds
   -- this also kills the previous fzf process if its still running
   if not no_wipe then
@@ -1046,9 +1057,7 @@ function FzfWin:create()
   end
 
   -- verify the preview is closed, this can happen
-  -- when running async LSP with 'jump_to_single_result'
-  -- should also close issue #105
-  -- https://github.com/ibhagwan/fzf-lua/issues/105
+  -- when running async LSP with 'jump1'
   self:set_winleave_autocmd()
   -- automatically resize fzf window
   self:set_redraw_autocmd()
@@ -1204,6 +1213,12 @@ end
 function FzfWin.unhide()
   local self = _self
   if not self or not self:hidden() then return end
+  self._o.__CTX = utils.CTX({ includeBuflist = true })
+  self._o._unhide_called = true
+  -- Send SIGWINCH to to trigger resize in the fzf process
+  -- We will use the trigger to reload necessary buffer lists
+  local pid = fn.jobpid(vim.bo[self._hidden_fzf_bufnr].channel)
+  vim.tbl_map(function(_pid) libuv.process_kill(_pid, 28) end, vim._os_proc_children(pid))
   vim.bo[self._hidden_fzf_bufnr].bufhidden = "wipe"
   self.fzf_bufnr = self._hidden_fzf_bufnr
   self._hidden_fzf_bufnr = nil
@@ -1282,7 +1297,8 @@ function FzfWin:update_preview_scrollbar()
     height = o.wininfo.height,
     zindex = self.winopts.zindex + 1,
     row = 0,
-    col = o.wininfo.width + scrolloff
+    col = o.wininfo.width + scrolloff,
+    border = "none",
   }
   local full = vim.tbl_extend("keep", {
     zindex = empty.zindex + 1,
@@ -1296,7 +1312,7 @@ function FzfWin:update_preview_scrollbar()
     else
       empty.noautocmd = true
       self._sbuf1 = ensure_tmp_buf(self._sbuf1)
-      self._swin1 = vim.api.nvim_open_win(self._sbuf1, false, empty)
+      self._swin1 = utils.nvim_open_win0(self._sbuf1, false, empty)
       local hl = self.hls.scrollfloat_e or "PmenuSbar"
       vim.wo[self._swin1].winhighlight =
           ("Normal:%s,NormalNC:%s,NormalFloat:%s,EndOfBuffer:%s"):format(hl, hl, hl, hl)
@@ -1307,7 +1323,7 @@ function FzfWin:update_preview_scrollbar()
   else
     full.noautocmd = true
     self._sbuf2 = ensure_tmp_buf(self._sbuf2)
-    self._swin2 = vim.api.nvim_open_win(self._sbuf2, false, full)
+    self._swin2 = utils.nvim_open_win0(self._sbuf2, false, full)
     local hl = self.hls.scrollfloat_f or "PmenuThumb"
     vim.wo[self._swin2].winhighlight =
         ("Normal:%s,NormalNC:%s,NormalFloat:%s,EndOfBuffer:%s"):format(hl, hl, hl, hl)
@@ -1332,7 +1348,9 @@ end
 
 function FzfWin:update_main_title(title)
   -- Can be called from fzf-tmux on ctrl-g
-  if not self.layout then return end
+  if not self.layout or self.winopts.split then return end
+  self.winopts.title = title
+  self._o.winopts.title = title
   self.update_win_title(self.fzf_winid, self.layout.fzf, {
     title = title,
     title_pos = self.winopts.title_pos,
@@ -1612,6 +1630,7 @@ function FzfWin.toggle_help()
       and self._o.help_open_win or vim.api.nvim_open_win
 
   self.km_bufnr = vim.api.nvim_create_buf(false, true)
+  vim.bo[self.km_bufnr].modifiable = true
   vim.bo[self.km_bufnr].bufhidden = "wipe"
   self.km_winid = nvim_open_win(self.km_bufnr, false, winopts)
   vim.api.nvim_buf_set_name(self.km_bufnr, "_FzfLuaHelp")

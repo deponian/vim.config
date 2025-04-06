@@ -48,7 +48,7 @@ end
 
 M.accept_item = function(selected, o)
   if #selected == 0 then return end
-  local idx = selected and tonumber(selected[1]:match("^(%d+)%.")) or nil
+  local idx = selected and tonumber(selected[1]:match("^%s*(%d+)%.")) or nil
   o._on_choice(idx and o._items[idx] or nil, idx)
   o._on_choice_called = true
 end
@@ -76,9 +76,11 @@ M.ui_select = function(items, ui_opts, on_choice)
     title = "Mark `mymainmenu` as defined global."
   } } ]]
   local entries = {}
+  local num_width = math.ceil(math.log10(#items))
+  local num_format_str = "%" .. num_width .. "d"
   for i, e in ipairs(items) do
     table.insert(entries,
-      ("%s. %s"):format(utils.ansi_codes.magenta(tostring(i)),
+      ("%s. %s"):format(utils.ansi_codes.magenta(num_format_str:format(i)),
         ui_opts.format_item and ui_opts.format_item(e) or tostring(e)))
   end
 
@@ -96,7 +98,7 @@ M.ui_select = function(items, ui_opts, on_choice)
 
   -- Force override prompt or it stays cached (#786)
   local prompt = ui_opts.prompt or "Select one of:"
-  opts.prompt = prompt:gsub(":%s?$", "> ")
+  opts.prompt = opts.prompt or prompt:gsub(":%s?$", "> ")
 
   -- save items so we can access them from the action
   opts._items = items

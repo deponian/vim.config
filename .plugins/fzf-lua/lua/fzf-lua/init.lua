@@ -30,8 +30,27 @@ do
   -- fixed $NVIM_LISTEN_ADDRESS, different neovim instances will use the same path
   -- as their address and messages won't be received on older instances
   if not vim.g.fzf_lua_server then
-    vim.g.fzf_lua_server = vim.fn.serverstart("fzf-lua." .. os.time())
+    local ok, srv = pcall(vim.fn.serverstart, "fzf-lua." .. os.time())
+    if ok then
+      vim.g.fzf_lua_server = srv
+    else
+      error(string.format(
+        "serverstart(): %s. Please make sure 'XDG_RUNTIME_DIR' (%s) is writeable",
+        srv, vim.fn.stdpath("run")))
+    end
   end
+
+  -- Workaround for using `:wqa` with "hide"
+  -- https://github.com/neovim/neovim/issues/14061
+  vim.api.nvim_create_autocmd("QuitPre", {
+    group = vim.api.nvim_create_augroup("FzfLuaNvimQuit", { clear = true }),
+    callback = function()
+      local win = utils.fzf_winobj()
+      if win and win:hidden() then
+        vim.api.nvim_buf_delete(win._hidden_fzf_bufnr, { force = true })
+      end
+    end,
+  })
 
   -- Setup global var
   _G.FzfLua = M
@@ -156,7 +175,7 @@ function M.setup(opts, do_not_reset_defaults)
   if opts[1] then
     -- Did the user supply profile(s) to load?
     opts = vim.tbl_deep_extend("keep", opts,
-      utils.load_profiles(opts[1], opts[2] == nil and 1 or opts[2], opts))
+      utils.load_profiles(opts[1], opts[2] == nil and 1 or opts[2]))
   end
   if do_not_reset_defaults then
     -- no defaults reset requested, merge with previous setup options
@@ -251,6 +270,7 @@ do
     marks = { "fzf-lua.providers.nvim", "marks" },
     menus = { "fzf-lua.providers.nvim", "menus" },
     keymaps = { "fzf-lua.providers.nvim", "keymaps" },
+    nvim_options = { "fzf-lua.providers.nvim", "nvim_options" },
     autocmds = { "fzf-lua.providers.nvim", "autocmds" },
     registers = { "fzf-lua.providers.nvim", "registers" },
     commands = { "fzf-lua.providers.nvim", "commands" },
@@ -289,6 +309,10 @@ do
     complete_line = { "fzf-lua.complete", "line" },
     complete_bline = { "fzf-lua.complete", "bline" },
     zoxide = { "fzf-lua.providers.files", "zoxide" },
+    -- API shortcuts
+    fzf_exec = { "fzf-lua.core", "fzf_exec" },
+    fzf_live = { "fzf-lua.core", "fzf_live" },
+    fzf_wrap = { "fzf-lua.core", "fzf_wrap" },
   }
 
   for k, v in pairs(lazyloaded_modules) do
@@ -339,12 +363,6 @@ end
 
 -- export the defaults module and deref
 M.defaults = require("fzf-lua.defaults").defaults
-
--- API shortcuts
-M.fzf_exec = require("fzf-lua.core").fzf_exec
-M.fzf_live = require("fzf-lua.core").fzf_live
-M.fzf_wrap = require("fzf-lua.core").fzf_wrap
--- M.fzf_raw = require( "fzf-lua.fzf").raw_fzf
 
 -- exported modules
 M._exported_modules = {

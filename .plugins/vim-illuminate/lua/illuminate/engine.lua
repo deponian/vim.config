@@ -50,6 +50,44 @@ function M.start()
             M.refresh_references()
         end,
     })
+
+    -- Set up auto-attach/detach for the treesitter provider if we can use builtin methods instead of
+    -- treesitter modules.
+    if vim.fn.has('nvim-0.9') == 1 then
+        vim.api.nvim_create_autocmd({ 'FileType' }, {
+            callback = function(details)
+                require('illuminate.providers.treesitter').detach(details.buf)
+
+                local lang = vim.treesitter.language.get_lang(details.match)
+                local ok, query = pcall(require, 'nvim-treesitter.query')
+                if not ok then
+                    return
+                end
+
+                local parsers
+                ok, parsers = pcall(require, 'nvim-treesitter.parsers')
+                if not ok then
+                    return
+                end
+
+                if not parsers.has_parser(lang) then
+                    return false
+                end
+
+                if not lang or not query.has_locals(lang) then
+                    return
+                end
+
+                require('illuminate.providers.treesitter').attach(details.buf)
+            end,
+        })
+        vim.api.nvim_create_autocmd({ 'BufUnload' }, {
+            callback = function(details)
+                require('illuminate.providers.treesitter').detach(details.buf)
+            end,
+        })
+    end
+
     -- If vim.lsp.buf.format is called, this will call vim.api.nvim_buf_set_text which messes up extmarks.
     -- By using this `written` variable, we can ensure refresh_references doesn't terminate early based on
     -- ref.buf_cursor_in_references being incorrect (we have references but they're not actually showing
@@ -125,6 +163,11 @@ function M.refresh_references(bufnr, winid)
 
             hl.buf_clear_references(bufnr)
             ref.buf_set_references(bufnr, {})
+
+            if not buf_should_illuminate(bufnr) then
+                stop_timer(timer)
+                return
+            end
 
             if vim.api.nvim_buf_get_changedtick(bufnr) ~= changedtick
                 or vim.api.nvim_get_current_win() ~= winid

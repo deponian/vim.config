@@ -84,6 +84,10 @@ M.ACTION_DEFINITIONS = {
   [actions.git_yank_commit]   = { "copy commit hash" },
   [actions.git_branch_add]    = { "add branch" },
   [actions.git_branch_del]    = { "delete branch" },
+  [actions.ex_run]            = { "edit" },
+  [actions.ex_run_cr]         = { "execute" },
+  [actions.search]            = { "edit" },
+  [actions.search_cr]         = { "search" },
 }
 
 -- converts contents array sent to `fzf_exec` into a single contents
@@ -473,7 +477,11 @@ M.fzf = function(contents, opts)
       and (action[1] ~= nil or action.reload or action.noclose or action.reuse)
   if (not fzf_win:autoclose() == false) and not do_not_close then
     fzf_win:close(fzf_bufnr)
-    M.__CTX = nil
+    -- only clear context if we didn't open a new interface, for example, opening
+    -- files, switching to normal with <c-\><c-n> and opening buffers (#1810)
+    if utils.fzf_winobj() == nil then
+      M.__CTX = nil
+    end
   end
   return selected
 end
@@ -825,8 +833,11 @@ M.mt_cmd_wrapper = function(opts)
     t.g = {}
     for k, v in pairs({
       ["_fzf_lua_server"] = vim.g.fzf_lua_server,
-      ["_devicons_path"] = devicons.plugin_path(),
-      ["_devicons_setup"] = config._devicons_setup,
+      -- [NOTE] No longer needed, we use RPC for icons
+      -- ["_devicons_path"] = devicons.plugin_path(),
+      -- ["_devicons_setup"] = config._devicons_setup,
+      ["_EOL"] = opts.multiline and "\0" or "\n",
+      ["_debug"] = opts.debug,
     }) do
       t.g[k] = v
     end
@@ -1185,10 +1196,30 @@ M.convert_reload_actions = function(reload_cmd, opts)
     if type(v) == "table" and v.reload then
       -- Modified actions should not be considered in `actions.expect`
       opts.actions[k]._ignore = true
+      -- Use both {q} and {+} as field indexes so we can update last query when
+      -- executing the action, without this we lose the last query on "hide" as
+      -- the process never terminates and `--print-query` isn't being printed
+      -- When no entry selected (with {q} {+}), {+} will be forced expand to ''
+      -- Use {n} to know if we really select an empty string, or there's just no selected
+      local field_index = v.field_index == false and "" or v.field_index or "{q} {n} {+}"
+      if not field_index:match("^{q} {n}") then
+        field_index = "{q} {n} " .. field_index
+      end
       -- replace the action with shell cmd proxy to the original action
       local shell_action = shell.raw_action(function(items, _, _)
+        if field_index:match("^{q} {n}") then
+          local query = table.remove(items, 1)
+          config.resume_set("query", query, opts)
+          local idx = table.remove(items, 1)
+          -- When no item is matching (empty list or non-matching query)
+          -- both {n} and {+} are expanded to "".
+          -- NOTE1: older versions of fzf don't expand {n} to "" (without match)
+          -- in such case the (empty) items table will be in `items[2]` (#1833)
+          -- NOTE2: on Windows, no match {n} is expanded to '' (#1836)
+          items = not tonumber(idx) and {} or items
+        end
         v.fn(items, opts)
-      end, v.field_index == false and "" or v.field_index or "{+}", opts.debug)
+      end, field_index, opts.debug)
       if type(v.prefix) == "string" and not v.prefix:match("%+$") then
         v.prefix = v.prefix .. "+"
       end
@@ -1206,9 +1237,19 @@ M.convert_reload_actions = function(reload_cmd, opts)
       }
     end
   end
-  -- TODO: fix existence of both load as function and rebind, e.g. git_status with:
-  -- setup({ keymap = { fzf = { true, load = function() _G._fzf_load_called = true end } } }
-  opts.keymap.fzf.load = rebind or opts.keymap.fzf.load
+  opts.keymap.fzf.load = (function()
+    -- NOTE: this fixes existence of both load as function and rebind, e.g. git_status with:
+    -- setup({ keymap = { fzf = { true, load = function() _G._fzf_load_called = true end } } }
+    if type(opts.keymap.fzf.load) == "function" then
+      opts.keymap.fzf.load = "execute-silent:" ..
+          shell.raw_action(opts.keymap.fzf.load, nil, opts.debug)
+    end
+    if rebind and type(opts.keymap.fzf.load) == "string" then
+      return string.format("%s+%s", rebind, opts.keymap.fzf.load)
+    else
+      return rebind or opts.keymap.fzf.load
+    end
+  end)()
   return opts
 end
 
@@ -1229,15 +1270,24 @@ M.convert_exec_silent_actions = function(opts)
       -- Use both {q} and {+} as field indexes so we can update last query when
       -- executing the action, without this we lose the last query on "hide" as
       -- the process never terminates and `--print-query` isn't being printed
-      local field_index = v.field_index == false and "" or v.field_index or "{q} {+}"
-      if not field_index:match("^{q}") then
-        field_index = "{q} " .. field_index
+      -- When no entry selected (with {q} {+}), {+} will be forced expand to ''
+      -- Use {n} to know if we really select an empty string, or there's just no selected
+      local field_index = v.field_index == false and "" or v.field_index or "{q} {n} {+}"
+      if not field_index:match("^{q} {n}") then
+        field_index = "{q} {n} " .. field_index
       end
       -- replace the action with shell cmd proxy to the original action
       local shell_action = shell.raw_action(function(items, _, _)
-        if field_index:match("^{q}") then
+        if field_index:match("^{q} {n}") then
           local query = table.remove(items, 1)
           config.resume_set("query", query, opts)
+          local idx = table.remove(items, 1)
+          -- When no item is matching (empty list or non-matching query)
+          -- both {n} and {+} are expanded to "".
+          -- NOTE1: older versions of fzf don't expand {n} to "" (without match)
+          -- in such case the (empty) items table will be in `items[2]` (#1833)
+          -- NOTE2: on Windows, no match {n} is expanded to '' (#1836)
+          items = not tonumber(idx) and {} or items
         end
         v.fn(items, opts)
       end, field_index, opts.debug)

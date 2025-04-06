@@ -46,6 +46,7 @@ end
 ---@param text string
 ---@return string
 local function lalign(amount, text)
+  --- @diagnostic disable-next-line: missing-parameter
   local len = vim.str_utfindex(text)
   return text .. string.rep(' ', math.max(0, amount - len))
 end
@@ -67,6 +68,7 @@ local function render(blame, win, main_win, buf_sha)
   local max_author_len = 0
 
   for _, blame_info in pairs(blame) do
+    --- @diagnostic disable-next-line: missing-parameter
     max_author_len = math.max(max_author_len, (vim.str_utfindex(blame_info.commit.author)))
   end
 
@@ -135,7 +137,7 @@ local function render(blame, win, main_win, buf_sha)
     if commit_lines[i] and commit_lines[i + 1] then
       api.nvim_buf_set_extmark(bufnr, ns, i - 1, 0, {
         virt_lines = {
-          { { chars.last, hash_color }, { ' ' }, { blame[i].commit.summary, 'Comment' } },
+          { { chars.last, hash_color }, { ' ' }, { blame_info.commit.summary, 'Comment' } },
         },
       })
 
@@ -177,7 +179,7 @@ local function reblame(blame, win, revision, parent)
       if not ok then
         error('Timeout waiting for attach')
       end
-      async.run(M.blame)
+      async.arun(M.blame)
     end)
   )
 end
@@ -185,11 +187,11 @@ end
 --- @param win integer
 --- @param open 'vsplit'|'tabnew'
 --- @param bcache Gitsigns.CacheEntry
-local show_commit = async.create(3, function(win, open, bcache)
+local show_commit = async.async(function(win, open, bcache)
   local cursor = api.nvim_win_get_cursor(win)[1]
   local sha = bcache.blame[cursor].commit.sha
   local res = bcache.git_obj.repo:command({ 'show', sha })
-  async.scheduler()
+  async.schedule()
   local buffer_name = bcache:get_rev_bufname(sha, true)
   local commit_buf = nil
   -- find preexisting commit buffer or create a new one
@@ -266,6 +268,21 @@ local function menu(name, items)
   end
 end
 
+--- @param mode string
+--- @param lhs string
+--- @param cb fun()
+--- @param opts vim.keymap.set.Opts
+local function pmap(mode, lhs, cb, opts)
+  opts.expr = true
+
+  vim.keymap.set(mode, lhs, function()
+    vim.schedule(function()
+      cb()
+    end)
+    return '<esc>'
+  end, opts)
+end
+
 --- @async
 function M.blame()
   local __FUNC__ = 'blame'
@@ -339,28 +356,28 @@ function M.blame()
     buffer = blm_bufnr,
   })
 
-  vim.keymap.set('n', 'r', function()
+  pmap('n', 'r', function()
     reblame(blame, win, bcache.git_obj.revision)
   end, {
     desc = 'Reblame at commit',
     buffer = blm_bufnr,
   })
 
-  vim.keymap.set('n', 'R', function()
+  pmap('n', 'R', function()
     reblame(blame, win, bcache.git_obj.revision, true)
   end, {
     desc = 'Reblame at commit parent',
     buffer = blm_bufnr,
   })
 
-  vim.keymap.set('n', 's', function()
+  pmap('n', 's', function()
     show_commit(blm_win, 'vsplit', bcache)
   end, {
     desc = 'Show commit in a vertical split',
     buffer = blm_bufnr,
   })
 
-  vim.keymap.set('n', 'S', function()
+  pmap('n', 'S', function()
     show_commit(blm_win, 'tabnew', bcache)
   end, {
     desc = 'Show commit in a new tab',

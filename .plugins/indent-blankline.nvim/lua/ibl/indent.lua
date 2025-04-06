@@ -25,9 +25,10 @@ M.whitespace = {
 ---
 ---@param whitespace string
 ---@param opts ibl.indent_options
+---@param whitespace_only boolean
 ---@param indent_state ibl.indent_state?
 ---@return ibl.indent.whitespace[], ibl.indent_state
-M.get = function(whitespace, opts, indent_state)
+M.get = function(whitespace, opts, whitespace_only, indent_state)
     if not indent_state then
         indent_state = { cap = false, stack = {} }
     end
@@ -35,6 +36,7 @@ M.get = function(whitespace, opts, indent_state)
     local tabstop = opts.tabstop
     local vartabstop = opts.vartabstop
     local spaces = 0
+    local spaces_since_last_tab = 0
     local tabs = 0
     local extra = 0
     local indent_cap = indent_state.stack[#indent_state.stack] or 0
@@ -50,12 +52,15 @@ M.get = function(whitespace, opts, indent_state)
 
     for ch in whitespace:gmatch "." do
         if ch == "\t" then
-            local tab_width = tabstop - ((spaces + extra - tabstop) % tabstop)
+            local tab_width = tabstop - ((spaces_since_last_tab + extra - tabstop) % tabstop)
+            local vart_padding = spaces
             while #varts > 0 do
                 tabstop = table.remove(varts, 1)
-                if tabstop > spaces + extra then
-                    tab_width = tabstop - spaces + extra
+                if tabstop > spaces then
+                    tab_width = tabstop - vart_padding
                     break
+                else
+                    vart_padding = vart_padding - tabstop
                 end
             end
             tabs = tabs + tab_width
@@ -73,7 +78,7 @@ M.get = function(whitespace, opts, indent_state)
                     table.insert(whitespace_tbl, M.whitespace.TAB_FILL)
                 end
             end
-            spaces = 0
+            spaces_since_last_tab = 0
         else
             local mod = (spaces + tabs + extra) % shiftwidth
             if utils.tbl_contains(indent_state.stack, spaces + tabs) then
@@ -91,13 +96,16 @@ M.get = function(whitespace, opts, indent_state)
                 table.insert(whitespace_tbl, M.whitespace.SPACE)
             end
             spaces = spaces + 1
+            spaces_since_last_tab = spaces_since_last_tab + 1
         end
     end
 
     indent_state.stack = utils.tbl_filter(function(a)
         return a < spaces + tabs
     end, indent_state.stack)
-    table.insert(indent_state.stack, spaces + tabs)
+    if not whitespace_only then
+        table.insert(indent_state.stack, spaces + tabs)
+    end
 
     return whitespace_tbl, indent_state
 end

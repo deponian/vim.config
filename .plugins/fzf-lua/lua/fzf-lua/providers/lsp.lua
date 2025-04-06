@@ -17,10 +17,7 @@ local function handler_capability(handler)
 end
 
 local function check_capabilities(handler, silent)
-  local clients = utils.__HAS_NVIM_011
-      and vim.lsp.get_clients({ bufnr = core.CTX().bufnr })
-      ---@diagnostic disable-next-line: deprecated
-      or vim.lsp.buf_get_clients(core.CTX().bufnr)
+  local clients = utils.lsp_get_clients({ bufnr = core.CTX().bufnr })
 
   -- return the number of clients supporting the feature
   -- so the async version knows how many callbacks to wait for
@@ -34,7 +31,7 @@ local function check_capabilities(handler, silent)
       -- indicator to see if a server supports a feature. Instead use
       -- `client.supports_method(<method>)`. It considers both the dynamic
       -- capabilities and static `server_capabilities`.
-      if client.supports_method(handler.method) then
+      if client:supports_method(handler.prep or handler.method) then
         num_clients = num_clients + 1
       end
     elseif utils.__HAS_NVIM_08 then
@@ -79,10 +76,10 @@ local jump_to_location = function(opts, result, enc)
   -- safe to call even if the interface is closed
   utils.fzf_exit()
 
-  local action = opts.jump_to_single_result_action
+  local action = opts.jump1_action
   if action then
     local entry = location_to_entry(result, enc)
-    return opts.jump_to_single_result_action({ entry }, opts)
+    return opts.jump1_action({ entry }, opts)
   end
 
   return utils.jump_to_location(result, enc)
@@ -155,7 +152,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
     opts._regex_filter_fn = regex_filter_fn(opts.regex_filter)
   end
   -- Although `make_entry.file` filters for `cwd_only` we filter
-  -- here to accurately determine `jump_to_single_result` (#980)
+  -- here to accurately determine `jump1` (#980)
   result = vim.tbl_filter(function(x)
     local item = vim.lsp.util.locations_to_items({ x }, encoding)[1]
     if (opts.cwd_only and not path.is_relative_to(item.filename, opts.cwd)) or
@@ -166,7 +163,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
     return true
   end, result)
   -- Jump immediately if there is only one location
-  if opts.jump_to_single_result and #result == 1 then
+  if opts.jump1 and #result == 1 then
     jump_to_location(opts, result[1], encoding)
   end
   for _, entry in ipairs(items) do
@@ -192,7 +189,7 @@ local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
         lnum = range.start.line + 1,
         col = range.start.character + 1,
       }
-      if opts.jump_to_single_result and #call_hierarchy_call.fromRanges == 1 then
+      if opts.jump1 and #result == 1 then
         jump_to_location(opts, location, encoding)
       end
       local entry = make_entry.lcol(location, opts)
@@ -240,14 +237,15 @@ local function symbols_to_items(symbols, bufnr, child_prefix)
   return _symbols_to_items(symbols, {}, bufnr or 0, "")
 end
 
-local function symbol_handler(opts, cb, _, result, _, _)
+local function symbol_handler(opts, cb, _, result, ctx, _)
   result = utils.tbl_islist(result) and result or { result }
   local items
   if opts.child_prefix then
     items = symbols_to_items(result, core.CTX().bufnr,
       opts.child_prefix == true and string.rep(" ", 2) or opts.child_prefix)
   else
-    items = vim.lsp.util.symbols_to_items(result, core.CTX().bufnr)
+    local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
+    items = vim.lsp.util.symbols_to_items(result, core.CTX().bufnr, encoding)
   end
   if opts.regex_filter and opts._regex_filter_fn == nil then
     opts._regex_filter_fn = regex_filter_fn(opts.regex_filter)
@@ -386,6 +384,7 @@ local handlers = {
     resolved_capability = "call_hierarchy",
     server_capability = "callHierarchyProvider",
     method = "callHierarchy/incomingCalls",
+    prep = "textDocument/prepareCallHierarchy",
     handler = call_hierarchy_handler
   },
   ["outgoing_calls"] = {
@@ -393,6 +392,7 @@ local handlers = {
     resolved_capability = "call_hierarchy",
     server_capability = "callHierarchyProvider",
     method = "callHierarchy/outgoingCalls",
+    prep = "textDocument/prepareCallHierarchy",
     handler = call_hierarchy_handler
   },
 }
@@ -514,7 +514,7 @@ local function gen_lsp_contents(opts)
         elseif not opts.silent then
           utils.info(string.format("No %s found", string.lower(lsp_handler.label)))
         end
-      elseif not (opts.jump_to_single_result and #results == 1) then
+      elseif not (opts.jump1 and #results == 1) then
         -- LSP request was synchronous but we still asyncify the fzf feeding
         opts.__contents = function(fzf_cb)
           coroutine.wrap(function()
@@ -615,10 +615,9 @@ local function gen_lsp_contents_call_hierarchy(opts)
       or function(client)
         return vim.lsp.util.make_position_params(core.CTX().winid, client.offset_encoding)
       end
-  local method = "textDocument/prepareCallHierarchy"
-  local res, err = vim.lsp.buf_request_sync(0, method, lsp_params, 2000)
+  local res, err = vim.lsp.buf_request_sync(0, opts.lsp_handler.prep, lsp_params, 2000)
   if err then
-    utils.err(("Error executing '%s': %s"):format(method, err))
+    utils.err(("Error executing '%s': %s"):format(opts.lsp_handler.prep, err))
   else
     local _, response = next(res)
     if not response or not response.result or not response.result[1] then
@@ -949,7 +948,7 @@ M.code_actions = function(opts)
   if not registered then
     -- irrelevant for code actions and can cause
     -- single results to be skipped with 'async = false'
-    opts.jump_to_single_result = false
+    opts.jump1 = false
     opts.lsp_params = function(client)
       local params = vim.lsp.util.make_range_params(core.CTX().winid,
         -- nvim 0.11 requires offset_encoding param, `client` is first arg of called func
@@ -993,7 +992,11 @@ M.code_actions = function(opts)
   -- 3rd arg are "once" options to override
   -- existing "registered" ui_select options
   ui_select.register(opts, true, opts)
-  vim.lsp.buf.code_action({ context = opts.context, filter = opts.filter })
+  vim.lsp.buf.code_action({
+    apply = opts.jump1 or opts.fzf_opts["-1"] or opts.fzf_opts["--select-1"],
+    context = opts.context,
+    filter = opts.filter,
+  })
   -- vim.defer_fn(function()
   --   ui_select.deregister({}, true, true)
   -- end, 100)

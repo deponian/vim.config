@@ -51,7 +51,7 @@ local function try_get_cmd_output(cmd)
     on_stdout = on_data,
     on_stderr = on_data,
   })
-  local rv = vim.fn.jobwait({ chanid }, 300)
+  local rv = vim.fn.jobwait({ chanid }, 500)
   vim.fn.jobstop(chanid)
   return rv[1] == 0 and out or nil
 end
@@ -235,8 +235,8 @@ local function check_lspconfig(bufnr)
     health.warn('Deprecated servers: ' .. table.concat(deprecated_servers, ', '))
   end
 
-  local buf_clients = not bufnr and {} or util.get_lsp_clients { bufnr = bufnr }
-  local clients = util.get_lsp_clients()
+  local buf_clients = not bufnr and {} or vim.lsp.get_clients { bufnr = bufnr }
+  local clients = vim.lsp.get_clients()
   local buffer_filetype = bufnr and vim.fn.getbufvar(bufnr, '&filetype') or '(invalid buffer)'
   local fname = bufnr and api.nvim_buf_get_name(bufnr) or '(invalid buffer)'
 
@@ -323,6 +323,20 @@ local function check_lspdocs(buf_clients, other_matching_configs)
 end
 
 function M.check()
+  if vim.fn.has('nvim-0.11') == 1 then
+    local bufempty = vim.fn.line('$') < 3
+    if bufempty then
+      -- Infer that `:checkhealth lspconfig` was called directly.
+      health.info('`:checkhealth lspconfig` was removed. Use `:checkhealth vim.lsp` instead.')
+      vim.deprecate(':checkhealth lspconfig', ':checkhealth vim.lsp', '0.12', 'nvim-lspconfig', false)
+    else
+      -- Healthcheck was auto-discovered  by `:checkhealth` (no args).
+      health.info('Skipped. This healthcheck is redundant with `:checkhealth vim.lsp`.')
+    end
+
+    return
+  end
+
   -- XXX: create "q" mapping until :checkhealth has this feature in Nvim stable.
   vim.cmd [[nnoremap <buffer> q <c-w>q]]
 

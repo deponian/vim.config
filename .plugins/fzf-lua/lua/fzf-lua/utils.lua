@@ -183,7 +183,9 @@ end
 function M.regex_to_magic(str)
   -- Convert regex to "very magic" pattern, basically a regex
   -- with special meaning for "=&<>", `:help /magic`
-  return [[\v]] .. str:gsub("[=&<>]", function(x) return [[\]] .. x end)
+  return [[\v]] .. str:gsub("[=&@<>]", function(x)
+    return "\\" .. x
+  end)
 end
 
 function M.ctag_to_magic(str)
@@ -781,9 +783,9 @@ end
 
 function M.fzf_exit()
   -- Usually called from the LSP module to exit the interface on "async" mode
-  -- when no results are found or when `jump_to_single_result` is used, when
-  -- the latter is used in "sync" mode we also need to make sure core.__CTX
-  -- is cleared or we'll have the wrong cursor coordinates (#928)
+  -- when no results are found or when `jump1` is used, when the latter is used
+  -- in "sync" mode we also need to make sure core.__CTX is cleared or we'll
+  -- have the wrong cursor coordinates (#928)
   return loadstring([[
     require('fzf-lua').core.__CTX = nil
     require('fzf-lua').win.win_leave()
@@ -795,8 +797,8 @@ function M.fzf_winobj()
   return loadstring("return require'fzf-lua'.win.__SELF()")()
 end
 
-function M.CTX()
-  return loadstring("return require'fzf-lua'.core.CTX()")()
+function M.CTX(...)
+  return loadstring("return require'fzf-lua'.core.CTX(...)")(...)
 end
 
 function M.__CTX()
@@ -844,7 +846,7 @@ function M.load_profile_fname(fname, name, silent)
   end
 end
 
-function M.load_profiles(profiles, silent, opts)
+function M.load_profiles(profiles, silent)
   local ret = {}
   local path = require("fzf-lua").path
   profiles = type(profiles) == "table" and profiles
@@ -864,10 +866,10 @@ function M.load_profiles(profiles, silent, opts)
         -- profile requires loading base profile(s)
         -- silent = 1, only warn if failed to load
         profile_opts = vim.tbl_deep_extend("keep",
-          profile_opts, M.load_profiles(profile_opts[1], 1, opts))
+          profile_opts, M.load_profiles(profile_opts[1], 1))
       end
       if type(profile_opts.fn_load) == "function" then
-        profile_opts.fn_load(opts)
+        profile_opts.fn_load()
         profile_opts.fn_load = nil
       end
       ret = vim.tbl_deep_extend("force", ret, profile_opts)
@@ -1056,6 +1058,16 @@ function M.nvim_open_win(bufnr, enter, config)
   return winid
 end
 
+function M.nvim_open_win0(bufnr, enter, config)
+  local winid = M.CTX().winid
+  if not vim.api.nvim_win_is_valid(winid) then
+    return vim.api.nvim_open_win(bufnr, enter, config)
+  end
+  return vim.api.nvim_win_call(winid, function()
+    return vim.api.nvim_open_win(bufnr, enter, config)
+  end)
+end
+
 -- Close a window without triggering an autocmd
 function M.nvim_win_close(win, opts)
   local save_ei = vim.o.eventignore
@@ -1121,18 +1133,19 @@ end
 
 -- wrapper around |input()| to allow cancellation with `<C-c>`
 -- without "E5108: Error executing lua Keyboard interrupt"
-function M.input(prompt)
+function M.input(prompt, default)
+  default = default or ""
   local ok, res
   -- NOTE: do not use `vim.ui` yet, a conflict with `dressing.nvim`
   -- causes the return value to appear as cancellation
   -- if vim.ui then
   if false then
-    ok, _ = pcall(vim.ui.input, { prompt = prompt },
+    ok, _ = pcall(vim.ui.input, { prompt = prompt, default = default },
       function(input)
         res = input
       end)
   else
-    ok, res = pcall(vim.fn.input, { prompt = prompt, cancelreturn = 3 })
+    ok, res = pcall(vim.fn.input, { prompt = prompt, default = default, cancelreturn = 3 })
     if res == 3 then
       ok, res = false, nil
     end
@@ -1356,6 +1369,22 @@ function M.toggle_cmd_flag(cmd, flag, enabled, append)
   end
 
   return cmd
+end
+
+function M.lsp_get_clients(opts)
+  if M.__HAS_NVIM_011 then
+    return vim.lsp.get_clients(opts)
+  end
+  ---@diagnostic disable-next-line: deprecated
+  local get = vim.lsp.get_clients or vim.lsp.get_active_clients
+  local clients = get(opts)
+  return vim.tbl_map(function(client)
+    return setmetatable({
+      supports_method = function(_, ...) return client.supports_method(...) end,
+      request = function(_, ...) return client.request(...) end,
+      request_sync = function(_, ...) return client.request_sync(...) end,
+    }, { __index = client })
+  end, clients)
 end
 
 return M

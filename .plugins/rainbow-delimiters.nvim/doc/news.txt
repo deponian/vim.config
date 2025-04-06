@@ -9,26 +9,59 @@ https://semver.org/
 
 
 ==============================================================================
-UNRELEASED
+Version 0.9.1 (released on 2025-03-23)
+
+FIXED
+------------------------------------------------------------------------------
+
+Health check failing if a strategy was a string.
+
+
+==============================================================================
+Version 0.9.0 (released on 2025-03-17)
+
+
+FIXED
+------------------------------------------------------------------------------
+
+Fixed patterns:
+    • Templ:
+        - Missing `style_tag_start` and `style_tag_end` nodes in
+          `style_element`
+    • Perl:
+        - All patterns were obsolete
 
 
 ------------------------------------------------------------------------------
 ADDED
 
 New languages:
+    • Gleam  
     • Groovy
+    • KDL
+    • OCaml
 
 Missing patterns:
     • C++:
         - `enumerator_list`
     • Java:
         - `switch_block`
+    • Query:
+        - `missing_node`
+
+Other:
+    • Strategies in configuration may be strings
+    • Built-in stategies can be referenced via their module strings (see
+      |rb-delimiters-strategy|)
+
 
 ------------------------------------------------------------------------------
 CHANGED
 
-The default highlight priority is computed dynamically to be halfway between
-semantic tokens and Tree-sitter.
+• The default highlight priority is computed dynamically to be halfway between
+  semantic tokens and Tree-sitter.
+• Deprecated |rb-delimiters.strategy| and its Vim script mirror
+  |g:rainbow_delimiters#strategy|, refer to strategies via strings instead.
 
 
 ==============================================================================

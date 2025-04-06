@@ -6,5 +6,8 @@ return {
   },
   command = "latexindent",
   args = { "-" },
+  range_args = function(_, ctx)
+    return { "--lines", ctx.range.start[1] .. "-" .. ctx.range["end"][1], "-" }
+  end,
   stdin = true,
 }

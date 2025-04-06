@@ -3,7 +3,7 @@ local async = require 'lspconfig.async'
 
 local function reload_workspace(bufnr)
   bufnr = util.validate_bufnr(bufnr)
-  local clients = util.get_lsp_clients { bufnr = bufnr, name = 'rust_analyzer' }
+  local clients = vim.lsp.get_clients { bufnr = bufnr, name = 'rust_analyzer' }
   for _, client in ipairs(clients) do
     vim.notify 'Reloading Cargo Workspace'
     client.request('rust-analyzer/reloadWorkspace', nil, function(err)
@@ -26,7 +26,7 @@ local function is_library(fname)
 
   for _, item in ipairs { toolchains, registry, git_registry } do
     if util.path.is_descendant(item, fname) then
-      local clients = util.get_lsp_clients { name = 'rust_analyzer' }
+      local clients = vim.lsp.get_clients { name = 'rust_analyzer' }
       return #clients > 0 and clients[#clients].config.root_dir or nil
     end
   end
@@ -99,7 +99,7 @@ https://github.com/rust-lang/rust-analyzer
 rust-analyzer (aka rls 2.0), a language server for Rust
 
 
-See [docs](https://github.com/rust-lang/rust-analyzer/blob/release/docs/user/generated_config.adoc) for extra settings. The settings can be used like this:
+See [docs](https://rust-analyzer.github.io/book/configuration.html) for extra settings. The settings can be used like this:
 ```lua
 require'lspconfig'.rust_analyzer.setup{
   settings = {

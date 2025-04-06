@@ -1,9 +1,3 @@
 doc/tags
 
-scratch/dummy_ignored.txt
-
-nvim-test
-stylua
-luals
-luals_check
-/check.json
+deps

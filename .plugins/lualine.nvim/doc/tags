@@ -22,6 +22,7 @@ lualine-fileformat-component-options	lualine.txt	/*lualine-fileformat-component-
 lualine-filename-component-options	lualine.txt	/*lualine-filename-component-options*
 lualine-filetype-component-options	lualine.txt	/*lualine-filetype-component-options*
 lualine-installation	lualine.txt	/*lualine-installation*
+lualine-lsp-status-component-options	lualine.txt	/*lualine-lsp-status-component-options*
 lualine-lualine.nvim	lualine.txt	/*lualine-lualine.nvim*
 lualine-searchcount-component-options	lualine.txt	/*lualine-searchcount-component-options*
 lualine-table-of-contents	lualine.txt	/*lualine-table-of-contents*

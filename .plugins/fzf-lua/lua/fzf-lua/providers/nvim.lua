@@ -2,6 +2,7 @@ local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
+local shell = require "fzf-lua.shell"
 local config = require "fzf-lua.config"
 local devicons = require "fzf-lua.devicons"
 
@@ -109,17 +110,11 @@ local history = function(opts, str)
   core.fzf_exec(entries, opts)
 end
 
-local arg_header = function(sel_key, edit_key, text)
-  sel_key = utils.ansi_codes.yellow(sel_key)
-  edit_key = utils.ansi_codes.yellow(edit_key)
-  return (":: %s to %s, %s to edit"):format(sel_key, text, edit_key)
-end
-
 M.command_history = function(opts)
   opts = config.normalize_opts(opts, "command_history")
   if not opts then return end
   if opts.fzf_opts["--header"] == nil then
-    opts = core.set_header(opts, opts.headers)
+    opts = core.set_header(opts, opts.headers or { "actions" })
   end
   history(opts, "cmd")
 end
@@ -128,7 +123,7 @@ M.search_history = function(opts)
   opts = config.normalize_opts(opts, "search_history")
   if not opts then return end
   if opts.fzf_opts["--header"] == nil then
-    opts = core.set_header(opts, opts.headers)
+    opts = core.set_header(opts, opts.headers or { "actions" })
   end
   history(opts, "search")
 end
@@ -226,29 +221,47 @@ M.marks = function(opts)
   opts = config.normalize_opts(opts, "marks")
   if not opts then return end
 
-  local marks = vim.fn.execute("marks")
-  marks = vim.split(marks, "\n")
+  opts.__fn_reload = opts.__fn_reload or function()
+    return function(cb)
+      local win = core.CTX().winid
+      local buf = core.CTX().bufnr
+      local marks = vim.api.nvim_win_call(win,
+        function() return vim.api.nvim_buf_call(buf, function() return vim.fn.execute("marks") end) end)
+      marks = vim.split(marks, "\n")
+      local entries = {}
+      local pattern = opts.marks and opts.marks or ""
+      for i = #marks, 3, -1 do
+        local mark, line, col, text = marks[i]:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
+        col = tostring(tonumber(col) + 1)
+        if path.is_absolute(text) then
+          text = path.HOME_to_tilde(text)
+        end
+        if not pattern or string.match(mark, pattern) then
+          table.insert(entries, string.format(" %-15s %15s %15s %s",
+            utils.ansi_codes.yellow(mark),
+            utils.ansi_codes.blue(line),
+            utils.ansi_codes.green(col),
+            text))
+        end
+      end
 
-  local entries = {}
-  local pattern = opts.marks and opts.marks or ""
-  for i = #marks, 3, -1 do
-    local mark, line, col, text = marks[i]:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
-    col = tostring(tonumber(col) + 1)
-    if path.is_absolute(text) then
-      text = path.HOME_to_tilde(text)
-    end
-    if not pattern or string.match(mark, pattern) then
-      table.insert(entries, string.format(" %-15s %15s %15s %s",
-        utils.ansi_codes.yellow(mark),
-        utils.ansi_codes.blue(line),
-        utils.ansi_codes.green(col),
-        text))
+      table.sort(entries, function(a, b) return a < b end)
+      table.insert(entries, 1,
+        string.format("%-5s %s  %s %s", "mark", "line", "col", "file/text"))
+
+      vim.tbl_map(cb, entries)
+      cb(nil)
     end
   end
 
-  table.sort(entries, function(a, b) return a < b end)
-  table.insert(entries, 1,
-    string.format("%-5s %s  %s %s", "mark", "line", "col", "file/text"))
+  -- build the "reload" cmd and remove '-- {+}' from the initial cmd
+  local contents, id = shell.reload_action_cmd(opts, "")
+  opts.__reload_cmd = contents
+
+  opts._fn_pre_fzf = function()
+    shell.set_protected(id)
+  end
+
 
   opts.fzf_opts["--header-lines"] = 1
   --[[ opts.preview = function (args, fzf_lines, _)
@@ -265,7 +278,7 @@ M.marks = function(opts)
     end
   end ]]
 
-  core.fzf_exec(entries, opts)
+  core.fzf_exec(contents, opts)
 end
 
 M.registers = function(opts)
@@ -348,7 +361,7 @@ M.keymaps = function(opts)
   if opts.show_details == false then field_fmt.rhs = nil end
 
   local format = function(info)
-    info.desc = string.sub(info.desc or "", 1, 33)
+    info.desc = field_fmt.rhs and string.sub(info.desc or "", 1, 33) or info.desc
     local ret
     for _, f in ipairs(fields) do
       if field_fmt[f] then
@@ -413,6 +426,93 @@ M.keymaps = function(opts)
   table.insert(entries, 1, header_str)
 
   core.fzf_exec(entries, opts)
+end
+
+M.nvim_options = function(opts)
+  opts = config.normalize_opts(opts, "nvim_options")
+  if not opts then return end
+
+  local format_str = function(info)
+    local fields = { "option", "value" }
+    local field_fmt = { option = "%-20s", value = "%s" }
+    local ret
+
+    for _, f in ipairs(fields) do
+      if field_fmt[f] then
+        ret = string.format(
+          "%s%s" .. field_fmt[f],
+          ret or "",
+          ret and string.format(" %s ", utils.ansi_codes["grey"](opts.separator))
+          or " ",
+          info[f] or ""
+        )
+      end
+    end
+    return ret
+  end
+
+  local format_option_entries = function()
+    local entries = {}
+    for _, v in pairs(vim.api.nvim_get_all_options_info()) do
+      local ok, value = pcall(vim.api.nvim_get_option_value, v.name, {})
+
+      if ok then
+        local color_value = utils.ansi_codes["grey"](tostring(value))
+        if value == true and opts.color_values then
+          color_value = utils.ansi_codes["green"](tostring(value))
+        elseif value == false and opts.color_values then
+          color_value = utils.ansi_codes["red"](tostring(value))
+        end
+
+        local str = format_str({ option = v.name, value = color_value })
+        table.insert(entries, str)
+      end
+    end
+
+    table.sort(entries)
+    local header = format_str({ option = "Option", value = "Value" })
+    local keymaps = (":: %s %s, %s %s"):format(
+      utils.ansi_from_hl(opts.hls.header_bind, "<enter>"),
+      utils.ansi_from_hl(opts.hls.header_text, "local scope"),
+      utils.ansi_from_hl(opts.hls.header_bind, "<alt-enter>"),
+      utils.ansi_from_hl(opts.hls.header_text, "global scope"))
+    table.insert(entries, 1, keymaps)
+    table.insert(entries, 2, header)
+    return entries
+  end
+
+  opts.func_async_callback = false
+  opts.__fn_reload = opts.__fn_reload or function(_)
+    return function(cb)
+      vim.api.nvim_win_call(opts.__CTX.winid, function()
+        coroutine.wrap(function()
+          local co = coroutine.running()
+          local entries = format_option_entries()
+          for _, entry in pairs(entries) do
+            vim.schedule(function()
+              cb(entry, function()
+                coroutine.resume(co)
+              end)
+            end)
+            coroutine.yield()
+          end
+          cb()
+        end)()
+      end)
+    end
+  end
+
+  -- build the "reload" cmd and remove '-- {+}' from the initial cmd
+  local contents, id = shell.reload_action_cmd(opts, "")
+  opts.__reload_cmd = contents
+
+  opts._fn_pre_fzf = function()
+    shell.set_protected(id)
+  end
+
+  opts.fzf_opts["--header-lines"] = "2"
+
+  core.fzf_exec(contents, opts)
 end
 
 M.spell_suggest = function(opts)

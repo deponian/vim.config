@@ -52,7 +52,7 @@ local function check_for_default_opts(conf)
     if type(k) == "string" then
       notify(
         string.format(
-          'conform.setup: the "_" and "*" keys in formatters_by_ft do not support configuring format options, such as "%s"',
+          'conform.setup: the "*" key in formatters_by_ft does not support configuring format options, such as "%s"',
           k
         ),
         vim.log.levels.WARN
@@ -72,7 +72,6 @@ M.setup = function(opts)
 
   M.formatters = vim.tbl_extend("force", M.formatters, opts.formatters or {})
   M.formatters_by_ft = vim.tbl_extend("force", M.formatters_by_ft, opts.formatters_by_ft or {})
-  check_for_default_opts(M.formatters_by_ft["_"])
   check_for_default_opts(M.formatters_by_ft["*"])
   M.default_format_opts =
     vim.tbl_extend("force", M.default_format_opts, opts.default_format_opts or {})
@@ -238,8 +237,10 @@ local function get_matching_filetype(bufnr)
     bufnr = vim.api.nvim_get_current_buf()
   end
   local filetypes = vim.split(vim.bo[bufnr].filetype, ".", { plain = true })
-  -- Reverse the list so we can check the most specific filetypes first
-  local rev_filetypes = {}
+  -- Reverse the list so we can check the most specific filetypes first.
+  -- Start with the whole filetype, so users can specify an entire compound filetype if they want.
+  -- (e.g. "markdown.vimwiki")
+  local rev_filetypes = { vim.bo[bufnr].filetype }
   for i = #filetypes, 1, -1 do
     table.insert(rev_filetypes, filetypes[i])
   end
@@ -382,14 +383,6 @@ M.resolve_formatters = function(names, bufnr, warn_on_missing, stop_after_first)
   return all_info
 end
 
----Check if there are any formatters configured specifically for the buffer's filetype
----@param bufnr integer
----@return boolean
-local function has_filetype_formatters(bufnr)
-  local matching_filetype = get_matching_filetype(bufnr)
-  return matching_filetype ~= nil and matching_filetype ~= "_"
-end
-
 ---@param opts table
 ---@return boolean
 local function has_lsp_formatter(opts)
@@ -519,9 +512,8 @@ M.format = function(opts, callback)
     end
   end
 
-  -- check if formatters were configured for this buffer's filetype specifically (i.e. not the "_"
-  -- or "*" formatters) AND that at least one of the configured formatters is available
-  local any_formatters = has_filetype_formatters(opts.bufnr) and not vim.tbl_isempty(formatters)
+  -- check if at least one of the configured formatters is available
+  local any_formatters = not vim.tbl_isempty(formatters)
 
   if
     has_lsp
@@ -648,7 +640,7 @@ M.list_formatters_to_run = function(bufnr)
   local formatters = M.resolve_formatters(formatter_names, bufnr, false, opts.stop_after_first)
 
   local has_lsp = has_lsp_formatter(opts)
-  local any_formatters = has_filetype_formatters(opts.bufnr) and not vim.tbl_isempty(formatters)
+  local any_formatters = not vim.tbl_isempty(formatters)
 
   if
     has_lsp
@@ -792,7 +784,7 @@ M.get_formatter_info = function(formatter, bufnr)
 
   if vim.fn.executable(command) == 0 then
     available = false
-    available_msg = "Command not found"
+    available_msg = string.format("Command '%s' not found", command)
   elseif config.condition and not config.condition(config, ctx) then
     available = false
     available_msg = "Condition failed"

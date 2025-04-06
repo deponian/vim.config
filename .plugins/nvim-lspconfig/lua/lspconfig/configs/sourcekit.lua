@@ -15,10 +15,23 @@ return {
       local t = { objc = 'objective-c', objcpp = 'objective-cpp' }
       return t[ftype] or ftype
     end,
+    capabilities = {
+      workspace = {
+        didChangeWatchedFiles = {
+          dynamicRegistration = true,
+        },
+      },
+      textDocument = {
+        diagnostic = {
+          dynamicRegistration = true,
+          relatedDocumentSupport = true,
+        },
+      },
+    },
   },
   docs = {
     description = [[
-https://github.com/apple/sourcekit-lsp
+https://github.com/swiftlang/sourcekit-lsp
 
 Language server for Swift and C/C++/Objective-C.
     ]],

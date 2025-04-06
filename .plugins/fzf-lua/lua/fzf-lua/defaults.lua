@@ -21,7 +21,8 @@ function M._default_previewer_fn()
 end
 
 function M._preview_pager_fn()
-  return vim.fn.executable("delta") == 1 and "delta --width=$COLUMNS" or nil
+  return vim.fn.executable("delta") == 1 and ("delta --width=$COLUMNS --%s"):format(vim.o.bg) or
+      nil
 end
 
 function M._man_cmd_fn(bat_pager)
@@ -52,7 +53,7 @@ M.defaults                      = {
     fullscreen = false,
     title_pos  = "center",
     treesitter = {
-      enabled    = true,
+      enabled    = utils.__HAS_NVIM_010,
       fzf_colors = { ["hl"] = "-1:reverse", ["hl+"] = "-1:reverse" }
     },
     preview    = {
@@ -342,11 +343,11 @@ M.defaults.files                = {
   cwd_prompt             = true,
   cwd_prompt_shorten_len = 32,
   cwd_prompt_shorten_val = 1,
-  fzf_opts               = { ["--multi"] = true },
+  fzf_opts               = { ["--multi"] = true, ["--scheme"] = "path" },
   _fzf_nth_devicons      = true,
   git_status_cmd         = {
     "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
-  find_opts              = [[-type f -not -path '*/\.git/*']],
+  find_opts              = [[-type f \! -path '*/.git/*']],
   rg_opts                = [[--color=never --files -g "!.git"]],
   fd_opts                = [[--color=never --type f --type l --exclude .git]],
   dir_opts               = [[/s/b/a:-d]],
@@ -368,7 +369,7 @@ M.defaults.git                  = {
     file_icons        = 1,
     color_icons       = true,
     git_icons         = true,
-    fzf_opts          = { ["--multi"] = true },
+    fzf_opts          = { ["--multi"] = true, ["--scheme"] = "path" },
     _fzf_nth_devicons = true,
     _actions          = function() return M.globals.actions.files end,
     winopts           = { preview = { winopts = { cursorline = false } } },
@@ -529,7 +530,7 @@ M.defaults.args                 = {
   file_icons        = 1,
   color_icons       = true,
   git_icons         = false,
-  fzf_opts          = { ["--multi"] = true },
+  fzf_opts          = { ["--multi"] = true, ["--scheme"] = "path" },
   _fzf_nth_devicons = true,
   _actions          = function() return M.globals.actions.files end,
   actions           = { ["ctrl-x"] = { fn = actions.arg_del, reload = true } },
@@ -666,8 +667,11 @@ M.defaults.lines                = {
 }
 
 M.defaults.blines               = vim.tbl_deep_extend("force", M.defaults.lines, {
-  show_bufname = false,
-  fzf_opts     = {
+  show_bufname    = false,
+  show_unloaded   = true,
+  show_unlisted   = true,
+  no_term_buffers = false,
+  fzf_opts        = {
     ["--with-nth"] = "4..",
     ["--nth"]      = "2..",
   },
@@ -809,6 +813,8 @@ M.defaults.lsp                  = {
   color_icons      = true,
   git_icons        = false,
   async_or_timeout = 5000,
+  jump1            = true,
+  jump1_action     = actions.file_edit,
   fzf_opts         = { ["--multi"] = true },
   _actions         = function() return M.globals.actions.files end,
   _cached_hls      = { "path_colnr", "path_linenr" },
@@ -975,7 +981,10 @@ M.defaults.profiles             = {
 
 M.defaults.marks                = {
   fzf_opts  = { ["--no-multi"] = true },
-  actions   = { ["enter"] = actions.goto_mark },
+  actions   = {
+    ["enter"] = actions.goto_mark,
+    ["ctrl-x"] = { fn = actions.mark_del, reload = true }
+  },
   previewer = { _ctor = previewers.builtin.marks },
 }
 
@@ -1053,6 +1062,21 @@ M.defaults.keymaps              = {
   },
 }
 
+M.defaults.nvim_options         = {
+  previewer    = { _ctor = previewers.builtin.nvim_options },
+  separator    = "│",
+  color_values = true,
+  actions      = {
+    ["enter"]     = { fn = actions.nvim_opt_edit_local, reload = true },
+    ["alt-enter"] = { fn = actions.nvim_opt_edit_global, reload = true },
+  },
+  fzf_opts     = {
+    ["--nth"] = 1,
+    ["--delimiter"] = "[│]",
+    ["--no-multi"] = true,
+  },
+}
+
 M.defaults.spell_suggest        = {
   winopts = {
     relative = "cursor",
@@ -1118,6 +1142,7 @@ M.defaults.complete_path        = {
   git_icons         = false,
   color_icons       = true,
   multiprocess      = true,
+  word_pattern      = nil,
   fzf_opts          = { ["--no-multi"] = true },
   _fzf_nth_devicons = true,
   actions           = { ["enter"] = actions.complete },
@@ -1129,6 +1154,7 @@ M.defaults.complete_file        = {
   file_icons        = 1,
   color_icons       = true,
   git_icons         = false,
+  word_pattern      = nil,
   _actions          = function() return M.globals.actions.files end,
   actions           = { ["enter"] = actions.complete },
   previewer         = M._default_previewer_fn,

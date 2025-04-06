@@ -36,8 +36,10 @@ fzf-lua-opts-command_history	fzf-lua-opts.txt	/*fzf-lua-opts-command_history*
 fzf-lua-opts-commands	fzf-lua-opts.txt	/*fzf-lua-opts-commands*
 fzf-lua-opts-complete_bline	fzf-lua-opts.txt	/*fzf-lua-opts-complete_bline*
 fzf-lua-opts-complete_file	fzf-lua-opts.txt	/*fzf-lua-opts-complete_file*
+fzf-lua-opts-complete_file.word_pattern	fzf-lua-opts.txt	/*fzf-lua-opts-complete_file.word_pattern*
 fzf-lua-opts-complete_line	fzf-lua-opts.txt	/*fzf-lua-opts-complete_line*
 fzf-lua-opts-complete_path	fzf-lua-opts.txt	/*fzf-lua-opts-complete_path*
+fzf-lua-opts-complete_path.word_pattern	fzf-lua-opts.txt	/*fzf-lua-opts-complete_path.word_pattern*
 fzf-lua-opts-completion-functions	fzf-lua-opts.txt	/*fzf-lua-opts-completion-functions*
 fzf-lua-opts-ctags	fzf-lua-opts.txt	/*fzf-lua-opts-ctags*
 fzf-lua-opts-dap_breakpoints	fzf-lua-opts.txt	/*fzf-lua-opts-dap_breakpoints*
@@ -143,6 +145,7 @@ fzf-lua-opts-globals.winopts.title_pos	fzf-lua-opts.txt	/*fzf-lua-opts-globals.w
 fzf-lua-opts-globals.winopts.treesitter	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.treesitter*
 fzf-lua-opts-globals.winopts.width	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.width*
 fzf-lua-opts-grep	fzf-lua-opts.txt	/*fzf-lua-opts-grep*
+fzf-lua-opts-grep.search_paths	fzf-lua-opts.txt	/*fzf-lua-opts-grep.search_paths*
 fzf-lua-opts-grep_curbuf	fzf-lua-opts.txt	/*fzf-lua-opts-grep_curbuf*
 fzf-lua-opts-grep_cword	fzf-lua-opts.txt	/*fzf-lua-opts-grep_cword*
 fzf-lua-opts-grep_last	fzf-lua-opts.txt	/*fzf-lua-opts-grep_last*
@@ -186,6 +189,7 @@ fzf-lua-opts-menus	fzf-lua-opts.txt	/*fzf-lua-opts-menus*
 fzf-lua-opts-misc	fzf-lua-opts.txt	/*fzf-lua-opts-misc*
 fzf-lua-opts-neovim-api	fzf-lua-opts.txt	/*fzf-lua-opts-neovim-api*
 fzf-lua-opts-nvim-dap	fzf-lua-opts.txt	/*fzf-lua-opts-nvim-dap*
+fzf-lua-opts-nvim_options	fzf-lua-opts.txt	/*fzf-lua-opts-nvim_options*
 fzf-lua-opts-oldfiles	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles*
 fzf-lua-opts-packadd	fzf-lua-opts.txt	/*fzf-lua-opts-packadd*
 fzf-lua-opts-pickers	fzf-lua-opts.txt	/*fzf-lua-opts-pickers*

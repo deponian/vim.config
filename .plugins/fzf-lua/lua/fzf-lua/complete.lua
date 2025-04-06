@@ -18,7 +18,7 @@ local function find_toplevel_cwd(maybe_cwd, postfix, orig_cwd)
   -- E5108: Error executing lua Vim:E220: Missing }.
   local ok, _ = pcall(libuv.expand, maybe_cwd)
   if not maybe_cwd or #maybe_cwd == 0 or not ok then
-    return nil, uv.cwd(), nil
+    return nil, nil, nil
   end
   if not orig_cwd then
     orig_cwd = maybe_cwd
@@ -48,7 +48,7 @@ end
 -- set the cwd and prompt top the top level directory and
 -- the leftover match to the input query
 local set_cmp_opts_path = function(opts)
-  local match = "[^%s\"']*"
+  local match = opts.word_pattern or "[^%s\"']*"
   local line = vim.api.nvim_get_current_line()
   local col = vim.api.nvim_win_get_cursor(0)[2] + 1
   local before = col > 1 and line:sub(1, col - 1):reverse():match(match):reverse() or ""
@@ -58,12 +58,10 @@ local set_cmp_opts_path = function(opts)
     col = col + 1
     after = line:sub(col):match(match) or ""
   end
-  opts._cwd, opts.cwd, opts.query = find_toplevel_cwd(before .. after, nil, nil)
-  opts.prompt = opts._cwd
-  if not opts.prompt then
-    opts.prompt = "."
-  end
-  opts.prompt = path.add_trailing(opts.prompt)
+  local cwd
+  opts._cwd, cwd, opts.query = find_toplevel_cwd(before .. after, nil, nil)
+  opts.prompt = path.add_trailing(opts._cwd or ".")
+  opts.cwd = cwd or opts.cwd or uv.cwd()
   -- completion function rebuilds the line with the full path
   opts.complete = function(selected, o, l, _)
     -- query fuzzy matching is empty

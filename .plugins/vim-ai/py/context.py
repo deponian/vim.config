@@ -116,14 +116,23 @@ def parse_prompt_and_role_config(user_instruction, command_type):
         parsed_role.get('role_' + command_type, {}),
     ])
     role_prompt = config.get('prompt', '')
-    return user_prompt, config
+    return user_prompt, config, roles
+
+def make_selection_boundary(user_selection, selection_boundary):
+    if selection_boundary != '```':
+        return selection_boundary, selection_boundary
+    filetype = vim.eval('&filetype')
+    if filetype and filetype != 'aichat':
+        return selection_boundary + filetype, selection_boundary
+    return selection_boundary, selection_boundary
 
 def make_selection_prompt(user_selection, user_prompt, config_prompt, selection_boundary):
     if not user_prompt and not config_prompt:
         return user_selection
     elif user_selection:
         if selection_boundary and selection_boundary not in user_selection:
-            return f"{selection_boundary}\n{user_selection}\n{selection_boundary}"
+            left_boundary, right_boundary = make_selection_boundary(user_selection, selection_boundary)
+            return f"{left_boundary}\n{user_selection}\n{right_boundary}"
         else:
             return user_selection
     return ''
@@ -146,13 +155,15 @@ def make_ai_context(params):
     user_selection = params['user_selection']
     command_type = params['command_type']
 
-    user_prompt, role_config = parse_prompt_and_role_config(user_instruction, command_type)
+    user_prompt, role_config, roles = parse_prompt_and_role_config(user_instruction, command_type)
     final_config = merge_deep([config_default, config_extension, role_config])
     selection_boundary = final_config['options'].get('selection_boundary', '')
     config_prompt = final_config.get('prompt', '')
     prompt = make_prompt(config_prompt, user_prompt, user_selection, selection_boundary)
 
     return {
+        'command_type': command_type,
         'config': final_config,
         'prompt': prompt,
+        'roles': roles,
     }

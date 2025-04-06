@@ -1,17 +1,17 @@
-local util = require 'lspconfig.util'
-
 return {
   default_config = {
-    cmd = { 'postgres_lsp' },
-    filetypes = { 'sql' },
-    root_dir = util.root_pattern 'root-file.txt',
+    cmd = { 'postgrestools', 'lsp-proxy' },
+    filetypes = {
+      'sql',
+    },
+    root_dir = vim.fs.root(0, { 'postgrestools.jsonc' }),
     single_file_support = true,
   },
   docs = {
     description = [[
-https://github.com/supabase/postgres_lsp
+https://pgtools.dev
 
-A Language Server for Postgres
+A collection of language tools and a Language Server Protocol (LSP) implementation for Postgres, focusing on developer experience and reliable SQL tooling.
         ]],
   },
 }

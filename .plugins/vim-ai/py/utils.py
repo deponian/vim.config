@@ -1,13 +1,10 @@
 import vim
 import datetime
 import glob
-import sys
 import os
 import json
-import urllib.error
-import urllib.request
 import socket
-import re
+import subprocess
 from urllib.error import URLError
 from urllib.error import HTTPError
 import traceback
@@ -21,36 +18,59 @@ DEFAULT_ROLE_NAME = 'default'
 def is_ai_debugging():
     return vim.eval("g:vim_ai_debug") == "1"
 
+def print_debug(text, *args):
+    if not is_ai_debugging():
+        return
+    with open(vim.eval("g:vim_ai_debug_log_file"), "a") as file:
+        message = text.format(*args) if len(args) else text
+        file.write(f"[{datetime.datetime.now()}] " + message + "\n")
+
 class KnownError(Exception):
     pass
 
+def load_token_from_env_variable(env_variable_name):
+    return os.getenv(env_variable_name).strip()
+
+def load_token_from_file_path(path):
+    if not path:
+        return None
+    with open(os.path.expanduser(path), 'r') as file:
+        return file.read().strip()
+
+def load_token_from_fn(expression):
+    if not expression:
+        return None
+    return vim.eval(expression).strip()
+
+class AIProviderUtils():
+    def print_debug(self, text, *args):
+        print_debug(text, *args)
+
+    def make_known_error(self, message: str):
+        return KnownError(message)
+
+    def load_api_key(self, env_variable_name: str, token_file_path: str = "", token_load_fn: str = ""):
+        loaders = (
+            lambda: load_token_from_file_path(token_file_path),
+            lambda: load_token_from_fn(token_load_fn),
+            lambda: load_token_from_env_variable(env_variable_name),
+            lambda: load_token_from_file_path(vim.eval("g:vim_ai_token_file_path")),
+            lambda: load_token_from_fn(vim.eval("g:vim_ai_token_load_fn")),
+        )
+        for loader in loaders:
+            try:
+                api_key = loader()
+                if api_key:
+                    return api_key
+            except Exception:
+                pass
+
+        raise KnownError("Missing API key")
+
+ai_provider_utils = AIProviderUtils()
+
 def unwrap(input_var):
     return vim.eval(input_var)
-
-def load_api_key(config_token_file_path):
-    # token precedence: config file path, global file path, env variable
-    global_token_file_path = vim.eval("g:vim_ai_token_file_path")
-    api_key_param_value = os.getenv("OPENAI_API_KEY")
-    try:
-        token_file_path = config_token_file_path or global_token_file_path
-        with open(os.path.expanduser(token_file_path), 'r') as file:
-            api_key_param_value = file.read()
-    except Exception:
-        pass
-
-    if not api_key_param_value:
-        raise KnownError("Missing OpenAI API key")
-
-    # The text is in format of "<api key>,<org id>" and the
-    # <org id> part is optional
-    elements = api_key_param_value.strip().split(",")
-    api_key = elements[0].strip()
-    org_id = None
-
-    if len(elements) > 1:
-        org_id = elements[1].strip()
-
-    return (api_key, org_id)
 
 def make_config(config):
     options = config['options']
@@ -58,27 +78,6 @@ def make_config(config):
     if 'initial_prompt' in options and isinstance(options['initial_prompt'], str):
         options['initial_prompt'] = options['initial_prompt'].split('\n')
     return config
-
-def make_openai_options(options):
-    max_tokens = int(options['max_tokens'])
-    max_completion_tokens = int(options['max_completion_tokens'])
-    result = {
-        'model': options['model'],
-        'temperature': float(options['temperature']),
-        'stream': int(options['stream']) == 1,
-    }
-    if max_tokens > 0:
-        result['max_tokens'] = max_tokens
-    if max_completion_tokens > 0:
-        result['max_completion_tokens'] = max_completion_tokens
-    return result
-
-def make_http_options(options):
-    return {
-        'request_timeout': float(options['request_timeout']),
-        'enable_auth': bool(int(options['enable_auth'])),
-        'token_file_path': options['token_file_path'],
-    }
 
 # when running AIEdit on selection and cursor ends on the first column, it needs to
 # be decided whether to append (a) or insert (i) to prevent missalignment.
@@ -89,7 +88,7 @@ def need_insert_before_cursor():
         raise ValueError("Unexpected getpos value, it should be a list with two elements")
     return pos[1] == "1" # determines if visual selection starts on the first window column
 
-def render_text_chunks(chunks):
+def render_text_chunks(chunks, append_to_eol=False):
     generating_text = False
     full_text = ''
     insert_before_cursor = need_insert_before_cursor()
@@ -102,6 +101,8 @@ def render_text_chunks(chunks):
         if insert_before_cursor:
             vim.command("normal! i" + text)
             insert_before_cursor = False
+        elif append_to_eol: # for cases when virtualedit=all is set, to avoid empty space, see #148
+            vim.command("normal! A" + text)
         else:
             vim.command("normal! a" + text)
         vim.command("undojoin")
@@ -126,8 +127,6 @@ def parse_include_paths(path):
     pwd = vim.eval('getcwd()')
 
     path = os.path.expanduser(path)
-    if not os.path.isabs(path):
-        path = os.path.join(pwd, path)
 
     expanded_paths = [path]
     if '*' in path:
@@ -148,6 +147,10 @@ def make_text_file_message(path):
     except UnicodeDecodeError:
         return { 'type': 'text', 'text': f'==> {path} <==\nBinary file, cannot display' }
 
+def make_exec_output_message(cmd, timeout=5):
+    ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, timeout=timeout)
+    return { 'type': 'text', 'text': f'==> {cmd} <==\n{ps.stdout}' }
+
 def parse_chat_messages(chat_content):
     lines = chat_content.splitlines()
     messages = []
@@ -158,6 +161,9 @@ def parse_chat_messages(chat_content):
             case '>>> system':
                 messages.append({'role': 'system', 'content': [{ 'type': 'text', 'text': '' }]})
                 current_type = 'system'
+            case '<<< thinking':
+                # nothing to do here, thinking messages are omited
+                current_type = 'thinking'
             case '<<< assistant':
                 messages.append({'role': 'assistant', 'content': [{ 'type': 'text', 'text': '' }]})
                 current_type = 'assistant'
@@ -171,6 +177,10 @@ def parse_chat_messages(chat_content):
                 if not messages or messages[-1]['role'] != 'user':
                     messages.append({'role': 'user', 'content': []})
                 current_type = 'include'
+            case '>>> exec':
+                if not messages or messages[-1]['role'] != 'user':
+                    messages.append({'role': 'user', 'content': []})
+                current_type = 'exec'
             case _:
                 if not messages:
                     continue
@@ -182,6 +192,10 @@ def parse_chat_messages(chat_content):
                         for path in paths:
                             content = make_image_message(path) if is_image_path(path) else make_text_file_message(path)
                             messages[-1]['content'].append(content)
+                    case 'exec':
+                        cmd = line.strip()
+                        if cmd:
+                            messages[-1]['content'].append(make_exec_output_message(cmd))
 
     for message in messages:
         # strip newlines from the text content as it causes empty responses
@@ -191,14 +205,19 @@ def parse_chat_messages(chat_content):
 
     return messages
 
-def parse_chat_header_options():
+def parse_chat_header_config():
+    config = { 'provider': '', 'options': {}, 'ui': {} }
+    lines = vim.eval('getline(1, "$")')
+
+    is_derpecated_syntax = '[chat-options]' in lines
+    if is_derpecated_syntax:
+        raise KnownError('[chat-options] is deprecated, use new [chat] syntax')
+
     try:
-        options = {}
-        lines = vim.eval('getline(1, "$")')
-        contains_chat_options = '[chat-options]' in lines
+        contains_chat_options = '[chat]' in lines
         if contains_chat_options:
             # parse options that are defined in the chat header
-            options_index = lines.index('[chat-options]')
+            options_index = lines.index('[chat]')
             for line in lines[options_index + 1:]:
                 if line.startswith('#'):
                     # ignore comments
@@ -207,61 +226,20 @@ def parse_chat_header_options():
                     # stop at the end of the region
                     break
                 (key, value) = line.strip().split('=')
-                if key == 'initial_prompt':
-                    value = value.split('\\n')
-                options[key] = value
-        return options
+                if key == 'provider':
+                    config['provider'] = value
+                else:
+                    base, option_key = key.split('.')
+                    if option_key == 'initial_prompt':
+                        value = value.split('\\n')
+                    config[base][option_key] = value
+        return config
     except:
-        raise Exception("Invalid [chat-options]")
+        raise Exception("Invalid [chat] config")
 
 def vim_break_undo_sequence():
     # breaks undo sequence (https://vi.stackexchange.com/a/29087)
     vim.command("let &ul=&ul")
-
-def print_debug(text, *args):
-    if not is_ai_debugging():
-        return
-    with open(vim.eval("g:vim_ai_debug_log_file"), "a") as file:
-        message = text.format(*args) if len(args) else text
-        file.write(f"[{datetime.datetime.now()}] " + message + "\n")
-
-OPENAI_RESP_DATA_PREFIX = 'data: '
-OPENAI_RESP_DONE = '[DONE]'
-
-def openai_request(url, data, options):
-    enable_auth=options['enable_auth']
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "VimAI",
-    }
-    if enable_auth:
-        (OPENAI_API_KEY, OPENAI_ORG_ID) = load_api_key(options['token_file_path'])
-        headers['Authorization'] = f"Bearer {OPENAI_API_KEY}"
-
-        if OPENAI_ORG_ID is not None:
-            headers["OpenAI-Organization"] =  f"{OPENAI_ORG_ID}"
-
-    request_timeout=options['request_timeout']
-    req = urllib.request.Request(
-        url,
-        data=json.dumps({ **data }).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-
-    with urllib.request.urlopen(req, timeout=request_timeout) as response:
-        if not data.get('stream', 0):
-            yield json.loads(response.read().decode())
-            return
-        for line_bytes in response:
-            line = line_bytes.decode("utf-8", errors="replace")
-            if line.startswith(OPENAI_RESP_DATA_PREFIX):
-                line_data = line[len(OPENAI_RESP_DATA_PREFIX):-1]
-                if line_data.strip() == OPENAI_RESP_DONE:
-                    pass
-                else:
-                    openai_obj = json.loads(line_data)
-                    yield openai_obj
 
 def print_info_message(msg):
     escaped_msg = msg.replace("'", "`")
@@ -277,7 +255,7 @@ def parse_error_message(error):
     except:
         pass
 
-def handle_completion_error(error):
+def handle_completion_error(provider, error):
     # nvim throws - pynvim.api.common.NvimError: Keyboard interrupt
     is_nvim_keyboard_interrupt = "Keyboard interrupt" in str(error)
     if isinstance(error, KeyboardInterrupt) or is_nvim_keyboard_interrupt:
@@ -285,7 +263,7 @@ def handle_completion_error(error):
     elif isinstance(error, HTTPError):
         status_code = error.getcode()
         error_message = parse_error_message(error)
-        msg = f"OpenAI: HTTPError {status_code}"
+        msg = f"{provider}: HTTPError {status_code}"
         if error_message:
             msg += f": {error_message}"
         print_info_message(msg)
@@ -311,39 +289,6 @@ def enhance_roles_with_custom_function(roles):
         else:
             roles.update(vim.eval(roles_config_function + "()"))
 
-def make_chat_text_chunks(messages, config_options):
-    openai_options = make_openai_options(config_options)
-    http_options = make_http_options(config_options)
-
-    request = {
-        'messages': messages,
-        **openai_options
-    }
-    print_debug("[engine-chat] request: {}", request)
-    url = config_options['endpoint_url']
-    response = openai_request(url, request, http_options)
-
-    def _choices(resp):
-        choices = resp.get('choices', [{}])
-
-        # NOTE choices may exist in the response, but be an empty list.
-        if not choices:
-            return [{}]
-
-        return choices
-
-    def map_chunk_no_stream(resp):
-        print_debug("[engine-chat] response: {}", resp)
-        return _choices(resp)[0].get('message', {}).get('content', '')
-
-    def map_chunk_stream(resp):
-        print_debug("[engine-chat] response: {}", resp)
-        return _choices(resp)[0].get('delta', {}).get('content', '')
-
-    map_chunk = map_chunk_stream if openai_options['stream'] else map_chunk_no_stream
-
-    return map(map_chunk, response)
-
 def read_role_files():
     plugin_root = vim.eval("s:plugin_root")
     default_roles_config_path = str(os.path.join(plugin_root, "roles-default.ini"))
@@ -359,3 +304,16 @@ def save_b64_to_file(path, b64_data):
     f = open(path, "wb")
     f.write(base64.b64decode(b64_data))
     f.close()
+
+def load_provider(provider_name):
+    try:
+        providers = vim.eval("g:vim_ai_providers")
+        provider_config = providers[provider_name]
+        provider_path = provider_config['script_path']
+        provider_class_name = provider_config['class_name']
+        vim.command(f"py3file {provider_path}")
+        provider_class = globals()[provider_class_name]
+    except KeyError as error:
+        print_debug("[load-provider] provider: {}", error)
+        raise error
+    return provider_class

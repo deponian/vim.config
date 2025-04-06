@@ -59,6 +59,8 @@ M.normalize_selected = function(selected, opts)
   -- so it can always be enumerated safely
   if not selected then return end
   local actions = opts.actions
+  -- Backward compat, "default" action trumps "enter"
+  if actions.default then actions.enter = actions.default end
   if utils.has(opts, "fzf", { 0, 53 }) or utils.has(opts, "sk", { 0, 14 }) then
     -- Using the new `print` action keybind is expected at `selected[1]`
     -- NOTE: if `--select-1|-q` was used we'll be missing the keybind
@@ -145,12 +147,18 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
       -- Something is not right, goto next entry
       if not fullpath then return end
       if not path.is_absolute(fullpath) then
+        -- cwd priority is first user supplied, then original call cwd
+        -- technically we should never get to the `uv.cwd()` fallback
         fullpath = path.join({ opts.cwd or opts._cwd or uv.cwd(), fullpath })
       end
+      -- always open files relative to the current win/tab cwd (#1854)
+      local relpath = path.relative_to(fullpath, uv.cwd())
       -- opts.__CTX isn't guaranteed by API users (#1414)
       local CTX = opts.__CTX or utils.CTX()
-      local target_equals_current = entry.bufnr and entry.bufnr == CTX.bufnr
-          or path.equals(fullpath, CTX.bname)
+      local target_equals_current =
+          (entry.bufnr and entry.bufnr == CTX.bufnr or path.equals(fullpath, CTX.bname))
+          -- we open a new buffer on tabs so target is always different (#1785)
+          and not _vimcmd:match("^tabnew")
       local vimcmd = (function()
         -- Do not execute "edit" commands if we already have the same buffer/file open
         -- or if we are dealing with a URI as it's open with `vim.lsp.util.show_document`
@@ -203,12 +211,12 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
           -- Force full paths when `autochdir=true` (#882)
           vimcmd = string.format("%s %s", vimcmd, (function()
             -- `:argdel|:argadd` uses only paths
-            if vimcmd:match("^arg") then return entry.path end
+            -- argdel only accepts relative path (#1949)
+            if vimcmd:match("^arg") then return path.relative_to(entry.path, uv.cwd()) end
             if entry.bufnr then return tostring(entry.bufnr) end
             -- We normalize the path or Windows will fail with directories starting
             -- with special characters, for example "C:\app\(web)" will be translated
             -- by neovim to "c:\app(web)" (#1082)
-            local relpath = vim.o.autochdir and fullpath or path.relative_to(entry.path, uv.cwd())
             return vim.fn.fnameescape(path.normalize(relpath))
           end)())
         end
@@ -267,7 +275,8 @@ M.file_vsplit = function(selected, opts)
 end
 
 M.file_tabedit = function(selected, opts)
-  local vimcmd = "tab split | <auto>"
+  -- local vimcmd = "tab split | <auto>"
+  local vimcmd = "tabnew | setlocal bufhidden=wipe | <auto>"
   M.vimcmd_entry(vimcmd, selected, opts)
 end
 
@@ -423,6 +432,8 @@ end
 M.arg_add = function(selected, opts)
   local vimcmd = "argadd"
   M.vimcmd_entry(vimcmd, selected, opts)
+  ---@diagnostic disable-next-line: param-type-mismatch
+  pcall(vim.cmd, "argdedupe")
 end
 
 M.arg_del = function(selected, opts)
@@ -511,6 +522,19 @@ M.goto_mark = function(selected)
   -- vim.fn.feedkeys(string.format("'%s", mark))
 end
 
+M.mark_del = function(selected)
+  local win = utils.CTX().winid
+  local buf = utils.CTX().bufnr
+  vim.api.nvim_win_call(win, function()
+    vim.tbl_map(function(s)
+      local mark = s:match "[^ ]+"
+      local ok, res = pcall(vim.api.nvim_buf_del_mark, buf, mark)
+      if ok and res then return end
+      return vim.cmd.delm(mark)
+    end, selected)
+  end)
+end
+
 M.goto_jump = function(selected, opts)
   if opts.jump_using_norm then
     local jump, _, _, _ = selected[1]:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
@@ -550,7 +574,67 @@ for _, fname in ipairs({ "edit", "split", "vsplit", "tabedit" }) do
   end
 end
 
+local nvim_opt_edit = function(selected, opts, scope)
+  local nvim_set_option = function(opt, val, info)
+    local set_opts = {}
+    if scope == "local" then
+      if info.scope == "global" then
+        utils.warn("Cannot set global option " .. opt .. " in local scope")
+        return
+      elseif info.scope == "win" then
+        set_opts.win = opts.__CTX.winid
+      elseif info.scope == "buf" then
+        set_opts.buf = opts.__CTX.bufnr
+      end
+    elseif scope == "global" then
+      if (info.scope == "win" or info.scope == "buf") and info.global_local ~= true then
+        utils.warn("Cannot set local option " .. opt .. " in global scope")
+        return
+      end
+    end
+
+    local ok, err = pcall(vim.api.nvim_set_option_value, opt, val, set_opts)
+    if not ok and err then utils.warn(err) end
+  end
+
+  local show_option_value_input = function(option, old, info)
+    local updated = utils.input(
+      (scope == "local" and ":setlocal " or ":set ") .. option .. "=", old)
+    if not updated or updated == old then return end
+
+    if info.type == "number" then
+      updated = tonumber(updated)
+    end
+    nvim_set_option(option, updated, info)
+  end
+
+  local parts = vim.split(selected[1], opts.separator)
+  local option = vim.trim(parts[1])
+  local old = vim.trim(parts[2])
+  local info = vim.api.nvim_get_option_info2(option, {})
+
+  vim.api.nvim_win_call(opts.__CTX.winid, function()
+    if info.type == "boolean" then
+      local str2bool = { ["true"] = true, ["false"] = false }
+      nvim_set_option(option, not str2bool[old], info)
+    elseif info.type == "number" then
+      show_option_value_input(option, tonumber(old), info)
+    else
+      show_option_value_input(option, old, info)
+    end
+  end)
+end
+
+M.nvim_opt_edit_local = function(selected, opts)
+  return nvim_opt_edit(selected, opts, "local")
+end
+
+M.nvim_opt_edit_global = function(selected, opts)
+  return nvim_opt_edit(selected, opts, "global")
+end
+
 M.spell_apply = function(selected)
+  if not selected[1] then return false end
   local word = selected[1]
   vim.cmd("normal! ciw" .. word)
   vim.cmd("stopinsert")
@@ -590,7 +674,8 @@ M.help_vert = function(selected, opts)
 end
 
 M.help_tab = function(selected, opts)
-  vim.cmd("tab help " .. helptags(selected, opts)[1])
+  -- vim.cmd("tab help " .. helptags(selected, opts)[1])
+  vim.cmd("tabnew | setlocal bufhidden=wipe | help " .. helptags(selected, opts)[1] .. " | only")
 end
 
 local function mantags(s)
@@ -606,7 +691,8 @@ M.man_vert = function(selected)
 end
 
 M.man_tab = function(selected)
-  vim.cmd("tab Man " .. mantags(selected)[1])
+  -- vim.cmd("tab Man " .. mantags(selected)[1])
+  vim.cmd("tabnew | setlocal bufhidden=wipe | Man " .. mantags(selected)[1] .. " | only")
 end
 
 M.git_switch = function(selected, opts)
@@ -687,6 +773,7 @@ local match_commit_hash = function(line, opts)
 end
 
 M.git_yank_commit = function(selected, opts)
+  if not selected[1] then return end
   local commit_hash = match_commit_hash(selected[1], opts)
   local reg
   if vim.o.clipboard == "unnamed" then

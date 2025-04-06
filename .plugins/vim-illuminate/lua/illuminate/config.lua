@@ -20,11 +20,12 @@ local config = {
     providers_regex_syntax_allowlist = {},
     under_cursor = true,
     max_file_lines = nil,
-    large_file_cutoff = nil,
+    large_file_cutoff = 10000,
     large_file_config = nil,
     min_count_to_highlight = 1,
     should_enable = nil,
     case_insensitive_regex = false,
+    disable_keymaps = false,
 }
 
 function M.set(config_overrides)
@@ -132,6 +133,10 @@ end
 
 function M.case_insensitive_regex()
     return M.get()['case_insensitive_regex']
+end
+
+function M.disable_keymaps()
+    return M.get()['disable_keymaps']
 end
 
 return M

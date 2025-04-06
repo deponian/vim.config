@@ -4,7 +4,7 @@ local lsp = vim.lsp
 local function fix_all(opts)
   opts = opts or {}
 
-  local eslint_lsp_client = util.get_active_client_by_name(opts.bufnr, 'eslint')
+  local eslint_lsp_client = vim.lsp.get_clients({ bufnr = opts.bufnr, name = 'eslint' })[1]
   if eslint_lsp_client == nil then
     return
   end
@@ -131,16 +131,8 @@ return {
     end,
     handlers = {
       ['eslint/openDoc'] = function(_, result)
-        if not result then
-          return
-        end
-        local sysname = vim.loop.os_uname().sysname
-        if sysname:match 'Windows' then
-          os.execute(string.format('start %q', result.url))
-        elseif sysname:match 'Linux' then
-          os.execute(string.format('xdg-open %q', result.url))
-        else
-          os.execute(string.format('open %q', result.url))
+        if result then
+          vim.ui.open(result.url)
         end
         return {}
       end,

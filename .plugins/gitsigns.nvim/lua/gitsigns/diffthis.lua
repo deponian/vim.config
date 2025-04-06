@@ -28,7 +28,7 @@ local function bufread(bufnr, dbufnr, base)
     if err then
       error(err, 2)
     end
-    async.scheduler()
+    async.schedule()
     if not api.nvim_buf_is_valid(bufnr) then
       return
     end
@@ -49,16 +49,16 @@ local function bufread(bufnr, dbufnr, base)
   require('gitsigns.attach').attach(dbufnr, nil, 'BufReadCmd')
 end
 
+--- @async
 --- @param bufnr integer
 --- @param dbufnr integer
 --- @param base string?
---- @param _callback? fun()
-local bufwrite = async.create(3, function(bufnr, dbufnr, base, _callback)
+local function bufwrite(bufnr, dbufnr, base)
   local bcache = assert(cache[bufnr])
   local buftext = util.buf_lines(dbufnr)
   base = util.norm_base(base)
   bcache.git_obj:stage_lines(buftext)
-  async.scheduler()
+  async.schedule()
   if not api.nvim_buf_is_valid(bufnr) then
     return
   end
@@ -69,7 +69,7 @@ local bufwrite = async.create(3, function(bufnr, dbufnr, base, _callback)
     bcache.compare_text = buftext
     manager.update(bufnr)
   end
-end)
+end
 
 --- @async
 --- Create a gitsigns buffer for a certain revision of a file
@@ -93,7 +93,7 @@ local function create_revision_buf(bufnr, base)
   local ok, err = pcall(bufread, bufnr, dbuf, base)
   if not ok then
     message.error(err --[[@as string]])
-    async.scheduler()
+    async.schedule()
     api.nvim_buf_delete(dbuf, { force = true })
     return
   end
@@ -106,7 +106,7 @@ local function create_revision_buf(bufnr, base)
       group = 'gitsigns',
       buffer = dbuf,
       callback = function()
-        async.run(bufread, bufnr, dbuf, base)
+        async.arun(bufread, bufnr, dbuf, base)
       end,
     })
 
@@ -114,7 +114,7 @@ local function create_revision_buf(bufnr, base)
       group = 'gitsigns',
       buffer = dbuf,
       callback = function()
-        bufwrite(bufnr, dbuf, base)
+        async.arun(bufwrite, bufnr, dbuf, base)
       end,
     })
   else
@@ -126,8 +126,8 @@ local function create_revision_buf(bufnr, base)
 end
 
 --- @class Gitsigns.DiffthisOpts
---- @field vertical boolean
---- @field split string
+--- @field vertical? boolean
+--- @field split? string
 
 --- @async
 --- @param base string?
@@ -252,10 +252,11 @@ local function is_fugitive_diff_window(name)
     and vim.fn.FugitiveParse(name)[1] ~= ':'
 end
 
--- This function needs to be throttled as there is a call to vim.ui.input
+--- This function needs to be throttled as there is a call to vim.ui.input
+--- @async
 --- @param bufnr integer
 --- @param _callback? fun()
-M.update = throttle_by_id(async.create(1, function(bufnr, _callback)
+M.update = throttle_by_id(function(bufnr, _callback)
   if not vim.wo.diff then
     return
   end
@@ -278,6 +279,6 @@ M.update = throttle_by_id(async.create(1, function(bufnr, _callback)
       end
     end
   end
-end))
+end)
 
 return M

@@ -1,3 +1,5 @@
+local util = require('gitsigns.util')
+
 local api = vim.api
 
 local M = {}
@@ -57,7 +59,7 @@ end
 --- @field end_col? integer
 
 --- Each element represents a multi-line segment
---- @alias Gitsigns.LineSpec { [1]: string, [2]: Gitsigns.HlMark[]}[][]
+--- @alias Gitsigns.LineSpec [string, string|Gitsigns.HlMark[]][][]
 
 --- @param hlmarks Gitsigns.HlMark[]
 --- @param row_offset integer
@@ -250,7 +252,7 @@ local function create_win(bufnr, opts, id)
   return winid
 end
 
---- @param lines_spec {[1]: string, [2]: string|Gitsigns.HlMark[]}[][]
+--- @param lines_spec Gitsigns.LineSpec
 --- @param opts table
 --- @param id? string
 --- @return integer winid, integer bufnr
@@ -279,6 +281,21 @@ function M.focus_open(id)
     api.nvim_set_current_win(winid)
   end
   return winid
+end
+
+--- @param fmt Gitsigns.LineSpec
+--- @param info table
+--- @return Gitsigns.LineSpec
+function M.lines_format(fmt, info)
+  local ret = vim.deepcopy(fmt)
+
+  for _, line in ipairs(ret) do
+    for _, s in ipairs(line) do
+      s[1] = util.expand_format(s[1], info)
+    end
+  end
+
+  return ret
 end
 
 return M

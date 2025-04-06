@@ -22,7 +22,7 @@
 (number) @number
 
 (field
-  name: (identifier) @variable.member)
+  name: (identifier) @property)
 
 (token
   (identifier) @variable.parameter)
@@ -32,10 +32,17 @@
   (quote_word)
 ] @string
 
+((field
+  name: (identifier) @_url
+  value: (value
+    (token
+      (brace_word) @string.special.url)))
+  (#any-of? @_url "url" "doi"))
+
 [
   (key_brace)
   (key_paren)
-] @string.special.symbol
+] @markup.link.label
 
 (string
   name: (identifier) @constant)

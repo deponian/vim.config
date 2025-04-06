@@ -1,5 +1,9 @@
 local async = require('gitsigns.async')
+local config = require('gitsigns.config').config
+local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
+
+local api = vim.api
 
 local M = {
   CacheEntry = {},
@@ -85,8 +89,6 @@ local BLAME_THRESHOLD_LEN = 10000
 --- @return boolean? full
 function CacheEntry:run_blame(lnum, opts)
   local bufnr = self.bufnr
-  local blame --- @type table<integer,Gitsigns.BlameInfo?>?
-  local lnum0 --- @type integer?
 
   -- Always send contents if buffer represents an editable file on disk.
   -- Otherwise do not sent contents buffer revision is from tree and git version
@@ -97,19 +99,20 @@ function CacheEntry:run_blame(lnum, opts)
   local send_contents = vim.bo[bufnr].buftype == ''
     or (not self.git_obj:from_tree() and not require('gitsigns.git.version').check(2, 41))
 
-  repeat
-    local buftext = util.buf_lines(bufnr, true)
-    local contents = send_contents and buftext or nil
+  while true do
+    local contents = send_contents and util.buf_lines(bufnr) or nil
     local tick = vim.b[bufnr].changedtick
-    lnum0 = #buftext > BLAME_THRESHOLD_LEN and lnum or nil
+    local lnum0 = api.nvim_buf_line_count(bufnr) > BLAME_THRESHOLD_LEN and lnum or nil
     -- TODO(lewis6991): Cancel blame on changedtick
-    blame = self.git_obj:run_blame(contents, lnum0, self.git_obj.revision, opts)
-    async.scheduler()
-    if not vim.api.nvim_buf_is_valid(bufnr) then
+    local blame = self.git_obj:run_blame(contents, lnum0, self.git_obj.revision, opts)
+    async.schedule()
+    if not api.nvim_buf_is_valid(bufnr) then
       return {}
     end
-  until vim.b[bufnr].changedtick == tick
-  return blame, lnum0 == nil
+    if vim.b[bufnr].changedtick == tick then
+      return blame, lnum0 == nil
+    end
+  end
 end
 
 --- @private
@@ -126,7 +129,7 @@ function CacheEntry:blame_valid(lnum)
   end
 
   -- Need to check we have blame info for all lines
-  for i = 1, vim.api.nvim_buf_line_count(self.bufnr) do
+  for i = 1, api.nvim_buf_line_count(self.bufnr) do
     if not blame[i] then
       return false
     end
@@ -150,7 +153,8 @@ function CacheEntry:get_blame(lnum, opts)
     if lnum and Hunks.find_hunk(lnum, self.hunks) then
       --- Bypass running blame (which can be expensive) if we know lnum is in a hunk
       local Blame = require('gitsigns.git.blame')
-      blame[lnum] = Blame.get_blame_nc(self.git_obj.relpath, lnum)
+      local relpath = assert(self.git_obj.relpath)
+      blame[lnum] = Blame.get_blame_nc(relpath, lnum)
     else
       -- Refresh/update cache
       local b, full = self:run_blame(lnum, opts)
@@ -166,6 +170,124 @@ function CacheEntry:get_blame(lnum, opts)
   return blame[lnum]
 end
 
+--- @async
+--- @nodiscard
+--- @param check_compare_text? boolean
+--- @return boolean
+function CacheEntry:schedule(check_compare_text)
+  async.schedule()
+  local bufnr = self.bufnr
+  if not api.nvim_buf_is_valid(bufnr) then
+    log.dprint('Buffer not valid, aborting')
+    return false
+  end
+
+  if not M.cache[bufnr] then
+    log.dprint('Has detached, aborting')
+    return false
+  end
+
+  if check_compare_text and not M.cache[bufnr].compare_text then
+    log.dprint('compare_text was invalid, aborting')
+    return false
+  end
+
+  return true
+end
+
+--- @async
+function CacheEntry:get_hunks(greedy, staged)
+  if greedy and config.diff_opts.linematch then
+    -- Re-run the diff without linematch
+    local buftext = util.buf_lines(self.bufnr)
+    local text --- @type string[]?
+    if staged then
+      text = self.compare_text_head
+    else
+      text = self.compare_text
+    end
+    if not text then
+      return
+    end
+    local run_diff = require('gitsigns.diff')
+    local hunks = run_diff(text, buftext, false)
+    if not self:schedule() then
+      return
+    end
+    return hunks
+  end
+
+  if staged then
+    return vim.deepcopy(self.hunks_staged)
+  end
+
+  return vim.deepcopy(self.hunks)
+end
+
+--- @param hunks? Gitsigns.Hunk.Hunk[]?
+--- @return Gitsigns.Hunk.Hunk? hunk
+--- @return integer? index
+function CacheEntry:get_cursor_hunk(hunks)
+  if not hunks then
+    hunks = {}
+    vim.list_extend(hunks, self.hunks or {})
+    vim.list_extend(hunks, self.hunks_staged or {})
+  end
+
+  local lnum = api.nvim_win_get_cursor(0)[1]
+  local Hunks = require('gitsigns.hunks')
+  return Hunks.find_hunk(lnum, hunks)
+end
+
+--- @async
+--- @param range? [integer,integer]
+--- @param greedy? boolean
+--- @param staged? boolean
+--- @return Gitsigns.Hunk.Hunk?
+function CacheEntry:get_hunk(range, greedy, staged)
+  local Hunks = require('gitsigns.hunks')
+
+  local hunks = self:get_hunks(greedy, staged)
+
+  if not range then
+    return self:get_cursor_hunk(hunks)
+  end
+
+  table.sort(range)
+  local top, bot = range[1], range[2]
+  local hunk = Hunks.create_partial_hunk(hunks or {}, top, bot)
+  if not hunk then
+    return
+  end
+
+  if staged then
+    local staged_top, staged_bot = top, bot
+    for _, h in ipairs(assert(self.hunks)) do
+      if top > h.vend then
+        staged_top = staged_top - (h.added.count - h.removed.count)
+      end
+      if bot > h.vend then
+        staged_bot = staged_bot - (h.added.count - h.removed.count)
+      end
+    end
+
+    hunk.added.lines = vim.list_slice(self.compare_text, staged_top, staged_bot)
+    hunk.removed.lines = vim.list_slice(
+      self.compare_text_head,
+      hunk.removed.start,
+      hunk.removed.start + hunk.removed.count - 1
+    )
+  else
+    hunk.added.lines = api.nvim_buf_get_lines(self.bufnr, top - 1, bot, false)
+    hunk.removed.lines = vim.list_slice(
+      self.compare_text,
+      hunk.removed.start,
+      hunk.removed.start + hunk.removed.count - 1
+    )
+  end
+  return hunk
+end
+
 function CacheEntry:destroy()
   local w = self.gitdir_watcher
   if w and not w:is_closing() then
@@ -179,7 +301,7 @@ M.cache = {}
 
 --- @param bufnr integer
 function M.destroy(bufnr)
-  M.cache[bufnr]:destroy()
+  assert(M.cache[bufnr]):destroy()
   M.cache[bufnr] = nil
 end
 

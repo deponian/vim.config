@@ -425,8 +425,9 @@ function M.entry_to_file(entry, opts, force_uri)
   stripped = M.tilde_to_HOME(stripped)
   -- Prepend cwd unless entry is already a URI (e.g. nvim-jdtls "jdt://...")
   local isURI = stripped:match("^%a+://")
-  if opts.cwd and #opts.cwd > 0 and not isURI and not M.is_absolute(stripped) then
-    stripped = M.join({ opts.cwd, stripped })
+  local cwd = opts.cwd or opts._cwd
+  if cwd and #cwd > 0 and not isURI and not M.is_absolute(stripped) then
+    stripped = M.join({ cwd, stripped })
   end
   --Force LSP jumps using `vim.lsp.util.show_document` so that LSP entries are
   --added to the tag stack (see `:help gettagstack`)
@@ -626,6 +627,21 @@ function M.ft_match(args)
   vim.fn.fnamemodify = _fnamemodify
   vim.env = _env
   if ok then return ft, on_detect end
+end
+
+function M.ft_match_fast_event(args)
+  local co = coroutine.running()
+  if co and vim.in_fast_event() then
+    local ft
+    vim.schedule(function()
+      -- We're already scheduling, safe to use the original API
+      ft = vim.filetype.match(args)
+      coroutine.resume(co, ft)
+    end)
+    return coroutine.yield()
+  else
+    return M.ft_match(args)
+  end
 end
 
 return M

@@ -10,27 +10,25 @@ local cache = require('gitsigns.cache').cache
 local config = require('gitsigns.config').config
 local throttle_by_id = require('gitsigns.debounce').throttle_by_id
 local debounce_trailing = require('gitsigns.debounce').debounce_trailing
-local manager = require('gitsigns.manager')
 
 local dprint = log.dprint
 local dprintf = log.dprintf
 
 --- @param bufnr integer
---- @param old_relpath string
+--- @param old_relpath? string
 local function handle_moved(bufnr, old_relpath)
   local bcache = assert(cache[bufnr])
   local git_obj = bcache.git_obj
 
-  local new_name = git_obj:has_moved()
+  git_obj.orig_relpath = assert(git_obj.orig_relpath or old_relpath)
+  local new_name = git_obj.repo:rename_status()[git_obj.orig_relpath]
   if new_name then
     dprintf('File moved to %s', new_name)
     git_obj.relpath = new_name
-    if not git_obj.orig_relpath then
-      git_obj.orig_relpath = old_relpath
-    end
+    git_obj.file = git_obj.repo.toplevel .. '/' .. new_name
   elseif git_obj.orig_relpath then
     local orig_file = git_obj.repo.toplevel .. util.path_sep .. git_obj.orig_relpath
-    if not git_obj:file_info(orig_file).relpath then
+    if not git_obj.repo:file_info(orig_file, git_obj.revision) then
       return
     end
     --- File was moved in the index, but then reset
@@ -44,8 +42,8 @@ local function handle_moved(bufnr, old_relpath)
 
   git_obj.file = git_obj.repo.toplevel .. util.path_sep .. git_obj.relpath
   bcache.file = git_obj.file
-  git_obj:update()
-  if not manager.schedule(bufnr) then
+  git_obj:refresh()
+  if not bcache:schedule() then
     return
   end
 
@@ -70,18 +68,23 @@ end
 local function watcher_handler0(bufnr)
   local __FUNC__ = 'watcher_handler'
 
+  local bcache = cache[bufnr]
+  if not bcache then
+    return
+  end
+
   -- Avoid cache hit for detached buffer
   -- ref: https://github.com/lewis6991/gitsigns.nvim/issues/956
-  if not manager.schedule(bufnr) then
+  if not bcache:schedule() then
     dprint('buffer invalid (1)')
     return
   end
 
-  local git_obj = cache[bufnr].git_obj
+  local git_obj = bcache.git_obj
 
   git_obj.repo:update_abbrev_head()
 
-  if not manager.schedule(bufnr) then
+  if not bcache:schedule() then
     dprint('buffer invalid (2)')
     return
   end
@@ -91,8 +94,8 @@ local function watcher_handler0(bufnr)
   local was_tracked = git_obj.object_name ~= nil
   local old_relpath = git_obj.relpath
 
-  git_obj:update()
-  if not manager.schedule(bufnr) then
+  git_obj:refresh()
+  if not bcache:schedule() then
     dprint('buffer invalid (3)')
     return
   end
@@ -101,7 +104,7 @@ local function watcher_handler0(bufnr)
     -- File was tracked but is no longer tracked. Must of been removed or
     -- moved. Check if it was moved and switch to it.
     handle_moved(bufnr, old_relpath)
-    if not manager.schedule(bufnr) then
+    if not bcache:schedule() then
       dprint('buffer invalid (4)')
       return
     end

@@ -41,16 +41,21 @@ local function load_config_section(s, datatype, optional)
     if ok and is_bytecode then
       ok, res = pcall(loadstring, res)
     end
+    ---@diagnostic disable-next-line: undefined-field
+    if _G._debug == "v" or _G._debug == "verbose" then
+      ---@diagnostic disable-next-line: undefined-field
+      io.stdout:write(("[DEBUG] [load_config] %s = %s" .. (_G._EOL or "\n"))
+        :format(s, not ok and errmsg or res))
+    end
     if not ok and not optional then
-      io.stderr:write(("Error loading remote config section '%s': %s\n")
-        :format(s, errmsg))
+      io.stderr:write(("Error loading remote config section '%s': %s\n"):format(s, errmsg))
     elseif ok and type(res) == datatype then
       return res
     end
   end
 end
 
-if not config then
+if _G._fzf_lua_is_headless then
   local _config = { globals = { git = {}, files = {}, grep = {} } }
   _config.globals.git.icons = load_config_section("globals.git.icons", "table") or {}
   _config.globals.files.git_status_cmd =
@@ -197,9 +202,18 @@ M.preprocess = function(opts)
       end
     end
 
+    -- For custom command transformations (#1927)
+    opts.fn_transform_cmd =
+        load_config_section("__resume_data.opts.fn_transform_cmd", "function", true)
+
     -- did the caller request rg with glob support?
     -- manipulation needs to be done before the argv replacement
-    if opts.rg_glob then
+    if opts.fn_transform_cmd then
+      local query = argv(nil, opts.debug)
+      local new_cmd, new_query = opts.fn_transform_cmd(query, opts.cmd:gsub(argvz, ""), opts)
+      opts.cmd = new_cmd or opts.cmd
+      opts.cmd = opts.cmd:gsub(argvz, libuv.shellescape(new_query or query))
+    elseif opts.rg_glob then
       local query = argv(nil, opts.debug)
       local search_query, glob_args = M.glob_parse(query, opts)
       if glob_args then

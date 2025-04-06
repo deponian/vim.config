@@ -64,6 +64,7 @@ local function show()
     height    = 1,
     noautocmd = true,
     style     = "minimal",
+    border    = "none"
   })
 
   local ns_id = vim.api.nvim_get_namespaces()["NvimTreeHighlights"]
@@ -80,7 +81,7 @@ local function show()
       local details = extmark[4]
 
       if type(details) == "table" then
-        if vim.fn.has("nvim-0.12") == 1 then
+        if vim.fn.has("nvim-0.11") == 1 and vim.hl and vim.hl.range then
           vim.hl.range(0, ns_id, details.hl_group, { 0, col }, { 0, details.end_col, }, {})
         else
           vim.api.nvim_buf_add_highlight(0, ns_id, details.hl_group, 0, col, details.end_col) ---@diagnostic disable-line: deprecated

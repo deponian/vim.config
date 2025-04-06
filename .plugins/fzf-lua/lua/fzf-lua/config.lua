@@ -62,13 +62,19 @@ end
 M.setup_opts = {}
 M.globals = setmetatable({}, {
   __index = function(_, index)
+    local function setup_opts()
+      return M._profile_opts or M.setup_opts
+    end
+    local function setup_defaults()
+      return M._profile_opts and (M._profile_opts.defaults or {}) or M.setup_opts.defaults or {}
+    end
     -- build normalized globals, option priority below:
     --   (1) provider specific globals (post-setup)
     --   (2) generic global-defaults (post-setup), i.e. `setup({ defaults = { ... } })`
     --   (3) fzf-lua's true defaults (pre-setup, static)
     local fzflua_default = utils.map_get(M.defaults, index)
-    local setup_default = utils.map_get(M.setup_opts.defaults, index)
-    local setup_value = utils.map_get(M.setup_opts, index)
+    local setup_default = utils.map_get(setup_defaults(), index)
+    local setup_value = utils.map_get(setup_opts(), index)
     local function build_bind_tables(keys)
       -- bind tables are logical exception, do not merge with defaults unless `[1] == true`
       -- normalize all binds as lowercase to prevent duplicate keys (#654)
@@ -108,10 +114,10 @@ M.globals = setmetatable({}, {
         or (setup_value and (setup_value.actions or setup_value._actions)) then
       -- (2) the existence of the `actions` key implies we're dealing with a picker
       -- override global provider defaults supplied by the user's setup `defaults` table
-      ret = vim.tbl_deep_extend("force", ret, M.setup_opts.defaults or {})
+      ret = vim.tbl_deep_extend("force", ret, setup_defaults())
     end
     -- (3) override with the specific provider options from the users's `setup` option
-    ret = vim.tbl_deep_extend("force", ret, utils.map_get(M.setup_opts, index) or {})
+    ret = vim.tbl_deep_extend("force", ret, utils.map_get(setup_opts(), index) or {})
     return ret
   end,
   __newindex = function(_, index, _)
@@ -127,6 +133,11 @@ do
   m.globals = M.globals
 end
 
+local eval = function(v, ...)
+  if vim.is_callable(v) then return v(...) end
+  return v
+end
+
 ---@param opts table<string, unknown>|fun():table?
 ---@param globals string|table?
 ---@param __resume_key string?
@@ -136,6 +147,17 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- opts can also be a function that returns an opts table
   if type(opts) == "function" then
     opts = opts()
+  end
+
+  local profile = opts.profile or (function()
+    if type(globals) == "string" then
+      local picker_opts = M.globals[globals]
+      return picker_opts.profile or picker_opts[1]
+    end
+  end)()
+  if profile then
+    -- TODO: we should probably cache the profiles
+    M._profile_opts = utils.load_profiles(profile, 1)
   end
 
   -- expand opts that were specified with a dot
@@ -223,10 +245,10 @@ function M.normalize_opts(opts, globals, __resume_key)
     } or nil
   end
   local exclude_case_sensitive_alt = "^alt%-%a$"
-  opts.keymap = keymap_tolower(opts.keymap, exclude_case_sensitive_alt)
-  opts.actions = utils.map_tolower(opts.actions, exclude_case_sensitive_alt)
-  globals.keymap = keymap_tolower(globals.keymap, exclude_case_sensitive_alt)
-  globals.actions = utils.map_tolower(globals.actions, exclude_case_sensitive_alt)
+  opts.keymap = keymap_tolower(eval(opts.keymap, opts), exclude_case_sensitive_alt)
+  opts.actions = utils.map_tolower(eval(opts.actions, opts), exclude_case_sensitive_alt)
+  globals.keymap = keymap_tolower(eval(globals.keymap, opts), exclude_case_sensitive_alt)
+  globals.actions = utils.map_tolower(eval(globals.actions, opts), exclude_case_sensitive_alt)
 
   -- inherit from globals.actions?
   if type(globals._actions) == "function" then
@@ -382,6 +404,8 @@ function M.normalize_opts(opts, globals, __resume_key)
     { "cwd_prompt",                             "show_cwd_prompt" },
     { "resume",                                 "continue_last_search" },
     { "resume",                                 "repeat_last_search" },
+    { "jump1",                                  "jump_to_single_result" },
+    { "jump1_action",                           "jump_to_single_result_action" },
     { "hls.normal",                             "winopts.hl_normal" },
     { "hls.border",                             "winopts.hl_border" },
     { "hls.cursor",                             "previewers.builtin.hl_cursor" },
@@ -566,9 +590,11 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- we need the original `cwd` with `autochdir=true` (#882)
   -- use `_cwd` to not interfere with supplied users' options
   -- as this can have unintended effects (e.g. in "buffers")
-  if vim.o.autochdir and not opts.cwd then
-    opts._cwd = uv.cwd()
-  end
+  -- NOTE: we now always get the original cwd as there are
+  -- other user scenarios which need to use `opts._cwd`, for
+  -- exmaple, using the "hide" profile and resuming fzf-lua
+  -- from another tab after a `:tcd <dir>` (#1854)
+  opts._cwd = uv.cwd()
 
   if opts.cwd and #opts.cwd > 0 then
     -- NOTE: on Windows, `expand` will replace all backslashes with forward slashes
@@ -675,6 +701,7 @@ function M.normalize_opts(opts, globals, __resume_key)
           -- All fzf flags not existing in skim
           ["all"] = {
             fzf_opts = {
+              ["--scheme"]         = false,
               ["--gap"]            = false,
               ["--info"]           = false,
               ["--border"]         = false,
@@ -686,6 +713,7 @@ function M.normalize_opts(opts, globals, __resume_key)
         }
       else
         return "fzf", opts.__FZF_VERSION, {
+          ["0.59"] = { fzf_opts = { ["--scheme"] = "path" } },
           ["0.56"] = { fzf_opts = { ["--gap"] = true } },
           ["0.54"] = {
             fzf_opts = {
@@ -847,6 +875,9 @@ function M.normalize_opts(opts, globals, __resume_key)
     opts = opts.enrich(opts)
   end
 
+  -- nullify profile options
+  M._profile_opts = nil
+
   -- mark as normalized
   opts._normalized = true
 
@@ -878,16 +909,16 @@ M.get_action_helpstr = function(fn)
 end
 
 M._action_to_helpstr = {
-  [actions.dummy_abort]         = "abort",
-  [actions.file_edit]           = "file-edit",
-  [actions.file_edit_or_qf]     = "file-edit-or-qf",
-  [actions.file_split]          = "file-split",
-  [actions.file_vsplit]         = "file-vsplit",
-  [actions.file_tabedit]        = "file-tabedit",
-  [actions.file_sel_to_qf]      = "file-selection-to-qf",
-  [actions.file_sel_to_ll]      = "file-selection-to-loclist",
-  [actions.file_switch]         = "file-switch",
-  [actions.file_switch_or_edit] = "file-switch-or-edit",
+  [actions.dummy_abort]          = "abort",
+  [actions.file_edit]            = "file-edit",
+  [actions.file_edit_or_qf]      = "file-edit-or-qf",
+  [actions.file_split]           = "file-split",
+  [actions.file_vsplit]          = "file-vsplit",
+  [actions.file_tabedit]         = "file-tabedit",
+  [actions.file_sel_to_qf]       = "file-selection-to-qf",
+  [actions.file_sel_to_ll]       = "file-selection-to-loclist",
+  [actions.file_switch]          = "file-switch",
+  [actions.file_switch_or_edit]  = "file-switch-or-edit",
   -- Since default actions refactor these are just refs to
   -- their correspondent `file_xxx` equivalents
   -- [actions.buf_edit]            = "buffer-edit",
@@ -899,64 +930,66 @@ M._action_to_helpstr = {
   -- [actions.buf_tabedit]         = "buffer-tabedit",
   -- [actions.buf_switch]          = "buffer-switch",
   -- [actions.buf_switch_or_edit]  = "buffer-switch-or-edit",
-  [actions.buf_del]             = "buffer-delete",
-  [actions.run_builtin]         = "run-builtin",
-  [actions.ex_run]              = "edit-cmd",
-  [actions.ex_run_cr]           = "exec-cmd",
-  [actions.exec_menu]           = "exec-menu",
-  [actions.search]              = "edit-search",
-  [actions.search_cr]           = "exec-search",
-  [actions.goto_mark]           = "goto-mark",
-  [actions.goto_jump]           = "goto-jump",
-  [actions.keymap_apply]        = "keymap-apply",
-  [actions.keymap_edit]         = "keymap-edit",
-  [actions.keymap_split]        = "keymap-split",
-  [actions.keymap_vsplit]       = "keymap-vsplit",
-  [actions.keymap_tabedit]      = "keymap-tabedit",
-  [actions.spell_apply]         = "spell-apply",
-  [actions.set_filetype]        = "set-filetype",
-  [actions.packadd]             = "packadd",
-  [actions.help]                = "help-open",
-  [actions.help_vert]           = "help-vertical",
-  [actions.help_tab]            = "help-tab",
-  [actions.man]                 = "man-open",
-  [actions.man_vert]            = "man-vertical",
-  [actions.man_tab]             = "man-tab",
-  [actions.git_branch_add]      = "git-branch-add",
-  [actions.git_branch_del]      = "git-branch-del",
-  [actions.git_switch]          = "git-switch",
-  [actions.git_checkout]        = "git-checkout",
-  [actions.git_reset]           = "git-reset",
-  [actions.git_stage]           = "git-stage",
-  [actions.git_unstage]         = "git-unstage",
-  [actions.git_stage_unstage]   = "git-stage-unstage",
-  [actions.git_stash_pop]       = "git-stash-pop",
-  [actions.git_stash_drop]      = "git-stash-drop",
-  [actions.git_stash_apply]     = "git-stash-apply",
-  [actions.git_buf_edit]        = "git-buffer-edit",
-  [actions.git_buf_tabedit]     = "git-buffer-tabedit",
-  [actions.git_buf_split]       = "git-buffer-split",
-  [actions.git_buf_vsplit]      = "git-buffer-vsplit",
-  [actions.git_goto_line]       = "git-goto-line",
-  [actions.git_yank_commit]     = "git-yank-commit",
-  [actions.arg_add]             = "arg-list-add",
-  [actions.arg_del]             = "arg-list-delete",
-  [actions.toggle_ignore]       = "toggle-ignore",
-  [actions.toggle_hidden]       = "toggle-hidden",
-  [actions.toggle_follow]       = "toggle-follow",
-  [actions.grep_lgrep]          = "grep<->lgrep",
-  [actions.sym_lsym]            = "sym<->lsym",
-  [actions.tmux_buf_set_reg]    = "set-register",
-  [actions.paste_register]      = "paste-register",
-  [actions.set_qflist]          = "set-{qf|loc}list",
-  [actions.apply_profile]       = "apply-profile",
-  [actions.complete]            = "complete",
-  [actions.dap_bp_del]          = "dap-bp-delete",
-  [actions.colorscheme]         = "colorscheme-apply",
-  [actions.cs_delete]           = "colorscheme-delete",
-  [actions.cs_update]           = "colorscheme-update",
-  [actions.toggle_bg]           = "toggle-background",
-  [actions.cd]                  = "change-directory",
+  [actions.buf_del]              = "buffer-delete",
+  [actions.run_builtin]          = "run-builtin",
+  [actions.ex_run]               = "edit-cmd",
+  [actions.ex_run_cr]            = "exec-cmd",
+  [actions.exec_menu]            = "exec-menu",
+  [actions.search]               = "edit-search",
+  [actions.search_cr]            = "exec-search",
+  [actions.goto_mark]            = "goto-mark",
+  [actions.goto_jump]            = "goto-jump",
+  [actions.keymap_apply]         = "keymap-apply",
+  [actions.keymap_edit]          = "keymap-edit",
+  [actions.keymap_split]         = "keymap-split",
+  [actions.keymap_vsplit]        = "keymap-vsplit",
+  [actions.keymap_tabedit]       = "keymap-tabedit",
+  [actions.nvim_opt_edit_local]  = "nvim-opt-edit-local",
+  [actions.nvim_opt_edit_global] = "nvim-opt-edit-global",
+  [actions.spell_apply]          = "spell-apply",
+  [actions.set_filetype]         = "set-filetype",
+  [actions.packadd]              = "packadd",
+  [actions.help]                 = "help-open",
+  [actions.help_vert]            = "help-vertical",
+  [actions.help_tab]             = "help-tab",
+  [actions.man]                  = "man-open",
+  [actions.man_vert]             = "man-vertical",
+  [actions.man_tab]              = "man-tab",
+  [actions.git_branch_add]       = "git-branch-add",
+  [actions.git_branch_del]       = "git-branch-del",
+  [actions.git_switch]           = "git-switch",
+  [actions.git_checkout]         = "git-checkout",
+  [actions.git_reset]            = "git-reset",
+  [actions.git_stage]            = "git-stage",
+  [actions.git_unstage]          = "git-unstage",
+  [actions.git_stage_unstage]    = "git-stage-unstage",
+  [actions.git_stash_pop]        = "git-stash-pop",
+  [actions.git_stash_drop]       = "git-stash-drop",
+  [actions.git_stash_apply]      = "git-stash-apply",
+  [actions.git_buf_edit]         = "git-buffer-edit",
+  [actions.git_buf_tabedit]      = "git-buffer-tabedit",
+  [actions.git_buf_split]        = "git-buffer-split",
+  [actions.git_buf_vsplit]       = "git-buffer-vsplit",
+  [actions.git_goto_line]        = "git-goto-line",
+  [actions.git_yank_commit]      = "git-yank-commit",
+  [actions.arg_add]              = "arg-list-add",
+  [actions.arg_del]              = "arg-list-delete",
+  [actions.toggle_ignore]        = "toggle-ignore",
+  [actions.toggle_hidden]        = "toggle-hidden",
+  [actions.toggle_follow]        = "toggle-follow",
+  [actions.grep_lgrep]           = "grep<->lgrep",
+  [actions.sym_lsym]             = "sym<->lsym",
+  [actions.tmux_buf_set_reg]     = "set-register",
+  [actions.paste_register]       = "paste-register",
+  [actions.set_qflist]           = "set-{qf|loc}list",
+  [actions.apply_profile]        = "apply-profile",
+  [actions.complete]             = "complete",
+  [actions.dap_bp_del]           = "dap-bp-delete",
+  [actions.colorscheme]          = "colorscheme-apply",
+  [actions.cs_delete]            = "colorscheme-delete",
+  [actions.cs_update]            = "colorscheme-update",
+  [actions.toggle_bg]            = "toggle-background",
+  [actions.cd]                   = "change-directory",
 }
 
 return M

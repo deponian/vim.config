@@ -249,7 +249,9 @@ get_formatter_info({formatter}, {bufnr}): conform.FormatterInfo *conform.get_for
 --------------------------------------------------------------------------------
 FORMATTERS                                                    *conform-formatters*
 
+`air` - R formatter and language server.
 `alejandra` - The Uncompromising Nix Code Formatter.
+`ansible-lint` - ansible-lint with --fix.
 `asmfmt` - Go Assembler Formatter
 `ast-grep` - A CLI tool for code structural search, lint and rewriting. Written
            in Rust.
@@ -284,7 +286,7 @@ FORMATTERS                                                    *conform-formatter
 `buf` - A new way of working with Protocol Buffers.
 `buildifier` - buildifier is a tool for formatting bazel BUILD and .bzl files
              with a standard convention.
-`cabal_fmt` - Format cabal files with cabal-fmt
+`cabal_fmt` - Format cabal files with cabal-fmt.
 `caramel_fmt` - Format Caramel code.
 `cbfmt` - A tool to format codeblocks inside markdown and org documents.
 `clang-format` - Tool to format C/C++/… code according to a set of rules and
@@ -293,6 +295,7 @@ FORMATTERS                                                    *conform-formatter
          Clojure code.
 `cljstyle` - Formatter for Clojure code.
 `cmake_format` - Parse cmake listfiles and format them nicely.
+`codeql` - Format queries and libraries with CodeQL.
 `codespell` - Check code for common misspellings.
 `commitmsgfmt` - Formats commit messages better than fmt(1) and Vim.
 `crlfmt` - Formatter for CockroachDB's additions to the Go style guide.
@@ -356,6 +359,7 @@ FORMATTERS                                                    *conform-formatter
 `goimports-reviser` - Right imports sorting & code formatting tool (goimports
                     alternative).
 `gojq` - Pure Go implementation of jq.
+`golangci-lint` - Fast linters runner for Go (with formatter).
 `golines` - A golang formatter that fixes long lines.
 `google-java-format` - Reformats Java source code according to Google Java
                      Style.
@@ -389,6 +393,10 @@ FORMATTERS                                                    *conform-formatter
 `liquidsoap-prettier` - A binary to format Liquidsoap scripts
 `llf` - A LaTeX reformatter / beautifier.
 `lua-format` - Code formatter for Lua.
+`mago_format` - Mago is a toolchain for PHP that aims to provide a set of tools
+              to help developers write better code.
+`mago_lint` - Mago is a toolchain for PHP that aims to provide a set of tools to
+            help developers write better code.
 `markdown-toc` - API and CLI for generating a markdown TOC (table of contents)
                for a README or any markdown files.
 `markdownfmt` - Like gofmt, but for Markdown.
@@ -412,6 +420,7 @@ FORMATTERS                                                    *conform-formatter
 `nixpkgs_fmt` - nixpkgs-fmt is a Nix code formatter for nixpkgs.
 `nomad_fmt` - The fmt commands check the syntax and rewrites Nomad configuration
             and jobspec files to canonical format.
+`nph` - An opinionated code formatter for Nim.
 `npm-groovy-lint` - Lint, format and auto-fix your Groovy / Jenkinsfile / Gradle
                   files using command line.
 `nufmt` - The nushell formatter.
@@ -446,6 +455,7 @@ FORMATTERS                                                    *conform-formatter
                 comment support.
 `python-ly` - A Python package and commandline tool to manipulate LilyPond
             files.
+`reformat-gherkin` - Formatter for Gherkin language.
 `reorder-python-imports` - Rewrites source to reorder python imports
 `rescript-format` - The built-in ReScript formatter.
 `roc` - A fast, friendly, functional language.
@@ -459,6 +469,7 @@ FORMATTERS                                                    *conform-formatter
 `ruff_organize_imports` - An extremely fast Python linter, written in Rust.
                         Organize imports.
 `rufo` - Rufo is an opinionated ruby formatter.
+`runic` - Julia code formatter.
 `rustfmt` - A tool for formatting rust code according to style guidelines.
 `rustywind` - A tool for formatting Tailwind CSS classes.
 `scalafmt` - Code formatter for Scala.

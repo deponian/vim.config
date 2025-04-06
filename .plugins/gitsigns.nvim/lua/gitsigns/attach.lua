@@ -61,7 +61,7 @@ end
 --- @param bufnr integer
 local function on_reload(_, bufnr)
   local __FUNC__ = 'on_reload'
-  cache[bufnr]:invalidate()
+  assert(cache[bufnr]):invalidate()
   dprint('Reload')
   manager.update_debounced(bufnr)
 end
@@ -108,7 +108,7 @@ local setup = util.once(function()
         return
       end
       bcache:invalidate(true)
-      async.run(function()
+      async.arun(function()
         manager.update(buf)
       end)
     end,
@@ -169,6 +169,7 @@ local function get_buf_context(bufnr)
   }
 end
 
+--- @async
 --- Ensure attaches cannot be interleaved for the same buffer.
 --- Since attaches are asynchronous we need to make sure an attach isn't
 --- performed whilst another one is in progress.
@@ -235,7 +236,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
     return
   end
 
-  async.scheduler()
+  async.schedule()
   if not api.nvim_buf_is_valid(cbuf) then
     return
   end
@@ -263,7 +264,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
 
   -- On windows os.tmpname() crashes in callback threads so initialise this
   -- variable on the main thread.
-  async.scheduler()
+  async.schedule()
   if not api.nvim_buf_is_valid(cbuf) then
     return
   end

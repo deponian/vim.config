@@ -199,9 +199,8 @@ M.buffers = function(opts)
   end
 
   -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-  local reload, id = shell.reload_action_cmd(opts, "{+}")
-  local contents = reload:gsub("%-%-%s+{%+}$", "")
-  opts.__reload_cmd = reload
+  local contents, id = shell.reload_action_cmd(opts, "")
+  opts.__reload_cmd = contents
 
   -- get current tab/buffer/previous buffer
   -- save as a func ref for resume to reuse
@@ -313,10 +312,15 @@ M.buffer_lines = function(opts)
           return bname, bicon and bicon .. utils.nbsp or nil
         end)()
 
-        local offset, lines = 0, #data
-        if opts.current_buffer_only and opts.start == "cursor" then
-          -- start display from current line and wrap from bottom (#822)
-          offset = core.CTX().cursor[1] - 1
+        local offset, start_line, end_line, lines = 0, 1, #data, #data
+        if opts.current_buffer_only then
+          start_line = opts.start_line or 1
+          end_line = opts.end_line or end_line
+          lines = end_line - start_line + 1
+          if opts.start == "cursor" then
+            -- start display from current line and wrap from bottom (#822)
+            offset = core.CTX().cursor[1] - start_line
+          end
         end
 
         for i = 1, lines do
@@ -324,6 +328,7 @@ M.buffer_lines = function(opts)
           if lnum > lines then
             lnum = lnum % lines
           end
+          lnum = lnum + start_line - 1
 
           -- NOTE: Space after `lnum` is U+00A0 (decimal: 160)
           add_entry(string.format("[%s]\t%s\t%s%s\t%s \t%s",
@@ -440,9 +445,8 @@ M.tabs = function(opts)
   end
 
   -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-  local reload, id = shell.reload_action_cmd(opts, "{+}")
-  local contents = reload:gsub("%-%-%s+{%+}$", "")
-  opts.__reload_cmd = reload
+  local contents, id = shell.reload_action_cmd(opts, "")
+  opts.__reload_cmd = contents
 
   -- get current tab/buffer/previous buffer
   -- save as a func ref for resume to reuse
@@ -475,8 +479,10 @@ M.treesitter = function(opts)
     opts._bufname = utils.nvim_buf_get_name(opts.bufnr)
   end
 
-  local ts_parsers = require("nvim-treesitter.parsers")
-  if not ts_parsers.has_parser(ts_parsers.get_buf_lang(opts.bufnr)) then
+
+  local ft = vim.bo[opts.bufnr].ft
+  local lang = vim.treesitter.language.get_lang(ft)
+  if not utils.has_ts_parser(lang) then
     utils.info(string.format("No treesitter parser found for '%s' (bufnr=%d).",
       opts._bufname, opts.bufnr))
     return
@@ -491,7 +497,7 @@ M.treesitter = function(opts)
     coroutine.wrap(function()
       local co = coroutine.running()
       local ts_locals = require("nvim-treesitter.locals")
-      for _, definition in ipairs(ts_locals.get_definitions(opts.bufnr)) do
+      for _, definition in ipairs((ts_locals.get or ts_locals.get_definitions)(opts.bufnr)) do
         local nodes = ts_locals.get_local_nodes(definition)
         for _, node in ipairs(nodes) do
           if node.node then

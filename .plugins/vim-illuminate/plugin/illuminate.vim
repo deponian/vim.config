@@ -10,16 +10,19 @@ let g:loaded_illuminate = 1
 
 if has('nvim-0.7.2') && get(g:, 'Illuminate_useDeprecated', 0) != 1
 lua << EOF
-    local ok, ts = pcall(require, 'nvim-treesitter')
-    if ok then
-        ts.define_modules({
-            illuminate = {
-                module_path = 'illuminate.providers.treesitter',
-                enable = true,
-                disable = {},
-                is_supported = require('nvim-treesitter.query').has_locals,
-            }
-        })
+    if vim.fn.has('nvim-0.9') == 0 then
+        -- fallback to nvim-treesitter modules
+        local ok, ts = pcall(require, 'nvim-treesitter')
+        if ok then
+            ts.define_modules({
+                illuminate = {
+                    module_path = 'illuminate.providers.treesitter',
+                    enable = true,
+                    disable = {},
+                    is_supported = require('nvim-treesitter.query').has_locals,
+                }
+            })
+        end
     end
     require('illuminate.engine').start()
     vim.api.nvim_create_user_command('IlluminatePause', require('illuminate').pause, { bang = true })
@@ -30,17 +33,19 @@ lua << EOF
     vim.api.nvim_create_user_command('IlluminateToggleBuf', require('illuminate').toggle_buf, { bang = true })
     vim.api.nvim_create_user_command('IlluminateDebug', require('illuminate').debug, { bang = true })
 
-    if not require('illuminate.util').has_keymap('n', '<a-n>') then
-        vim.keymap.set('n', '<a-n>', require('illuminate').goto_next_reference, { desc = "Move to next reference" })
-    end
-    if not require('illuminate.util').has_keymap('n', '<a-p>') then
-        vim.keymap.set('n', '<a-p>', require('illuminate').goto_prev_reference, { desc = "Move to previous reference" })
-    end
-    if not require('illuminate.util').has_keymap('o', '<a-i>') then
-        vim.keymap.set('o', '<a-i>', require('illuminate').textobj_select)
-    end
-    if not require('illuminate.util').has_keymap('x', '<a-i>') then
-        vim.keymap.set('x', '<a-i>', require('illuminate').textobj_select)
+    if not require('illuminate.config').disable_keymaps() then
+        if not require('illuminate.util').has_keymap('n', '<a-n>') then
+            vim.keymap.set('n', '<a-n>', require('illuminate').goto_next_reference, { desc = "Move to next reference" })
+        end
+        if not require('illuminate.util').has_keymap('n', '<a-p>') then
+            vim.keymap.set('n', '<a-p>', require('illuminate').goto_prev_reference, { desc = "Move to previous reference" })
+        end
+        if not require('illuminate.util').has_keymap('o', '<a-i>') then
+            vim.keymap.set('o', '<a-i>', require('illuminate').textobj_select)
+        end
+        if not require('illuminate.util').has_keymap('x', '<a-i>') then
+            vim.keymap.set('x', '<a-i>', require('illuminate').textobj_select)
+        end
     end
 EOF
 

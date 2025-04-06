@@ -65,7 +65,7 @@ end
 
 -- Called from plugin/lspconfig.vim because it requires knowing that the last
 -- script in scriptnames to be executed is lspconfig.
-api.nvim_create_user_command('LspInfo', ':che lspconfig', { desc = 'Deprecated alias to `:che lspconfig`' })
+api.nvim_create_user_command('LspInfo', ':checkhealth vim.lsp', { desc = 'Alias to `:checkhealth vim.lsp`' })
 
 api.nvim_create_user_command('LspStart', function(info)
   local server_name = string.len(info.args) > 0 and info.args or nil
@@ -138,7 +138,7 @@ api.nvim_create_user_command('LspStop', function(info)
 
   -- default to stopping all servers on current buffer
   if #args == 0 then
-    clients = util.get_lsp_clients({ bufnr = vim.api.nvim_get_current_buf() })
+    clients = vim.lsp.get_clients({ bufnr = vim.api.nvim_get_current_buf() })
   else
     clients = get_clients_from_cmd_args(args)
   end
