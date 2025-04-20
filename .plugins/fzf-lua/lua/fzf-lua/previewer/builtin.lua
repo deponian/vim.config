@@ -96,12 +96,12 @@ function TSContext.update(winid, bufnr, opts)
   else
     assert(context_lines)
     local function open()
-      api.nvim_win_call(utils.CTX().winid, function()
-        if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_win_is_valid(winid) then
+      if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_win_is_valid(winid) then
+        api.nvim_win_call(winid, function()
           require("treesitter-context.render").open(bufnr, winid, context_ranges, context_lines)
-          TSContext._winids[tostring(winid)] = bufnr
-        end
-      end)
+        end)
+        TSContext._winids[tostring(winid)] = bufnr
+      end
     end
     -- NOTE: no longer required since adding `eventignore` to `FzfWin:set_winopts`
     -- if TSContext.is_attached(winid) == bufnr then
@@ -148,7 +148,6 @@ function Previewer.base:new(o, opts, fzf_win)
   self.limit_b = tonumber(default(o.limit_b, 1024 * 1024 * 10))
   self.treesitter = type(o.treesitter) == "table" and o.treesitter or {}
   self.toggle_behavior = o.toggle_behavior
-  self.ext_ft_override = o.ext_ft_override
   self.winopts_orig = {}
   -- convert extension map to lower case
   if o.extensions then
@@ -957,40 +956,35 @@ function Previewer.buffer_or_file:do_syntax(entry)
         ))
       end
       if syntax_limit_reached == 0 then
-        local fallback = not utils.__HAS_NVIM_09
-        if utils.__HAS_NVIM_09 then
-          fallback = (function()
-            local ft = entry.filetype
-                or self.ext_ft_override and self.ext_ft_override[path.extension(entry.path)]
-                or vim.filetype.match({ buf = bufnr, filename = entry.path })
-            if type(ft) ~= "string" then
-              return true
+        local fallback = (function()
+          local ft = entry.filetype or vim.filetype.match({ buf = bufnr, filename = entry.path })
+          if type(ft) ~= "string" then
+            return true
+          end
+          local ts_enabled = (function()
+            if not self.treesitter or
+                self.treesitter.enabled == false or
+                self.treesitter.disabled == true or
+                (type(self.treesitter.enabled) == "table" and
+                  not utils.tbl_contains(self.treesitter.enabled, ft)) or
+                (type(self.treesitter.disabled) == "table" and
+                  utils.tbl_contains(self.treesitter.disabled, ft)) then
+              return false
             end
-            local ts_enabled = (function()
-              if not self.treesitter or
-                  self.treesitter.enabled == false or
-                  self.treesitter.disabled == true or
-                  (type(self.treesitter.enabled) == "table" and
-                    not utils.tbl_contains(self.treesitter.enabled, ft)) or
-                  (type(self.treesitter.disabled) == "table" and
-                    utils.tbl_contains(self.treesitter.disabled, ft)) then
-                return false
-              end
-              return true
-            end)()
-            local ts_success = ts_enabled and ts_attach(bufnr, ft)
-            if not ts_success then
-              pcall(function() vim.bo[bufnr].syntax = ft end)
-            else
-              -- Use buf local var as setting ft might have unintended consequences
-              -- currently only being used in `update_render_markdown` but might be
-              -- of use in the future?
-              vim.b[bufnr]._ft = ft
-              self:update_render_markdown()
-              self:update_ts_context()
-            end
+            return true
           end)()
-        end
+          local ts_success = ts_enabled and ts_attach(bufnr, ft)
+          if not ts_success then
+            pcall(function() vim.bo[bufnr].syntax = ft end)
+          else
+            -- Use buf local var as setting ft might have unintended consequences
+            -- currently only being used in `update_render_markdown` but might be
+            -- of use in the future?
+            vim.b[bufnr]._ft = ft
+            self:update_render_markdown()
+            self:update_ts_context()
+          end
+        end)()
         if fallback then
           if entry.filetype == "help" then
             -- if entry.filetype and #entry.filetype>0 then

@@ -128,7 +128,11 @@ M.act = function(selected, opts)
 end
 
 -- Dummy abort action for `esc|ctrl-c|ctrl-q`
-M.dummy_abort = function()
+M.dummy_abort = function(_, o)
+  -- try to resume mode if `complete` is set
+  if o.complete and o.__CTX.mode == "i" then
+    vim.cmd [[noautocmd lua vim.api.nvim_feedkeys('i', 'n', true)]]
+  end
 end
 
 M.resume = function(_, _)
@@ -633,11 +637,13 @@ M.nvim_opt_edit_global = function(selected, opts)
   return nvim_opt_edit(selected, opts, "global")
 end
 
-M.spell_apply = function(selected)
+M.spell_apply = function(selected, opts)
   if not selected[1] then return false end
   local word = selected[1]
-  vim.cmd("normal! ciw" .. word)
-  vim.cmd("stopinsert")
+  vim.cmd("normal! \"_ciw" .. word)
+  if opts.__CTX.mode == "i" then
+    vim.api.nvim_feedkeys("a", "n", true)
+  end
 end
 
 M.set_filetype = function(selected)
@@ -1026,6 +1032,12 @@ M.apply_profile = function(selected, opts)
 end
 
 M.complete = function(selected, opts)
+  if #selected == 0 then
+    if opts.__CTX.mode == "i" then
+      vim.cmd [[noautocmd lua vim.api.nvim_feedkeys('i', 'n', true)]]
+    end
+    return
+  end
   -- cusror col is 0-based
   local col = opts.__CTX.cursor[2] + 1
   local newline, newcol
@@ -1077,6 +1089,7 @@ M.cd = function(selected, opts)
   cwd = git_root or cwd
   if uv.fs_stat(cwd) then
     vim.cmd("cd " .. cwd)
+    utils.io_system({ "zoxide", "add", "--", cwd })
     utils.info(("cwd set to %s'%s'"):format(git_root and "git root " or "", cwd))
   else
     utils.warn(("Unable to set cwd to '%s', directory is not accessible"):format(cwd))

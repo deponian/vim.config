@@ -1,6 +1,7 @@
 ---Maps filetypes to icon names
 ---@type table<string, iconName>
 return {
+  ["ada"] = "ada",
   ["apl"] = "apl",
   ["asm"] = "asm",
   ["astro"] = "astro",
@@ -132,6 +133,7 @@ return {
   ["odin"] = "odin",
   ["openscad"] = "scad",
   ["opus"] = "opus",
+  ["org"] = "org",
   ["otf"] = "otf",
   ["pck"] = "pck",
   ["pdf"] = "pdf",

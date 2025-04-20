@@ -150,10 +150,12 @@ setup({opts})                                                      *conform.setu
               {stop_after_first} `nil|boolean` Only run the first available
                                  formatter in the list. Defaults to false.
           {format_after_save} `nil|conform.FormatOpts|fun(bufnr: integer): nil|conform.FormatOpts`
+                             , nil|fun(err: nil|string, did_edit: nil|boolean)
                              If this is set, Conform will run the formatter
                              asynchronously after save. It will pass the table
                              to conform.format(). This can also be a function
-                             that returns the table.
+                             that returns the table (and an optional callback
+                             that is run after formatting).
           {log_level}        `nil|integer` Set the log level (e.g.
                              `vim.log.levels.DEBUG`). Use `:ConformInfo` to see
                              the location of the log file.
@@ -216,6 +218,17 @@ format({opts}, {callback}): boolean                               *conform.forma
                  formatting has completed
     Returns:
       `boolean` True if any formatters were attempted
+
+    Examples: >lua
+      -- Synchronously format the current buffer
+      conform.format({ lsp_format = "fallback" })
+      -- Asynchronously format the current buffer; will not block the UI
+      conform.format({ async = true }, function(err, did_edit)
+        -- called after formatting
+      end
+      -- Format the current buffer with a specific formatter
+      conform.format({ formatters = { "ruff_fix" } })
+<
 
 list_formatters({bufnr}): conform.FormatterInfo[]        *conform.list_formatters*
     Retrieve the available formatters for a buffer

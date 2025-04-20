@@ -7,6 +7,10 @@ local function _str_byteindex_enc(line, col, encoding)
         encoding = 'utf-16'
     end
 
+    if vim.fn.has('nvim-0.11') == 1 then
+        return vim.str_byteindx(line, encoding, col, false)
+    end
+
     if encoding == 'utf-8' then
         if col then
             return col
@@ -51,12 +55,16 @@ function M.is_ready(bufnr)
     -- For nvim 0.10+
     if vim.lsp.get_clients then
         supported = false
-        for _, client in ipairs(vim.lsp.get_clients({bufnr = bufnr})) do
-            if client and client.supports_method('textDocument/documentHighlight') then
-                supported = true
+        for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+            if client then
+                supported = vim.fn.has('nvim-0.11') == 1 and client:supports_method('textDocument/documentHighlight')
+                    or vim.fn.has('nvim-0.11') == 0 and client.supports_method('textDocument/documentHighlight')
+                if supported then
+                    break
+                end
             end
         end
-    -- For older versions
+        -- For older versions
     elseif vim.lsp.for_each_buffer_client then
         supported = false
         vim.lsp.for_each_buffer_client(bufnr, function(client)

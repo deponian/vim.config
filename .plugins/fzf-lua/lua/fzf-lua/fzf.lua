@@ -279,6 +279,10 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
       ["SHELL"] = shell_cmd[1],
       ["FZF_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
       ["SKIM_DEFAULT_COMMAND"] = FZF_DEFAULT_COMMAND,
+      ["FZF_LUA_SERVER"] = vim.g.fzf_lua_server,
+      -- sk --tmux didn't pass all environemnt variable (https://github.com/skim-rs/skim/issues/732)
+      ["SKIM_FZF_LUA_SERVER"] = vim.g.fzf_lua_server,
+      ["VIMRUNTIME"] = vim.env.VIMRUNTIME,
       ["FZF_DEFAULT_OPTS"] = (function()
         -- Newer style `--preview-window` options in FZF_DEFAULT_OPTS such as:
         --   --preview-window "right,50%,hidden,<60(up,70%,hidden)"
@@ -300,6 +304,8 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
       -- with fzf-lua's rg opts (#1266)
       ["RIPGREP_CONFIG_PATH"] = type(opts.RIPGREP_CONFIG_PATH) == "string"
           and libuv.expand(opts.RIPGREP_CONFIG_PATH) or "",
+      -- Prevents spamming rust logs with skim (#1959)
+      ["RUST_LOG"] = "",
     },
     on_exit = function(_, rc, _)
       local output = {}

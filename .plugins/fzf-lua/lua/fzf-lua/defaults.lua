@@ -435,7 +435,7 @@ M.defaults.git                  = {
     fzf_opts      = { ["--no-multi"] = true },
     _multiline    = false,
     -- `winopts.treesitter==true` line match format
-    _treesitter   = "(%s+)(%d+)%)(.+)$",
+    _treesitter   = function(line) return line:match("(%s+)(%d+)%)(.+)$") end,
   },
   branches = {
     cmd        = "git branch --all --color",
@@ -1086,7 +1086,7 @@ M.defaults.spell_suggest        = {
     width    = 0.30,
   },
   actions = {
-    ["enter"] = actions.spell_apply,
+    ["enter"] = actions.complete,
   },
 }
 
@@ -1174,6 +1174,7 @@ M.defaults.zoxide               = {
     ["--tabstop"]   = "4",
     ["--tiebreak"]  = "end,index",
     ["--nth"]       = "2..",
+    ["--no-sort"]   = true, -- sort by score
   },
   actions      = { enter = actions.cd }
 }

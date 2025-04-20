@@ -7,6 +7,20 @@ Versioning".
 https://keepachangelog.com/en/1.1.0/
 https://semver.org/
 
+==============================================================================
+Unreleased
+
+
+------------------------------------------------------------------------------
+ADDED
+
+New languages:
+    • Nu shell
+
+Missing patterns:
+    • Zig:
+        - `parenthesized_expression`
+
 
 ==============================================================================
 Version 0.9.1 (released on 2025-03-23)

@@ -185,6 +185,7 @@ function FzfWin:generate_layout(winopts)
         style = "minimal",
         relative = self.winopts.relative or "editor",
         zindex = self.winopts.zindex,
+        hide = self.winopts.hide,
       }, { type = "nvim", name = "fzf", nwin = 1 })
     }
     return
@@ -205,6 +206,7 @@ function FzfWin:generate_layout(winopts)
       width = api.nvim_win_get_width(self.fzf_winid) - signcol_width,
       signcol_width = signcol_width,
       split = self.winopts.split,
+      hide = self.winopts.hide,
     }
   end
 
@@ -282,12 +284,14 @@ function FzfWin:generate_layout(winopts)
         border = self._o.winopts.border,
         relative = self.winopts.relative or "editor",
         zindex = self.winopts.zindex,
+        hide = self.winopts.hide,
       }), { type = "nvim", name = "fzf", nwin = nwin, layout = preview_pos }),
     preview = self:normalize_border(vim.tbl_extend("force", pwopts, {
       style = "minimal",
       zindex = self.winopts.zindex,
       border = self._o.winopts.preview.border,
       focusable = true,
+      hide = self.winopts.hide,
     }), { type = "nvim", name = "prev", nwin = nwin, layout = preview_pos })
   }
 end
@@ -591,9 +595,11 @@ function FzfWin:set_backdrop()
     -- -2 as preview border is -1
     zindex = self.winopts.zindex - 2,
     border = "none",
+    -- NOTE: backdrop shoulnd't be hidden with winopts.hide
+    -- hide = self.winopts.hide,
   })
-  utils.wo(self.backdrop_win, "winhighlight", "Normal:" .. self.hls.backdrop)
-  utils.wo(self.backdrop_win, "winblend", self.winopts.backdrop)
+  vim.wo[self.backdrop_win].winhighlight = "Normal:" .. self.hls.backdrop
+  vim.wo[self.backdrop_win].winblend = self.winopts.backdrop
   vim.bo[self.backdrop_buf].buftype = "nofile"
   vim.bo[self.backdrop_buf].filetype = "fzflua_backdrop"
 end
@@ -701,13 +707,7 @@ function FzfWin:set_winopts(win, opts, ignore_events)
   end
   for opt, value in pairs(opts) do
     if utils.nvim_has_option(opt) then
-      -- PROBABLY DOESN'T MATTER (WHO USES 0.5?) BUT WHY NOT LOL
-      -- minor backward compatibility fix, with neovim version < 0.7
-      -- nvim_win_get_option("scroloff") which should return -1
-      -- returns an invalid (really big number instead which panics
-      -- when called with nvim_win_set_option, wrapping in a pcall
-      -- ensures this plugin still works for neovim version as low as 0.5!
-      pcall(function() vim.wo[win][opt] = value end)
+      vim.wo[win][opt] = value
     end
   end
   if save_ei then
@@ -793,9 +793,7 @@ function FzfWin:redraw_main()
   self:generate_layout()
 
   local winopts = vim.tbl_extend("keep", (function()
-    if not utils.__HAS_NVIM_09 or
-        (type(self.winopts.title) ~= "string" and type(self.winopts.title) ~= "table")
-    then
+    if type(self.winopts.title) ~= "string" and type(self.winopts.title) ~= "table" then
       return {}
     end
     return {
@@ -857,11 +855,13 @@ function FzfWin:treesitter_detach(buf)
 end
 
 function FzfWin:treesitter_attach()
-  if not utils.__HAS_NVIM_09 then return end
   if not self._o.winopts.treesitter then return end
   -- local utf8 = require("fzf-lua.lib.utf8")
   local function trim(s) return (string.gsub(s, "^%s*(.-)%s*$", "%1")) end
-  local _format = type(self._o._treesitter) == "string" and self._o._treesitter or nil
+  ---@type fun(filepath: string, _lnum: string, text: string)
+  local line_parser = vim.is_callable(self._o._treesitter) and self._o._treesitter or function(line)
+    return line:match("(.-):?(%d+)[: ](.+)$")
+  end
   vim.api.nvim_buf_attach(self.fzf_bufnr, false, {
     on_lines = function(_, bufnr)
       local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -895,7 +895,7 @@ function FzfWin:treesitter_attach()
           -- file:line:text       (grep_project or missing "--column" flag)
           -- line:col:text        (grep_curbuf)
           -- line<U+00A0>text     (lines|blines)
-          local filepath, _lnum, text = line:sub(min_col):match(_format or "(.-):?(%d+)[: ](.+)$")
+          local filepath, _lnum, text = line_parser(line:sub(min_col))
           if not text or text == 0 then return end
 
           text = text:gsub("^%d+:", "") -- remove col nr if exists
@@ -1218,7 +1218,7 @@ function FzfWin.unhide()
   -- Send SIGWINCH to to trigger resize in the fzf process
   -- We will use the trigger to reload necessary buffer lists
   local pid = fn.jobpid(vim.bo[self._hidden_fzf_bufnr].channel)
-  vim.tbl_map(function(_pid) libuv.process_kill(_pid, 28) end, vim._os_proc_children(pid))
+  vim.tbl_map(function(_pid) libuv.process_kill(_pid, 28) end, api.nvim_get_proc_children(pid))
   vim.bo[self._hidden_fzf_bufnr].bufhidden = "wipe"
   self.fzf_bufnr = self._hidden_fzf_bufnr
   self._hidden_fzf_bufnr = nil
@@ -1299,6 +1299,7 @@ function FzfWin:update_preview_scrollbar()
     row = 0,
     col = o.wininfo.width + scrolloff,
     border = "none",
+    hide = self.winopts.hide,
   }
   local full = vim.tbl_extend("keep", {
     zindex = empty.zindex + 1,
@@ -1331,8 +1332,7 @@ function FzfWin:update_preview_scrollbar()
 end
 
 function FzfWin.update_win_title(winid, winopts, o)
-  -- neovim >= 0.9 added window title
-  if not utils.__HAS_NVIM_09 or (type(o.title) ~= "string" and type(o.title) ~= "table") then
+  if type(o.title) ~= "string" and type(o.title) ~= "table" then
     return
   end
   vim.api.nvim_win_set_config(winid,
@@ -1359,8 +1359,7 @@ function FzfWin:update_main_title(title)
 end
 
 function FzfWin:update_preview_title(title)
-  -- neovim >= 0.9 added window title
-  if not utils.__HAS_NVIM_09 or (type(title) ~= "string" and type(title) ~= "table") then
+  if type(title) ~= "string" and type(title) ~= "table" then
     return
   end
   -- since `nvim_win_set_config` removes all styling, save backup
