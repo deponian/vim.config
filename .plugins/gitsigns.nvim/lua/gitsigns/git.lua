@@ -89,7 +89,7 @@ function Obj:get_show_text(revision)
     return {}
   end
 
-  local object = revision and (revision .. ':' .. self.relpath) or self.object_name
+  local object = revision and (revision .. ':' .. assert(self.relpath)) or self.object_name
 
   if not object then
     log.dprint('no revision or object_name')
@@ -164,8 +164,9 @@ end
 --- @param lines string[]
 function Obj:stage_lines(lines)
   self.lock = true
-  local new_object = self.repo:hash_object(self.relpath, lines)
-  self.repo:update_index(self.mode_bits, new_object, self.relpath)
+  local relpath = assert(self.relpath)
+  local new_object = self.repo:hash_object(relpath, lines)
+  self.repo:update_index(self.mode_bits, new_object, relpath)
   self.lock = nil
   autocmd_changed(self.file)
 end
@@ -182,12 +183,13 @@ function Obj:stage_hunks(hunks, invert)
   self.lock = true
   self:ensure_file_in_index()
 
-  local patch = require('gitsigns.hunks').create_patch(self.relpath, hunks, self.mode_bits, invert)
+  local relpath = assert(self.relpath)
+  local patch = require('gitsigns.hunks').create_patch(relpath, hunks, self.mode_bits, invert)
 
   if not self.i_crlf and self.w_crlf then
     -- Remove cr
-    for i = 1, #patch do
-      patch[i] = patch[i]:gsub('\r$', '')
+    for i, p in ipairs(patch) do
+      patch[i] = p:gsub('\r$', '')
     end
   end
 
@@ -231,8 +233,12 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
     return
   end
 
-  if not vim.startswith(file, '/') and toplevel then
-    file = toplevel .. util.path_sep .. file
+  if not util.is_abspath(file) then
+    if toplevel then
+      file = toplevel .. util.path_sep .. file
+    elseif gitdir then
+      file = util.dirname(gitdir) .. util.path_sep .. file
+    end
   end
 
   local repo = Repo.get(util.dirname(file), gitdir, toplevel)
@@ -258,7 +264,7 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
 
   local self = setmetatable({}, Obj)
   self.repo = repo
-  self.file = file
+  self.file = util.cygpath(file, 'unix')
   self.revision = revision
   self.encoding = encoding
 

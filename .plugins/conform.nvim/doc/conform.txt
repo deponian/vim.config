@@ -439,6 +439,7 @@ FORMATTERS                                                    *conform-formatter
 `nufmt` - The nushell formatter.
 `ocamlformat` - Auto-formatter for OCaml code.
 `ocp-indent` - Automatic indentation of OCaml source files.
+`odinfmt` - Auto-formatter for the Odin programming language.
 `opa_fmt` - Format Rego files using `opa fmt` command.
 `ormolu` - A formatter for Haskell source code.
 `packer_fmt` - The packer fmt Packer command is used to format HCL2
@@ -531,6 +532,7 @@ FORMATTERS                                                    *conform-formatter
 `trim_newlines` - Trim empty lines at the end of the file.
 `trim_whitespace` - Trim trailing whitespace.
 `twig-cs-fixer` - Automatically fix Twig Coding Standards issues
+`typespec` - TypeSpec compiler and CLI.
 `typos` - Source code spell checker
 `typstyle` - Beautiful and reliable typst code formatter.
 `ufmt` - Safe, atomic formatting with black and µsort.

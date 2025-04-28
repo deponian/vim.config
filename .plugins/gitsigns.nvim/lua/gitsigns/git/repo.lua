@@ -3,10 +3,9 @@ local git_command = require('gitsigns.git.cmd')
 local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
 
-local system = require('gitsigns.system').system
 local check_version = require('gitsigns.git.version').check
 
-local uv = vim.uv or vim.loop
+local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 
 --- @class Gitsigns.RepoInfo
 --- @field gitdir string
@@ -40,6 +39,7 @@ function M:command(args, spec)
   }, spec)
 end
 
+--- @async
 --- @param base string?
 --- @return string[]
 function M:files_changed(base)
@@ -104,13 +104,8 @@ end
 --- @param info Gitsigns.RepoInfo
 --- @return Gitsigns.Repo
 local function new(info)
-  local self = setmetatable({}, { __index = M })
-  for k, v in
-    pairs(info --[[@as table<string,any>]])
-  do
-    ---@diagnostic disable-next-line:no-unknown
-    self[k] = v
-  end
+  local self = setmetatable(info, { __index = M })
+  --- @cast self Gitsigns.Repo
 
   self.username = self:command({ 'config', 'user.name' }, { ignore_error = true })[1]
 
@@ -132,11 +127,8 @@ function M.get(dir, gitdir, toplevel)
   end
 
   gitdir = info.gitdir
-  if not repo_cache[gitdir] then
-    repo_cache[gitdir] = { 1, new(info) }
-  else
-    repo_cache[gitdir][1] = repo_cache[gitdir][1] + 1
-  end
+  repo_cache[gitdir] = repo_cache[gitdir] or { 0, new(info) }
+  repo_cache[gitdir][1] = repo_cache[gitdir][1] + 1
 
   return repo_cache[gitdir][2]
 end
@@ -152,24 +144,8 @@ function M:unref()
   if refcount <= 1 then
     repo_cache[gitdir] = nil
   else
-    repo_cache[gitdir][1] = refcount - 1
+    repo[1] = refcount - 1
   end
-end
-
-local has_cygpath = jit and jit.os == 'Windows' and vim.fn.executable('cygpath') == 1
-
---- @async
---- @generic S
---- @param path S
---- @return S
-local function normalize_path(path)
-  if path and has_cygpath and not uv.fs_stat(path) then
-    -- If on windows and path isn't recognizable as a file, try passing it
-    -- through cygpath
-    --- @type string
-    path = async.await(3, system, { 'cygpath', '-aw', path }).stdout
-  end
-  return path
 end
 
 --- @async
@@ -248,9 +224,10 @@ function M.get_info(cwd, gitdir, worktree)
   if #stdout < 3 then
     return nil, string.format('incomplete stdout: %s', table.concat(stdout, '\n'))
   end
+  --- @cast stdout [string, string, string]
 
-  local toplevel_r = assert(normalize_path(stdout[1]))
-  local gitdir_r = assert(normalize_path(stdout[2]))
+  local toplevel_r = stdout[1]
+  local gitdir_r = stdout[2]
 
   if not has_abs_gd then
     gitdir_r = assert(uv.fs_realpath(gitdir_r))
@@ -263,7 +240,7 @@ function M.get_info(cwd, gitdir, worktree)
   return {
     toplevel = toplevel_r,
     gitdir = gitdir_r,
-    abbrev_head = process_abbrev_head(gitdir_r, assert(stdout[3]), cwd),
+    abbrev_head = process_abbrev_head(gitdir_r, stdout[3], cwd),
     detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git',
   }
 end
@@ -274,6 +251,7 @@ end
 --- @field object_name? string
 --- @field object_type? 'blob'|'tree'|'commit'
 
+--- @async
 --- @param path string
 --- @param revision string
 --- @return Gitsigns.Repo.LsTree.Result? info
@@ -293,6 +271,7 @@ function M:ls_tree(path, revision)
 
   local info, relpath = unpack(vim.split(results[1], '\t'))
   local mode_bits, object_type, object_name = unpack(vim.split(info, '%s+'))
+  --- @cast object_type 'blob'|'tree'|'commit'
 
   return {
     relpath = relpath,
@@ -410,6 +389,7 @@ function M:file_info(file, revision)
   end
 end
 
+--- @async
 --- @param mode_bits string
 --- @param object string
 --- @param path string
@@ -423,6 +403,7 @@ function M:update_index(mode_bits, object, path, add)
   })
 end
 
+--- @async
 --- @param path string
 --- @param lines string[]
 --- @return string
@@ -430,11 +411,12 @@ function M:hash_object(path, lines)
   -- Concatenate the lines into a single string to ensure EOL
   -- is respected
   local text = table.concat(lines, '\n')
-  return self:command({ 'hash-object', '-w', '--path', path, '--stdin' }, { stdin = text })[1]
+  local res = self:command({ 'hash-object', '-w', '--path', path, '--stdin' }, { stdin = text })[1]
+  return assert(res)
 end
 
 --- @async
---- @return string[]
+--- @return table<string,string>
 function M:rename_status()
   local out = self:command({
     'diff',
@@ -447,6 +429,7 @@ function M:rename_status()
   for _, l in ipairs(out) do
     local parts = vim.split(l, '%s+')
     if #parts == 3 then
+      --- @cast parts [string, string, string]
       local stat, orig_file, new_file = parts[1], parts[2], parts[3]
       if vim.startswith(stat, 'R') then
         ret[orig_file] = new_file

@@ -24,7 +24,6 @@
 local util = require 'lspconfig.util'
 
 local function reload_workspace(bufnr)
-  bufnr = util.validate_bufnr(bufnr)
   local clients = vim.lsp.get_clients { bufnr = bufnr, name = 'rust_analyzer' }
   for _, client in ipairs(clients) do
     vim.notify 'Reloading Cargo Workspace'
@@ -47,7 +46,7 @@ local function is_library(fname)
   local toolchains = rustup_home .. '/toolchains'
 
   for _, item in ipairs { toolchains, registry, git_registry } do
-    if util.path.is_descendant(item, fname) then
+    if vim.fs.relpath(item, fname) then
       local clients = vim.lsp.get_clients { name = 'rust_analyzer' }
       return #clients > 0 and clients[#clients].config.root_dir or nil
     end
@@ -97,7 +96,9 @@ return {
 
         on_dir(cargo_workspace_root or cargo_crate_dir)
       else
-        vim.notify(('[rust_analyzer] cmd failed with code %d: %s\n%s'):format(output.code, cmd, output.stderr))
+        vim.schedule(function()
+          vim.notify(('[rust_analyzer] cmd failed with code %d: %s\n%s'):format(output.code, cmd, output.stderr))
+        end)
       end
     end)
   end,
@@ -113,7 +114,7 @@ return {
     end
   end,
   on_attach = function()
-    vim.api.nvim_buf_create_user_command(0, 'CargoReload', function()
+    vim.api.nvim_buf_create_user_command(0, 'LspCargoReload', function()
       reload_workspace(0)
     end, { desc = 'Reload current cargo workspace' })
   end,

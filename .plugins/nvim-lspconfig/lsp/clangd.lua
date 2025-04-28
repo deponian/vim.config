@@ -11,12 +11,9 @@
 --- - clangd relies on a [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html)
 ---   specified as compile_commands.json, see https://clangd.llvm.org/installation#compile_commandsjson
 
-local util = require 'lspconfig.util'
-
 -- https://clangd.llvm.org/extensions.html#switch-between-sourceheader
 local function switch_source_header(bufnr)
   local method_name = 'textDocument/switchSourceHeader'
-  bufnr = util.validate_bufnr(bufnr)
   local client = vim.lsp.get_clients({ bufnr = bufnr, name = 'clangd' })[1]
   if not client then
     return vim.notify(('method %s is not supported by any servers active on the current buffer'):format(method_name))
@@ -81,11 +78,11 @@ return {
     offsetEncoding = { 'utf-8', 'utf-16' },
   },
   on_attach = function()
-    vim.api.nvim_buf_create_user_command(0, 'ClangdSwitchSourceHeader', function()
+    vim.api.nvim_buf_create_user_command(0, 'LspClangdSwitchSourceHeader', function()
       switch_source_header(0)
     end, { desc = 'Switch between source/header' })
 
-    vim.api.nvim_buf_create_user_command(0, 'ClangdShowSymbolInfo', function()
+    vim.api.nvim_buf_create_user_command(0, 'LspClangdShowSymbolInfo', function()
       symbol_info()
     end, { desc = 'Show symbol info' })
   end,

@@ -1186,12 +1186,10 @@ function FzfWin.hide()
   -- Note: we should never get here with a tmux profile as neovim binds (default: <A-Esc>)
   -- do not apply to tmux, validate anyways in case called directly using the API
   if not self or self._o._is_fzf_tmux then return end
-  if self:validate_preview() and not self.preview_hidden then
-    self:close_preview(true)
-    self._hidden_had_preview = true
-  end
   self:detach_fzf_buf()
   self:close(nil, true)
+  -- save the current window size (VimResized won't emit when buffer hidden)
+  self._hidden_save_size = { vim.o.lines, vim.o.columns }
   -- Save self as `:close()` nullifies it
   _self = self
 end
@@ -1223,10 +1221,10 @@ function FzfWin.unhide()
   self.fzf_bufnr = self._hidden_fzf_bufnr
   self._hidden_fzf_bufnr = nil
   self:create()
-  if self._hidden_had_preview then
-    self._hidden_had_preview = nil
-    self:redraw_preview()
+  if not vim.deep_equal(self._hidden_save_size, { vim.o.lines, vim.o.columns }) then
+    self:redraw()
   end
+  self._hidden_save_size = nil
   vim.cmd("startinsert")
   return true
 end
@@ -1271,9 +1269,13 @@ function FzfWin:update_preview_scrollbar()
   local o = {}
   local buf = api.nvim_win_get_buf(self.preview_winid)
   o.wininfo = utils.getwininfo(self.preview_winid)
-  o.line_count = api.nvim_buf_line_count(buf)
+  o.line_count = utils.line_count(self.preview_winid, buf)
 
   local topline, height = o.wininfo.topline, o.wininfo.height
+  if api.nvim_win_text_height then
+    topline = topline == 1 and topline or
+        api.nvim_win_text_height(self.preview_winid, { end_row = topline - 1 }).all + 1
+  end
   o.bar_height = math.min(height, math.ceil(height * height / o.line_count))
   o.bar_offset = math.min(height - o.bar_height, math.floor(height * topline / o.line_count))
 
