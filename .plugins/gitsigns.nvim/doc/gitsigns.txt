@@ -25,13 +25,10 @@ file IO.
 ==============================================================================
 USAGE                                                         *gitsigns-usage*
 
-For basic setup with all batteries included:
+No setup required.
 >lua
-    require('gitsigns').setup()
-<
-
-Configuration can be passed to the setup function. Here is an example with most
-of the default settings:
+Optional configuration can be passed to the setup function. Here is an example
+with most of the default settings:
 >lua
     require('gitsigns').setup {
       signs = {
@@ -76,7 +73,6 @@ of the default settings:
       max_file_length = 40000, -- Disable if file is longer than this (in lines)
       preview_config = {
         -- Options passed to nvim_open_win
-        border = 'single',
         style = 'minimal',
         relative = 'cursor',
         row = 0,
@@ -610,7 +606,7 @@ signs_staged_enable                      *gitsigns-config-signs_staged_enable*
     When enabled the signs defined in |git-config-signs_staged|` are used.
 
 worktrees                                          *gitsigns-config-worktrees*
-      Type: `table`, Default: `nil`
+      Type: `table`, Default: `{}`
 
       Detached working trees.
 
@@ -796,7 +792,6 @@ preview_config                                *gitsigns-config-preview_config*
       Type: `table[extended]`
       Default: >
         `{
-          border = "single",
           col = 1,
           relative = "cursor",
           row = 0,

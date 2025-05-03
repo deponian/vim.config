@@ -43,6 +43,7 @@ Nvim by running `:help lspconfig-all`.
 - [bzl](#bzl)
 - [c3_lsp](#c3_lsp)
 - [cairo_ls](#cairo_ls)
+- [ccls](#ccls)
 - [cds_lsp](#cds_lsp)
 - [circom-lsp](#circom-lsp)
 - [clangd](#clangd)
@@ -152,6 +153,7 @@ Nvim by running `:help lspconfig-all`.
 - [koka](#koka)
 - [kotlin_language_server](#kotlin_language_server)
 - [kulala_ls](#kulala_ls)
+- [laravel_ls](#laravel_ls)
 - [lean3ls](#lean3ls)
 - [lelwel_ls](#lelwel_ls)
 - [lemminx](#lemminx)
@@ -201,6 +203,7 @@ Nvim by running `:help lspconfig-all`.
 - [opencl_ls](#opencl_ls)
 - [openscad_ls](#openscad_ls)
 - [openscad_lsp](#openscad_lsp)
+- [oxlint](#oxlint)
 - [pact_ls](#pact_ls)
 - [pasls](#pasls)
 - [pbls](#pbls)
@@ -835,6 +838,7 @@ Default config:
   ```lua
   { "sgconfig.yaml", "sgconfig.yml" }
   ```
+- `workspace_required` : `true`
 
 ---
 
@@ -853,7 +857,7 @@ vim.lsp.enable('astro')
 ```
 
 Default config:
-- `before_init`: [../lsp/astro.lua:15](../lsp/astro.lua#L15)
+- `before_init`: [../lsp/astro.lua:12](../lsp/astro.lua#L12)
 - `cmd` :
   ```lua
   { "astro-ls", "--stdio" }
@@ -1860,6 +1864,57 @@ Default config:
   ```lua
   { "Scarb.toml", "cairo_project.toml", ".git" }
   ```
+
+---
+
+## ccls
+
+https://github.com/MaskRay/ccls/wiki
+
+ccls relies on a [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html) specified
+as compile_commands.json or, for simpler projects, a .ccls.
+For details on how to automatically generate one using CMake look [here](https://cmake.org/cmake/help/latest/variable/CMAKE_EXPORT_COMPILE_COMMANDS.html). Alternatively, you can use [Bear](https://github.com/rizsotto/Bear).
+
+Customization options are passed to ccls at initialization time via init_options, a list of available options can be found [here](https://github.com/MaskRay/ccls/wiki/Customization#initialization-options). For example:
+
+```lua
+vim.lsp.config("ccls", {
+  init_options = {
+    compilationDatabaseDirectory = "build";
+    index = {
+      threads = 0;
+    };
+    clang = {
+      excludeArgs = { "-frounding-math"} ;
+    };
+  }
+})
+```
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('ccls')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "ccls" }
+  ```
+- `filetypes` :
+  ```lua
+  { "c", "cpp", "objc", "objcpp", "cuda" }
+  ```
+- `offset_encoding` :
+  ```lua
+  "utf-32"
+  ```
+- `on_attach`: [../lsp/ccls.lua:40](../lsp/ccls.lua#L40)
+- `root_markers` :
+  ```lua
+  { "compile_commands.json", ".ccls", ".git" }
+  ```
+- `workspace_required` : `true`
 
 ---
 
@@ -3711,6 +3766,7 @@ Default config:
     }
   }
   ```
+- `workspace_required` : `true`
 
 ---
 
@@ -5812,6 +5868,35 @@ Default config:
 
 ---
 
+## laravel_ls
+
+https://github.com/laravel-ls/laravel-ls
+
+`laravel-ls`, language server for laravel
+
+The default `cmd` assumes that the `laravel-ls` binary can be found in `$PATH`.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('laravel_ls')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "laravel-ls" }
+  ```
+- `filetypes` :
+  ```lua
+  { "php", "blade" }
+  ```
+- `root_markers` :
+  ```lua
+  { "artisan" }
+  ```
+
+---
+
 ## lean3ls
 
 https://github.com/leanprover/lean-client-js/tree/master/lean-language-server
@@ -6104,28 +6189,43 @@ vim.lsp.config('lua_ls', {
   on_init = function(client)
     if client.workspace_folders then
       local path = client.workspace_folders[1].name
-      if path ~= vim.fn.stdpath('config') and (vim.uv.fs_stat(path..'/.luarc.json') or vim.uv.fs_stat(path..'/.luarc.jsonc')) then
+      if
+        path ~= vim.fn.stdpath('config')
+        and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc'))
+      then
         return
       end
     end
 
     client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
       runtime = {
-        -- Tell the language server which version of Lua you're using
-        -- (most likely LuaJIT in the case of Neovim)
-        version = 'LuaJIT'
+        -- Tell the language server which version of Lua you're using (most
+        -- likely LuaJIT in the case of Neovim)
+        version = 'LuaJIT',
+        -- Tell the language server how to find Lua modules same way as Neovim
+        -- (see `:h lua-module-load`)
+        path = {
+          'lua/?.lua',
+          'lua/?/init.lua',
+        },
       },
       -- Make the server aware of Neovim runtime files
       workspace = {
         checkThirdParty = false,
         library = {
           vim.env.VIMRUNTIME
-          -- Depending on the usage, you might want to add additional paths here.
-          -- "${3rd}/luv/library"
-          -- "${3rd}/busted/library",
+          -- Depending on the usage, you might want to add additional paths
+          -- here.
+          -- '${3rd}/luv/library'
+          -- '${3rd}/busted/library'
         }
-        -- or pull in all of 'runtimepath'. NOTE: this is a lot slower and will cause issues when working on your own configuration (see https://github.com/neovim/nvim-lspconfig/issues/3189)
-        -- library = vim.api.nvim_get_runtime_file("", true)
+        -- Or pull in all of 'runtimepath'.
+        -- NOTE: this is a lot slower and will cause issues when working on
+        -- your own configuration.
+        -- See https://github.com/neovim/nvim-lspconfig/issues/3189
+        -- library = {
+        --   vim.api.nvim_get_runtime_file('', true),
+        -- }
       }
     })
   end,
@@ -6390,7 +6490,7 @@ vim.lsp.enable('mdx_analyzer')
 ```
 
 Default config:
-- `before_init`: [../lsp/mdx_analyzer.lua:11](../lsp/mdx_analyzer.lua#L11)
+- `before_init`: [../lsp/mdx_analyzer.lua:8](../lsp/mdx_analyzer.lua#L8)
 - `cmd` :
   ```lua
   { "mdx-language-server", "--stdio" }
@@ -6436,10 +6536,7 @@ Default config:
   ```lua
   { "meson" }
   ```
-- `root_markers` :
-  ```lua
-  { "meson.build", "meson_options.txt", "meson.options", ".git" }
-  ```
+- `root_dir`: [../lsp/mesonlsp.lua:31](../lsp/mesonlsp.lua#L31)
 
 ---
 
@@ -7454,7 +7551,7 @@ Default config:
   ```
 - `cmd` :
   ```lua
-  { "OmniSharp", "-z", "--hostPID", "12345", "DotNet:enablePackageRestore=false", "--encoding", "utf-8", "--languageserver" }
+  { "omnisharp", "-z", "--hostPID", "12345", "DotNet:enablePackageRestore=false", "--encoding", "utf-8", "--languageserver" }
   ```
 - `filetypes` :
   ```lua
@@ -7585,6 +7682,36 @@ Default config:
   ```lua
   { ".git" }
   ```
+
+---
+
+## oxlint
+
+https://github.com/oxc-project/oxc
+
+`oxc` is a linter / formatter for JavaScript / Typescript supporting over 500 rules from ESLint and its popular plugins
+It can be installed via `npm`:
+
+```sh
+npm i -g oxlint
+```
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('oxlint')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "oxc_language_server" }
+  ```
+- `filetypes` :
+  ```lua
+  { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx" }
+  ```
+- `root_dir`: [../lsp/oxlint.lua:14](../lsp/oxlint.lua#L14)
+- `workspace_required` : `true`
 
 ---
 
@@ -11293,7 +11420,7 @@ Default config:
 - `on_attach`: [../lsp/texlab.lua:164](../lsp/texlab.lua#L164)
 - `root_markers` :
   ```lua
-  { ".git", ".latexmkrc", ".texlabroot", "texlabroot", "Tectonic.toml" }
+  { ".git", ".latexmkrc", "latexmkrc", ".texlabroot", "texlabroot", "Tectonic.toml" }
   ```
 - `settings` :
   ```lua
@@ -12623,7 +12750,7 @@ vim.lsp.enable('volar')
 ```
 
 Default config:
-- `before_init`: [../lsp/volar.lua:88](../lsp/volar.lua#L88)
+- `before_init`: [../lsp/volar.lua:85](../lsp/volar.lua#L85)
 - `cmd` :
   ```lua
   { "vue-language-server", "--stdio" }

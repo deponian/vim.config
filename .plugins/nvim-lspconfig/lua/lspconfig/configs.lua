@@ -24,6 +24,22 @@ local configs = {}
 --- @field root_dir? string|fun(filename: string, bufnr: number)
 --- @field commands? table<string, lspconfig.Config.command>
 
+--- For Windows: calls exepath() to ensure .cmd/.bat (if appropriate) on commands. https://github.com/neovim/nvim-lspconfig/issues/3704
+--- @param cmd any
+local function sanitize_cmd(cmd)
+  -- exepath() is slow, so avoid it on non-Windows.
+  if vim.fn.has('win32') == 0 then
+    return
+  end
+  if cmd and type(cmd) == 'table' and not vim.tbl_isempty(cmd) then
+    local original = cmd[1]
+    cmd[1] = vim.fn.exepath(cmd[1])
+    if #cmd[1] == 0 then
+      cmd[1] = original
+    end
+  end
+end
+
 ---@param t table
 ---@param config_name string
 ---@param config_def table Config definition read from `lspconfig.configs.<name>`.
@@ -52,6 +68,8 @@ function configs.__newindex(t, config_name, config_def)
     local lsp_group = api.nvim_create_augroup('lspconfig', { clear = false })
 
     local config = tbl_deep_extend('keep', user_config, default_config)
+
+    sanitize_cmd(config.cmd)
 
     if util.on_setup then
       pcall(util.on_setup, config, user_config)

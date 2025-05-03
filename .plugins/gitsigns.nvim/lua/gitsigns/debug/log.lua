@@ -5,10 +5,16 @@ local start_time = uv.hrtime()
 --- @class Gitsigns.log
 --- @field package messages [number, string, string, string][]
 local M = {
-  debug_mode = false,
-  verbose = false,
   messages = {},
 }
+
+function M.debug_mode()
+  return require('gitsigns.config').config.debug_mode
+end
+
+function M.verbose()
+  return require('gitsigns.config').config._verbose
+end
 
 --- @param name string
 --- @param lvl integer
@@ -98,28 +104,28 @@ local function cprint(kind, lvl, ...)
 end
 
 function M.dprint(...)
-  if not M.debug_mode then
+  if not M.debug_mode() then
     return
   end
   cprint('debug', 2, ...)
 end
 
 function M.dprintf(obj, ...)
-  if not M.debug_mode then
+  if not M.debug_mode() then
     return
   end
   cprint('debug', 2, obj:format(...))
 end
 
 function M.vprint(...)
-  if not (M.debug_mode and M.verbose) then
+  if not (M.debug_mode() and M.verbose()) then
     return
   end
   cprint('info', 2, ...)
 end
 
 function M.vprintf(obj, ...)
-  if not (M.debug_mode and M.verbose) then
+  if not (M.debug_mode() and M.verbose()) then
     return
   end
   cprint('info', 2, obj:format(...))
@@ -132,7 +138,7 @@ local function eprint(msg, level)
   local ctx = info and string.format('%s<%d>', info.short_src, info.currentline) or '???'
   local time = (uv.hrtime() - start_time) / 1e6
   table.insert(M.messages, { time, 'error', ctx, debug.traceback(msg) })
-  if M.debug_mode then
+  if M.debug_mode() then
     error(msg, 3)
   end
 end
@@ -168,10 +174,27 @@ function M.clear()
 end
 
 --- @param m [number, string, string, string]
+--- @param verbose? boolean
 --- @return [string,string?][]
-local function build_msg(m)
+local function build_msg(m, verbose)
   local time, kind, ctx, msg = m[1], m[2], m[3], m[4]
   local hl = sev_to_hl[kind]
+
+  -- Scrub some messages
+  if not verbose and ctx == 'run_job' then
+    ctx = 'git'
+    --- @type string
+    msg = msg
+      :gsub(vim.pesc('--no-pager --no-optional-locks --literal-pathspecs -c gc.auto=0 '), '')
+      :gsub(vim.pesc('-c core.quotepath=off'), '')
+
+    local cwd = vim.uv.cwd()
+    if cwd then
+      --- @type string
+      msg = msg:gsub(vim.pesc(cwd), '$CWD')
+    end
+  end
+
   return {
     { string.format('%.2f ', time), 'Comment' },
     { kind:upper():sub(1, 1), hl },
@@ -187,11 +210,12 @@ function M.show()
   end
 end
 
+--- @param verbose? boolean
 --- @return string[]?
-function M.get()
+function M.get(verbose)
   local r = {} --- @type string[]
   for _, m in ipairs(M.messages) do
-    local e = build_msg(m)
+    local e = build_msg(m, verbose)
     local e1 = {} --- @type string[]
     for _, x in ipairs(e) do
       e1[#e1 + 1] = x[1]
@@ -199,12 +223,6 @@ function M.get()
     r[#r + 1] = table.concat(e1)
   end
   return r
-end
-
---- @param config Gitsigns.Config
-function M.setup(config)
-  M.debug_mode = config.debug_mode
-  M.verbose = config._verbose
 end
 
 return M

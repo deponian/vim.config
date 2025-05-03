@@ -2,6 +2,7 @@ local log = require('gitsigns.debug.log')
 local async = require('gitsigns.async')
 local util = require('gitsigns.util')
 local Repo = require('gitsigns.git.repo')
+local errors = require('gitsigns.git.errors')
 
 local M = {}
 
@@ -35,17 +36,6 @@ local Obj = {}
 Obj.__index = Obj
 
 M.Obj = Obj
-
---- @param file string
---- @return boolean
-local function in_git_dir(file)
-  for _, p in ipairs(vim.split(file, util.path_sep)) do
-    if p == '.git' then
-      return true
-    end
-  end
-  return false
-end
 
 --- @async
 --- @param revision? string
@@ -84,12 +74,13 @@ end
 --- @param revision? string
 --- @return string[] stdout, string? stderr
 function Obj:get_show_text(revision)
-  if revision and not self.relpath then
+  local relpath = self.relpath
+  if revision and not relpath then
     log.dprint('no relpath')
     return {}
   end
 
-  local object = revision and (revision .. ':' .. assert(self.relpath)) or self.object_name
+  local object = revision and (revision .. ':' .. relpath) or self.object_name
 
   if not object then
     log.dprint('no revision or object_name')
@@ -97,6 +88,24 @@ function Obj:get_show_text(revision)
   end
 
   local stdout, stderr = self.repo:get_show_text(object, self.encoding)
+
+  -- detect renames
+  if
+    revision
+    and stderr
+    and (
+      stderr:match(errors.e.path_does_not_exist)
+      or stderr:match(errors.e.path_exist_on_disk_but_not_in)
+    )
+  then
+    --- @cast relpath -?
+    log.dprintf('%s not found in %s looking for renames', relpath, revision)
+    local old_path = self.repo:rename_status(revision, true)[relpath]
+    if old_path then
+      log.dprintf('found rename %s -> %s', old_path, relpath)
+      stdout, stderr = self.repo:get_show_text(revision .. ':' .. old_path, self.encoding)
+    end
+  end
 
   if not self.i_crlf and self.w_crlf then
     -- Add cr
@@ -219,31 +228,24 @@ function Obj:stage_hunks(hunks, invert)
 end
 
 --- @async
---- @param file string
+--- @param file string Absolute path or relative to toplevel
 --- @param revision string?
 --- @param encoding string
 --- @param gitdir string?
 --- @param toplevel string?
 --- @return Gitsigns.GitObj?
 function Obj.new(file, revision, encoding, gitdir, toplevel)
-  -- TODO(lewis6991): this check is flawed as any directory can be a git-dir
-  -- Can use: git rev-parse --is-inside-git-dir
-  if in_git_dir(file) then
-    log.dprint('In git dir')
-    return
+  local cwd = toplevel
+  if not cwd and util.is_abspath(file) then
+    cwd = vim.fn.fnamemodify(file, ':h')
   end
 
-  if not util.is_abspath(file) then
-    if toplevel then
-      file = toplevel .. util.path_sep .. file
-    elseif gitdir then
-      file = util.dirname(gitdir) .. util.path_sep .. file
-    end
-  end
-
-  local repo = Repo.get(util.dirname(file), gitdir, toplevel)
+  local repo, err = Repo.get(cwd, gitdir, toplevel)
   if not repo then
     log.dprint('Not in git repo')
+    if err and not err:match(errors.e.not_in_git) and not err:match(errors.e.worktree) then
+      log.eprint(err)
+    end
     return
   end
 
@@ -252,15 +254,17 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
 
   revision = util.norm_base(revision)
 
-  local info, err = repo:file_info(file, revision)
+  local info, err2 = repo:file_info(file, revision)
 
-  if err and not silent then
-    log.eprint(err)
+  if err2 and not silent then
+    log.eprint(err2)
   end
 
   if not info then
     return
   end
+
+  file = vim.fs.joinpath(repo.toplevel, info.relpath)
 
   local self = setmetatable({}, Obj)
   self.repo = repo

@@ -2,6 +2,7 @@ local async = require('gitsigns.async')
 local git_command = require('gitsigns.git.cmd')
 local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
+local errors = require('gitsigns.git.errors')
 
 local check_version = require('gitsigns.git.version').check
 
@@ -116,14 +117,15 @@ end
 local repo_cache = setmetatable({}, { __mode = 'v' })
 
 --- @async
---- @param dir string
+--- @param cwd? string
 --- @param gitdir? string
 --- @param toplevel? string
---- @return Gitsigns.Repo?
-function M.get(dir, gitdir, toplevel)
-  local info = M.get_info(dir, gitdir, toplevel)
+--- @return Gitsigns.Repo? repo
+--- @return string? err
+function M.get(cwd, gitdir, toplevel)
+  local info, err = M.get_info(cwd, gitdir, toplevel)
   if not info then
-    return
+    return nil, err
   end
 
   gitdir = info.gitdir
@@ -163,7 +165,7 @@ local function process_abbrev_head(gitdir, head_str, cwd)
     cwd = cwd,
   })[1] or ''
 
-  if log.debug_mode and short_sha ~= '' then
+  if short_sha ~= '' and log.debug_mode() then
     short_sha = 'HEAD'
   end
 
@@ -175,17 +177,21 @@ local function process_abbrev_head(gitdir, head_str, cwd)
 end
 
 --- @async
---- @param cwd string
+--- @param dir? string
 --- @param gitdir? string
 --- @param worktree? string
 --- @return Gitsigns.RepoInfo? info, string? err
-function M.get_info(cwd, gitdir, worktree)
+function M.get_info(dir, gitdir, worktree)
   -- Does git rev-parse have --absolute-git-dir, added in 2.13:
   --    https://public-inbox.org/git/20170203024829.8071-16-szeder.dev@gmail.com/
   local has_abs_gd = check_version(2, 13)
 
   -- Wait for internal scheduler to settle before running command (#215)
   async.schedule()
+
+  -- Explicitly fallback to env vars for better debug
+  gitdir = gitdir or vim.env.GIT_DIR
+  worktree = worktree or vim.env.GIT_WORK_TREE
 
   -- gitdir and worktree must be provided together from `man git`:
   -- > Specifying the location of the ".git" directory using this option (or GIT_DIR environment
@@ -209,11 +215,12 @@ function M.get_info(cwd, gitdir, worktree)
     'HEAD',
   }, {
     ignore_error = true,
-    cwd = worktree or cwd,
+    -- Worktree may be a relative path, so don't set cwd when it is provided.
+    cwd = not worktree and dir or nil,
   })
 
   -- If the repo has no commits yet, rev-parse will fail. Ignore this error.
-  if code > 0 and stderr and stderr:match("fatal: ambiguous argument 'HEAD'") then
+  if code > 0 and stderr and stderr:match(errors.e.ambiguous_head) then
     code = 0
   end
 
@@ -229,6 +236,12 @@ function M.get_info(cwd, gitdir, worktree)
   local toplevel_r = stdout[1]
   local gitdir_r = stdout[2]
 
+  if dir and not vim.startswith(dir, toplevel_r) then
+    log.dprintf("'%s' is outside worktree '%s'", dir, toplevel_r)
+    -- outside of worktree
+    return
+  end
+
   if not has_abs_gd then
     gitdir_r = assert(uv.fs_realpath(gitdir_r))
   end
@@ -240,7 +253,7 @@ function M.get_info(cwd, gitdir, worktree)
   return {
     toplevel = toplevel_r,
     gitdir = gitdir_r,
-    abbrev_head = process_abbrev_head(gitdir_r, stdout[3], cwd),
+    abbrev_head = process_abbrev_head(gitdir_r, stdout[3], toplevel_r),
     detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git',
   }
 end
@@ -269,7 +282,21 @@ function M:ls_tree(path, revision)
     return nil, stderr or tostring(code)
   end
 
-  local info, relpath = unpack(vim.split(results[1], '\t'))
+  local res = results[1]
+
+  if not res then
+    -- Not found, see if it was renamed
+    log.dprintf('%s not found in %s looking for renames', path, revision)
+    local old_path = self:rename_status(revision, true)[path]
+    if old_path then
+      log.dprintf('found rename %s -> %s', old_path, path)
+      return self:ls_tree(old_path, revision)
+    end
+
+    return nil, ('%s not found in %s'):format(path, revision)
+  end
+
+  local info, relpath = unpack(vim.split(res, '\t'))
   local mode_bits, object_type, object_name = unpack(vim.split(info, '%s+'))
   --- @cast object_type 'blob'|'tree'|'commit'
 
@@ -313,13 +340,7 @@ function M:ls_files(file)
 
   -- ignore_error for the cases when we run:
   --    git ls-files --others exists/nonexist
-  if
-    code > 0
-    and (
-      not stderr
-      or not stderr:match('^warning: could not open directory .*: No such file or directory')
-    )
-  then
+  if code > 0 and (not stderr or not stderr:match(errors.w.path_does_not_exist)) then
     return nil, stderr or tostring(code)
   end
 
@@ -416,14 +437,17 @@ function M:hash_object(path, lines)
 end
 
 --- @async
+--- @param revision? string
+--- @param invert? boolean
 --- @return table<string,string>
-function M:rename_status()
+function M:rename_status(revision, invert)
   local out = self:command({
     'diff',
     '--name-status',
     '--find-renames',
     '--find-copies',
     '--cached',
+    revision,
   })
   local ret = {} --- @type table<string,string>
   for _, l in ipairs(out) do
@@ -432,7 +456,11 @@ function M:rename_status()
       --- @cast parts [string, string, string]
       local stat, orig_file, new_file = parts[1], parts[2], parts[3]
       if vim.startswith(stat, 'R') then
-        ret[orig_file] = new_file
+        if invert then
+          ret[new_file] = orig_file
+        else
+          ret[orig_file] = new_file
+        end
       end
     end
   end
