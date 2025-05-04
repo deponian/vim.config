@@ -6,57 +6,55 @@ local M = {
     }
 }
 
+local signs = {
+  ERROR = " ",
+  WARN = " ",
+  INFO = " ",
+  HINT = " ",
+}
+
+local on_attach = function ()
+  vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = true, silent = true})
+  vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
+  vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
+  vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
+  vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = true, silent = true})
+  vim.wo.signcolumn = 'yes'
+end
+
 M.config = function ()
   local capabilities = vim.lsp.protocol.make_client_capabilities()
-
-  local on_attach = function ()
-    vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = true, silent = true})
-    vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
-    vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
-    vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
-    vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = true, silent = true})
-  end
-
-  -- UI tweaks from https://github.com/neovim/nvim-lspconfig/wiki/UI-customization
-  local border = {
-    {"╭", "FloatBorder"},
-    {"─", "FloatBorder"},
-    {"╮", "FloatBorder"},
-    {"│", "FloatBorder"},
-    {"╯", "FloatBorder"},
-    {"─", "FloatBorder"},
-    {"╰", "FloatBorder"},
-    {"│", "FloatBorder"}
-  }
-  local handlers =  {
-    ["textDocument/hover"] =  vim.lsp.with(vim.lsp.handlers.hover, {border = border}),
-    ["textDocument/signatureHelp"] =  vim.lsp.with(vim.lsp.handlers.signature_help, {border = border }),
-  }
-
   local has_cmp_nvim_lsp, cmp_nvim_lsp = pcall(require, 'cmp_nvim_lsp')
   if has_cmp_nvim_lsp then
     capabilities = cmp_nvim_lsp.default_capabilities()
   end
 
   vim.diagnostic.config({
-    virtual_lines = true,
-    signs = true,
     underline = true,
     update_in_insert = true,
-    severity_sort = false,
-  })
+    severity_sort = true,
+    virtual_lines = { current_line = true },
 
-  local signs = { Error = " ", Warn = " ", Hint = " ", Info = " " }
-  for type, icon in pairs(signs) do
-    local hl = "DiagnosticSign" .. type
-    vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
-  end
+    signs = {
+      text = {
+        [vim.diagnostic.severity.ERROR] = signs.ERROR,
+        [vim.diagnostic.severity.HINT] = signs.HINT,
+        [vim.diagnostic.severity.INFO] = signs.INFO,
+        [vim.diagnostic.severity.WARN] = signs.WARN,
+      },
+      numhl = {
+        [vim.diagnostic.severity.ERROR] = 'DiagnosticSignError',
+        [vim.diagnostic.severity.HINT] = 'DiagnosticSignHint',
+        [vim.diagnostic.severity.INFO] = 'DiagnosticSignInfo',
+        [vim.diagnostic.severity.WARN] = 'DiagnosticSignWarn',
+      },
+    },
+  })
 
   -- servers
   require("lspconfig").ansiblels.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
     settings = {
       ansible = {
@@ -83,14 +81,12 @@ M.config = function ()
   require("lspconfig").bashls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").gopls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
     cmd = {"gopls"},
     filetypes = { "go", "gomod", "gowork", "gotmpl" },
@@ -110,21 +106,18 @@ M.config = function ()
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
     cmd = { "vscode-json-languageserver", "--stdio"},
-    handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").pyright.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").lua_ls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
     settings = {
       Lua = {
@@ -160,21 +153,18 @@ M.config = function ()
   require("lspconfig").terraformls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").ts_ls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
   })
 
   require("lspconfig").typos_lsp.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    handlers = handlers,
     on_attach = on_attach,
   })
 end

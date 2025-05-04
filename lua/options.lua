@@ -50,6 +50,7 @@ vim.opt.whichwrap = 'b,s'                             -- allow <BS>/h/l/<Left>/<
 vim.opt.wildcharm = 26                                -- ('<C-z>') substitute for 'wildchar' (<Tab>) in macros
 vim.opt.wildignore:append('*.o,*.rej')                -- patterns to ignore during file-navigation
 vim.opt.wildmode = 'longest:full,full'                -- shell-like autocomplete to unambiguous portion
+vim.opt.winborder = 'bold'
 
 -- use these only for small files
 if not vim.g.bigfile_mode then
