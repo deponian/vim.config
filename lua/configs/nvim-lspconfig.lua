@@ -13,13 +13,19 @@ local signs = {
   HINT = " ",
 }
 
-local on_attach = function ()
+local on_attach = function (_, bufnr)
   vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = true, silent = true})
   vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
   vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
   vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
   vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = true, silent = true})
   vim.wo.signcolumn = 'yes'
+
+  -- disable diagnostics for .env files
+  local bufname = vim.api.nvim_buf_get_name(bufnr)
+    if string.match(bufname, '%.env') then
+      vim.diagnostic.enable(false, { bufnr = bufnr })
+  end
 end
 
 M.config = function ()
