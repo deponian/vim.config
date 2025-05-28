@@ -23,8 +23,13 @@ local on_attach = function (_, bufnr)
 
   -- disable diagnostics for .env files
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-    if string.match(bufname, '%.env') then
-      vim.diagnostic.enable(false, { bufnr = bufnr })
+  if string.match(bufname, '%.env') then
+    vim.diagnostic.enable(false, { bufnr = bufnr })
+  end
+
+  -- disable diagnostics in diff mode
+  if vim.o.diff then
+    vim.diagnostic.enable(false, { bufnr = bufnr })
   end
 end
 
