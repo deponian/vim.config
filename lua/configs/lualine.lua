@@ -34,6 +34,10 @@ M.opts = function ()
       },
       lualine_x = {
         {
+          require('deponian.lualine.get_yaml_key'),
+          color = { fg = '#636da6' },
+        },
+        {
           require('deponian.lualine.readonly'),
           color = { fg = '#f65866', gui = 'bold' },
         },

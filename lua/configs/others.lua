@@ -98,6 +98,15 @@ return {
     -- end
   },
 
+  {
+    "cuducos/yaml.nvim",
+    -- also see deponian/lualine/get_yaml_key
+    ft = { "yaml" },
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter",
+    }
+  },
+
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },

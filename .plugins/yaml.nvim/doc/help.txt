@@ -1,0 +1,70 @@
+*yaml.nvim.txt*   Plugin that to work with YAML in Neovim
+
+==============================================================================
+USAGE INSTRUCTIONS                                           *yaml.nvim-usage*
+
+This plugins offers the following commands:
+
+:YAMLView                                                          *:YAMLView*
+
+    Shows the full path and value of the key/value pair under the cursor. It
+    collects all nested keys and outputs them as a dot-case string (e.g.:
+    `root.parent.child.key = value`). It uses Lua's `vim.notify` function to
+    show the value to the user.
+
+:YAMLYank [register]                                               *:YAMLYank*
+
+    Yanks the full path and value of the key/value pair under the cursor to
+    the selected register. The default register is the unnamed one (see
+    |:quotequote|).
+
+    It collects all nested keys and outputs them as a dot-case string (e.g.:
+    `root.parent.child.key = value`).
+
+:YAMLYankKey [register]                                         *:YAMLYankKey*
+
+    Yanks the full path of the key of the key/value pair under the cursor to
+    the selected register. The default register is the unnamed one (see
+    |:quotequote|).
+
+    It collects all nested keys and outputs them as a dot-case string (e.g.:
+    `root.parent.child.key`).
+
+:YAMLYankValue [register]                                     *:YAMLYankValue*
+
+    Yanks the value of the key/value pair under the cursor to the selected
+    register. The default register is the unnamed one (see |:quotequote|).
+
+:YAMLHighlight <key>                                          *:YAMLHighlight*
+
+    Highlights the line(s) of the provided YAML key. The key should match
+    the output format used in |:YAMLViem|.
+
+:YAMLRemoveHighlight                                    *:YAMLRemoveHighlight*
+
+    Removes the highlight created by |:YAMLHighlight|.
+
+:YAMLQuickfix                                                   *YAMLQuickfix*
+
+    Creates a |:quickfix| list with the contents of the YAML, showing the full
+    path and value of the key/value pairs of the current YAML file. It
+    collects all nested keys and outputs them as a dot-case string (e.g.:
+    `root.parent.child.key = value`). It uses Vim's native |:cex| function, so
+    the cursor is positioned in the first selection of the |:quickfix|.
+
+:YAMLSnacks                                                       *YAMLSnacks*
+
+    Creates a |:quickfix| list as in |:YAMLQuickfix|, and loads it with
+    |:Snacks.picker|. Only available if |:Snacks| is installed.
+
+:YAMLTelescope                                                 *YAMLTelescope*
+
+    Creates a |:quickfix| list as in |:YAMLQuickfix|, and loads it with
+    |:telescope.nvim| using |:telescope.builtin|'s `quickfix()` function. Only
+    available if |:telescope.nvim| is installed.
+
+:YAMLFzfLua                                                       *YAMLFzfLua*
+
+    Creates a |:quickfix| list as in |:YAMLQuickfix|, and loads it with
+    |:fzf-lua|'s `quickfix()` function. Only available if |:fzf-lua| is
+    installed.
