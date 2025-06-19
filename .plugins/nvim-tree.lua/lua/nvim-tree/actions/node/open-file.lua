@@ -2,7 +2,7 @@
 local lib = require("nvim-tree.lib")
 local notify = require("nvim-tree.notify")
 local utils = require("nvim-tree.utils")
-local view = require("nvim-tree.view")
+local core = require("nvim-tree.core")
 
 local M = {}
 
@@ -19,9 +19,10 @@ end
 ---Get all windows in the current tabpage that aren't NvimTree.
 ---@return table with valid win_ids
 local function usable_win_ids()
+  local explorer = core.get_explorer()
   local tabpage = vim.api.nvim_get_current_tabpage()
   local win_ids = vim.api.nvim_tabpage_list_wins(tabpage)
-  local tree_winid = view.get_winnr(tabpage)
+  local tree_winid = explorer and explorer.view:get_winnr(tabpage, "open-file.usable_win_ids")
 
   return vim.tbl_filter(function(id)
     local bufid = vim.api.nvim_win_get_buf(id)
@@ -39,19 +40,8 @@ local function usable_win_ids()
     end
 
     local win_config = vim.api.nvim_win_get_config(id)
-    return id ~= tree_winid and win_config.focusable and not win_config.external or false
+    return id ~= tree_winid and win_config.focusable and not win_config.hide and not win_config.external or false
   end, win_ids)
-end
-
----Find the first window in the tab that is not NvimTree.
----@return integer -1 if none available
-local function first_win_id()
-  local selectable = usable_win_ids()
-  if #selectable > 0 then
-    return selectable[1]
-  else
-    return -1
-  end
 end
 
 ---Get user to pick a window in the tab that is not NvimTree.
@@ -198,7 +188,10 @@ end
 
 local function open_file_in_tab(filename)
   if M.quit_on_open then
-    view.close()
+    local explorer = core.get_explorer()
+    if explorer then
+      explorer.view:close(nil, "open-file.open_file_in_tab")
+    end
   end
   if M.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
@@ -208,7 +201,10 @@ end
 
 local function drop(filename)
   if M.quit_on_open then
-    view.close()
+    local explorer = core.get_explorer()
+    if explorer then
+      explorer.view:close(nil, "open-file.drop")
+    end
   end
   if M.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
@@ -218,7 +214,10 @@ end
 
 local function tab_drop(filename)
   if M.quit_on_open then
-    view.close()
+    local explorer = core.get_explorer()
+    if explorer then
+      explorer.view:close(nil, "open-file.tab_drop")
+    end
   end
   if M.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
@@ -239,16 +238,24 @@ local function on_preview(buf_loaded)
       once = true,
     })
   end
-  view.focus()
+  local explorer = core.get_explorer()
+  if explorer then
+    explorer.view:focus()
+  end
 end
 
 local function get_target_winid(mode)
   local target_winid
   if not M.window_picker.enable or string.find(mode, "no_picker") then
     target_winid = lib.target_winid
-    -- first available window
-    if not vim.tbl_contains(vim.api.nvim_tabpage_list_wins(0), target_winid) then
-      target_winid = first_win_id()
+    local usable_wins = usable_win_ids()
+    -- first available usable window
+    if not vim.tbl_contains(usable_wins, target_winid) then
+      if #usable_wins > 0 then
+        target_winid = usable_wins[1]
+      else
+        target_winid = -1
+      end
     end
   else
     -- pick a window
@@ -279,6 +286,8 @@ local function set_current_win_no_autocmd(winid, autocmd)
 end
 
 local function open_in_new_window(filename, mode)
+  local explorer = core.get_explorer()
+
   if type(mode) ~= "string" then
     mode = ""
   end
@@ -301,7 +310,11 @@ local function open_in_new_window(filename, mode)
   end, vim.api.nvim_list_wins())
 
   local create_new_window = #win_ids == 1 -- This implies that the nvim-tree window is the only one
-  local new_window_side = (view.View.side == "right") and "aboveleft" or "belowright"
+
+  local new_window_side = "belowright"
+  if explorer and (explorer.view.side == "right") then
+    new_window_side = "aboveleft"
+  end
 
   -- Target is invalid: create new window
   if not vim.tbl_contains(win_ids, target_winid) then
@@ -333,7 +346,7 @@ local function open_in_new_window(filename, mode)
     end
   end
 
-  if (mode == "preview" or mode == "preview_no_picker") and view.View.float.enable then
+  if (mode == "preview" or mode == "preview_no_picker") and explorer and explorer.view.float.enable then
     -- ignore "WinLeave" autocmd on preview
     -- because the registered "WinLeave"
     -- will kill the floating window immediately
@@ -373,7 +386,12 @@ local function is_already_loaded(filename)
 end
 
 local function edit_in_current_buf(filename)
-  require("nvim-tree.view").abandon_current_window()
+  local explorer = core.get_explorer()
+
+  if explorer then
+    explorer.view:abandon_current_window()
+  end
+
   if M.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
   end
@@ -384,6 +402,8 @@ end
 ---@param filename string
 ---@return nil
 function M.fn(mode, filename)
+  local explorer = core.get_explorer()
+
   if type(mode) ~= "string" then
     mode = ""
   end
@@ -418,16 +438,16 @@ function M.fn(mode, filename)
     vim.bo.bufhidden = ""
   end
 
-  if M.resize_window then
-    view.resize()
+  if M.resize_window and explorer then
+    explorer.view:resize()
   end
 
   if mode == "preview" or mode == "preview_no_picker" then
     return on_preview(buf_loaded)
   end
 
-  if M.quit_on_open then
-    view.close()
+  if M.quit_on_open and explorer then
+    explorer.view:close(nil, "open-file.fn")
   end
 end
 

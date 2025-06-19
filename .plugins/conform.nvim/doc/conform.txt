@@ -214,6 +214,8 @@ format({opts}, {callback}): boolean                               *conform.forma
                              using LSP formatting
           {filter}           `nil|fun(client: table): boolean` Passed to |vim.ls
                              p.buf.format| when using LSP formatting
+          {formatting_options} `nil|table` Passed to |vim.lsp.buf.format| when
+                             using LSP formatting
       {callback} `nil|fun(err: nil|string, did_edit: nil|boolean)` Called once
                  formatting has completed
     Returns:
@@ -302,6 +304,7 @@ FORMATTERS                                                    *conform-formatter
 `cabal_fmt` - Format cabal files with cabal-fmt.
 `caramel_fmt` - Format Caramel code.
 `cbfmt` - A tool to format codeblocks inside markdown and org documents.
+`cedar` - Formats cedar policies.
 `clang-format` - Tool to format C/C++/… code according to a set of rules and
                heuristics.
 `cljfmt` - cljfmt is a tool for detecting and fixing formatting errors in
@@ -326,6 +329,7 @@ FORMATTERS                                                    *conform-formatter
 `deno_fmt` - Use [Deno](https://deno.land/) to format TypeScript,
            JavaScript/JSON and markdown.
 `dfmt` - Formatter for D source code.
+`dioxus` - Format `rsx!` snippets in Rust files.
 `djlint` - ✨ HTML Template Linter and Formatter. Django - Jinja - Nunjucks -
          Handlebars - GoLang.
 `docformatter` - docformatter automatically formats docstrings to follow a
@@ -379,6 +383,7 @@ FORMATTERS                                                    *conform-formatter
 `grain_format` - Code formatter for the grain programming language.
 `hcl` - A formatter for HCL files.
 `hindent` - Haskell pretty printer.
+`hledger-fmt` - An opinionated hledger's journal files formatter.
 `html_beautify` - Beautifier for html.
 `htmlbeautifier` - A normaliser/beautifier for HTML that also understands
                  embedded Ruby. Ideal for tidying up Rails templates.
@@ -389,6 +394,7 @@ FORMATTERS                                                    *conform-formatter
 `inko` - A language for building concurrent software with confidence
 `isort` - Python utility / library to sort imports alphabetically and
         automatically separate them into sections and by type.
+`janet-format` - A formatter for Janet code.
 `joker` - Small Clojure interpreter, linter and formatter.
 `jq` - Command-line JSON processor.
 `js_beautify` - Beautifier for javascript.
@@ -463,6 +469,7 @@ FORMATTERS                                                    *conform-formatter
 `prettypst` - Formatter for Typst.
 `puppet-lint` - Check that your Puppet manifests conform to the style guide.
 `purs-tidy` - A syntax tidy-upper for PureScript.
+`pycln` - A Python formatter for finding and removing unused import statements.
 `pyink` - A Python formatter, forked from Black with a few different formatting
         behaviors.
 `pyproject-fmt` - Apply a consistent format to your pyproject.toml file with
@@ -512,8 +519,9 @@ FORMATTERS                                                    *conform-formatter
 `stylish-haskell` - Haskell code prettifier.
 `stylua` - An opinionated code formatter for Lua.
 `superhtml` - HTML Language Server and Templating Language Library.
-`swift_format` - Swift formatter from apple. Requires building from source with
-               `swift build`.
+`swift` - Official Swift formatter. Requires Swift 6.0 or later.
+`swift_format` - Official Swift formatter. For Swift 6.0 or later prefer setting
+               the `swift` formatter instead.
 `swiftformat` - SwiftFormat is a code library and command-line tool for
               reformatting `swift` code on macOS or Linux.
 `swiftlint` - A tool to enforce Swift style and conventions.
@@ -529,6 +537,7 @@ FORMATTERS                                                    *conform-formatter
         formatting.
 `tofu_fmt` - The tofu-fmt command rewrites OpenTofu configuration files to a
            canonical format and style.
+`treefmt` - one CLI to format your repo.
 `trim_newlines` - Trim empty lines at the end of the file.
 `trim_whitespace` - Trim trailing whitespace.
 `twig-cs-fixer` - Automatically fix Twig Coding Standards issues

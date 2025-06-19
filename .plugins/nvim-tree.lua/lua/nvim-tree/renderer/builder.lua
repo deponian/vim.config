@@ -1,6 +1,5 @@
 local notify = require("nvim-tree.notify")
 local utils = require("nvim-tree.utils")
-local view = require("nvim-tree.view")
 
 local Class = require("nvim-tree.classic")
 
@@ -135,12 +134,12 @@ end
 function Builder:format_line(indent_markers, arrows, icon, name, node)
   local added_len = 0
   local function add_to_end(t1, t2)
-    if not t2 then
+    if not t2 or vim.tbl_isempty(t2) then
       return
     end
     for _, v in ipairs(t2) do
       if added_len > 0 then
-        table.insert(t1, { str = self.explorer.opts.renderer.icons.padding })
+        table.insert(t1, { str = self.explorer.opts.renderer.icons.padding.icon })
       end
       table.insert(t1, v)
     end
@@ -379,7 +378,7 @@ end
 
 ---@private
 function Builder:build_header()
-  if view.is_root_folder_visible(self.explorer.absolute_path) then
+  if self.explorer.view:is_root_folder_visible(self.explorer.absolute_path) then
     local root_name = self:format_root_name(self.explorer.opts.renderer.root_folder_label)
     table.insert(self.lines, root_name)
     self:insert_highlight({ "NvimTreeRootFolder" }, 0, string.len(root_name))

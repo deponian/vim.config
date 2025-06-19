@@ -145,6 +145,9 @@ M.vimcmd_entry = function(_vimcmd, selected, opts, pcall_vimcmd)
     (function()
       -- Lua 5.1 goto compatiblity hack (function wrap)
       local entry = path.entry_to_file(sel, opts, opts._uri)
+      -- if enabled, query can contain line no, e.g. "file:40"
+      local lnum = opts.line_query and tonumber(opts.last_query:match(":(%d+)$"))
+      entry.line = lnum or entry.line
       -- "<none>" could be set by `autocmds`
       if entry.path == "<none>" then return end
       local fullpath = entry.bufname or entry.uri and entry.uri:match("^%a+://(.*)") or entry.path
@@ -482,6 +485,12 @@ M.toggle_bg = function(_, _)
   utils.info(string.format([[background set to "%s"]], vim.o.background))
 end
 
+M.hi = function(selected)
+  if #selected == 0 then return end
+  vim.cmd("hi " .. selected[1])
+  vim.api.nvim_exec2("hi " .. selected[1], {})
+end
+
 M.run_builtin = function(selected)
   if #selected == 0 then return end
   local method = selected[1]
@@ -492,7 +501,7 @@ M.ex_run = function(selected)
   if #selected == 0 then return end
   local cmd = selected[1]
   vim.cmd("stopinsert")
-  vim.fn.feedkeys(string.format(":%s", cmd), "n")
+  vim.fn.feedkeys(string.format(":%s", cmd), "nt")
   return cmd
 end
 
@@ -800,7 +809,7 @@ M.git_yank_commit = function(selected, opts)
   local regs, cb = {}, vim.o.clipboard
   if cb:match("unnamed") then regs[#regs + 1] = [[*]] end
   if cb:match("unnamedplus") then regs[#regs + 1] = [[+]] end
-  if #regs == 0 then regs[regs + 1] = [["]] end
+  if #regs == 0 then regs[#regs + 1] = [["]] end
   -- copy to the yank register regardless
   for _, reg in ipairs(regs) do
     vim.fn.setreg(reg, commit_hash)

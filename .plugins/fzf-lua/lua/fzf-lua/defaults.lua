@@ -2,7 +2,6 @@ local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local actions = require "fzf-lua.actions"
 local previewers = require "fzf-lua.previewer"
-
 local M = {}
 
 function M._default_previewer_fn()
@@ -219,7 +218,7 @@ M.defaults                      = {
       ueberzug_scaler   = "cover",
       title_fnamemodify = function(s) return path.tail(s) end,
       render_markdown   = { enabled = true, filetypes = { ["markdown"] = true } },
-      snacks_image      = { enabled = true },
+      snacks_image      = { enabled = true, render_inline = true },
       _ctor             = previewers.builtin.buffer_or_file,
     },
     codeaction = {
@@ -394,6 +393,33 @@ M.defaults.git                  = {
       -- ["ctrl-s"] = { fn = actions.git_stage_unstage, reload = true },
       -- ["ctrl-s"] = { actions.git_stage_unstage, actions.resume },
     },
+  },
+  diff = {
+    cmd               = "git --no-pager diff --name-only {ref}",
+    ref               = "HEAD",
+    preview           = "git diff {ref} {file}",
+    preview_pager     = M._preview_pager_fn,
+    multiprocess      = true,
+    file_icons        = 1,
+    color_icons       = true,
+    fzf_opts          = { ["--multi"] = true },
+    _fzf_nth_devicons = true,
+    _actions          = function() return M.globals.actions.files end,
+  },
+  hunks = {
+    previewer         = M._default_previewer_fn,
+    cmd               = "git --no-pager diff --color=always {ref}",
+    ref               = "HEAD",
+    multiprocess      = true,
+    file_icons        = 1,
+    color_icons       = true,
+    fzf_opts          = {
+      ["--multi"] = true,
+      ["--delimiter"] = ":",
+      ["--nth"] = "3..",
+    },
+    _fzf_nth_devicons = true,
+    _actions          = function() return M.globals.actions.files end,
   },
   commits = {
     cmd           = [[git log --color --pretty=format:"%C(yellow)%h%Creset ]]
@@ -611,6 +637,7 @@ M.defaults.tabs                 = {
   previewer   = M._default_previewer_fn,
   tab_title   = "Tab",
   tab_marker  = "<<",
+  locate      = true,
   file_icons  = 1,
   color_icons = true,
   _actions    = function()
@@ -753,6 +780,7 @@ M.defaults.highlights           = {
   fzf_opts   = { ["--no-multi"] = true },
   fzf_colors = { ["hl"] = "-1:reverse", ["hl+"] = "-1:reverse" },
   previewer  = { _ctor = previewers.builtin.highlights, },
+  actions    = { ["enter"] = actions.hi }
 }
 
 M.defaults.awesome_colorschemes = {
@@ -942,16 +970,21 @@ M.defaults.lsp.code_actions     = {
 }
 
 M.defaults.diagnostics          = {
-  previewer   = M._default_previewer_fn,
-  file_icons  = 1,
-  color_icons = true,
-  git_icons   = false,
-  diag_icons  = true,
-  diag_source = false,
-  multiline   = true,
-  fzf_opts    = { ["--multi"] = true },
-  _actions    = function() return M.globals.actions.files end,
-  _cached_hls = { "path_colnr", "path_linenr" },
+  previewer      = M._default_previewer_fn,
+  file_icons     = false,
+  color_icons    = true,
+  color_headings = true,
+  git_icons      = false,
+  diag_icons     = true,
+  diag_source    = true,
+  diag_code      = true,
+  multiline      = 2,
+  fzf_opts       = {
+    ["--multi"] = true,
+    ["--wrap"]  = true,
+  },
+  _actions       = function() return M.globals.actions.files end,
+  _cached_hls    = { "path_colnr", "path_linenr" },
   -- signs = {
   --   ["Error"] = { text = "e", texthl = "DiagnosticError" },
   --   ["Warn"]  = { text = "w", texthl = "DiagnosticWarn" },
@@ -1012,22 +1045,26 @@ M.defaults.tagstack             = {
 
 M.defaults.commands             = {
   actions         = { ["enter"] = actions.ex_run },
+  flatten         = {},
   include_builtin = true,
 }
 
 M.defaults.autocmds             = {
+  show_desc = true,
   previewer = { _ctor = previewers.builtin.autocmds },
   _actions  = function() return M.globals.actions.files end,
   fzf_opts  = {
-    ["--delimiter"] = "[|]",
+    ["--delimiter"] = "[│]",
     ["--with-nth"]  = "2..",
     ["--no-multi"]  = true,
   },
 }
 
 M.defaults.command_history      = {
-  fzf_opts = { ["--tiebreak"] = "index", ["--no-multi"] = true },
-  actions  = {
+  fzf_opts    = { ["--tiebreak"] = "index", ["--no-multi"] = true },
+  _treesitter = function(line) return "foo.vim", nil, line end,
+  fzf_colors  = { ["hl"] = "-1:reverse", ["hl+"] = "-1:reverse" },
+  actions     = {
     ["enter"]  = actions.ex_run_cr,
     ["ctrl-e"] = actions.ex_run,
   },

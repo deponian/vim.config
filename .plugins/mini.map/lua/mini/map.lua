@@ -1017,16 +1017,17 @@ H.default_symbols = H.block_symbols['3x2']
 -- Helper functionality =======================================================
 -- Settings -------------------------------------------------------------------
 H.setup_config = function(config)
-  -- General idea: if some table elements are not present in user-supplied
-  -- `config`, take them from default config
-  vim.validate({ config = { config, 'table', true } })
+  H.check_type('config', config, 'table', true)
   config = vim.tbl_deep_extend('force', vim.deepcopy(H.default_config), config or {})
 
-  vim.validate({
-    integrations = { config.integrations, H.is_valid_config_integrations },
-    symbols = { config.symbols, H.is_valid_config_symbols },
-    window = { config.window, H.is_valid_config_window },
-  })
+  local ok_integrations, msg_integrations = H.is_valid_config_integrations(config.integrations, 'integrations')
+  if not ok_integrations then H.error(msg_integrations) end
+
+  local ok_symbols, msg_symbols = H.is_valid_config_symbols(config.symbols, 'symbols')
+  if not ok_symbols then H.error(msg_symbols) end
+
+  local ok_window, msg_window = H.is_valid_config_window(config.window, 'window')
+  if not ok_window then H.error(msg_window) end
 
   return config
 end
@@ -1034,10 +1035,10 @@ end
 H.apply_config = function(config) MiniMap.config = config end
 
 H.create_autocommands = function()
-  local augroup = vim.api.nvim_create_augroup('MiniMap', {})
+  local gr = vim.api.nvim_create_augroup('MiniMap', {})
 
   local au = function(event, pattern, callback, desc)
-    vim.api.nvim_create_autocmd(event, { group = augroup, pattern = pattern, callback = callback, desc = desc })
+    vim.api.nvim_create_autocmd(event, { group = gr, pattern = pattern, callback = callback, desc = desc })
   end
 
   au({ 'BufEnter', 'BufWritePost', 'TextChanged', 'VimResized' }, '*', H.on_content_change, 'On content change')
@@ -1045,6 +1046,7 @@ H.create_autocommands = function()
   au('WinLeave', '*', H.on_winleave, 'On WinLeave')
   au('WinClosed', '*', H.on_winclosed, 'On WinClosed')
   au('ModeChanged', '*:n', H.on_content_change, 'On return to Normal mode')
+  au('ColorScheme', '*', H.create_default_hl, 'Ensure colors')
 end
 
 --stylua: ignore
@@ -1373,6 +1375,7 @@ H.normalize_window_options = function(win_opts, full)
     -- Can be updated at `VimResized` event
     height = vim.o.lines - vim.o.cmdheight - (has_tabline and 1 or 0) - (has_statusline and 1 or 0),
     focusable = win_opts.focusable,
+    border = 'none',
     zindex = win_opts.zindex,
   }
   if not full then return res end
@@ -1393,9 +1396,10 @@ end
 -- Work with map updates ------------------------------------------------------
 H.create_map_buffer = function()
   local buf_id = vim.api.nvim_create_buf(false, true)
+  H.set_buf_name(buf_id, 'content')
 
   -- Set buffer local options (which don't involve `noautocmd`)
-  vim.api.nvim_buf_set_option(buf_id, 'filetype', 'minimap')
+  vim.bo[buf_id].filetype = 'minimap'
 
   -- Make buffer local mappings
   vim.keymap.set('n', '<CR>', '<Cmd>lua MiniMap.toggle_focus(false)<CR>', { buffer = buf_id })
@@ -1659,7 +1663,14 @@ H.is_pure_scrollbar = function()
 end
 
 -- Utilities ------------------------------------------------------------------
-H.error = function(msg) error(string.format('(mini.map) %s', msg), 0) end
+H.error = function(msg) error('(mini.map) ' .. msg, 0) end
+
+H.check_type = function(name, val, ref, allow_nil)
+  if type(val) == ref or (ref == 'callable' and vim.is_callable(val)) or (allow_nil and val == nil) then return end
+  H.error(string.format('`%s` should be %s, not %s', name, ref, type(val)))
+end
+
+H.set_buf_name = function(buf_id, name) vim.api.nvim_buf_set_name(buf_id, 'minimap://' .. buf_id .. '/' .. name) end
 
 H.validate_if = function(predicate, x, x_name)
   local is_valid, msg = predicate(x, x_name)

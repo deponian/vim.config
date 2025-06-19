@@ -24,6 +24,9 @@ local function escape_wildcards(path)
   return path:gsub('([%[%]%?%*])', '\\%1')
 end
 
+--- Returns a function which matches a filepath against the given glob/wildcard patterns.
+---
+--- Also works with zipfile:/tarfile: buffers (via `strip_archive_subpath`).
 function M.root_pattern(...)
   local patterns = M.tbl_flatten { ... }
   return function(startpath)
@@ -44,20 +47,34 @@ function M.root_pattern(...)
   end
 end
 
-function M.insert_package_json(config_files, field, fname)
+--- Appends `new_names` to `root_files` if `field` is found in any such file in any ancestor of `fname`.
+---
+--- NOTE: this does a "breadth-first" search, so is broken for multi-project workspaces:
+--- https://github.com/neovim/nvim-lspconfig/issues/3818#issuecomment-2848836794
+---
+--- @param root_files string[] List of root-marker files to append to.
+--- @param new_names string[] Potential root-marker filenames (e.g. `{ 'package.json', 'package.json5' }`) to inspect for the given `field`.
+--- @param field string Field to search for in the given `new_names` files.
+--- @param fname string Full path of the current buffer name to start searching upwards from.
+function M.root_markers_with_field(root_files, new_names, field, fname)
   local path = vim.fn.fnamemodify(fname, ':h')
-  local root_with_package = vim.fs.find({ 'package.json', 'package.json5' }, { path = path, upward = true })[1]
+  local found = vim.fs.find(new_names, { path = path, upward = true })
 
-  if root_with_package then
-    -- only add package.json if it contains field parameter
-    for line in io.lines(root_with_package) do
+  for _, f in ipairs(found or {}) do
+    -- Match the given `field`.
+    for line in io.lines(f) do
       if line:find(field) then
-        config_files[#config_files + 1] = vim.fs.basename(root_with_package)
+        root_files[#root_files + 1] = vim.fs.basename(f)
         break
       end
     end
   end
-  return config_files
+
+  return root_files
+end
+
+function M.insert_package_json(root_files, field, fname)
+  return M.root_markers_with_field(root_files, { 'package.json', 'package.json5' }, field, fname)
 end
 
 -- For zipfile: or tarfile: virtual paths, returns the path to the archive.

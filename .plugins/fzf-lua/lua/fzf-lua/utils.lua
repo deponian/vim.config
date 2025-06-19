@@ -356,6 +356,39 @@ function M.tbl_deep_clone(t)
   return clone
 end
 
+-- Similar to `vim.tbl_deep_extend`
+-- Recursively merge two or more tables by extending
+-- the first table and returning its original pointer
+---@param behavior "keep"|"force"|"error"
+---@rerurn table
+function M.tbl_deep_extend(behavior, ...)
+  local tbls = { ... }
+  local ret = tbls[1]
+  for i = 2, #tbls do
+    local t = tbls[i]
+    for k, v in pairs(t) do
+      ret[k] = (function()
+        if type(v) == table then
+          return M.tbl_deep_extend(behavior, ret[k] or {}, v)
+        elseif behavior == "force" then
+          return v
+        elseif behavior == "keep" then
+          if ret[k] ~= nil then
+            return ret[k]
+          else
+            return v
+          end
+        elseif behavior == "error" then
+          error(string.format("key '%s' found in more than one map", k))
+        else
+          error(string.format("invalid behavior '%s'", behavior))
+        end
+      end)()
+    end
+  end
+  return ret
+end
+
 ---@diagnostic disable-next-line: deprecated
 M.tbl_islist = vim.islist or vim.tbl_islist
 
@@ -832,6 +865,9 @@ function M.load_profile_fname(fname, name, silent)
   end
 end
 
+---@param profiles table|string
+---@param silent boolean|integer
+---@return table
 function M.load_profiles(profiles, silent)
   local ret = {}
   local path = require("fzf-lua").path
@@ -1032,7 +1068,7 @@ end
 ---@param scope string?
 ---@param win integer
 function M.eventignore(func, win, scope)
-  if win and vim.fn.exists("&eventignorewin") == 1 then
+  if win and vim.fn.exists("+eventignorewin") == 1 then
     local save_ei = vim.wo[win][0].eventignorewin
     vim.wo[win][0].eventignorewin = scope or "all"
     local ret = { func() }
@@ -1077,6 +1113,37 @@ function M.nvim_buf_delete(bufnr, opts)
     if not vim.api.nvim_buf_is_valid(bufnr) then return end
     return vim.api.nvim_buf_delete(bufnr, opts)
   end)
+end
+
+---@param winid integer
+---@param opts vim.api.keyset.win_config Map defining the window configuration,
+function M.fast_win_set_config(winid, opts)
+  -- win_set_config can be slow even later with `opts={}`
+  -- win->w_config is reused, but style="minimal" always reset win option (slow for bigfile)
+  -- https://github.com/neovim/neovim/blob/08c484f2ca4b58e9eda07e194e9d096565db7144/src/nvim/api/win_config.c#L406
+  -- so don't set it if opts is the same
+  local old_opts = vim.api.nvim_win_get_config(winid)
+  -- nvim_win_get_config don't return style="minimal"
+  -- opts.style is mainly for nvim_open_win only (we don't use it here)
+  opts.style = nil
+  for k, v in pairs(opts) do
+    if not vim.deep_equal(old_opts[k], v) then
+      vim.api.nvim_win_set_config(winid, opts)
+      break
+    end
+  end
+end
+
+function M.upvfind(func, upval_name)
+  -- Find the upvalue in a function
+  local i = 1
+  while true do
+    local name, value = debug.getupvalue(func, i)
+    if not name then break end
+    if name == upval_name then return value end
+    i = i + 1
+  end
+  return nil
 end
 
 function M.getbufinfo(bufnr)
@@ -1315,6 +1382,7 @@ function M.jump_to_location(location, offset_encoding, reuse_win)
     return vim.lsp.util.show_document(location, offset_encoding,
       { reuse_win = reuse_win, focus = true })
   else
+    ---@diagnostic disable-next-line: deprecated
     return vim.lsp.util.jump_to_location(location, offset_encoding, reuse_win)
   end
 end
@@ -1333,6 +1401,7 @@ function M.termopen(cmd, opts)
     opts.term = true
     return vim.fn.jobstart(cmd, opts)
   else
+    ---@diagnostic disable-next-line: deprecated
     return vim.fn.termopen(cmd, opts)
   end
 end

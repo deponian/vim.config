@@ -50,6 +50,7 @@ end
 
 ---Sets up the cwd watcher to detect branch changes using uv.loop
 ---Uses module local variable cwd_watcher
+---@async
 ---@param cwd string current working directory
 ---@param towatch string Directory to watch
 local function setup_cwd_watcher(cwd, towatch)
@@ -73,9 +74,11 @@ local function setup_cwd_watcher(cwd, towatch)
 
   local update_head = debounce_trailing(
     100,
+    --- @diagnostic disable-next-line: param-type-mismatch
     async().async(function()
       local git = require('gitsigns.git')
-      local new_head = git.Repo.get_info(cwd).abbrev_head
+      local info = git.Repo.get_info(cwd) or {}
+      local new_head = info.abbrev_head
       async().schedule()
       if new_head ~= vim.g.gitsigns_head then
         vim.g.gitsigns_head = new_head

@@ -180,6 +180,54 @@ M.frames = function(opts)
 
   opts._frames = session.threads[session.stopped_thread_id].frames
 
+  opts.previewer = {
+    _ctor = function()
+      local p = require("fzf-lua.previewer.builtin").buffer_or_file:extend()
+      ---@param entry_str string
+      ---@return fzf-lua.buffer_or_file.Entry
+      function p:parse_entry(entry_str)
+        local idx = entry_str and tonumber(entry_str:match("(%d+).")) or nil
+        if not idx then return {} end
+        local f = opts._frames[idx]
+
+        if (not f) or not f.source then
+          return {}
+        end
+        if f.source.path then
+          local path = f.source.path
+          local fs_stat = vim.uv.fs_stat(path)
+          if fs_stat and fs_stat.type == "file" then
+            return {
+              path = path,
+              line = f.line,
+              -- col = f.column,
+            }
+          end
+        end
+        if f.source.sourceReference ~= 0 then
+          local source_ref = f.source.sourceReference
+          local err, result = nil, nil
+          session:request("source", { sourceReference = source_ref }, function(e, r)
+            err = e
+            result = r
+          end)
+          vim.wait(100, function()
+            return err ~= nil or result ~= nil
+          end)
+          return {
+            path = f.source.path,
+            content = vim.split(result.content or "", "\n"),
+            line = f.line,
+          }
+        end
+
+        return { path = f.source.path }
+      end
+
+      return p
+    end,
+  }
+
   opts.actions = {
     ["enter"] = function(selected, o)
       local sess = _dap.session()

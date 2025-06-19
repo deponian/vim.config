@@ -1,4 +1,4 @@
-*fzf-lua.txt*          For Neovim >= 0.9.0          Last change: 2025 April 22
+*fzf-lua.txt*           For Neovim >= 0.9.0           Last change: 2025 May 26
 
 ==============================================================================
 Table of Contents                                  *fzf-lua-table-of-contents*
@@ -276,6 +276,8 @@ GIT                                                              *fzf-lua-git*
 | -------------- | ------------------------ |
 | `git_files`    | `git ls-files`           |
 | `git_status`   | `git status`             |
+| `git_diff`     | `git diff {ref}`         |
+| `git_hunks`    | `git hunks {ref}`        |
 | `git_commits`  | git commit log (project) |
 | `git_bcommits` | git commit log (buffer)  |
 | `git_blame`    | git blame (buffer)       |
@@ -719,7 +721,7 @@ CUSTOMIZATION                                          *fzf-lua-customization*
           -- render_markdown.nvim integration, enabled by default for markdown
           render_markdown = { enabled = true, filetypes = { ["markdown"] = true } },
           -- snacks.images integration, enabled by default
-          snacks_image = { enabled = true },
+          snacks_image = { enabled = true, render_inline = true },
         },
         -- Code Action previewers, default is "codeaction" (set via `lsp.code_actions.previewer`)
         -- "codeaction_native" uses fzf's native previewer, recommended when combined with git-delta
@@ -822,6 +824,27 @@ CUSTOMIZATION                                          *fzf-lua-customization*
           --   ["ctrl-x"]  = { fn = actions.git_reset, reload = true },
           --   ["ctrl-s"]  = { fn = actions.git_stage_unstage, reload = true },
           -- },
+        },
+        diff = {
+          cmd               = "git --no-pager diff --name-only {ref}",
+          ref               = "HEAD",
+          preview           = "git diff {ref} {file}",
+          -- git-delta is automatically detected as pager, uncomment to disable
+          -- preview_pager = false,
+          file_icons        = true,
+          color_icons       = true,
+          fzf_opts          = { ["--multi"] = true },
+        },
+        hunks = {
+          cmd               = "git --no-pager diff --color=always {ref}",
+          ref               = "HEAD",
+          file_icons        = true,
+          color_icons       = true,
+          fzf_opts          = {
+          ["--multi"] = true,
+          ["--delimiter"] = ":",
+          ["--nth"] = "3..",
+          },
         },
         commits = {
           prompt        = 'Commits❯ ',
@@ -1005,6 +1028,7 @@ CUSTOMIZATION                                          *fzf-lua-customization*
         prompt            = 'Tabs❯ ',
         tab_title         = "Tab",
         tab_marker        = "<<",
+        locate            = true,         -- position cursor at current window
         file_icons        = true,         -- show file icons (true|"devicons"|"mini")?
         color_icons       = true,         -- colorize file|git icons
         actions = {
@@ -1221,12 +1245,14 @@ CUSTOMIZATION                                          *fzf-lua-customization*
       diagnostics ={
         prompt            = 'Diagnostics❯ ',
         cwd_only          = false,
-        file_icons        = true,
+        file_icons        = false,
         git_icons         = false,
-        diag_icons        = true,
+        color_headings    = true,   -- use diag highlights to color source & filepath
+        diag_icons        = true,   -- display icons from diag sign definitions
         diag_source       = true,   -- display diag source (e.g. [pycodestyle])
+        diag_code         = true,   -- display diag code (e.g. [undefined])
         icon_padding      = '',     -- add padding for wide diagnostics signs
-        multiline         = true,   -- concatenate multi-line diags into a single line
+        multiline         = 2,      -- split heading and diag to separate lines
         -- severity_only:   keep any matching exact severity
         -- severity_limit:  keep any equal or more severe (lower)
         -- severity_bound:  keep any equal or less severe (higher)

@@ -169,7 +169,10 @@ local function process_abbrev_head(gitdir, head_str, cwd)
     short_sha = 'HEAD'
   end
 
-  if util.path_exists(gitdir .. '/rebase-merge') or util.path_exists(gitdir .. '/rebase-apply') then
+  if
+    util.Path.exists(util.Path.join(gitdir, 'rebase-merge'))
+    or util.Path.exists(util.Path.join(gitdir, 'rebase-apply'))
+  then
     return short_sha .. '(rebasing)'
   end
 
@@ -189,9 +192,15 @@ function M.get_info(dir, gitdir, worktree)
   -- Wait for internal scheduler to settle before running command (#215)
   async.schedule()
 
+  if dir and not uv.fs_stat(dir) then
+    -- Cwd can be deleted externally, so check if it exists (see #1331)
+    log.dprintf("dir '%s' does not exist", dir)
+    return
+  end
+
   -- Explicitly fallback to env vars for better debug
   gitdir = gitdir or vim.env.GIT_DIR
-  worktree = worktree or vim.env.GIT_WORK_TREE
+  worktree = worktree or vim.env.GIT_WORK_TREE or vim.fs.dirname(gitdir)
 
   -- gitdir and worktree must be provided together from `man git`:
   -- > Specifying the location of the ".git" directory using this option (or GIT_DIR environment
@@ -202,12 +211,8 @@ function M.get_info(dir, gitdir, worktree)
   -- > top-level of the working tree is, with the --work-tree=<path> option (or GIT_WORK_TREE
   -- > environment variable)
   local stdout, stderr, code = git_command({
-    gitdir and worktree and {
-      '--git-dir',
-      gitdir,
-      '--work-tree',
-      worktree,
-    },
+    gitdir and { '--git-dir', gitdir },
+    worktree and { '--work-tree', worktree },
     'rev-parse',
     '--show-toplevel',
     has_abs_gd and '--absolute-git-dir' or '--git-dir',
@@ -236,7 +241,9 @@ function M.get_info(dir, gitdir, worktree)
   local toplevel_r = stdout[1]
   local gitdir_r = stdout[2]
 
-  if dir and not vim.startswith(dir, toplevel_r) then
+  -- On windows, git will emit paths with `/` but dir may contain `\` so need to
+  -- normalize.
+  if dir and not vim.startswith(vim.fs.normalize(dir), toplevel_r) then
     log.dprintf("'%s' is outside worktree '%s'", dir, toplevel_r)
     -- outside of worktree
     return
@@ -297,6 +304,7 @@ function M:ls_tree(path, revision)
   end
 
   local info, relpath = unpack(vim.split(res, '\t'))
+  assert(info and relpath)
   local mode_bits, object_type, object_name = unpack(vim.split(info, '%s+'))
   --- @cast object_type 'blob'|'tree'|'commit'
 
@@ -340,7 +348,7 @@ function M:ls_files(file)
 
   -- ignore_error for the cases when we run:
   --    git ls-files --others exists/nonexist
-  if code > 0 and (not stderr or not stderr:match(errors.w.path_does_not_exist)) then
+  if code > 0 and (not stderr or not stderr:match(errors.e.path_does_not_exist)) then
     return nil, stderr or tostring(code)
   end
 
@@ -350,7 +358,7 @@ function M:ls_files(file)
   for _, line in ipairs(results) do
     local parts = vim.split(line, '\t')
     if #parts > relpath_idx then -- tracked file
-      local attrs = vim.split(parts[1], '%s+')
+      local attrs = vim.split(assert(parts[1]), '%s+')
       local stage = tonumber(attrs[3])
       if stage <= 1 then
         result.mode_bits = attrs[1]
@@ -361,7 +369,7 @@ function M:ls_files(file)
 
       if has_eol then
         result.relpath = parts[3]
-        local eol = vim.split(parts[2], '%s+')
+        local eol = vim.split(assert(parts[2]), '%s+')
         result.i_crlf = eol[1] == 'i/crlf'
         result.w_crlf = eol[2] == 'w/crlf'
       else

@@ -62,7 +62,9 @@ fzf-lua-opts-git_bcommits	fzf-lua-opts.txt	/*fzf-lua-opts-git_bcommits*
 fzf-lua-opts-git_blame	fzf-lua-opts.txt	/*fzf-lua-opts-git_blame*
 fzf-lua-opts-git_branches	fzf-lua-opts.txt	/*fzf-lua-opts-git_branches*
 fzf-lua-opts-git_commits	fzf-lua-opts.txt	/*fzf-lua-opts-git_commits*
+fzf-lua-opts-git_diff	fzf-lua-opts.txt	/*fzf-lua-opts-git_diff*
 fzf-lua-opts-git_files	fzf-lua-opts.txt	/*fzf-lua-opts-git_files*
+fzf-lua-opts-git_hunks	fzf-lua-opts.txt	/*fzf-lua-opts-git_hunks*
 fzf-lua-opts-git_stash	fzf-lua-opts.txt	/*fzf-lua-opts-git_stash*
 fzf-lua-opts-git_status	fzf-lua-opts.txt	/*fzf-lua-opts-git_status*
 fzf-lua-opts-git_tags	fzf-lua-opts.txt	/*fzf-lua-opts-git_tags*

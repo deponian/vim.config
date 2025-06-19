@@ -221,11 +221,12 @@ M.fzf_resume = function(opts)
     utils.info("No resume data available.")
     return
   end
-  opts = vim.tbl_deep_extend("force", config.__resume_data.opts, opts or {})
+  opts = utils.tbl_deep_extend("force", config.__resume_data.opts, opts or {})
+  assert(opts == config.__resume_data.opts)
   opts = M.set_header(opts, opts.headers or {})
   opts.cwd = opts.cwd and libuv.expand(opts.cwd) or nil
   opts.__resuming = true
-  M.fzf_exec(config.__resume_data.contents, opts)
+  M.fzf_exec(config.__resume_data.contents, config.__resume_data.opts)
 end
 
 ---@param opts table
@@ -317,7 +318,7 @@ M.CTX = function(opts)
 end
 
 ---@param contents content
----@param opts table?
+---@param opts {}?
 ---@return string[]?
 M.fzf = function(contents, opts)
   -- Disable opening from the command-line window `:q`
@@ -358,8 +359,8 @@ M.fzf = function(contents, opts)
   -- caller specified not to resume this call (used by "builtin" provider)
   if not opts.no_resume then
     config.__resume_data = config.__resume_data or {}
-    config.__resume_data.opts = utils.deepcopy(opts)
-    config.__resume_data.contents = contents and utils.deepcopy(contents) or nil
+    config.__resume_data.opts = opts
+    config.__resume_data.contents = contents
   end
   -- update context and save a copy in options (for actions)
   -- call before creating the window or fzf_winobj is not nil
@@ -368,8 +369,7 @@ M.fzf = function(contents, opts)
     opts.fn_pre_win(opts)
   end
   -- setup the fzf window and preview layout
-  local fzf_win = win(opts)
-  if not fzf_win then return end
+  local fzf_win = win:new(opts)
   -- instantiate the previewer
   local previewer, preview_opts = nil, nil
   if opts.previewer and type(opts.previewer) == "string" then

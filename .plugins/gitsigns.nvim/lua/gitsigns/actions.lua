@@ -1,5 +1,6 @@
 local async = require('gitsigns.async')
 local Hunks = require('gitsigns.hunks')
+local log = require('gitsigns.debug.log')
 local manager = require('gitsigns.manager')
 local message = require('gitsigns.message')
 local popup = require('gitsigns.popup')
@@ -26,6 +27,7 @@ local M = {}
 --- @field vertical? boolean
 --- @field split? boolean
 --- @field global? boolean
+--- @field [integer] any
 
 --- @class Gitsigns.CmdParams
 --- @field range integer
@@ -203,7 +205,7 @@ M.stage_hunk = mk_repeatable(async.create(2, function(range, opts)
     return
   end
 
-  if not util.path_exists(bcache.file) then
+  if not util.Path.exists(bcache.file) then
     print('Error: Cannot stage lines. Please add the file to the working tree.')
     return
   end
@@ -310,7 +312,7 @@ M.reset_buffer = function()
   end
 
   for i = #hunks, 1, -1 do
-    reset_hunk(bufnr, hunks[i])
+    reset_hunk(bufnr, hunks[i] --[[@as Gitsigns.Hunk.Hunk]])
   end
 end
 
@@ -372,7 +374,7 @@ M.stage_buffer = async.create(0, function()
     return
   end
 
-  if not util.path_exists(bcache.git_obj.file) then
+  if not util.Path.exists(bcache.git_obj.file) then
     print('Error: Cannot stage file. Please add it to the working tree.')
     return
   end
@@ -581,7 +583,12 @@ end
 --- @async
 --- @param repo Gitsigns.Repo
 --- @param info Gitsigns.BlameInfoPublic
---- @return Gitsigns.Hunk.Hunk?, integer?, integer
+--- @return Gitsigns.Hunk.Hunk hunk
+--- @return integer hunk_index
+--- @return integer num_hunks
+--- @return integer? guess_offset If the hunk was not found at the exact line,
+---                               return the offset from the original line to the
+---                               hunk start.
 local function get_blame_hunk(repo, info)
   local a = {}
   -- If no previous so sha of blame added the file
@@ -591,28 +598,85 @@ local function get_blame_hunk(repo, info)
   local b = repo:get_show_text(info.sha .. ':' .. info.filename)
   local hunks = run_diff(a, b, false)
   local hunk, i = Hunks.find_hunk(info.orig_lnum, hunks)
-  return hunk, i, #hunks
+  if hunk and i then
+    return hunk, i, #hunks
+  end
+
+  -- git-blame output is not always correct (see #1332)
+  -- Find the closest hunk to the original line
+  log.dprintf('Could not find hunk using hunk info %s', vim.inspect(info))
+
+  local i_next = Hunks.find_nearest_hunk(info.orig_lnum, hunks, 'next')
+  local i_prev = Hunks.find_nearest_hunk(info.orig_lnum, hunks, 'prev')
+
+  if i_next and i_prev then
+    -- if there is hunk before and after, find the closest
+    local dist_n = math.abs(assert(hunks[i_next]).added.start - info.orig_lnum)
+    local dist_p = math.abs(assert(hunks[i_prev]).added.start - info.orig_lnum)
+    i = dist_n < dist_p and i_next or i_prev
+  else
+    i = assert(i_next or i_prev, 'no hunks in commit')
+  end
+
+  hunk = assert(hunks[i])
+  return hunk, i, #hunks, hunk.added.start - info.orig_lnum
 end
 
---- @param is_committed boolean
---- @param full? boolean
---- @return [string, string][][]
-local function create_blame_fmt(is_committed, full)
+--- @async
+--- @param full boolean? Whether to show the full commit message and hunk
+--- @param result Gitsigns.BlameInfoPublic
+--- @param repo Gitsigns.Repo
+--- @param fileformat string
+--- @return Gitsigns.LineSpec
+local function create_blame_linespec(full, result, repo, fileformat)
+  local is_committed = result.sha and tonumber('0x' .. result.sha) ~= 0
+
   if not is_committed then
     return {
-      { { '<author>', 'Label' } },
+      { { result.author, 'Label' } },
     }
   end
 
-  return {
+  --- @type Gitsigns.LineSpec
+  local ret = {
     {
-      { '<abbrev_sha> ', 'Directory' },
-      { '<author> ', 'MoreMsg' },
-      { '(<author_time:%Y-%m-%d %H:%M>)', 'Label' },
+      { result.abbrev_sha .. ' ', 'Directory' },
+      { result.author .. ' ', 'MoreMsg' },
+      { util.expand_format('(<author_time:%Y-%m-%d %H:%M>)', result), 'Label' },
       { ':', 'NormalFloat' },
     },
-    { { full and '<body>' or '<summary>', 'NormalFloat' } },
   }
+
+  if not full then
+    ret[#ret + 1] = { { result.summary, 'NormalFloat' } }
+    return ret
+  end
+
+  local body0 = repo:command({ 'show', '-s', '--format=%B', result.sha }, { text = true })
+  local body = table.concat(body0, '\n')
+  ret[#ret + 1] = { { body, 'NormalFloat' } }
+
+  local hunk, hunk_no, num_hunks, guess_offset = get_blame_hunk(repo, result)
+
+  local hunk_title = {
+    { ('Hunk %d of %d'):format(hunk_no, num_hunks), 'Title' },
+    { ' ' .. hunk.head, 'LineNr' },
+  }
+
+  if guess_offset then
+    hunk_title[#hunk_title + 1] = {
+      (' (guessed: %s%d offset from original line)'):format(
+        guess_offset >= 0 and '+' or '',
+        guess_offset
+      ),
+      'WarningMsg',
+    }
+  end
+
+  table.insert(ret, hunk_title)
+  vim.list_extend(ret, Hunks.linespec_for_hunk(hunk, fileformat))
+
+  return ret
 end
 
 --- Run git blame on the current line and show the results in a
@@ -653,7 +717,7 @@ M.blame_line = async.create(1, function(opts)
 
   local fileformat = vim.bo[bufnr].fileformat
   local lnum = api.nvim_win_get_cursor(0)[1]
-  local result = bcache:get_blame(lnum, opts)
+  local info = bcache:get_blame(lnum, opts)
   pcall(function()
     loading:close()
   end)
@@ -662,36 +726,15 @@ M.blame_line = async.create(1, function(opts)
     return
   end
 
-  result = util.convert_blame_info(assert(result))
+  local result = util.convert_blame_info(assert(info))
 
-  local is_committed = result.sha and tonumber('0x' .. result.sha) ~= 0
-
-  local blame_linespec = create_blame_fmt(is_committed, opts.full)
-
-  if is_committed and opts.full then
-    local body = bcache.git_obj.repo:command(
-      { 'show', '-s', '--format=%B', result.sha },
-      { text = true }
-    )
-    local hunk, hunk_no, num_hunks = get_blame_hunk(bcache.git_obj.repo, result)
-    assert(hunk and hunk_no and num_hunks)
-
-    result.hunk_no = hunk_no
-    result.body = body
-    result.num_hunks = num_hunks
-    result.hunk_head = hunk.head
-
-    vim.list_extend(blame_linespec, {
-      { { 'Hunk <hunk_no> of <num_hunks>', 'Title' }, { ' <hunk_head>', 'LineNr' } },
-      unpack(Hunks.linespec_for_hunk(hunk, fileformat)),
-    })
-  end
+  local blame_linespec = create_blame_linespec(opts.full, result, bcache.git_obj.repo, fileformat)
 
   if not bcache:schedule() then
     return
   end
 
-  popup.create(popup.lines_format(blame_linespec, result), config.preview_config, 'blame')
+  popup.create(blame_linespec, config.preview_config, 'blame')
 end)
 
 C.blame_line = function(args, _)

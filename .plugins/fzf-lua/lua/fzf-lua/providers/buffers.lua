@@ -228,6 +228,11 @@ end
 M.blines = function(opts)
   opts = config.normalize_opts(opts, "blines")
   opts.current_buffer_only = true
+  if utils.mode_is_visual() then
+    local _, sel = utils.get_visual_selection()
+    opts.start_line = opts.start_line or sel.start.line
+    opts.end_line = opts.end_line or sel["end"].line
+  end
   M.buffer_lines(opts)
 end
 
@@ -379,6 +384,26 @@ M.tabs = function(opts)
     return msg, hl
   end
 
+  if opts.locate and utils.has(opts, "fzf", { 0, 36 }) then
+    -- Set cursor to current buffer
+    utils.map_set(opts, "keymap.fzf.load",
+      "transform:" .. FzfLua.shell.raw_action(function(_, _, _)
+        local pos = 0
+        for tabnr, tabh in ipairs(vim.api.nvim_list_tabpages()) do
+          pos = pos + 1
+          for _, w in ipairs(vim.api.nvim_tabpage_list_wins(tabh)) do
+            local b = filter_buffers(opts, { vim.api.nvim_win_get_buf(w) })[1]
+            if b then
+              pos = pos + 1
+              if tabnr == core.CTX().tabnr and w == core.CTX().winid then
+                return string.format("pos(%d)", pos)
+              end
+            end
+          end
+        end
+      end, "", opts.debug))
+  end
+
   opts.__fn_reload = opts.__fn_reload or function(_)
     -- we do not return the populate function with cb directly to avoid
     -- E5560: nvim_exec must not be called in a lua loop callback
@@ -479,9 +504,9 @@ M.treesitter = function(opts)
     opts._bufname = utils.nvim_buf_get_name(opts.bufnr)
   end
 
-
+  local ts = vim.treesitter
   local ft = vim.bo[opts.bufnr].ft
-  local lang = vim.treesitter.language.get_lang(ft)
+  local lang = ts.language.get_lang(ft) or ft
   if not utils.has_ts_parser(lang) then
     utils.info(string.format("No treesitter parser found for '%s' (bufnr=%d).",
       opts._bufname, opts.bufnr))
@@ -493,15 +518,79 @@ M.treesitter = function(opts)
     return "@" .. (map[kind] or kind)
   end
 
+  local parser = ts.get_parser(opts.bufnr)
+  if not parser then return end
+  parser:parse()
+  local root = parser:trees()[1]:root()
+  if not root then return end
+
+  local query = (ts.query.get(lang, "locals"))
+  if not query then return end
+
+  local get = function(bufnr)
+    local definitions = {}
+    local scopes = {}
+    local references = {}
+    for id, node, metadata in query:iter_captures(root, bufnr) do
+      local kind = query.captures[id]
+
+      local scope = "local" ---@type string
+      for k, v in pairs(metadata) do
+        if type(k) == "string" and vim.endswith(k, "local.scope") then
+          scope = v
+        end
+      end
+
+      if node and vim.startswith(kind, "local.definition") then
+        table.insert(definitions, { kind = kind, node = node, scope = scope })
+      end
+
+      if node and kind == "local.scope" then
+        table.insert(scopes, node)
+      end
+
+      if node and kind == "local.reference" then
+        table.insert(references, { kind = kind, node = node, scope = scope })
+      end
+    end
+
+    return definitions, references, scopes
+  end
+
+
+
+  local function recurse_local_nodes(local_def, accumulator, full_match, last_match)
+    if type(local_def) ~= "table" then
+      return
+    end
+    if local_def.node then
+      accumulator(local_def, local_def.node, full_match, last_match)
+    else
+      for match_key, def in pairs(local_def) do
+        recurse_local_nodes(def, accumulator,
+          full_match and (full_match .. "." .. match_key) or match_key, match_key)
+      end
+    end
+  end
+
+  local get_local_nodes = function(local_def)
+    local result = {}
+    recurse_local_nodes(local_def, function(def, _, kind)
+      table.insert(result, vim.tbl_extend("keep", { kind = kind }, def))
+    end)
+    return result
+  end
+
   local contents = function(cb)
     coroutine.wrap(function()
       local co = coroutine.running()
-      local ts_locals = require("nvim-treesitter.locals")
-      for _, definition in ipairs((ts_locals.get or ts_locals.get_definitions)(opts.bufnr)) do
-        local nodes = ts_locals.get_local_nodes(definition)
+      for _, definition in ipairs(get(opts.bufnr)) do
+        local nodes = get_local_nodes(definition)
         for _, node in ipairs(nodes) do
           if node.node then
             vim.schedule(function()
+              -- Remove node prefix, e.g. `locals.definition.var`
+              node.kind = node.kind and node.kind:gsub(".*%.", "")
               local lnum, col, _, _ = vim.treesitter.get_node_range(node.node)
               local node_text = vim.treesitter.get_node_text(node.node, opts.bufnr)
               local node_kind = node.kind and utils.ansi_from_hl(kind2hl(node.kind), node.kind)

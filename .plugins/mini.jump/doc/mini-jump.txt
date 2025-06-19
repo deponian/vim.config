@@ -53,6 +53,19 @@ disabling module's functionality is left to user. See
 |mini.nvim-disabling-recipes| for common recipes.
 
 ------------------------------------------------------------------------------
+                                                               *MiniJump-events*
+Events ~
+
+To allow user customization and integration of external tools, certain |User|
+autocommand events are triggered under common circumstances:
+
+- `MiniJumpGetTarget` - before asking user for the target. Use |MiniJump.state|
+  for more information about the upcoming jump.
+- `MiniJumpStart` - after jumping has started.
+- `MiniJumpJump` - after performing a jump.
+- `MiniJumpStop` - after jumping is stopped.
+
+------------------------------------------------------------------------------
                                                               *MiniJump.setup()*
                            `MiniJump.setup`({config})
 Module setup
@@ -108,6 +121,18 @@ It stores various information used in this module. All elements, except
 `jumping`, is about the latest jump. They are used as default values for
 similar arguments.
 
+Usage ~
+This can be used to define mappings which depend on state; either as
+a standalone mapping or part of |MiniKeymap.map_multistep()|. For example: >lua
+
+  -- Stop jumping after pressing `<Esc>`
+  local jump_stop = function()
+    if not MiniJump.state.jumping then return '<Esc>' end
+    MiniJump.stop_jumping()
+  end
+  local opts = { expr = true, desc = 'Stop jumping' }
+  vim.keymap.set({ 'n', 'x', 'o' }, '<Esc>', jump_stop, opts)
+<
 Class ~
 {JumpingState}
 

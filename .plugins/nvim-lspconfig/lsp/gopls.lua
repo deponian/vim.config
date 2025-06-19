@@ -15,7 +15,7 @@ local function get_root(fname)
       return clients[#clients].config.root_dir
     end
   end
-  return vim.fs.root(fname, { 'go.work', 'go.mod', '.git' })
+  return vim.fs.root(fname, 'go.work') or vim.fs.root(fname, 'go.mod') or vim.fs.root(fname, '.git')
 end
 
 return {
@@ -36,7 +36,9 @@ return {
         end
         on_dir(get_root(fname))
       else
-        vim.notify(('[gopls] cmd failed with code %d: %s\n%s'):format(output.code, cmd, output.stderr))
+        vim.schedule(function()
+          vim.notify(('[gopls] cmd failed with code %d: %s\n%s'):format(output.code, cmd, output.stderr))
+        end)
       end
     end)
   end,

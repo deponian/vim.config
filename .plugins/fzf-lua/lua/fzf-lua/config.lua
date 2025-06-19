@@ -155,7 +155,7 @@ function M.normalize_opts(opts, globals, __resume_key)
       return picker_opts.profile or picker_opts[1]
     end
   end)()
-  if profile then
+  if type(profile) == "table" or type(profile) == "string" then
     -- TODO: we should probably cache the profiles
     M._profile_opts = utils.load_profiles(profile, 1)
   end
@@ -486,7 +486,13 @@ function M.normalize_opts(opts, globals, __resume_key)
   end
 
   -- Exclude file icons from the fuzzy matching (#1080)
-  if opts.file_icons and opts._fzf_nth_devicons and not opts.fzf_opts["--delimiter"] then
+  if opts.file_icons
+      and opts._fzf_nth_devicons
+      and not opts.fzf_opts["--delimiter"]
+      -- Can't work due to : delimiter (#2112)
+      and opts.previewer ~= "bat"
+      and opts.previewer ~= "bat_native"
+  then
     opts.fzf_opts["--nth"] = opts.fzf_opts["--nth"] or "-1.."
     opts.fzf_opts["--delimiter"] = string.format("[%s]", utils.nbsp)
   end
@@ -708,6 +714,8 @@ function M.normalize_opts(opts, globals, __resume_key)
               ["--border"]         = false,
               ["--scrollbar"]      = false,
               ["--no-scrollbar"]   = false,
+              ["--wrap"]           = true,
+              ["--wrap-sign"]      = true,
               ["--highlight-line"] = false,
             }
           },
@@ -718,8 +726,8 @@ function M.normalize_opts(opts, globals, __resume_key)
           ["0.56"] = { fzf_opts = { ["--gap"] = true } },
           ["0.54"] = {
             fzf_opts = {
-              ["-wrap"]            = true,
-              ["-wrap-sign"]       = true,
+              ["--wrap"]           = true,
+              ["--wrap-sign"]      = true,
               ["--highlight-line"] = true,
             }
           },
@@ -874,6 +882,28 @@ function M.normalize_opts(opts, globals, __resume_key)
           -- or require("fzf-lua.make_entry").postprocess
           or nil
     end
+  end
+
+  if opts.line_query and not utils.has(opts, "fzf", { 0, 59 }) then
+    utils.warn("'line_query' requires fzf >= 0.59, ignoring.")
+  elseif opts.line_query then
+    utils.map_set(opts, "winopts.preview.winopts.cursorline", true)
+    utils.map_set(opts, "keymap.fzf.change",
+      "transform:" .. FzfLua.shell.raw_action(function(q, _, _)
+        local lnum = q[1]:match(":(%d+)$")
+        local new_q, subs = q[1]:gsub(":%d*$", "")
+        -- No subs made, no ":" at end of string, do nothing
+        if subs == 0 then return end
+        local trans = string.format("search(%s)", new_q)
+        local win = FzfLua.win.__SELF()
+        -- Do we need to change the offset in native fzf previewer (e.g. bat)?
+        if lnum and win and win._previewer and win._previewer._preview_offset then
+          local optstr = opts.fzf_opts["--preview-window"]
+          local offset = win._previewer:_preview_offset(lnum)
+          trans = string.format("%s+change-preview-window(%s:%s)", trans, optstr, offset)
+        end
+        return trans
+      end, "{q}", opts.debug))
   end
 
   if type(opts.enrich) == "function" then

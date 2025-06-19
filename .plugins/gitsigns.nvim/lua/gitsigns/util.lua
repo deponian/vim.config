@@ -2,17 +2,54 @@ local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 
 local is_win = vim.fn.has('win32') == 1
 
+--- @class Gitsigns.Util.Path
+local Path = {}
+
+--- @class Gitsigns.Util
 local M = {}
 
-function M.path_exists(path)
-  return uv.fs_stat(path) ~= nil
+--- @param path? string
+--- @return boolean
+function Path.exists(path)
+  return path ~= nil and uv.fs_stat(path) ~= nil
 end
 
---- @param file string
---- @return string
-function M.dirname(file)
-  return file:match(string.format('^(.+)%s[^%s]+', M.path_sep, M.path_sep))
+--- @param path string
+--- @return boolean
+function Path.is_dir(path)
+  ---@diagnostic disable-next-line:param-type-mismatch
+  local stat = uv.fs_lstat(path)
+  if stat then
+    return stat.type == 'directory'
+  end
+  return false
 end
+
+--- @async
+--- @param path string
+--- @return boolean
+function Path.is_abs(path)
+  -- Check if the path is absolute on Windows
+  if is_win and M.cygpath(path):match('^%a:[/\\]') then
+    return true
+  end
+
+  -- Check if the path is absolute on Unix-like systems
+  return vim.startswith(path, '/')
+end
+
+function Path.join(...)
+  if vim.fs.joinpath then
+    return vim.fs.joinpath(...)
+  end
+  local path = table.concat({ ... }, '/')
+  if is_win then
+    path = path:gsub('\\', '/')
+  end
+  return (path:gsub('//+', '/'))
+end
+
+M.Path = Path
 
 --- @param path string
 --- @return string[]
@@ -134,14 +171,6 @@ function M.set_lines(bufnr, start_row, end_row, lines)
   vim.api.nvim_buf_set_lines(bufnr, start_row, end_row, false, lines)
 end
 
---- @return string
-function M.tmpname()
-  if is_win then
-    return vim.fn.tempname()
-  end
-  return os.tmpname()
-end
-
 --- @param time number
 --- @param divisor integer
 --- @param time_word string
@@ -200,7 +229,8 @@ end
 local function is_dos(xs)
   -- Do not check CR at EOF
   for i = 1, #xs - 1 do
-    if xs[i]:sub(-1) ~= '\r' then
+    local x = xs[i] --[[@as string]]
+    if x:sub(-1) ~= '\r' then
       return false
     end
   end
@@ -219,7 +249,8 @@ function M.strip_cr(xs0)
   -- all lines end with '\r', need to strip
   local xs = vim.deepcopy(xs0)
   for i = 1, #xs do
-    xs[i] = xs[i]:sub(1, -2)
+    local x = xs[i] --[[@as string]]
+    xs[i] = x:sub(1, -2)
   end
   return xs
 end
@@ -297,7 +328,6 @@ end
 --- @param buf string
 --- @return boolean
 function M.bufexists(buf)
-  --- @diagnostic disable-next-line:param-type-mismatch
   return vim.fn.bufexists(buf) == 1
 end
 
@@ -407,19 +437,10 @@ function M.cygpath(path, mode)
     '--' .. (mode or 'windows'),
     path,
   }, { text = true }).stdout
+
+  async.schedule()
+
   return assert(vim.split(stdout, '\n')[1])
-end
-
---- @param path string
---- @return boolean
-function M.is_abspath(path)
-  -- Check if the path is absolute on Windows
-  if is_win and M.cygpath(path):match('^%a:[/\\]') then
-    return true
-  end
-
-  -- Check if the path is absolute on Unix-like systems
-  return vim.startswith(path, '/')
 end
 
 return M

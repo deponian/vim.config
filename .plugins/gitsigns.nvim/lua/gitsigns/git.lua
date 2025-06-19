@@ -161,7 +161,7 @@ function Obj:ensure_file_in_index()
   else
     -- Update the index with the common ancestor (stage 1) which is what bcache
     -- stores
-    self.repo:update_index(self.mode_bits, self.object_name, self.relpath, true)
+    self.repo:update_index(self.mode_bits, self.object_name, assert(self.relpath), true)
   end
 
   self:refresh()
@@ -236,7 +236,7 @@ end
 --- @return Gitsigns.GitObj?
 function Obj.new(file, revision, encoding, gitdir, toplevel)
   local cwd = toplevel
-  if not cwd and util.is_abspath(file) then
+  if not cwd and util.Path.is_abs(file) then
     cwd = vim.fn.fnamemodify(file, ':h')
   end
 
@@ -264,7 +264,9 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
     return
   end
 
-  file = vim.fs.joinpath(repo.toplevel, info.relpath)
+  if info.relpath then
+    file = util.Path.join(repo.toplevel, info.relpath)
+  end
 
   local self = setmetatable({}, Obj)
   self.repo = repo

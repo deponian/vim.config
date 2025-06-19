@@ -89,7 +89,8 @@ local function show_added(bufnr, nsw, hunk)
     local offset, rtype, scol, ecol = region[1] - 1, region[2], region[3] - 1, region[4] - 1
 
     -- Special case to handle cr at eol in buffer but not in show text
-    local cr_at_eol_change = rtype == 'change' and vim.endswith(hunk.added.lines[offset + 1], '\r')
+    local cr_at_eol_change = rtype == 'change'
+      and vim.endswith(assert(hunk.added.lines[offset + 1]), '\r')
 
     api.nvim_buf_set_extmark(bufnr, nsw, start_row + offset, scol, {
       end_col = ecol,
@@ -225,16 +226,11 @@ M.preview_hunk = noautocmd(function()
 
   --- @type Gitsigns.LineSpec
   local preview_linespec = {
-    { { 'Hunk <hunk_no> of <num_hunks>', 'Title' } },
+    { { ('Hunk %d of %d'):format(index, #bcache.hunks), 'Title' } },
   }
   vim.list_extend(preview_linespec, Hunks.linespec_for_hunk(hunk, vim.bo[bufnr].fileformat))
 
-  local lines_spec = popup.lines_format(preview_linespec, {
-    hunk_no = index,
-    num_hunks = #bcache.hunks,
-  })
-
-  popup.create(lines_spec, config.preview_config, 'hunk')
+  popup.create(preview_linespec, config.preview_config, 'hunk')
 end)
 
 --- Preview the hunk at the cursor position inline in the buffer.

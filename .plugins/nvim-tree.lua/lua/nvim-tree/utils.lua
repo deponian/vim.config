@@ -1,5 +1,4 @@
 local Iterator = require("nvim-tree.iterators.node-iterator")
-local notify = require("nvim-tree.notify")
 
 local M = {
   debouncers = {},
@@ -144,10 +143,16 @@ function M.find_node(nodes, fn)
       return node.group_next and { node.group_next } or (node.open and #node.nodes > 0 and node.nodes)
     end)
     :iterate()
-  i = require("nvim-tree.view").is_root_folder_visible() and i or i - 1
-  if node and node.explorer.live_filter.filter then
-    i = i + 1
+
+  if node then
+    if not node.explorer.view:is_root_folder_visible() then
+      i = i - 1
+    end
+    if node.explorer.live_filter.filter then
+      i = i + 1
+    end
   end
+
   return node, i
 end
 
@@ -171,6 +176,21 @@ function M.find_node_line(node)
   end
 
   return -1
+end
+
+---@param extmarks vim.api.keyset.get_extmark_item[] as per vim.api.nvim_buf_get_extmarks
+---@return number
+function M.extmarks_length(extmarks)
+  local length = 0
+  for _, extmark in ipairs(extmarks) do
+    local details = extmark[4]
+    if details and details.virt_text then
+      for _, text in ipairs(details.virt_text) do
+        length = length + vim.fn.strchars(text[1])
+      end
+    end
+  end
+  return length
 end
 
 -- get the node in the tree state depending on the absolute path of the node
@@ -289,11 +309,51 @@ function M.rename_loaded_buffers(old_path, new_path)
   end
 end
 
+local is_windows_drive = function(path)
+  return (M.is_windows) and (path:match("^%a:\\$") ~= nil)
+end
+
 ---@param path string path to file or directory
 ---@return boolean
 function M.file_exists(path)
-  local _, error = vim.loop.fs_stat(path)
-  return error == nil
+  if not (M.is_windows or M.is_wsl) then
+    local _, error = vim.loop.fs_stat(path)
+    return error == nil
+  end
+
+  -- Windows is case-insensetive, but case-preserving
+  -- If a file's name is being changed into itself
+  -- with different casing, windows will falsely
+  -- report that file is already existing, so a hand-rolled
+  -- implementation of checking for existance is needed.
+  -- Same holds for WSL, since it can sometimes
+  -- access Windows files directly.
+  -- For more details see (#3117).
+
+  if is_windows_drive(path) then
+    return vim.fn.isdirectory(path) == 1
+  end
+
+  local parent = vim.fn.fnamemodify(path, ":h")
+  local filename = vim.fn.fnamemodify(path, ":t")
+
+  local handle = vim.loop.fs_scandir(parent)
+  if not handle then
+    -- File can not exist if its parent directory does not exist
+    return false
+  end
+
+  while true do
+    local name, _ = vim.loop.fs_scandir_next(handle)
+    if not name then
+      break
+    end
+    if name == filename then
+      return true
+    end
+  end
+
+  return false
 end
 
 ---@param path string
@@ -349,20 +409,6 @@ end
 ---@param dst_pos string value pos
 ---@param remove boolean
 function M.move_missing_val(src, src_path, src_pos, dst, dst_path, dst_pos, remove)
-  local ok, err = pcall(vim.validate, {
-    src = { src, "table" },
-    src_path = { src_path, "string" },
-    src_pos = { src_pos, "string" },
-    dst = { dst, "table" },
-    dst_path = { dst_path, "string" },
-    dst_pos = { dst_pos, "string" },
-    remove = { remove, "boolean" },
-  })
-  if not ok then
-    notify.warn("move_missing_val: " .. (err or "invalid arguments"))
-    return
-  end
-
   for pos in string.gmatch(src_path, "([^%.]+)%.*") do
     if src[pos] and type(src[pos]) == "table" then
       src = src[pos]
@@ -497,7 +543,10 @@ function M.focus_file(path)
   local _, i = M.find_node(require("nvim-tree.core").get_explorer().nodes, function(node)
     return node.absolute_path == path
   end)
-  require("nvim-tree.view").set_cursor({ i + 1, 1 })
+  local explorer = require("nvim-tree.core").get_explorer()
+  if explorer then
+    explorer.view:set_cursor({ i + 1, 1 })
+  end
 end
 
 ---Focus node passed as parameter if visible, otherwise focus first visible parent.
@@ -517,7 +566,7 @@ function M.focus_node_or_parent(node)
     end)
 
     if found_node or node.parent == nil then
-      require("nvim-tree.view").set_cursor({ i + 1, 1 })
+      explorer.view:set_cursor({ i + 1, 1 })
       break
     end
 
@@ -612,32 +661,29 @@ function M.is_executable(absolute_path)
   end
 end
 
----List of all option info/values
----@param opts vim.api.keyset.option passed directly to vim.api.nvim_get_option_info2 and vim.api.nvim_get_option_value
----@param was_set boolean filter was_set
----@return { info: vim.api.keyset.get_option_info, val: any }[]
-function M.enumerate_options(opts, was_set)
-  local res = {}
+---@class UtilEnumerateOptionsOpts
+---@field keyset_opts vim.api.keyset.option
+---@field was_set boolean? as per vim.api.keyset.get_option_info
 
-  local infos = vim.tbl_filter(function(info)
-    if opts.buf and info.scope ~= "buf" then
-      return false
-    elseif opts.win and info.scope ~= "win" then
-      return false
+---Option name/values
+---@param opts UtilEnumerateOptionsOpts
+---@return table<string, any>
+function M.enumerate_options(opts)
+  -- enumerate all options, limiting buf and win scopes
+  return vim.tbl_map(function(info)
+    if opts.keyset_opts.buf and info.scope ~= "buf" then
+      return nil
+    elseif opts.keyset_opts.win and info.scope ~= "win" then
+      return nil
     else
-      return true
+      -- optional, lazy was_set check
+      if not opts.was_set or vim.api.nvim_get_option_info2(info.name, opts.keyset_opts).was_set then
+        return vim.api.nvim_get_option_value(info.name, opts.keyset_opts)
+      else
+        return nil
+      end
     end
   end, vim.api.nvim_get_all_options_info())
-
-  for _, info in vim.spairs(infos) do
-    local _, info2 = pcall(vim.api.nvim_get_option_info2, info.name, opts)
-    if not was_set or info2.was_set then
-      local val = pcall(vim.api.nvim_get_option_value, info.name, opts)
-      table.insert(res, { info = info2, val = val })
-    end
-  end
-
-  return res
 end
 
 return M

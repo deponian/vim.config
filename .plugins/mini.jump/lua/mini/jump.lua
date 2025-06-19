@@ -52,6 +52,18 @@
 --- disabling module's functionality is left to user. See
 --- |mini.nvim-disabling-recipes| for common recipes.
 
+--- Events ~
+---
+--- To allow user customization and integration of external tools, certain |User|
+--- autocommand events are triggered under common circumstances:
+---
+--- - `MiniJumpGetTarget` - before asking user for the target. Use |MiniJump.state|
+---   for more information about the upcoming jump.
+--- - `MiniJumpStart` - after jumping has started.
+--- - `MiniJumpJump` - after performing a jump.
+--- - `MiniJumpStop` - after jumping is stopped.
+---@tag MiniJump-events
+
 ---@alias __jump_target string|nil The string to jump to.
 ---@alias __jump_backward boolean|nil Whether to jump backward.
 ---@alias __jump_till boolean|nil Whether to jump just before/after the match instead of
@@ -74,15 +86,6 @@ local H = {}
 ---   require('mini.jump').setup({}) -- replace {} with your config table
 --- <
 MiniJump.setup = function(config)
-  -- TODO: Remove after Neovim=0.8 support is dropped
-  if vim.fn.has('nvim-0.9') == 0 then
-    vim.notify(
-      '(mini.jump) Neovim<0.9 is soft deprecated (module works but not supported).'
-        .. ' It will be deprecated after next "mini.nvim" release (module might not work).'
-        .. ' Please update your Neovim version.'
-    )
-  end
-
   -- Export module
   _G.MiniJump = MiniJump
 
@@ -137,6 +140,17 @@ MiniJump.config = {
 --- `jumping`, is about the latest jump. They are used as default values for
 --- similar arguments.
 ---
+---@usage This can be used to define mappings which depend on state; either as
+--- a standalone mapping or part of |MiniKeymap.map_multistep()|. For example: >lua
+---
+---   -- Stop jumping after pressing `<Esc>`
+---   local jump_stop = function()
+---     if not MiniJump.state.jumping then return '<Esc>' end
+---     MiniJump.stop_jumping()
+---   end
+---   local opts = { expr = true, desc = 'Stop jumping' }
+---   vim.keymap.set({ 'n', 'x', 'o' }, '<Esc>', jump_stop, opts)
+--- <
 ---@class JumpingState
 ---
 ---@field target __jump_target
@@ -207,7 +221,11 @@ MiniJump.jump = function(target, backward, till, n_times)
   -- Make jump(s)
   H.cache.n_cursor_moved = 0
   local init_cursor_data = H.get_cursor_data()
+  local was_jumping = MiniJump.state.jumping
   MiniJump.state.jumping = true
+  if not was_jumping then H.trigger_event('MiniJumpStart') end
+  H.trigger_event('MiniJumpJump')
+
   for _ = 1, MiniJump.state.n_times do
     vim.fn.search(pattern, flags)
   end
@@ -238,6 +256,8 @@ MiniJump.smart_jump = function(backward, till)
   local has_changed_cursor = not vim.deep_equal(H.cache.latest_cursor, H.get_cursor_data())
   if has_changed_mode or has_changed_cursor then MiniJump.stop_jumping() end
 
+  H.update_state(nil, backward, till, vim.v.count1)
+
   -- Ask for target only when needed
   local target
   if not MiniJump.state.jumping or MiniJump.state.target == nil then
@@ -246,7 +266,7 @@ MiniJump.smart_jump = function(backward, till)
     if target == nil then return end
   end
 
-  H.update_state(target, backward, till, vim.v.count1)
+  H.update_state(target)
 
   MiniJump.jump()
 end
@@ -259,6 +279,7 @@ MiniJump.stop_jumping = function()
   H.timers.highlight:stop()
   H.timers.idle_stop:stop()
 
+  local was_jumping = MiniJump.state.jumping
   MiniJump.state.jumping = false
 
   H.cache.n_cursor_moved = 0
@@ -266,6 +287,9 @@ MiniJump.stop_jumping = function()
   H.cache.msg_shown = false
 
   H.unhighlight()
+
+  -- Trigger relevant event only if there was jumping
+  if was_jumping then H.trigger_event('MiniJumpStop') end
 end
 
 -- Helper data ================================================================
@@ -365,6 +389,8 @@ H.make_expr_jump = function(backward, till)
   return function()
     if H.is_disabled() then return '' end
 
+    H.update_state(nil, backward, till, vim.v.count1)
+
     -- Ask for `target` for non-repeating jump as this will be used only in
     -- operator-pending mode. Dot-repeat is supported via expression-mapping.
     local is_repeat_jump = backward == nil or till == nil
@@ -372,7 +398,7 @@ H.make_expr_jump = function(backward, till)
 
     -- Stop if user supplied invalid target
     if target == nil then return '<Esc>' end
-    H.update_state(target, backward, till, vim.v.count1)
+    H.update_state(target)
 
     vim.schedule(function()
       if H.cache.has_changed_cursor then return end
@@ -516,6 +542,8 @@ end
 
 H.message = function(msg) H.echo(msg, true) end
 
+H.trigger_event = function(event_name, data) vim.api.nvim_exec_autocmds('User', { pattern = event_name, data = data }) end
+
 H.update_state = function(target, backward, till, n_times)
   MiniJump.state.mode = vim.fn.mode(1)
 
@@ -535,6 +563,8 @@ H.get_target = function()
     H.echo('Enter target single character ')
     H.cache.msg_shown = true
   end, 1000)
+
+  H.trigger_event('MiniJumpGetTarget')
   local ok, char = pcall(vim.fn.getcharstr)
   needs_help_msg = false
   H.unecho()
