@@ -9,8 +9,13 @@ M.opts = function ()
     -- Highlight integrations (none by default)
     integrations = {
       map.gen_integration.builtin_search({search = 'Operator'}),
+      map.gen_integration.diagnostic({
+        error = 'DiagnosticFloatingError',
+        warn  = 'DiagnosticFloatingWarn',
+        info  = 'DiagnosticFloatingInfo',
+        hint  = 'DiagnosticFloatingHint',
+      }),
       map.gen_integration.gitsigns(),
-      map.gen_integration.diagnostic(),
     },
 
     -- Symbols used to display data
@@ -25,7 +30,7 @@ M.opts = function ()
       focusable = false,
       side = 'right',
       show_integration_count = false,
-      width = 12,
+      width = 16,
       winblend = 0,
     },
   }
