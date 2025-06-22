@@ -324,6 +324,7 @@ nvim-tree.update_focused_file.update_root.enable	nvim-tree-lua.txt	/*nvim-tree.u
 nvim-tree.update_focused_file.update_root.ignore_list	nvim-tree-lua.txt	/*nvim-tree.update_focused_file.update_root.ignore_list*
 nvim-tree.view.centralize_selection	nvim-tree-lua.txt	/*nvim-tree.view.centralize_selection*
 nvim-tree.view.cursorline	nvim-tree-lua.txt	/*nvim-tree.view.cursorline*
+nvim-tree.view.cursorlineopt	nvim-tree-lua.txt	/*nvim-tree.view.cursorlineopt*
 nvim-tree.view.debounce_delay	nvim-tree-lua.txt	/*nvim-tree.view.debounce_delay*
 nvim-tree.view.float	nvim-tree-lua.txt	/*nvim-tree.view.float*
 nvim-tree.view.float.enable	nvim-tree-lua.txt	/*nvim-tree.view.float.enable*

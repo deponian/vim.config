@@ -467,14 +467,16 @@ function FzfWin:normalize_winopts(fullscreen)
     },
   }
 
+  -- #2121 we can suppress cmdline area when zindex >= 200
+  local ch = fullscreen and winopts.zindex >= 200 and 0 or vim.o.cmdheight
   local max_width = vim.o.columns - 2
-  local max_height = vim.o.lines - vim.o.cmdheight - 2
+  local max_height = vim.o.lines - ch - 2
   winopts.width = math.min(max_width, winopts.width)
   winopts.height = math.min(max_height, winopts.height)
-  if not winopts.height or winopts.height <= 1 then
+  if winopts.height <= 1 then
     winopts.height = math.floor(max_height * winopts.height)
   end
-  if not winopts.width or winopts.width <= 1 then
+  if winopts.width <= 1 then
     winopts.width = math.floor(max_width * winopts.width)
   end
   if winopts.relative == "cursor" then
@@ -895,7 +897,7 @@ function FzfWin:treesitter_attach()
           -- line:col:text        (grep_curbuf)
           -- line<U+00A0>text     (lines|blines)
           ---@diagnostic disable-next-line: unused-local
-          local filepath, _lnum, text = line_parser(line:sub(min_col))
+          local filepath, _lnum, text, _ft = line_parser(line:sub(min_col))
           if not text or text == 0 then return end
 
           text = text:gsub("^%d+:", "") -- remove col nr if exists
@@ -913,8 +915,8 @@ function FzfWin:treesitter_attach()
             end
           end)()
 
-          local ft = ft_bufnr and vim.bo[tonumber(ft_bufnr)].ft
-              or vim.filetype.match({ filename = path.tail(filepath) })
+          local ft = _ft or (ft_bufnr and vim.bo[tonumber(ft_bufnr)].ft
+            or vim.filetype.match({ filename = path.tail(filepath) }))
           if not ft then return end
 
           local lang = vim.treesitter.language.get_lang(ft)

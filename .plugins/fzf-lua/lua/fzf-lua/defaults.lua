@@ -190,11 +190,11 @@ M.defaults                      = {
     },
     man = {
       _ctor = previewers.builtin.man_pages,
-      cmd = M._man_cmd_fn(),
+      cmd = function() return M._man_cmd_fn() end,
     },
     man_native = {
       _ctor = previewers.fzf.man_pages,
-      cmd = M._man_cmd_fn(true),
+      cmd = function() return M._man_cmd_fn(true) end,
     },
     help_tags = {
       _ctor = previewers.builtin.help_tags,
@@ -1071,8 +1071,10 @@ M.defaults.command_history      = {
 }
 
 M.defaults.search_history       = {
-  fzf_opts = { ["--tiebreak"] = "index", ["--no-multi"] = true },
-  actions  = {
+  fzf_opts    = { ["--tiebreak"] = "index", ["--no-multi"] = true },
+  _treesitter = function(line) return "", nil, line, "regex" end,
+  fzf_colors  = { ["hl"] = "-1:reverse", ["hl+"] = "-1:reverse" },
+  actions     = {
     ["enter"]  = actions.search_cr,
     ["ctrl-e"] = actions.search,
   },
