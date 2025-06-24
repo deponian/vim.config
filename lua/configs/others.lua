@@ -100,6 +100,7 @@ return {
 
   {
     "cuducos/yaml.nvim",
+    enabled = not vim.g.bigfile_mode,
     -- also see deponian/lualine/get_yaml_key
     ft = { "yaml" },
     dependencies = {

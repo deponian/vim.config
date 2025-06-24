@@ -28,7 +28,7 @@ vim.opt.rtp:prepend(plugins_path .. "/lazy.nvim")
 vim.g.bigfile_mode = false
 local open_ok, fd = pcall(vim.uv.fs_open, vim.api.nvim_buf_get_name(0), "r", 438)
 local stat_ok, stat = pcall(vim.uv.fs_fstat, fd)
-if open_ok and stat_ok and stat.size > 1000 * 1000 then
+if open_ok and stat_ok and stat.size > 500 * 1000 then
   vim.g.bigfile_mode = true
   vim.uv.fs_close(fd)
 end
