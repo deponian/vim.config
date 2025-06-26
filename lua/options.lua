@@ -54,8 +54,8 @@ vim.opt.winborder = 'bold'
 
 -- use these only for small files
 if not vim.g.bigfile_mode then
-  vim.opt.foldmethod = "expr"                         -- use special fold expression
-  vim.opt.foldexpr = "nvim_treesitter#foldexpr()"     -- use tree-sitter as the source for folding
+  vim.wo.foldmethod = 'expr'                          -- use special fold expression
+  vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()' -- use tree-sitter as the source for folding
 else
   vim.opt.foldmethod = "indent"                       -- use indent folding method for big files
 end
