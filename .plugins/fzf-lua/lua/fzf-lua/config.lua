@@ -79,16 +79,18 @@ M.globals = setmetatable({}, {
       -- bind tables are logical exception, do not merge with defaults unless `[1] == true`
       -- normalize all binds as lowercase to prevent duplicate keys (#654)
       local ret = {}
+      -- exclude case-sensitive alt-binds from being lowercased
+      local exclude_case_sensitive_alt = "^alt%-%a$"
       for _, k in ipairs(keys) do
         ret[k] = setup_value and type(setup_value[k]) == "table"
-            and vim.tbl_deep_extend("keep", utils.tbl_deep_clone(setup_value[k]),
-              setup_value[k][1] == true and fzflua_default[k] or {})
-            or utils.tbl_deep_clone(fzflua_default[k])
-        if ret[k] then
+            and vim.tbl_deep_extend("keep",
+              utils.map_tolower(utils.tbl_deep_clone(setup_value[k]), exclude_case_sensitive_alt),
+              setup_value[k][1] == true and
+              utils.map_tolower(fzflua_default[k], exclude_case_sensitive_alt) or {})
+            or utils.map_tolower(utils.tbl_deep_clone(fzflua_default[k]), exclude_case_sensitive_alt)
+        if ret[k] and ret[k][1] ~= nil then
           -- Remove the [1] indicating inheritance from defaults and
-          -- exclude case-sensitive alt-binds from being lowercased
           ret[k][1] = nil
-          ret[k] = utils.map_tolower(ret[k], "^alt%-%a$")
         end
       end
       return ret
@@ -982,6 +984,7 @@ M._action_to_helpstr = {
   [actions.nvim_opt_edit_local]  = "nvim-opt-edit-local",
   [actions.nvim_opt_edit_global] = "nvim-opt-edit-global",
   [actions.spell_apply]          = "spell-apply",
+  [actions.spell_suggest]        = "spell-suggest",
   [actions.set_filetype]         = "set-filetype",
   [actions.packadd]              = "packadd",
   [actions.help]                 = "help-open",

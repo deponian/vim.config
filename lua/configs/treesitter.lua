@@ -1,14 +1,14 @@
 local M = {
   "nvim-treesitter/nvim-treesitter",
+  branch = 'master'
 }
 
 M.config = function()
   require("nvim-treesitter.configs").setup({
-    sync_install = true,
     -- A list of parser names, or "all"
     ensure_installed = not vim.g.server_mode and "all" or {},
     -- List of parsers to ignore installing
-    ignore_install = {},
+    ignore_install = {'ipkg'},
     highlight = {
       enable = true,
     },

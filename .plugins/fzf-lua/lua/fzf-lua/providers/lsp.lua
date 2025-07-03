@@ -63,7 +63,7 @@ local jump_to_location = function(opts, result, enc)
     return opts.jump1_action({ entry }, opts)
   end
 
-  return utils.jump_to_location(result, enc)
+  return utils.jump_to_location(result, enc, opts.reuse_win)
 end
 
 local regex_filter_fn = function(regex_filter)
@@ -149,16 +149,12 @@ local function location_handler(opts, cb, _, result, ctx, _)
       -- Filtered by cwd / file_ignore_patterns, etc
       return false
     else
-      table.insert(entries, { entry = entry, result = x })
+      table.insert(entries, { entry = entry, result = x, encoding = encoding })
       return true
     end
   end, result)
-  -- Jump immediately if there is only one location
-  if opts.jump1 and #entries == 1 then
-    jump_to_location(opts, entries[1].result, encoding)
-  end
-  -- Perform the callback to avoid the "No xxx found" message
-  vim.tbl_map(function(x) cb(x.entry) end, entries)
+  -- Populate post-filter entries
+  vim.tbl_map(function(x) cb(x.entry, x) end, entries)
 end
 
 local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
@@ -285,28 +281,11 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
   end
 end
 
-local function code_action_handler(opts, cb, _, code_actions, context, _)
-  if not opts.code_actions then opts.code_actions = {} end
-  local i = utils.tbl_count(opts.code_actions) + 1
-  for _, action in ipairs(code_actions) do
-    local text = string.format("%s %s",
-      utils.ansi_codes.magenta(string.format("%d:", i)), action.title)
-    local entry = {
-      client_id = context.client_id,
-      command = action,
-    }
-    opts.code_actions[tostring(i)] = entry
-    cb(text)
-    i = i + 1
-  end
-end
-
 local handlers = {
   ["code_actions"] = {
     label = "Code Actions",
     server_capability = "codeActionProvider",
     method = "textDocument/codeAction",
-    handler = code_action_handler
   },
   ["references"] = {
     label = "References",
@@ -372,61 +351,6 @@ local handlers = {
   },
 }
 
--- see neovim #15504
--- https://github.com/neovim/neovim/pull/15504#discussion_r698424017
-local mk_handler = function(fn)
-  return function(...)
-    local is_new = not select(4, ...) or type(select(4, ...)) ~= "number"
-    if is_new then
-      -- function(err, result, context, config)
-      fn(...)
-    else
-      -- function(err, method, params, client_id, bufnr, config)
-      local err = select(1, ...)
-      local method = select(2, ...)
-      local result = select(3, ...)
-      local client_id = select(4, ...)
-      local bufnr = select(5, ...)
-      local lspcfg = select(6, ...)
-      fn(err, result,
-        { method = method, client_id = client_id, bufnr = bufnr }, lspcfg)
-    end
-  end
-end
-
-local function async_lsp_handler(co, handler, opts)
-  return mk_handler(function(err, result, context, lspcfg)
-    -- increment callback & result counters
-    opts.num_callbacks = opts.num_callbacks + 1
-    opts.num_results = (opts.num_results or 0) + (result and utils.tbl_count(result) or 0)
-    if err then
-      if not opts.silent then
-        utils.err(string.format("Error executing '%s': %s", handler.method, err))
-      end
-      if not opts.no_autoclose then
-        utils.fzf_exit()
-      end
-      coroutine.resume(co, true, err)
-    else
-      -- did all clients send back their responses?
-      local done = opts.num_callbacks == opts.num_clients
-      -- only close the window if we still have zero results
-      -- after all clients have sent their results
-      if done and opts.num_results == 0 then
-        if not opts.silent then
-          utils.info(string.format("No %s found", string.lower(handler.label)))
-        end
-        -- Do not close the window in 'live_workspace_symbols'
-        if not opts.no_autoclose then
-          utils.fzf_exit()
-        end
-      end
-      -- resume the coroutine
-      coroutine.resume(co, done, err, result, context, lspcfg)
-    end
-  end)
-end
-
 local function gen_lsp_contents(opts)
   assert(opts.lsp_handler)
 
@@ -474,14 +398,20 @@ local function gen_lsp_contents(opts)
       utils.err(string.format("Error executing '%s': %s", lsp_handler.method, err))
     else
       local results = {}
-      local cb = function(text) table.insert(results, text) end
+      local jump1
+      local cb = function(text, x)
+        -- Only populate jump1 with the first entry
+        if jump1 then jump1 = false end
+        if x and jump1 == nil then jump1 = { result = x.result, encoding = x.encoding } end
+        table.insert(results, text)
+      end
       for client_id, response in pairs(lsp_results) do
         if response.result then
           local context = { client_id = client_id }
-          lsp_handler.handler(opts, cb, lsp_handler.method, response.result, context)
-        elseif response.err then
+          lsp_handler.handler(opts, cb, lsp_handler.method, response.result, context, nil)
+        elseif response.error then
           utils.warn(string.format("Error executing '%s': %s",
-            lsp_handler.method, response.err.message))
+            lsp_handler.method, response.error.message))
         end
       end
       if utils.tbl_isempty(results) then
@@ -492,7 +422,9 @@ local function gen_lsp_contents(opts)
         elseif not opts.silent then
           utils.info(string.format("No %s found", string.lower(lsp_handler.label)))
         end
-      elseif not (opts.jump1 and #results == 1) then
+      elseif opts.jump1 and jump1 then
+        jump_to_location(opts, jump1.result, jump1.encoding)
+      else
         -- LSP request was synchronous but we still asyncify the fzf feeding
         opts.__contents = function(fzf_cb)
           coroutine.wrap(function()
@@ -525,7 +457,6 @@ local function gen_lsp_contents(opts)
         -- Save no. of attached clients **supporting the capability**
         -- so we can determine if all callbacks were completed (#468)
         local async_opts = {
-          num_results   = 0,
           num_callbacks = 0,
           num_clients   = check_capabilities(lsp_handler, opts.silent),
           -- signals the handler to not print a warning when empty result set
@@ -545,7 +476,16 @@ local function gen_lsp_contents(opts)
           -- when using `live_ws_symbols`
           _, opts._cancel_all = vim.lsp.buf_request(core.CTX().bufnr,
             lsp_handler.method, lsp_params,
-            async_lsp_handler(co, lsp_handler, async_opts))
+            function(err, result, context, lspcfg)
+              -- Increment client callback counter
+              async_opts.num_callbacks = async_opts.num_callbacks + 1
+              -- did all clients send back their responses?
+              local done = async_opts.num_callbacks == async_opts.num_clients
+              if err and not async_opts.silent then
+                utils.err(string.format("Error executing '%s': %s", lsp_handler.method, err))
+              end
+              coroutine.resume(co, done, err, result, context, lspcfg)
+            end)
         end
 
         -- When called from another coroutine callback (when using 'finder') will err:
@@ -560,10 +500,16 @@ local function gen_lsp_contents(opts)
 
         -- process results from all LSP client
         local err, result, context, lspcfg, done
+        local num_results, jump1 = 0, nil
         repeat
           done, err, result, context, lspcfg = coroutine.yield()
           if not err and type(result) == "table" then
-            local cb = function(e)
+            local cb = function(e, x)
+              -- Increment result callback counter
+              num_results = num_results + 1
+              -- Only populate jump1 with the first entry
+              if jump1 then jump1 = false end
+              if x and jump1 == nil then jump1 = { result = x.result, encoding = x.encoding } end
               fzf_cb(e, function() coroutine.resume(co) end)
               coroutine.yield()
             end
@@ -571,10 +517,24 @@ local function gen_lsp_contents(opts)
           end
           -- some clients may not always return results (null-ls?)
           -- so don't terminate the loop when 'result == nil`
-        until done or err
+        until done
 
         -- no more results
         fzf_cb(nil)
+
+        vim.schedule(function()
+          if num_results == 0 then
+            if not async_opts.silent then
+              utils.info(string.format("No %s found", string.lower(lsp_handler.label)))
+            end
+            if not async_opts.no_autoclose then
+              utils.fzf_exit()
+            end
+          elseif opts.jump1 and jump1 then
+            utils.fzf_exit()
+            jump_to_location(opts, jump1.result, jump1.encoding)
+          end
+        end)
 
         -- we only get here once all requests are done
         -- so we can clear '_cancel_all'

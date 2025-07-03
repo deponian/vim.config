@@ -211,6 +211,7 @@ fzf-lua-opts-setup_fzfvim_cmds	fzf-lua-opts.txt	/*fzf-lua-opts-setup_fzfvim_cmds
 fzf-lua-opts-setup_highlights	fzf-lua-opts.txt	/*fzf-lua-opts-setup_highlights*
 fzf-lua-opts-shell-integrations	fzf-lua-opts.txt	/*fzf-lua-opts-shell-integrations*
 fzf-lua-opts-spell_suggest	fzf-lua-opts.txt	/*fzf-lua-opts-spell_suggest*
+fzf-lua-opts-spellcheck	fzf-lua-opts.txt	/*fzf-lua-opts-spellcheck*
 fzf-lua-opts-table-of-contents	fzf-lua-opts.txt	/*fzf-lua-opts-table-of-contents*
 fzf-lua-opts-tabs	fzf-lua-opts.txt	/*fzf-lua-opts-tabs*
 fzf-lua-opts-tags	fzf-lua-opts.txt	/*fzf-lua-opts-tags*
