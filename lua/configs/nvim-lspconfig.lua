@@ -116,7 +116,7 @@ M.config = function ()
   require("lspconfig").jsonls.setup({
     enabled = not vim.g.server_mode,
     capabilities = capabilities,
-    cmd = { "vscode-json-languageserver", "--stdio"},
+    cmd = { "vscode-json-language-server", "--stdio"},
     on_attach = on_attach,
   })
 
