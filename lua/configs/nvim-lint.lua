@@ -2,7 +2,7 @@ local M = { "mfussenegger/nvim-lint" }
 
 M.config = function ()
   require("lint").linters_by_ft = {
-    go = {"golangcilint"},
+    -- go = {"golangcilint"},
     yaml = {"yamllint"},
     ["yaml.gha"] = {"actionlint", "yamllint"},
     dockerfile = {"hadolint"},
