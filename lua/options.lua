@@ -23,10 +23,10 @@ vim.opt.mouse = 'a'                                   -- enable mouse support in
 vim.opt.mousemodel = 'extend'                         -- disable right-click popup-menu
 vim.opt.mousescroll = 'ver:1,hor:1'                   -- smoother scrolling
 vim.opt.number = true                                 -- show line numbers in gutter
-vim.opt.pumblend = 0                                  -- pseudo-transparency for popup-menu
+vim.opt.pumblend = 10                                 -- pseudo-transparency for popup-menu
 vim.opt.scrolloff = 5                                 -- start scrolling 5 lines before edge of viewport
 vim.opt.shell = 'bash'                                -- shell to use for `!`, `:!`, `system()` etc.
-vim.opt.shortmess:append({I = true})                  -- Don't neovim start screen
+vim.opt.shortmess:append({I = true})                  -- do not show neovim start screen
 vim.opt.shortmess:append({S = true})                  -- do not show search count message when searching, e.g. "[1/5]"
 vim.opt.shortmess:append({c = true})                  -- completion messages
 vim.opt.shortmess:append({s = true})                  -- Don't echo search wrap messages.
@@ -46,11 +46,11 @@ vim.opt.updatecount = 80                              -- update swapfiles every 
 vim.opt.updatetime = 250                              -- CursorHold interval
 vim.opt.virtualedit = 'block'                         -- allow the cursor to move where there is no text in visual block mode
 vim.opt.visualbell = true                             -- stop annoying beeping for non-error errors
-vim.opt.whichwrap = 'b,s'                             -- allow <BS>/h/l/<Left>/<Right>/<Space> and ~ to cross line boundaries
+vim.opt.whichwrap = 'b,s'                             -- allow <BS> and <Space> to cross line boundaries
 vim.opt.wildcharm = 26                                -- ('<C-z>') substitute for 'wildchar' (<Tab>) in macros
 vim.opt.wildignore:append('*.o,*.rej')                -- patterns to ignore during file-navigation
 vim.opt.wildmode = 'longest:full,full'                -- shell-like autocomplete to unambiguous portion
-vim.opt.winborder = 'bold'
+vim.opt.winborder = 'bold'                            -- border style of floating windows
 
 -- use these only for small files
 if not vim.g.bigfile_mode then

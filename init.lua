@@ -22,7 +22,7 @@ if not vim.uv.fs_stat(lazypath) then
 end
 
 -- place where plugin manager lives
-vim.opt.rtp:prepend(plugins_path .. "/lazy.nvim")
+vim.opt.rtp:prepend(lazypath)
 
 -- get size (in KB) of current file
 vim.g.bigfile_mode = false
