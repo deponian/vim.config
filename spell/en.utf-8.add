@@ -47,7 +47,7 @@ Monoids
 Clojure
 rbenv
 ES6
-heterogenous
+heterogeneous
 microservice
 monit
 Gmail
@@ -173,7 +173,7 @@ eg
 iOS
 offline
 RVM
-homogenous
+homogeneous
 filetype
 Liferay
 configs
@@ -235,6 +235,7 @@ Terragrunt
 HCL
 GKE
 EKS
+VPC
 VPCs
 tf
 AWS
@@ -272,3 +273,4 @@ Kuvaq
 Menetekel
 Logalize
 stdin
+evilmartians
