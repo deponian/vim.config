@@ -6,14 +6,14 @@ local config = require "fzf-lua.config"
 local M = {}
 
 M.helptags = function(opts)
+  ---@type fzf-lua.config.Helptags
   opts = config.normalize_opts(opts, "helptags")
   if not opts then return end
 
   local contents = function(cb)
-    opts.lang = opts.lang or vim.o.helplang
     opts.fallback = opts.fallback ~= false and true
 
-    local langs = vim.split(opts.lang, ",")
+    local langs = vim.split(vim.o.helplang, ",")
     if opts.fallback and not utils.tbl_contains(langs, "en") then
       table.insert(langs, "en")
     end
@@ -41,7 +41,7 @@ M.helptags = function(opts)
       local paths = lazy.get_unloaded_rtp("")
       rtp = rtp .. "," .. table.concat(paths, ",")
     end
-    local all_files = vim.fn.globpath(rtp, "doc/*", 1, 1)
+    local all_files = vim.fn.globpath(rtp, "doc/*", true, true)
     for _, fullpath in ipairs(all_files) do
       local file = path.tail(fullpath)
       if file == "tags" then
@@ -56,6 +56,7 @@ M.helptags = function(opts)
 
     local hl = (function()
       local _, _, fn = utils.ansi_from_hl("Label", "foo")
+      assert(fn)
       return function(s) return fn(s) end
     end)()
 
@@ -99,7 +100,7 @@ M.helptags = function(opts)
     end)()
   end
 
-  core.fzf_exec(contents, opts)
+  return core.fzf_exec(contents, opts)
 end
 
 return M

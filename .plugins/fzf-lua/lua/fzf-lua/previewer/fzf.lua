@@ -7,6 +7,7 @@ local Object = require "fzf-lua.class"
 
 local Previewer = {}
 
+---@class fzf-lua.previewer.Fzf: fzf-lua.Object,{}
 Previewer.base = Object:extend()
 
 -- Previewer base object
@@ -64,6 +65,8 @@ function Previewer.base:fzf_delimiter()
 end
 
 -- Generic shell command previewer
+---@class fzf-lua.previewer.Cmd : fzf-lua.previewer.Fzf,{}
+---@field super fzf-lua.previewer.Fzf,{}
 Previewer.cmd = Previewer.base:extend()
 
 function Previewer.cmd:new(o, opts)
@@ -84,14 +87,16 @@ end
 
 function Previewer.cmd:action(o)
   o = o or {}
-  local act = shell.raw_action(function(items, _, _)
+  local act = shell.stringify_data(function(items, _, _)
     local entry = path.entry_to_file(items[1], self.opts)
     return entry.bufname or entry.path
-  end, self.opts.field_index_expr or "{}", self.opts.debug)
+  end, self.opts, self.opts.field_index_expr or "{}")
   return act
 end
 
 -- Specialized bat previewer
+---@class fzf-lua.previewer.Bat : fzf-lua.previewer.Cmd,{}
+---@field super fzf-lua.previewer.Cmd,{}
 Previewer.bat = Previewer.cmd:extend()
 
 function Previewer.bat:new(o, opts)
@@ -114,6 +119,8 @@ function Previewer.bat:cmdline(o)
 end
 
 -- Specialized head previewer
+---@class fzf-lua.previewer.Head : fzf-lua.previewer.Cmd,{}
+---@field super fzf-lua.previewer.Cmd,{}
 Previewer.head = Previewer.cmd:extend()
 
 function Previewer.head:new(o, opts)
@@ -133,6 +140,8 @@ function Previewer.head:cmdline(o)
 end
 
 -- new async_action from nvim-fzf
+---@class fzf-lua.previewer.CmdAsync : fzf-lua.previewer.Cmd,{}
+---@field super fzf-lua.previewer.Cmd,{}
 Previewer.cmd_async = Previewer.base:extend()
 
 function Previewer.cmd_async:new(o, opts)
@@ -208,19 +217,22 @@ end
 
 function Previewer.cmd_async:cmdline(o)
   o = o or {}
-  local act = shell.raw_preview_action_cmd(function(items)
+  local act = shell.stringify_cmd(function(items)
     self._last_query = items[2] or ""
     local filepath, _, errcmd = self:parse_entry_and_verify(items[1])
     local cmd = errcmd or ("%s %s %s"):format(
       self.cmd, self.args, libuv.shellescape(filepath))
     return cmd
-  end, "{} {q}", self.opts.debug)
+  end, self.opts, "{} {q}")
   return act
 end
 
+---@class fzf-lua.previewer.BatAsync : fzf-lua.previewer.CmdAsync,{}
+---@field super fzf-lua.previewer.CmdAsync,{}
 Previewer.bat_async = Previewer.cmd_async:extend()
 
 ---@param lnum string?
+---@return string?
 function Previewer.bat_async:_preview_offset(lnum)
   --[[
     #
@@ -258,7 +270,7 @@ end
 
 function Previewer.bat_async:cmdline(o)
   o = o or {}
-  local act = shell.raw_preview_action_cmd(function(items, fzf_lines)
+  local act = shell.stringify_cmd(function(items, fzf_lines)
     self._last_query = items[2] or ""
     local filepath, entry, errcmd = self:parse_entry_and_verify(items[1])
     local line_range = ""
@@ -278,10 +290,12 @@ function Previewer.bat_async:cmdline(o)
       line_range,
       libuv.shellescape(filepath))
     return cmd
-  end, "{} {q}", self.opts.debug)
+  end, self.opts, "{} {q}")
   return act
 end
 
+---@class fzf-lua.previewer.GitDiff : fzf-lua.previewer.Fzf,{}
+---@field super fzf-lua.previewer.Fzf,{}
 Previewer.git_diff = Previewer.base:extend()
 
 function Previewer.git_diff:new(o, opts)
@@ -308,7 +322,7 @@ end
 
 function Previewer.git_diff:cmdline(o)
   o = o or {}
-  local act = shell.raw_preview_action_cmd(function(items, fzf_lines, fzf_columns)
+  local act = shell.stringify_cmd(function(items, fzf_lines, fzf_columns)
     if not items or utils.tbl_isempty(items) then
       utils.warn("shell error while running preview action.")
       return
@@ -324,19 +338,19 @@ function Previewer.git_diff:cmdline(o)
       self.git_icons["?"] ..
       self.git_icons["C"] ..
       "]" .. utils.nbsp) ~= nil
-    local file = items[1]
-    if file:match("%s%->%s") then
+    local s = items[1]
+    if s:match("%s%->%s") then
       -- for renames, we take only the last part (#864)
-      file = file:match("%s%->%s(.*)$")
+      s = s:match("%s%->%s(.*)$")
     end
-    file = path.entry_to_file(file, self.opts)
+    local entry = path.entry_to_file(s, self.opts)
     local cmd = nil
     if is_modified then
       cmd = self.cmd_modified
     elseif is_deleted then
       cmd = self.cmd_deleted
     elseif is_untracked then
-      local stat = uv.fs_stat(file.path)
+      local stat = uv.fs_stat(entry.path)
       if stat and stat.type == "directory" then
         cmd = utils._if_win({ "dir" }, { "ls", "-la" })
       else
@@ -359,7 +373,7 @@ function Previewer.git_diff:cmdline(o)
     -- }
     -- we use ':format' directly on the user's command, see
     -- issue #392 for more info (limiting diff output width)
-    local fname_escaped = libuv.shellescape(file.path)
+    local fname_escaped = libuv.shellescape(entry.path)
     if cmd:match("[<{]file[}>]") then
       cmd = cmd:gsub("[<{]file[}>]", fname_escaped)
     elseif cmd:match("%%s") then
@@ -373,15 +387,18 @@ function Previewer.git_diff:cmdline(o)
       ["FZF_PREVIEW_LINES"]   = fzf_lines,
       ["FZF_PREVIEW_COLUMNS"] = fzf_columns,
     }
-    local setenv = utils.shell_setenv_str(env)
-    cmd = string.format("%s %s %s", table.concat(setenv, " "), cmd, pager)
-    -- TODO: exlpore why passing env (which we btw don't need anymore)
-    -- makes git-delta use a different syntax theme
-    return { cmd = cmd, env = nil }
-  end, "{}", self.opts.debug)
+    -- NOTE: no longer required to send env string as we're setting
+    -- env vars in `stringify:libuv.spawn`
+    -- local setenv = utils.shell_setenv_str(env)
+    -- cmd = string.format("%s %s %s", table.concat(setenv, " "), cmd, pager)
+    cmd = string.format("%s %s", cmd, pager)
+    return { cmd = cmd, env = env }
+  end, self.opts, "{}")
   return act
 end
 
+---@class fzf-lua.previewer.fzf.ManPages : fzf-lua.previewer.Fzf,{}
+---@field super fzf-lua.previewer.Fzf,{}
 Previewer.man_pages = Previewer.base:extend()
 
 function Previewer.man_pages:new(o, opts)
@@ -393,14 +410,16 @@ end
 
 function Previewer.man_pages:cmdline(o)
   o = o or {}
-  local act = shell.raw_preview_action_cmd(function(items)
+  local act = shell.stringify_cmd(function(items)
     local manpage = require("fzf-lua.providers.manpages").manpage_sh_arg(items[1])
     local cmd = self.cmd:format(manpage)
     return cmd
-  end, "{}", self.opts.debug)
+  end, self.opts, "{}")
   return act
 end
 
+---@class fzf-lua.previewer.fzf.HelpTags : fzf-lua.previewer.Fzf,{}
+---@field super fzf-lua.previewer.fzf.HelpTags,{}
 Previewer.help_tags = Previewer.base:extend()
 
 function Previewer.help_tags:fzf_delimiter()
@@ -417,7 +436,7 @@ end
 
 function Previewer.help_tags:cmdline(o)
   o = o or {}
-  local act = shell.raw_preview_action_cmd(function(items)
+  local act = shell.stringify_cmd(function(items)
     local vimdoc = items[1]:match(string.format("[^%s]+$", utils.nbsp))
     local tag = items[1]:match("^[^%s]+")
     local ext = path.extension(vimdoc)
@@ -434,7 +453,7 @@ function Previewer.help_tags:cmdline(o)
       end
     end
     return cmd
-  end, "{}", self.opts.debug)
+  end, self.opts, "{}")
   return act
 end
 

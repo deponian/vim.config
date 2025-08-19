@@ -61,6 +61,9 @@ colorizer.parser.rgb_hex.parser	colorizer.txt	/*colorizer.parser.rgb_hex.parser*
 colorizer.parser.rgba_hex-introduction	colorizer.txt	/*colorizer.parser.rgba_hex-introduction*
 colorizer.parser.rgba_hex-lua-api	colorizer.txt	/*colorizer.parser.rgba_hex-lua-api*
 colorizer.parser.rgba_hex.parser	colorizer.txt	/*colorizer.parser.rgba_hex.parser*
+colorizer.parser.xterm-introduction	colorizer.txt	/*colorizer.parser.xterm-introduction*
+colorizer.parser.xterm-lua-api	colorizer.txt	/*colorizer.parser.xterm-lua-api*
+colorizer.parser.xterm.parser	colorizer.txt	/*colorizer.parser.xterm.parser*
 colorizer.rehighlight	colorizer.txt	/*colorizer.rehighlight*
 colorizer.reload_all_buffers	colorizer.txt	/*colorizer.reload_all_buffers*
 colorizer.reload_on_save	colorizer.txt	/*colorizer.reload_on_save*

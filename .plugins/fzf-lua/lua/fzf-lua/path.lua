@@ -114,7 +114,7 @@ M.basename = M.tail
 ---Get the path to the parent directory of the given path.
 -- Returns `nil` if the path has no parent.
 ---@param path string
----@param remove_trailing boolean
+---@param remove_trailing boolean?
 ---@return string?
 function M.parent(path, remove_trailing)
   path = M.remove_trailing(path)
@@ -134,7 +134,7 @@ end
 function M.normalize(path)
   local p = M.tilde_to_HOME(path)
   if utils.__IS_WINDOWS then
-    p = p:gsub([[\]], [[/]])
+    p = (p:gsub([[\]], [[/]]))
   end
   return p
 end
@@ -200,6 +200,7 @@ function M.relative_to(path, relative_to)
 end
 
 ---@param path string
+---@param no_tail boolean?
 ---@return string?
 function M.extension(path, no_tail)
   local file = no_tail and path or M.tail(path)
@@ -242,16 +243,15 @@ M.HOME = function()
   return M.__HOME
 end
 
----@param path string?
----@return string?
+---@param path string
+---@return string
 function M.tilde_to_HOME(path)
-  return path and path:gsub("^~", M.HOME()) or nil
+  return (path:gsub("^~", M.HOME()))
 end
 
----@param path string?
----@return string?
+---@param path string
+---@return string
 function M.HOME_to_tilde(path)
-  if not path then return end
   if utils.__IS_WINDOWS then
     local home = M.HOME()
     if path:sub(1, #home):lower() == home:lower() then
@@ -387,6 +387,9 @@ function M.entry_to_ctag(entry, noesc)
   return ctag
 end
 
+---@param entry string
+---@param opts table
+---@return fzf-lua.path.Entry
 function M.entry_to_location(entry, opts)
   local uri, line, col = entry:match("^(.*://.*):(%d+):(%d+):")
   line = line and tonumber(line) > 0 and tonumber(line) or 1
@@ -408,12 +411,21 @@ function M.entry_to_location(entry, opts)
   }
 end
 
+---Test for URI, note this include non-standard URIs, some LSPs like dotnet's
+---roslyn prepend entries with "roslyn-source-generated://" (#2218)
+---@param str string
+---@return boolean
+function M.is_uri(str)
+  return str:match("^[%a%-]+://") ~= nil
+end
+
 ---@param entry string
----@param opts fzf-lua.Config
----@param force_uri boolean
+---@param opts fzf-lua.Config?
+---@param force_uri boolean?
 ---@return fzf-lua.path.Entry
 function M.entry_to_file(entry, opts, force_uri)
-  opts = opts or {}
+  -- NOTE: see note in meta.lua:global regarding alt options
+  opts = opts and opts.__alt_opts or opts or {}
   if opts._fmt then
     if type(opts._fmt._from) == "function" then
       entry = opts._fmt._from(entry, opts)
@@ -428,7 +440,7 @@ function M.entry_to_file(entry, opts, force_uri)
   -- Convert "~" to "$HOME"
   stripped = M.tilde_to_HOME(stripped)
   -- Prepend cwd unless entry is already a URI (e.g. nvim-jdtls "jdt://...")
-  local isURI = stripped:match("^%a+://")
+  local isURI = M.is_uri(stripped)
   local cwd = opts.cwd or opts._cwd
   if cwd and #cwd > 0 and not isURI and not M.is_absolute(stripped) then
     stripped = M.join({ cwd, stripped })
@@ -441,7 +453,7 @@ function M.entry_to_file(entry, opts, force_uri)
   end
   -- Entry metadata (before `utils.nbsp`) can contain `[bufnr]` which should
   -- be used instead of the file path, used in buffers, tabs, lines|blines
-  local bufnr = idx > 1 and entry:sub(1, idx):match("%[(%d+)%]") or nil
+  local bufnr = not opts._ctag and idx > 1 and entry:sub(1, idx):match("%[(%d+)%]") or nil
   if isURI and not bufnr then
     -- LSP entries can appear as URIs, for example when using nvim-jdtls
     -- references inside ".jar" files will have a prefix of "jdt://..."
@@ -459,8 +471,8 @@ function M.entry_to_file(entry, opts, force_uri)
     table.remove(s, 2)
   end
   local file = s[1]
-  local line = tonumber(s[2])
-  local col  = tonumber(s[3])
+  local line = s[2]
+  local col  = s[3]
   -- if the filename contains ':' we will have the wrong filename.
   -- test for existence on the longest possible match on the file
   -- system so we can accept files that end with ':', for example:
@@ -490,7 +502,7 @@ function M.entry_to_file(entry, opts, force_uri)
       file, line = stripped:match("([^:]+):(%d+)")
     end
   end
-  if opts.path_shorten and not stripped:match("^%a+://") then
+  if opts.path_shorten and not M.is_uri(stripped) then
     file = M.lengthen(file)
   end
   return {
@@ -506,6 +518,9 @@ function M.entry_to_file(entry, opts, force_uri)
   }
 end
 
+---@param cmd string|string[]
+---@param opts table
+---@return string|string[]
 function M.git_cwd(cmd, opts)
   local git_args = {
     { "cwd",          "-C" },
@@ -527,7 +542,7 @@ function M.git_cwd(cmd, opts)
       end
     end
     cmd = cmd:gsub("^git ", "git " .. args)
-  else
+  elseif type(cmd) == "table" then
     local idx = 2
     cmd = utils.tbl_deep_clone(cmd)
     for _, a in ipairs(git_args) do
@@ -556,6 +571,9 @@ function M.git_root(opts, noerr)
   return output[1]
 end
 
+---@param str string
+---@param opts fzf-lua.Config
+---@return fzf-lua.path.Entry|fzf-lua.keymap.Entry
 function M.keymap_to_entry(str, opts)
   local valid_modes = {
     n = true,
@@ -568,7 +586,8 @@ function M.keymap_to_entry(str, opts)
   if not mode or not keymap then return {} end
   mode, keymap = vim.trim(mode), vim.trim(keymap)
   mode = valid_modes[mode] and mode or "" -- only valid modes
-  local out, vmap, cmd = nil, nil, string.format("verbose %smap %s", mode, keymap)
+  local out
+  local vmap, cmd = nil, string.format("verbose %smap %s", mode, keymap)
   -- Run in the context of the originating buffer or keympas might return
   -- "No mapping found"
   pcall(vim.api.nvim_buf_call, opts.__CTX.bufnr, function()

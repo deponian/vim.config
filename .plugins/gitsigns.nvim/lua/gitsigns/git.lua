@@ -31,7 +31,7 @@ M.Repo = Repo
 --- @field repo Gitsigns.Repo
 --- @field has_conflicts? boolean
 ---
---- @field lock? true
+--- @field _lock Gitsigns.async.Semaphore
 local Obj = {}
 Obj.__index = Obj
 
@@ -43,6 +43,20 @@ M.Obj = Obj
 function Obj:change_revision(revision)
   self.revision = util.norm_base(revision)
   return self:refresh()
+end
+
+--- @async
+--- @param fn async fun()
+function Obj:lock(fn)
+  local timer = vim.defer_fn(function()
+    log.eprint('Lock was not released')
+    self._lock:release()
+  end, 2000)
+  self._lock:with(function()
+    timer:stop()
+    timer:close()
+    return fn()
+  end)
 end
 
 --- @async
@@ -72,9 +86,10 @@ end
 
 --- @async
 --- @param revision? string
+--- @param relpath? string
 --- @return string[] stdout, string? stderr
-function Obj:get_show_text(revision)
-  local relpath = self.relpath
+function Obj:get_show_text(revision, relpath)
+  relpath = relpath or self.relpath
   if revision and not relpath then
     log.dprint('no relpath')
     return {}
@@ -100,7 +115,7 @@ function Obj:get_show_text(revision)
   then
     --- @cast relpath -?
     log.dprintf('%s not found in %s looking for renames', relpath, revision)
-    local old_path = self.repo:rename_status(revision, true)[relpath]
+    local old_path = self.repo:log_rename_status(revision, relpath)
     if old_path then
       log.dprintf('found rename %s -> %s', old_path, relpath)
       stdout, stderr = self.repo:get_show_text(revision .. ':' .. old_path, self.encoding)
@@ -131,9 +146,7 @@ end
 
 --- @async
 function Obj:unstage_file()
-  self.lock = true
   self.repo:command({ 'reset', self.file })
-  self.lock = nil
   autocmd_changed(self.file)
 end
 
@@ -143,6 +156,7 @@ end
 --- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer,Gitsigns.BlameInfo?>
+--- @return table<string,Gitsigns.CommitInfo?>
 function Obj:run_blame(contents, lnum, revision, opts)
   return require('gitsigns.git.blame').run_blame(self, contents, lnum, revision, opts)
 end
@@ -150,7 +164,6 @@ end
 --- @async
 --- @private
 function Obj:ensure_file_in_index()
-  self.lock = true
   if self.object_name and not self.has_conflicts then
     return
   end
@@ -165,22 +178,19 @@ function Obj:ensure_file_in_index()
   end
 
   self:refresh()
-  self.lock = nil
 end
 
 --- @async
 --- Stage 'lines' as the entire contents of the file
 --- @param lines string[]
 function Obj:stage_lines(lines)
-  self.lock = true
   local relpath = assert(self.relpath)
   local new_object = self.repo:hash_object(relpath, lines)
   self.repo:update_index(self.mode_bits, new_object, relpath)
-  self.lock = nil
   autocmd_changed(self.file)
 end
 
-local sleep = async.awrap(2, function(duration, cb)
+local sleep = async.wrap(2, function(duration, cb)
   vim.defer_fn(cb, duration)
 end)
 
@@ -189,7 +199,6 @@ end)
 --- @param invert? boolean
 --- @return string? err
 function Obj:stage_hunks(hunks, invert)
-  self.lock = true
   self:ensure_file_in_index()
 
   local relpath = assert(self.relpath)
@@ -215,7 +224,6 @@ function Obj:stage_hunks(hunks, invert)
   end)
 
   if not stat then
-    self.lock = nil
     return err
   end
 
@@ -223,7 +231,6 @@ function Obj:stage_hunks(hunks, invert)
   -- for the changes to settle.
   sleep(100)
 
-  self.lock = nil
   autocmd_changed(self.file)
 end
 
@@ -249,7 +256,7 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
     return
   end
 
-  if vim.startswith(vim.fn.fnamemodify(file, ':p'), repo.gitdir) then
+  if vim.startswith(vim.fn.fnamemodify(file, ':p'), vim.fn.fnamemodify(repo.gitdir, ':p')) then
     -- Normally this check would be caught (unintended) in the above
     -- block, as gitdir resolution will fail if `file` is inside a gitdir.
     -- If gitdir is explicitly passed (or set in the env with GIT_DIR)
@@ -290,6 +297,7 @@ function Obj.new(file, revision, encoding, gitdir, toplevel)
   self.has_conflicts = info.has_conflicts
   self.i_crlf = info.i_crlf
   self.w_crlf = info.w_crlf
+  self._lock = async.semaphore(1)
 
   return self
 end

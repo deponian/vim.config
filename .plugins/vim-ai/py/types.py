@@ -14,7 +14,7 @@ class AIImageUrlContent(TypedDict):
 AIMessageContent = Union[AITextContent, AIImageUrlContent]
 
 class AIMessage(TypedDict):
-    role: Literal['system', 'user', 'assistant']
+    role: Literal['system', 'user', 'assistant', 'tool']
     content: List[AIMessageContent]
 
 class AIUtils(Protocol):
@@ -35,6 +35,12 @@ class AIImageResponseChunk(TypedDict):
 AICommandType = Literal['chat', 'edit', 'complete', 'image']
 
 class AIProvider(Protocol):
+
+    # optional config variable names (used to populate all options)
+    default_options_varname_chat: str = ""
+    default_options_varname_complete: str = ""
+    default_options_varname_edit: str = ""
+
     def __init__(self, command_type: AICommandType, raw_options: Mapping[str, str], utils: AIUtils) -> None:
         pass
 

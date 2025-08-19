@@ -201,7 +201,7 @@ vim.list_extend(M.hls, {
 })
 
 ---@param name string
----@return table<string, any>
+---@return vim.api.keyset.get_hl_info
 local function get_hl(name)
   return api.nvim_get_hl(0, { name = name, link = false })
 end
@@ -219,7 +219,7 @@ local function is_hl_set(hl_name)
   return color ~= nil
 end
 
---- @param x? number
+--- @param x? integer
 --- @param factor number
 --- @return integer?
 local function cmix(x, factor)
@@ -305,6 +305,47 @@ function M.setup()
     group = 'gitsigns',
     callback = M.setup_highlights,
   })
+end
+
+do --- temperature highlight
+  local temp_colors = {} --- @type table<integer,string>
+  local normal_bg --- @type [integer,integer,integer]?
+
+  --- @param min integer
+  --- @param max integer
+  --- @param t integer
+  --- @param alpha number 0-1
+  --- @param fg? boolean
+  --- @return string
+  function M.get_temp_hl(min, max, t, alpha, fg)
+    local Color = require('gitsigns.color')
+
+    local normalized_t = (t - min) / (math.max(max, t) - min)
+    local raw_temp_color = Color.temp(normalized_t)
+
+    if normal_bg == nil then
+      local normal_hl = api.nvim_get_hl(0, { name = 'Normal' })
+      if normal_hl.bg then
+        normal_bg = Color.int_to_rgb(normal_hl.bg)
+      elseif vim.o.background == 'light' then
+        normal_bg = { 255, 255, 255 } -- white
+      else
+        normal_bg = { 0, 0, 0 } -- black
+      end
+    end
+
+    local color = Color.rgb_to_int(Color.blend(raw_temp_color, normal_bg, alpha))
+
+    if temp_colors[color] then
+      return temp_colors[color]
+    end
+
+    local fgs = fg and 'fg' or 'bg'
+    local hl_name = ('GitSignsColorTemp.%s.%d'):format(fgs, color)
+    api.nvim_set_hl(0, hl_name, { [fgs] = color })
+    temp_colors[color] = hl_name
+    return hl_name
+  end
 end
 
 return M

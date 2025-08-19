@@ -1,4 +1,5 @@
 return { -- this file is generated from lua/nvim-web-devicons/default/icons_by_file_extension.lua, please do not edit
+
   ["3gp"]            = { icon = "", color = "#7E4C10", cterm_color = "94",  name = "3gp"                        },
   ["3mf"]            = { icon = "󰆧", color = "#5B5B5B", cterm_color = "240", name = "3DObjectFile"               },
   ["7z"]             = { icon = "", color = "#76520C", cterm_color = "94",  name = "7z"                         },
@@ -50,7 +51,9 @@ return { -- this file is generated from lua/nvim-web-devicons/default/icons_by_f
   ["cbl"]            = { icon = "", color = "#005CA5", cterm_color = "25",  name = "Cobol"                      },
   ["cc"]             = { icon = "", color = "#A23253", cterm_color = "125", name = "CPlusPlus"                  },
   ["ccm"]            = { icon = "", color = "#A23253", cterm_color = "125", name = "CPlusPlusModule"            },
+  ["cfc"]            = { icon = "", color = "#017B8C", cterm_color = "30",  name = "ColdFusionScript"           },
   ["cfg"]            = { icon = "", color = "#526064", cterm_color = "59",  name = "Configuration"              },
+  ["cfm"]            = { icon = "", color = "#017B8C", cterm_color = "30",  name = "ColdFusionTag"              },
   ["cjs"]            = { icon = "", color = "#666620", cterm_color = "58",  name = "Cjs"                        },
   ["clj"]            = { icon = "", color = "#466024", cterm_color = "22",  name = "Clojure"                    },
   ["cljc"]           = { icon = "", color = "#466024", cterm_color = "22",  name = "ClojureC"                   },
@@ -199,6 +202,7 @@ return { -- this file is generated from lua/nvim-web-devicons/default/icons_by_f
   ["ipynb"]          = { icon = "", color = "#A35301", cterm_color = "130", name = "Notebook"                   },
   ["iso"]            = { icon = "", color = "#453F43", cterm_color = "238", name = "Iso"                        },
   ["ixx"]            = { icon = "", color = "#36677C", cterm_color = "24",  name = "Ixx"                        },
+  ["jar"]            = { icon = "", color = "#805834", cterm_color = "94",  name = "Jar"                        },
   ["java"]           = { icon = "", color = "#992E33", cterm_color = "88",  name = "Java"                       },
   ["jl"]             = { icon = "", color = "#6C4B7C", cterm_color = "96",  name = "Jl"                         },
   ["jpeg"]           = { icon = "", color = "#6B4D83", cterm_color = "96",  name = "Jpeg"                       },
@@ -450,6 +454,7 @@ return { -- this file is generated from lua/nvim-web-devicons/default/icons_by_f
   ["webp"]           = { icon = "", color = "#6B4D83", cterm_color = "96",  name = "Webp"                       },
   ["webpack"]        = { icon = "󰜫", color = "#36677C", cterm_color = "24",  name = "Webpack"                    },
   ["wma"]            = { icon = "", color = "#0075AA", cterm_color = "24",  name = "WindowsMediaAudio"          },
+  ["wmv"]            = { icon = "", color = "#7E4C10", cterm_color = "94",  name = "WindowsMediaVideo"          },
   ["woff"]           = { icon = "", color = "#2F2F2F", cterm_color = "236", name = "WebOpenFontFormat"          },
   ["woff2"]          = { icon = "", color = "#2F2F2F", cterm_color = "236", name = "WebOpenFontFormat"          },
   ["wrl"]            = { icon = "󰆧", color = "#5B5B5B", cterm_color = "240", name = "VRML"                       },

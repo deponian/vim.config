@@ -21,6 +21,8 @@ gitsigns-config-current_line_blame_formatter_nc	gitsigns.txt	/*gitsigns-config-c
 gitsigns-config-current_line_blame_opts	gitsigns.txt	/*gitsigns-config-current_line_blame_opts*
 gitsigns-config-debug_mode	gitsigns.txt	/*gitsigns-config-debug_mode*
 gitsigns-config-diff_opts	gitsigns.txt	/*gitsigns-config-diff_opts*
+gitsigns-config-diffthis	gitsigns.txt	/*gitsigns-config-diffthis*
+gitsigns-config-gh	gitsigns.txt	/*gitsigns-config-gh*
 gitsigns-config-linehl	gitsigns.txt	/*gitsigns-config-linehl*
 gitsigns-config-max_file_length	gitsigns.txt	/*gitsigns-config-max_file_length*
 gitsigns-config-numhl	gitsigns.txt	/*gitsigns-config-numhl*
@@ -72,6 +74,7 @@ gitsigns.setloclist()	gitsigns.txt	/*gitsigns.setloclist()*
 gitsigns.setqflist()	gitsigns.txt	/*gitsigns.setqflist()*
 gitsigns.setup()	gitsigns.txt	/*gitsigns.setup()*
 gitsigns.show()	gitsigns.txt	/*gitsigns.show()*
+gitsigns.show_commit()	gitsigns.txt	/*gitsigns.show_commit()*
 gitsigns.stage_buffer()	gitsigns.txt	/*gitsigns.stage_buffer()*
 gitsigns.stage_hunk()	gitsigns.txt	/*gitsigns.stage_hunk()*
 gitsigns.toggle_current_line_blame()	gitsigns.txt	/*gitsigns.toggle_current_line_blame()*

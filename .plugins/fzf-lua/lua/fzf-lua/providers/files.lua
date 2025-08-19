@@ -2,14 +2,15 @@ local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
-local shell = require "fzf-lua.shell"
 local libuv = require "fzf-lua.libuv"
 local config = require "fzf-lua.config"
 local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
 
-local get_files_cmd = function(opts)
+---@param opts table
+---@return string
+M.get_files_cmd = function(opts)
   if opts.raw_cmd and #opts.raw_cmd > 0 then
     return opts.raw_cmd
   end
@@ -70,6 +71,7 @@ local get_files_cmd = function(opts)
 end
 
 M.files = function(opts)
+  ---@type fzf-lua.config.Files
   opts = config.normalize_opts(opts, "files")
   if not opts then return end
   if opts.ignore_current_file then
@@ -81,20 +83,19 @@ M.files = function(opts)
         "^" .. utils.lua_regex_escape(curbuf) .. "$")
     end
   end
-  opts.cmd = get_files_cmd(opts)
+  opts.cmd = M.get_files_cmd(opts)
   if utils.__IS_WINDOWS and opts.cmd:match("^dir") and not opts.cwd then
     -- `dir` command returns absolute paths with ^M for EOL
     -- `make_entry.file` will strip the ^M
     -- set `opts.cwd` for relative path display
     opts.cwd = uv.cwd()
   end
-  local contents = core.mt_cmd_wrapper(opts)
   opts = core.set_title_flags(opts, { "cmd" })
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
-  return core.fzf_exec(contents, opts)
+  return core.fzf_exec(opts.cmd, opts)
 end
 
 M.args = function(opts)
+  ---@type fzf-lua.config.Args
   opts = config.normalize_opts(opts, "args")
   if not opts then return end
 
@@ -103,85 +104,48 @@ M.args = function(opts)
     return
   end
 
-  opts.func_async_callback = false
-  opts.__fn_reload = opts.__fn_reload or function(_)
-    return function(cb)
-      local argc = vim.fn.argc()
+  local contents = function(cb)
+    local argc = vim.fn.argc()
 
-      -- use coroutine & vim.schedule to avoid
-      -- E5560: vimL function must not be called in a lua loop callback
-      coroutine.wrap(function()
-        local co = coroutine.running()
+    -- use coroutine & vim.schedule to avoid
+    -- E5560: vimL function must not be called in a lua loop callback
+    coroutine.wrap(function()
+      local co = coroutine.running()
 
-        -- local start = os.time(); for _ = 1,10000,1 do
-        for i = 0, argc - 1 do
-          vim.schedule(function()
-            local s = vim.fn.argv(i)
-            local st = uv.fs_stat(s)
-            if opts.files_only == false or st and st.type == "file" then
-              s = make_entry.file(s, opts)
-              cb(s, function()
-                coroutine.resume(co)
-              end)
-            else
+      -- local start = os.time(); for _ = 1,10000,1 do
+      for i = 0, argc - 1 do
+        vim.schedule(function()
+          local s = vim.fn.argv(i)
+          local st = uv.fs_stat(s)
+          if opts.files_only == false or st and st.type == "file" then
+            s = make_entry.file(s, opts)
+            cb(s, function()
               coroutine.resume(co)
-            end
-          end)
-          coroutine.yield()
-        end
-        -- end; print("took", os.time()-start, "seconds.")
+            end)
+          else
+            coroutine.resume(co)
+          end
+        end)
+        coroutine.yield()
+      end
+      -- end; print("took", os.time()-start, "seconds.")
 
-        -- done
-        cb(nil)
-      end)()
-    end
+      -- done
+      cb(nil)
+    end)()
   end
 
-  -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-  local contents, id = shell.reload_action_cmd(opts, "")
-  opts.__reload_cmd = contents
-
-  opts._fn_pre_fzf = function()
-    shell.set_protected(id)
-  end
-
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
   return core.fzf_exec(contents, opts)
 end
 
 M.zoxide = function(opts)
+  ---@type fzf-lua.config.Zoxide
   opts = config.normalize_opts(opts, "zoxide")
   if not opts then return end
 
   if vim.fn.executable("zoxide") ~= 1 then
     utils.warn("Install zoxide to use this picker.")
     return
-  end
-
-  -- we always require processing
-  opts.requires_processing = true
-
-  local contents, id
-  if opts.multiprocess then
-    opts.__mt_transform = [[return require("fzf-lua.make_entry").zoxide]]
-    contents = core.mt_cmd_wrapper(opts)
-  else
-    opts.__fn_transform = opts.__fn_transform or
-        function(x)
-          return make_entry.zoxide(x, opts)
-        end
-
-    opts.__fn_reload = function(_)
-      return opts.cmd
-    end
-
-    -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-    contents, id = shell.reload_action_cmd(opts, "")
-    opts.__reload_cmd = contents
-
-    opts._fn_pre_fzf = function()
-      shell.set_protected(id)
-    end
   end
 
   if opts.header == nil then
@@ -197,7 +161,7 @@ M.zoxide = function(opts)
         or "ls -la {2}"
   end)()
 
-  return core.fzf_exec(contents, opts)
+  return core.fzf_exec(opts.cmd, opts)
 end
 
 return M

@@ -80,7 +80,7 @@ local function asinteger(x)
 end
 
 --- @param readline fun(): string?
---- @param commits table<string,Gitsigns.CommitInfo>
+--- @param commits table<string,Gitsigns.CommitInfo?>
 --- @param result table<integer,Gitsigns.BlameInfo>
 local function incremental_iter(readline, commits, result)
   local line = assert(readline())
@@ -94,7 +94,6 @@ local function incremental_iter(readline, commits, result)
   local final_lnum = asinteger(final_lnum_str)
   local size = asinteger(size_str)
 
-  --- @type table<string,string|integer|true>
   local commit = commits[sha]
     or {
       sha = sha,
@@ -219,6 +218,7 @@ end
 --- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer, Gitsigns.BlameInfo>
+--- @return table<string, Gitsigns.CommitInfo?>
 function M.run_blame(obj, contents, lnum, revision, opts)
   local ret = {} --- @type table<integer,Gitsigns.BlameInfo>
 
@@ -236,14 +236,14 @@ function M.run_blame(obj, contents, lnum, revision, opts)
         filename = obj.file,
       }
     end
-    return ret
+    return ret, {}
   end
 
   opts = opts or {}
 
   local ignore_file = obj.repo.toplevel .. '/.git-blame-ignore-revs'
 
-  local commits = {} --- @type table<string,Gitsigns.CommitInfo>
+  local commits = {} --- @type table<string,Gitsigns.CommitInfo?>
 
   local reader = buffered_line_reader(function(readline)
     incremental_iter(readline, commits, ret)
@@ -256,31 +256,33 @@ function M.run_blame(obj, contents, lnum, revision, opts)
 
   local contents_str = contents and table.concat(contents, '\n') or nil
 
-  local _, stderr = obj.repo:command({
-    'blame',
-    '--incremental',
-    contents and { '--contents', '-' },
-    opts.ignore_whitespace and '-w',
-    lnum and { '-L', lnum .. ',+1' },
-    opts.extra_opts,
-    uv.fs_stat(ignore_file) and { '--ignore-revs-file', ignore_file },
-    revision,
-    '--',
-    obj.file,
-  }, {
-    stdin = contents_str,
-    stdout = on_stdout,
-    ignore_error = true,
-  })
+  local _, stderr = obj.repo:command(
+    util.flatten({
+      'blame',
+      '--incremental',
+      contents and { '--contents', '-' },
+      opts.ignore_whitespace and '-w',
+      lnum and { '-L', lnum .. ',+1' },
+      opts.extra_opts,
+      uv.fs_stat(ignore_file) and { '--ignore-revs-file', ignore_file },
+      revision,
+      '--',
+      obj.file,
+    }),
+    {
+      stdin = contents_str,
+      stdout = on_stdout,
+      ignore_error = true,
+    }
+  )
 
   if stderr then
     local msg = 'Error running git-blame: ' .. stderr
     error_once(msg)
     log.eprint(msg)
-    return {}
   end
 
-  return ret
+  return ret, commits
 end
 
 return M

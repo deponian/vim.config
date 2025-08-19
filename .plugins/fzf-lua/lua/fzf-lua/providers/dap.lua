@@ -1,11 +1,12 @@
+---@diagnostic disable: undefined-field, param-type-mismatch
 local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local utils = require "fzf-lua.utils"
-local shell = require "fzf-lua.shell"
 local config = require "fzf-lua.config"
 local make_entry = require "fzf-lua.make_entry"
 
-local _has_dap, _dap = nil, nil
+local _has_dap
+local _dap
 
 local M = {}
 
@@ -24,6 +25,7 @@ end
 M.commands = function(opts)
   if not dap() then return end
 
+  ---@type fzf-lua.config.DapCommands
   opts = config.normalize_opts(opts, "dap.commands")
   if not opts then return end
 
@@ -40,20 +42,21 @@ M.commands = function(opts)
     end,
   }
 
-  core.fzf_exec(entries, opts)
+  return core.fzf_exec(entries, opts)
 end
 
 M.configurations = function(opts)
   if not dap() then return end
 
+  ---@type fzf-lua.config.DapConfigurations
   opts = config.normalize_opts(opts, "dap.configurations")
   if not opts then return end
 
   local entries = {}
-  opts._cfgs = {}
+  local cfgs = {}
   for lang, lang_cfgs in pairs(_dap.configurations) do
     for _, cfg in ipairs(lang_cfgs) do
-      opts._cfgs[#entries + 1] = cfg
+      cfgs[#entries + 1] = cfg
       table.insert(entries, ("[%s] %s. %s"):format(
         utils.ansi_codes.green(lang),
         utils.ansi_codes.magenta(tostring(#entries + 1)),
@@ -67,16 +70,17 @@ M.configurations = function(opts)
       -- cannot run while in session
       if _dap.session() then return end
       local idx = selected and tonumber(selected[1]:match("(%d+).")) or nil
-      if idx and opts._cfgs[idx] then
-        _dap.run(opts._cfgs[idx])
+      if idx and cfgs[idx] then
+        _dap.run(cfgs[idx])
       end
     end,
   }
 
-  core.fzf_exec(entries, opts)
+  return core.fzf_exec(entries, opts)
 end
 
 M.breakpoints = function(opts)
+  ---@type fzf-lua.config.DapBreakpoints
   opts = config.normalize_opts(opts, "dap.breakpoints")
   if not opts then return end
 
@@ -91,48 +95,36 @@ M.breakpoints = function(opts)
   -- display relative paths by default
   if opts.cwd == nil then opts.cwd = uv.cwd() end
 
-  opts.func_async_callback = false
-  opts.__fn_reload = opts.__fn_reload or function(_)
-    return function(cb)
-      coroutine.wrap(function()
-        local co = coroutine.running()
-        local bps = dap_bps.to_qf_list(dap_bps.get())
-        for _, b in ipairs(bps) do
-          vim.schedule(function()
-            local entry = make_entry.lcol(b, opts)
-            entry = string.format("[%s]%s%s",
-              -- tostring(opts._locations[i].bufnr),
-              utils.ansi_codes.yellow(tostring(b.bufnr)),
-              utils.nbsp,
-              make_entry.file(entry, opts))
-            cb(entry, function()
-              coroutine.resume(co)
-            end)
+  local contents = function(cb)
+    coroutine.wrap(function()
+      local co = coroutine.running()
+      local bps = dap_bps.to_qf_list(dap_bps.get())
+      for _, b in ipairs(bps) do
+        vim.schedule(function()
+          local entry = make_entry.lcol(b, opts)
+          entry = string.format("[%s]%s%s",
+            -- tostring(opts._locations[i].bufnr),
+            utils.ansi_codes.yellow(tostring(b.bufnr)),
+            utils.nbsp,
+            make_entry.file(entry, opts))
+          cb(entry, function()
+            coroutine.resume(co)
           end)
-          coroutine.yield()
-        end
-        cb(nil)
-      end)()
-    end
+        end)
+        coroutine.yield()
+      end
+      cb(nil)
+    end)()
   end
 
-  -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-  local contents, id = shell.reload_action_cmd(opts, "")
-  opts.__reload_cmd = contents
-
-  opts._fn_pre_fzf = function()
-    shell.set_protected(id)
-  end
-
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
   opts = core.set_fzf_field_index(opts, "{3}", opts._is_skim and "{}" or "{..-2}")
-
-  core.fzf_exec(contents, opts)
+  return core.fzf_exec(contents, opts)
 end
 
 M.variables = function(opts)
   if not dap() then return end
 
+  ---@type fzf-lua.config.DapVariables
   opts = config.normalize_opts(opts, "dap.variables")
   if not opts then return end
 
@@ -158,12 +150,13 @@ M.variables = function(opts)
     end
   end
 
-  core.fzf_exec(entries, opts)
+  return core.fzf_exec(entries, opts)
 end
 
 M.frames = function(opts)
   if not dap() then return end
 
+  ---@type fzf-lua.config.DapFrames
   opts = config.normalize_opts(opts, "dap.frames")
   if not opts then return end
 
@@ -178,7 +171,7 @@ M.frames = function(opts)
     return
   end
 
-  opts._frames = session.threads[session.stopped_thread_id].frames
+  local frames = session.threads[session.stopped_thread_id].frames
 
   opts.previewer = {
     _ctor = function()
@@ -188,7 +181,7 @@ M.frames = function(opts)
       function p:parse_entry(entry_str)
         local idx = entry_str and tonumber(entry_str:match("(%d+).")) or nil
         if not idx then return {} end
-        local f = opts._frames[idx]
+        local f = frames[idx]
 
         if (not f) or not f.source then
           return {}
@@ -216,7 +209,7 @@ M.frames = function(opts)
           end)
           return {
             path = f.source.path,
-            content = vim.split(result.content or "", "\n"),
+            content = result and vim.split(result.content or "", "\n") or nil,
             line = f.line,
           }
         end
@@ -229,18 +222,18 @@ M.frames = function(opts)
   }
 
   opts.actions = {
-    ["enter"] = function(selected, o)
+    ["enter"] = function(selected, _)
       local sess = _dap.session()
       if not sess or not sess.stopped_thread_id then return end
       local idx = selected and tonumber(selected[1]:match("(%d+).")) or nil
-      if idx and o._frames[idx] then
-        session:_frame_set(o._frames[idx])
+      if idx and frames[idx] then
+        session:_frame_set(frames[idx])
       end
     end,
   }
 
   local entries = {}
-  for i, f in ipairs(opts._frames) do
+  for i, f in ipairs(frames) do
     table.insert(entries, ("%s. [%s] %s%s"):format(
       utils.ansi_codes.magenta(tostring(i)),
       utils.ansi_codes.green(f.name),
@@ -249,7 +242,7 @@ M.frames = function(opts)
     ))
   end
 
-  core.fzf_exec(entries, opts)
+  return core.fzf_exec(entries, opts)
 end
 
 return M

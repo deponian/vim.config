@@ -1,11 +1,8 @@
 local async = require('gitsigns.async')
 local Hunks = require('gitsigns.hunks')
-local log = require('gitsigns.debug.log')
 local manager = require('gitsigns.manager')
 local message = require('gitsigns.message')
-local popup = require('gitsigns.popup')
 local util = require('gitsigns.util')
-local run_diff = require('gitsigns.diff')
 
 local config = require('gitsigns.config').config
 local mk_repeatable = require('gitsigns.repeat').mk_repeatable
@@ -57,6 +54,45 @@ local function complete_heads(arglead)
     all
   )
 end
+
+--- Detach Gitsigns from all buffers it is attached to.
+function M.detach_all()
+  require('gitsigns.attach').detach_all()
+end
+
+--- Detach Gitsigns from the buffer {bufnr}. If {bufnr} is not
+--- provided then the current buffer is used.
+---
+--- @param bufnr integer Buffer number
+function M.detach(bufnr)
+  require('gitsigns.attach').detach(bufnr)
+end
+
+--- Attach Gitsigns to the buffer.
+---
+--- Attributes: ~
+---     {async}
+---
+--- @param bufnr integer Buffer number
+--- @param ctx Gitsigns.GitContext|nil
+---     Git context data that may optionally be used to attach to any
+---     buffer that represents a real git object.
+---     • {file}: (string)
+---       Path to the file represented by the buffer, relative to the
+---       top-level.
+---     • {toplevel}: (string?)
+---       Path to the top-level of the parent git repository.
+---     • {gitdir}: (string?)
+---       Path to the git directory of the parent git repository
+---       (typically the ".git/" directory).
+---     • {commit}: (string?)
+---       The git revision that the file belongs to.
+---     • {base}: (string?)
+---       The git revision that the file should be compared to.
+--- @param _trigger? string
+M.attach = async.create(3, function(bufnr, ctx, _trigger)
+  require('gitsigns.attach').attach(bufnr or api.nvim_get_current_buf(), ctx, _trigger)
+end)
 
 --- Toggle |gitsigns-config-signbooleancolumn|
 ---
@@ -159,7 +195,7 @@ local function update(bufnr)
     return
   end
   if vim.wo.diff then
-    require('gitsigns.diffthis').update(bufnr)
+    require('gitsigns.actions.diffthis').update(bufnr)
   end
 end
 
@@ -200,35 +236,32 @@ M.stage_hunk = mk_repeatable(async.create(2, function(range, opts)
     return
   end
 
-  if bcache:locked() then
-    print('Error: busy')
-    return
-  end
-
   if not util.Path.exists(bcache.file) then
     print('Error: Cannot stage lines. Please add the file to the working tree.')
     return
   end
 
-  local hunk = bcache:get_hunk(range, opts.greedy ~= false, false)
+  bcache.git_obj:lock(function()
+    local hunk = bcache:get_hunk(range, opts.greedy ~= false, false)
 
-  local invert = false
-  if not hunk then
-    invert = true
-    hunk = bcache:get_hunk(range, opts.greedy ~= false, true)
-  end
+    local invert = false
+    if not hunk then
+      invert = true
+      hunk = bcache:get_hunk(range, opts.greedy ~= false, true)
+    end
 
-  if not hunk then
-    api.nvim_echo({ { 'No hunk to stage', 'WarningMsg' } }, false, {})
-    return
-  end
+    if not hunk then
+      api.nvim_echo({ { 'No hunk to stage', 'WarningMsg' } }, false, {})
+      return
+    end
 
-  local err = bcache.git_obj:stage_hunks({ hunk }, invert)
-  if err then
-    message.error(err)
-    return
-  end
-  table.insert(bcache.staged_diffs, hunk)
+    local err = bcache.git_obj:stage_hunks({ hunk }, invert)
+    if err then
+      message.error(err)
+      return
+    end
+    table.insert(bcache.staged_diffs, hunk)
+  end)
 
   bcache:invalidate(true)
   update(bufnr)
@@ -331,22 +364,20 @@ M.undo_stage_hunk = async.create(0, function()
     return
   end
 
-  if bcache:locked() then
-    print('Error: busy')
-    return
-  end
+  bcache.git_obj:lock(function()
+    local hunk = table.remove(bcache.staged_diffs)
+    if not hunk then
+      print('No hunks to undo')
+      return
+    end
 
-  local hunk = table.remove(bcache.staged_diffs)
-  if not hunk then
-    print('No hunks to undo')
-    return
-  end
+    local err = bcache.git_obj:stage_hunks({ hunk }, true)
+    if err then
+      message.error(err)
+      return
+    end
+  end)
 
-  local err = bcache.git_obj:stage_hunks({ hunk }, true)
-  if err then
-    message.error(err)
-    return
-  end
   bcache:invalidate(true)
   update(bufnr)
 end)
@@ -362,32 +393,29 @@ M.stage_buffer = async.create(0, function()
     return
   end
 
-  if bcache:locked() then
-    print('Error: busy')
-    return
-  end
+  bcache.git_obj:lock(function()
+    -- Only process files with existing hunks
+    local hunks = bcache.hunks
+    if not hunks or #hunks == 0 then
+      print('No unstaged changes in file to stage')
+      return
+    end
 
-  -- Only process files with existing hunks
-  local hunks = bcache.hunks
-  if not hunks or #hunks == 0 then
-    print('No unstaged changes in file to stage')
-    return
-  end
+    if not util.Path.exists(bcache.git_obj.file) then
+      print('Error: Cannot stage file. Please add it to the working tree.')
+      return
+    end
 
-  if not util.Path.exists(bcache.git_obj.file) then
-    print('Error: Cannot stage file. Please add it to the working tree.')
-    return
-  end
+    local err = bcache.git_obj:stage_hunks(hunks)
+    if err then
+      message.error(err)
+      return
+    end
 
-  local err = bcache.git_obj:stage_hunks(hunks)
-  if err then
-    message.error(err)
-    return
-  end
-
-  for _, hunk in ipairs(hunks) do
-    table.insert(bcache.staged_diffs, hunk)
-  end
+    for _, hunk in ipairs(hunks) do
+      table.insert(bcache.staged_diffs, hunk)
+    end
+  end)
 
   bcache:invalidate(true)
   update(bufnr)
@@ -406,20 +434,18 @@ M.reset_buffer_index = async.create(0, function()
     return
   end
 
-  if bcache:locked() then
-    print('Error: busy')
-    return
-  end
+  bcache.git_obj:lock(function()
+    -- `bcache.staged_diffs` won't contain staged changes outside of current
+    -- neovim session so signs added from this unstage won't be complete They will
+    -- however be fixed by gitdir watcher and properly updated We should implement
+    -- some sort of initial population from git diff, after that this function can
+    -- be improved to check if any staged hunks exists and it can undo changes
+    -- using git apply line by line instead of resetting whole file
+    bcache.staged_diffs = {}
 
-  -- `bcache.staged_diffs` won't contain staged changes outside of current
-  -- neovim session so signs added from this unstage won't be complete They will
-  -- however be fixed by gitdir watcher and properly updated We should implement
-  -- some sort of initial population from git diff, after that this function can
-  -- be improved to check if any staged hunks exists and it can undo changes
-  -- using git apply line by line instead of resetting whole file
-  bcache.staged_diffs = {}
+    bcache.git_obj:unstage_file()
+  end)
 
-  bcache.git_obj:unstage_file()
   bcache:invalidate(true)
   update(bufnr)
 end)
@@ -455,7 +481,7 @@ end)
 ---       Number of times to advance. Defaults to |v:count1|.
 M.nav_hunk = async.create(2, function(direction, opts)
   --- @cast opts Gitsigns.NavOpts?
-  require('gitsigns.nav').nav_hunk(direction, opts)
+  require('gitsigns.actions.nav').nav_hunk(direction, opts)
 end)
 
 C.nav_hunk = function(args, _)
@@ -473,7 +499,7 @@ end
 --- Parameters: ~
 ---     See |gitsigns.nav_hunk()|.
 M.next_hunk = async.create(1, function(opts)
-  require('gitsigns.nav').nav_hunk('next', opts)
+  require('gitsigns.actions.nav').nav_hunk('next', opts)
 end)
 
 C.next_hunk = function(args, _)
@@ -491,7 +517,7 @@ end
 --- Parameters: ~
 ---     See |gitsigns.nav_hunk()|.
 M.prev_hunk = async.create(1, function(opts)
-  require('gitsigns.nav').nav_hunk('prev', opts)
+  require('gitsigns.actions.nav').nav_hunk('prev', opts)
 end)
 
 C.prev_hunk = function(args, _)
@@ -502,12 +528,12 @@ end
 --- window. If the preview is already open, calling this
 --- will cause the window to get focus.
 M.preview_hunk = function()
-  require('gitsigns.preview').preview_hunk()
+  require('gitsigns.actions.preview').preview_hunk()
 end
 
 --- Preview the hunk at the cursor position inline in the buffer.
 M.preview_hunk_inline = async.create(0, function()
-  require('gitsigns.preview').preview_hunk_inline()
+  require('gitsigns.actions.preview').preview_hunk_inline()
 end)
 
 --- Select the hunk under the cursor.
@@ -527,7 +553,7 @@ M.select_hunk = function(opts)
 
   local hunk --- @type Gitsigns.Hunk.Hunk?
   async
-    .arun(function()
+    .run(function()
       hunk = bcache:get_hunk(nil, opts.greedy ~= false)
     end)
     :wait()
@@ -580,105 +606,6 @@ M.get_hunks = function(bufnr)
   return ret
 end
 
---- @async
---- @param repo Gitsigns.Repo
---- @param info Gitsigns.BlameInfoPublic
---- @return Gitsigns.Hunk.Hunk hunk
---- @return integer hunk_index
---- @return integer num_hunks
---- @return integer? guess_offset If the hunk was not found at the exact line,
----                               return the offset from the original line to the
----                               hunk start.
-local function get_blame_hunk(repo, info)
-  local a = {}
-  -- If no previous so sha of blame added the file
-  if info.previous_sha and info.previous_filename then
-    a = repo:get_show_text(info.previous_sha .. ':' .. info.previous_filename)
-  end
-  local b = repo:get_show_text(info.sha .. ':' .. info.filename)
-  local hunks = run_diff(a, b, false)
-  local hunk, i = Hunks.find_hunk(info.orig_lnum, hunks)
-  if hunk and i then
-    return hunk, i, #hunks
-  end
-
-  -- git-blame output is not always correct (see #1332)
-  -- Find the closest hunk to the original line
-  log.dprintf('Could not find hunk using hunk info %s', vim.inspect(info))
-
-  local i_next = Hunks.find_nearest_hunk(info.orig_lnum, hunks, 'next')
-  local i_prev = Hunks.find_nearest_hunk(info.orig_lnum, hunks, 'prev')
-
-  if i_next and i_prev then
-    -- if there is hunk before and after, find the closest
-    local dist_n = math.abs(assert(hunks[i_next]).added.start - info.orig_lnum)
-    local dist_p = math.abs(assert(hunks[i_prev]).added.start - info.orig_lnum)
-    i = dist_n < dist_p and i_next or i_prev
-  else
-    i = assert(i_next or i_prev, 'no hunks in commit')
-  end
-
-  hunk = assert(hunks[i])
-  return hunk, i, #hunks, hunk.added.start - info.orig_lnum
-end
-
---- @async
---- @param full boolean? Whether to show the full commit message and hunk
---- @param result Gitsigns.BlameInfoPublic
---- @param repo Gitsigns.Repo
---- @param fileformat string
---- @return Gitsigns.LineSpec
-local function create_blame_linespec(full, result, repo, fileformat)
-  local is_committed = result.sha and tonumber('0x' .. result.sha) ~= 0
-
-  if not is_committed then
-    return {
-      { { result.author, 'Label' } },
-    }
-  end
-
-  --- @type Gitsigns.LineSpec
-  local ret = {
-    {
-      { result.abbrev_sha .. ' ', 'Directory' },
-      { result.author .. ' ', 'MoreMsg' },
-      { util.expand_format('(<author_time:%Y-%m-%d %H:%M>)', result), 'Label' },
-      { ':', 'NormalFloat' },
-    },
-  }
-
-  if not full then
-    ret[#ret + 1] = { { result.summary, 'NormalFloat' } }
-    return ret
-  end
-
-  local body0 = repo:command({ 'show', '-s', '--format=%B', result.sha }, { text = true })
-  local body = table.concat(body0, '\n')
-  ret[#ret + 1] = { { body, 'NormalFloat' } }
-
-  local hunk, hunk_no, num_hunks, guess_offset = get_blame_hunk(repo, result)
-
-  local hunk_title = {
-    { ('Hunk %d of %d'):format(hunk_no, num_hunks), 'Title' },
-    { ' ' .. hunk.head, 'LineNr' },
-  }
-
-  if guess_offset then
-    hunk_title[#hunk_title + 1] = {
-      (' (guessed: %s%d offset from original line)'):format(
-        guess_offset >= 0 and '+' or '',
-        guess_offset
-      ),
-      'WarningMsg',
-    }
-  end
-
-  table.insert(ret, hunk_title)
-  vim.list_extend(ret, Hunks.linespec_for_hunk(hunk, fileformat))
-
-  return ret
-end
-
 --- Run git blame on the current line and show the results in a
 --- floating window. If already open, calling this will cause the
 --- window to get focus.
@@ -694,47 +621,8 @@ end
 ---     • {extra_opts}: (string[])
 ---       Extra options passed to `git-blame`.
 M.blame_line = async.create(1, function(opts)
-  if popup.focus_open('blame') then
-    return
-  end
-
-  --- @type Gitsigns.LineBlameOpts
-  opts = opts or {}
-
-  local bufnr = current_buf()
-  local bcache = cache[bufnr]
-  if not bcache then
-    return
-  end
-
-  local loading = vim.defer_fn(function()
-    popup.create({ { { 'Loading...', 'Title' } } }, config.preview_config)
-  end, 1000)
-
-  if not bcache:schedule() then
-    return
-  end
-
-  local fileformat = vim.bo[bufnr].fileformat
-  local lnum = api.nvim_win_get_cursor(0)[1]
-  local info = bcache:get_blame(lnum, opts)
-  pcall(function()
-    loading:close()
-  end)
-
-  if not bcache:schedule() then
-    return
-  end
-
-  local result = util.convert_blame_info(assert(info))
-
-  local blame_linespec = create_blame_linespec(opts.full, result, bcache.git_obj.repo, fileformat)
-
-  if not bcache:schedule() then
-    return
-  end
-
-  popup.create(blame_linespec, config.preview_config, 'blame')
+  --- @cast opts Gitsigns.LineBlameOpts?
+  require('gitsigns.actions.blame_line')(opts)
 end)
 
 C.blame_line = function(args, _)
@@ -755,7 +643,7 @@ end
 --- Attributes: ~
 ---     {async}
 M.blame = async.create(0, function()
-  require('gitsigns.blame').blame()
+  require('gitsigns.actions.blame').blame()
 end)
 
 --- @async
@@ -778,23 +666,29 @@ end
 --- Attributes: ~
 ---     {async}
 ---
---- Examples: >vim
----   " Change base to 1 commit behind head
----   :lua require('gitsigns').change_base('HEAD~1')
+--- Examples: >lua
+---   -- Change base to 1 commit behind head
+---   require('gitsigns').change_base('HEAD~1')
+---   -- :Gitsigns change_base HEAD~1
 ---
----   " Also works using the Gitsigns command
+---   -- Also works using the Gitsigns command
 ---   :Gitsigns change_base HEAD~1
 ---
----   " Other variations
----   :Gitsigns change_base ~1
----   :Gitsigns change_base ~
----   :Gitsigns change_base ^
+---   -- Other variations
+---   require('gitsigns').change_base('~1')
+---   -- :Gitsigns change_base ~1
+---   require('gitsigns').change_base('~')
+---   -- :Gitsigns change_base ~
+---   require('gitsigns').change_base('^')
+---   -- :Gitsigns change_base ^
 ---
----   " Commits work too
----   :Gitsigns change_base 92eb3dd
+---   -- Commits work too
+---   require('gitsigns').change_base('92eb3dd')
+---   -- :Gitsigns change_base 92eb3dd
 ---
----   " Revert to original base
----   :Gitsigns change_base
+---   -- Revert to original base
+---   require('gitsigns').change_base()
+---   -- :Gitsigns change_base
 --- <
 ---
 --- For a more complete list of ways to specify bases, see
@@ -846,12 +740,14 @@ end
 --- If {base} is the index, then the opened buffer is editable and
 --- any written changes will update the index accordingly.
 ---
---- Examples: >vim
----   " Diff against the index
----   :Gitsigns diffthis
+--- Examples: >lua
+---   -- Diff against the index
+---   require('gitsigns').diffthis()
+---   -- :Gitsigns diffthis
 ---
----   " Diff against the last commit
----   :Gitsigns diffthis ~1
+---   -- Diff against the last commit
+---   require('gitsigns').diffthis('~1')
+---   -- :Gitsigns diffthis ~1
 --- <
 ---
 --- For a more complete list of ways to specify bases, see
@@ -869,7 +765,7 @@ end
 ---       'botright', 'rightbelow', 'leftabove', 'topleft'. Defaults to
 ---       'aboveleft'. If running via command line, then this is taken
 ---       from the command modifiers.
-M.diffthis = function(base, opts)
+M.diffthis = async.create(2, function(base, opts)
   --- @cast opts Gitsigns.DiffthisOpts
   -- TODO(lewis6991): can't pass numbers as strings from the command line
   if base ~= nil then
@@ -879,8 +775,8 @@ M.diffthis = function(base, opts)
   if opts.vertical == nil then
     opts.vertical = config.diff_opts.vertical
   end
-  require('gitsigns.diffthis').diffthis(base, opts)
-end
+  require('gitsigns.actions.diffthis').diffthis(base, opts)
+end)
 
 C.diffthis = function(args, params)
   -- TODO(lewis6991): validate these
@@ -919,12 +815,14 @@ CP.diffthis = complete_heads
 --- If {base} is the index, then the opened buffer is editable and
 --- any written changes will update the index accordingly.
 ---
---- Examples: >vim
----   " View the index version of the file
----   :Gitsigns show
+--- Examples: >lua
+---   -- View the index version of the file
+---   require('gitsigns').show()
+---   -- :Gitsigns show
 ---
----   " View revision of file in the last commit
----   :Gitsigns show ~1
+---   -- View revision of file in the last commit
+---   require('gitsigns').show('~1')
+---   -- :Gitsigns show ~1
 --- <
 ---
 --- For a more complete list of ways to specify bases, see
@@ -934,25 +832,34 @@ CP.diffthis = complete_heads
 ---     {async}
 ---
 --- @param revision string?
---- @param callback? fun()
-M.show = function(revision, callback)
+M.show = async.create(1, function(revision, _callback)
+  require('gitsigns.actions.diffthis').show(nil, revision)
+end)
+
+C.show = function(args, _)
+  local revision = args[1]
   if revision ~= nil then
     revision = tostring(revision)
   end
-  local bufnr = api.nvim_get_current_buf()
-  if not cache[bufnr] then
-    print('Error: Buffer is not attached.')
-    return
-  end
-  local diffthis = require('gitsigns.diffthis')
-  diffthis.show(bufnr, revision, callback)
-end
-
-C.show = function(args, _)
-  M.show(args[1])
+  M.show(revision)
 end
 
 CP.show = complete_heads
+
+--- Show revision {base} commit in split or tab
+---
+--- @param revision? string? (default: 'HEAD')
+--- @param open? 'vsplit'|'tabnew'
+M.show_commit = async.create(2, function(revision, open)
+  require('gitsigns.actions.show_commit')(revision, open)
+end)
+
+C.show_commit = function(args, _)
+  local revision, open = args[1], args[2]
+  M.show_commit(revision, open)
+end
+
+CP.show_commit = complete_heads
 
 --- Populate the quickfix list with hunks. Automatically opens the
 --- quickfix window.
@@ -981,7 +888,7 @@ CP.show = complete_heads
 ---       Open the quickfix/location list viewer.
 ---       Defaults to `true`.
 M.setqflist = async.create(2, function(target, opts)
-  require('gitsigns.qflist').setqflist(target, opts)
+  require('gitsigns.actions.qflist').setqflist(target, opts)
 end)
 
 C.setqflist = function(args, _)

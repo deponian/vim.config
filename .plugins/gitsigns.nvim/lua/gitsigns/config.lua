@@ -1,5 +1,5 @@
 --- @class (exact) Gitsigns.SchemaElem
---- @field type string|string[]|fun(x:any): boolean
+--- @field type type|type[]|fun(x:any): boolean
 --- @field type_help? string
 --- @field default_change? fun(cb: fun()) Function to refresh the config value
 --- @field deep_extend? boolean
@@ -7,6 +7,10 @@
 --- @field deprecated? boolean
 --- @field default_help? string
 --- @field description string
+
+--- @class (exact) Gitsigns.DiffthisOpts
+--- @field vertical? boolean
+--- @field split? string
 
 --- @class (exact) Gitsigns.DiffOpts
 --- @field algorithm 'myers'|'minimal'|'patience'|'histogram'
@@ -44,13 +48,11 @@
 --- @field ignore_whitespace? boolean
 --- @field extra_opts? string[]
 
---- @class (exact) Gitsigns.LineBlameOpts : Gitsigns.BlameOpts
---- @field full? boolean
-
 --- @class (exact) Gitsigns.Config
 --- @field package _config table<string,any> config store
 --- @field debug_mode boolean
 --- @field diff_opts Gitsigns.DiffOpts
+--- @field diffthis Gitsigns.DiffthisOpts
 --- @field base? string
 --- @field signs table<Gitsigns.SignType,Gitsigns.SignConfig>
 --- @field signs_staged table<Gitsigns.SignType,Gitsigns.SignConfig>
@@ -78,6 +80,7 @@
 --- @field worktrees {toplevel: string, gitdir: string}[]
 --- @field word_diff boolean
 --- @field trouble boolean
+--- @field gh boolean
 --- -- Undocumented
 --- @field _refresh_staged_on_update boolean
 --- @field _threaded_diff boolean
@@ -85,6 +88,7 @@
 --- @field _verbose boolean
 --- @field _test_mode boolean
 --- @field _new_sign_calc boolean
+--- @field _update_lock boolean
 
 --- @class Gitsigns.config
 local M = {}
@@ -476,6 +480,16 @@ M.schema = {
     ]],
   },
 
+  diffthis = {
+    type = 'table',
+    default = {
+      split = 'aboveleft',
+    },
+    description = [[
+      Options for the `:Gitsigns diffthis` command.
+    ]],
+  },
+
   base = {
     type = 'string',
     default_help = 'index',
@@ -737,6 +751,15 @@ M.schema = {
     ]],
   },
 
+  gh = {
+    type = 'boolean',
+    default = false,
+    description = [[
+      Enable GitHub integration. This allows the following features:
+      • `:Gitsigns blame_line` will show PR numbers (with a hyperlink)
+    ]],
+  },
+
   _git_version = {
     type = 'string',
     default = 'auto',
@@ -802,9 +825,17 @@ M.schema = {
 
   _new_sign_calc = {
     type = 'boolean',
-    default = false,
+    default = true,
     description = [[
       Use new sign calculation method
+    ]],
+  },
+
+  _update_lock = {
+    type = 'boolean',
+    default = false,
+    description = [[
+      Acquire a lock when updating signs.
     ]],
   },
 
@@ -835,7 +866,7 @@ local nvim011 = vim.fn.has('nvim-0.11') == 1
 
 --- @param k string
 --- @param v any
---- @param ty string|fun(v:any):boolean
+--- @param ty type|fun(v:any):boolean
 local function validate(k, v, ty)
   if nvim011 then
     --- @diagnostic disable-next-line: redundant-parameter,param-type-mismatch
@@ -859,6 +890,8 @@ function M.build(user_config)
     else
       local ty = s.type
       if type(ty) == 'string' or type(ty) == 'function' then
+        --- EmmyLuaLs/emmylua-analyzer-rust#696
+        --- @diagnostic disable-next-line: param-type-not-match
         validate(k, v, ty)
       end
       if s.deprecated then

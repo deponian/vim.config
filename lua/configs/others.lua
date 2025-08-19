@@ -92,10 +92,7 @@ return {
           { "n", "<s-tab>", false },
         }
       }
-    },
-    -- config = function(_, opts)
-    --   require("diffview").setup(opts)
-    -- end
+    }
   },
 
   {

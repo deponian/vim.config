@@ -330,7 +330,7 @@ function M.create_patch(relpath, hunks, mode_bits, invert)
 
     table.insert(
       results,
-      string.format('@@ -%s,%s +%s,%s @@', start, pre_count, start + offset, now_count)
+      ('@@ -%s,%s +%s,%s @@'):format(start, pre_count, start + offset, now_count)
     )
     for _, l in ipairs(pre_lines) do
       results[#results + 1] = '-' .. l
@@ -409,7 +409,7 @@ function M.find_nearest_hunk(lnum, hunks, direction, wrap)
       return 1
     end
     for i = #hunks, 1, -1 do
-      if assert(hunks[i]).added.start <= lnum then
+      if hunks[i].added.start <= lnum then
         if i + 1 <= #hunks and assert(hunks[i + 1]).added.start > lnum then
           return i + 1
         elseif wrap then
@@ -422,7 +422,7 @@ function M.find_nearest_hunk(lnum, hunks, direction, wrap)
       return #hunks
     end
     for i = 1, #hunks do
-      if lnum <= math.max(assert(hunks[i]).vend, 1) then
+      if lnum <= math.max(hunks[i].vend, 1) then
         if i > 1 and math.max(assert(hunks[i - 1]).vend, 1) < lnum then
           return i - 1
         elseif wrap then
@@ -554,9 +554,9 @@ end
 
 --- @param hunk Gitsigns.Hunk.Hunk
 --- @param fileformat string
---- @return Gitsigns.LineSpec
+--- @return Gitsigns.LineSpec[]
 function M.linespec_for_hunk(hunk, fileformat)
-  local hls = {} --- @type [string, Gitsigns.HlMark[], boolean?][][]
+  local hls = {} --- @type [string, string|Gitsigns.HlMark[], string?][][]
 
   local removed, added = hunk.removed.lines, hunk.added.lines
 
@@ -570,19 +570,13 @@ function M.linespec_for_hunk(hunk, fileformat)
     { sym = '+', lines = added, hl = 'GitSignsAddPreview' },
   }) do
     for _, l in ipairs(spec.lines) do
-      hls[#hls + 1] = {
-        {
-          spec.sym .. l,
-          {
-            {
-              start_row = 0,
-              hl_group = spec.hl,
-              end_row = 1, -- Highlight whole line
-            },
-          },
-          false,
-        },
+      --- @type Gitsigns.HlMark
+      local mark = {
+        start_row = 0,
+        hl_group = spec.hl,
+        end_row = 1, -- Highlight whole line
       }
+      hls[#hls + 1] = { { spec.sym .. l, { mark } } }
     end
   end
 

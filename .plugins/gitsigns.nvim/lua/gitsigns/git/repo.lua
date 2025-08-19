@@ -3,6 +3,7 @@ local git_command = require('gitsigns.git.cmd')
 local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
 local errors = require('gitsigns.git.errors')
+local debounce_trailing = require('gitsigns.debounce').debounce_trailing
 
 local check_version = require('gitsigns.git.version').check
 
@@ -19,7 +20,27 @@ local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 --- Username configured for the repo.
 --- Needed for to determine "You" in current line blame.
 --- @field username string
+--- @field package _watcher_callbacks table<fun(),true>
+--- @field package _watcher uv.uv_fs_event_t
+--- @field package _gc userdata Used for garbage collection
 local M = {}
+
+--- vim.inspect but on one line
+--- @param x any
+--- @return string
+local function inspect(x)
+  return vim.inspect(x, { indent = '', newline = ' ' })
+end
+
+--- @param cb fun()
+--- @return fun() deregister
+function M:register_callback(cb)
+  self._watcher_callbacks[cb] = true
+
+  return function()
+    self._watcher_callbacks[cb] = nil
+  end
+end
 
 --- Run git command the with the objects gitdir and toplevel
 --- @async
@@ -32,12 +53,17 @@ function M:command(args, spec)
   spec = spec or {}
   spec.cwd = self.toplevel
 
-  return git_command({
-    '--git-dir',
-    self.gitdir,
-    self.detached and { '--work-tree', self.toplevel },
-    args,
-  }, spec)
+  local args0 = { '--git-dir', self.gitdir }
+
+  if self.detached then
+    -- If detached, we need to set the work tree to the toplevel so that git
+    -- commands work correctly.
+    args0 = vim.list_extend(args0, { '--work-tree', self.toplevel })
+  end
+
+  vim.list_extend(args0, args)
+
+  return git_command(args0, spec)
 end
 
 --- @async
@@ -91,6 +117,7 @@ function M:get_show_text(object, encoding)
 end
 
 --- @async
+--- @package
 function M:update_abbrev_head()
   local info, err = M.get_info(self.toplevel)
   if not info then
@@ -98,6 +125,68 @@ function M:update_abbrev_head()
     return
   end
   self.abbrev_head = info.abbrev_head
+end
+
+--- @type table<string,Gitsigns.Repo?>
+local repo_cache = setmetatable({}, { __mode = 'v' })
+
+--- @param fn fun()
+--- @return userdata
+local function gc_proxy(fn)
+  local proxy = newproxy(true)
+  getmetatable(proxy).__gc = fn
+  return proxy
+end
+
+--- @generic T1, T, R
+--- @param fn fun(_:T1, _:T...): R...
+--- @param arg1 T1
+--- @return fun(_:T...): R...
+local function curry1(fn, arg1)
+  return function(...)
+    return fn(arg1, ...)
+  end
+end
+
+--- @param gitdir string
+--- @param err? string
+--- @param filename string
+--- @param events { change?: boolean, rename?: boolean }
+local function watcher_cb(gitdir, err, filename, events)
+  local __FUNC__ = 'watcher_cb'
+  -- do not use `self` here as it prevents garbage collection. Must use a
+  -- weak reference.
+  local repo = repo_cache[gitdir]
+  if not repo then
+    return -- garbage collected
+  end
+
+  if err then
+    log.dprintf('Git dir update error: %s', err)
+    return
+  end
+
+  -- The luv docs say filename is passed as a string but it has been observed
+  -- to sometimes be nil.
+  --    https://github.com/lewis6991/gitsigns.nvim/issues/848
+  if not filename then
+    log.eprint('No filename')
+    return
+  end
+
+  log.dprintf("Git dir update: '%s' %s", filename, inspect(events))
+
+  if vim.startswith(filename, '.watchman-cookie') then
+    return
+  end
+
+  async.run(function()
+    repo:update_abbrev_head()
+
+    for cb in pairs(repo._watcher_callbacks) do
+      vim.schedule(cb)
+    end
+  end)
 end
 
 --- @async
@@ -110,11 +199,23 @@ local function new(info)
 
   self.username = self:command({ 'config', 'user.name' }, { ignore_error = true })[1]
 
+  do -- gitdir watcher
+    self._watcher_callbacks = {}
+    self._watcher = assert(uv.new_fs_event())
+
+    local debounced_handler = debounce_trailing(1000, curry1(watcher_cb, self.gitdir))
+    self._watcher:start(self.gitdir, {}, debounced_handler)
+
+    self._gc = gc_proxy(function()
+      self._watcher:stop()
+      self._watcher:close()
+    end)
+  end
+
   return self
 end
 
---- @type table<string,[integer,Gitsigns.Repo]?>
-local repo_cache = setmetatable({}, { __mode = 'v' })
+local sem = async.semaphore(1)
 
 --- @async
 --- @param cwd? string
@@ -123,31 +224,18 @@ local repo_cache = setmetatable({}, { __mode = 'v' })
 --- @return Gitsigns.Repo? repo
 --- @return string? err
 function M.get(cwd, gitdir, toplevel)
-  local info, err = M.get_info(cwd, gitdir, toplevel)
-  if not info then
-    return nil, err
-  end
+  --- EmmyLuaLs/emmylua-analyzer-rust#659
+  --- @return Gitsigns.Repo? repo
+  --- @return string? err
+  return sem:with(function()
+    local info, err = M.get_info(cwd, gitdir, toplevel)
+    if not info then
+      return nil, err
+    end
 
-  gitdir = info.gitdir
-  repo_cache[gitdir] = repo_cache[gitdir] or { 0, new(info) }
-  repo_cache[gitdir][1] = repo_cache[gitdir][1] + 1
-
-  return repo_cache[gitdir][2]
-end
-
-function M:unref()
-  local gitdir = self.gitdir
-  local repo = repo_cache[gitdir]
-  if not repo then
-    -- Already reclaimed by GC
-    return
-  end
-  local refcount = repo[1]
-  if refcount <= 1 then
-    repo_cache[gitdir] = nil
-  else
-    repo[1] = refcount - 1
-  end
+    repo_cache[info.gitdir] = repo_cache[info.gitdir] or new(info)
+    return repo_cache[info.gitdir]
+  end)
 end
 
 --- @async
@@ -210,19 +298,22 @@ function M.get_info(dir, gitdir, worktree)
   -- > not at the top-level directory of the working tree, you should tell Git where the
   -- > top-level of the working tree is, with the --work-tree=<path> option (or GIT_WORK_TREE
   -- > environment variable)
-  local stdout, stderr, code = git_command({
-    gitdir and { '--git-dir', gitdir },
-    worktree and { '--work-tree', worktree },
-    'rev-parse',
-    '--show-toplevel',
-    has_abs_gd and '--absolute-git-dir' or '--git-dir',
-    '--abbrev-ref',
-    'HEAD',
-  }, {
-    ignore_error = true,
-    -- Worktree may be a relative path, so don't set cwd when it is provided.
-    cwd = not worktree and dir or nil,
-  })
+  local stdout, stderr, code = git_command(
+    util.flatten({
+      gitdir and { '--git-dir', gitdir },
+      worktree and { '--work-tree', worktree },
+      'rev-parse',
+      '--show-toplevel',
+      has_abs_gd and '--absolute-git-dir' or '--git-dir',
+      '--abbrev-ref',
+      'HEAD',
+    }),
+    {
+      ignore_error = true,
+      -- Worktree may be a relative path, so don't set cwd when it is provided.
+      cwd = not worktree and dir or nil,
+    }
+  )
 
   -- If the repo has no commits yet, rev-parse will fail. Ignore this error.
   if code > 0 and stderr and stderr:match(errors.e.ambiguous_head) then
@@ -294,7 +385,7 @@ function M:ls_tree(path, revision)
   if not res then
     -- Not found, see if it was renamed
     log.dprintf('%s not found in %s looking for renames', path, revision)
-    local old_path = self:rename_status(revision, true)[path]
+    local old_path = self:diff_rename_status(revision, true)[path]
     if old_path then
       log.dprintf('found rename %s -> %s', old_path, path)
       return self:ls_tree(old_path, revision)
@@ -335,16 +426,19 @@ function M:ls_files(file)
   -- --others + --exclude-standard means ignored files won't return info, but
   -- untracked files will. Unlike file_info_tree which won't return untracked
   -- files.
-  local results, stderr, code = self:command({
-    '-c',
-    'core.quotepath=off',
-    'ls-files',
-    '--stage',
-    '--others',
-    '--exclude-standard',
-    has_eol and '--eol',
-    file,
-  }, { ignore_error = true })
+  local results, stderr, code = self:command(
+    util.flatten({
+      '-c',
+      'core.quotepath=off',
+      'ls-files',
+      '--stage',
+      '--others',
+      '--exclude-standard',
+      has_eol and '--eol',
+      file,
+    }),
+    { ignore_error = true }
+  )
 
   -- ignore_error for the cases when we run:
   --    git ls-files --others exists/nonexist
@@ -424,12 +518,12 @@ end
 --- @param path string
 --- @param add? boolean
 function M:update_index(mode_bits, object, path, add)
-  self:command({
+  self:command(util.flatten({
     'update-index',
     add and '--add',
     '--cacheinfo',
     ('%s,%s,%s'):format(mode_bits, object, path),
-  })
+  }))
 end
 
 --- @async
@@ -445,10 +539,32 @@ function M:hash_object(path, lines)
 end
 
 --- @async
+--- @param revision string
+--- @param path string
+--- @return string?
+function M:log_rename_status(revision, path)
+  local out = self:command({
+    'log',
+    '--follow',
+    '--name-status',
+    '--diff-filter=R',
+    '--format=',
+    revision .. '..HEAD',
+    '--',
+    path,
+  })
+  local line = out[#out]
+  if not line then
+    return
+  end
+  return vim.split(line, '%s+')[2]
+end
+
+--- @async
 --- @param revision? string
 --- @param invert? boolean
 --- @return table<string,string>
-function M:rename_status(revision, invert)
+function M:diff_rename_status(revision, invert)
   local out = self:command({
     'diff',
     '--name-status',

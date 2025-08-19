@@ -132,9 +132,9 @@ local get_grep_cmd = function(opts, search_query, no_esc)
       end
       if not has_flag_group then
         if not opts.silent then
-          utils.warn(string.format(
+          utils.info(
             "Added missing '%s' flag to '%s'. Add 'silent=true' to hide this message.",
-            table.concat(flags, "|"), bin))
+            table.concat(flags, "|"), bin)
         end
         command = make_entry.rg_insert_args(command, flags[1])
       end
@@ -165,6 +165,7 @@ local get_grep_cmd = function(opts, search_query, no_esc)
 end
 
 M.grep = function(opts)
+  ---@type fzf-lua.config.Grep
   opts = config.normalize_opts(opts, "grep")
   if not opts then return end
 
@@ -198,23 +199,15 @@ M.grep = function(opts)
   opts.cmd = get_grep_cmd(opts, opts.search, opts.no_esc)
   if not opts.cmd then return end
 
-  local contents = core.mt_cmd_wrapper(vim.tbl_deep_extend("force", opts,
-    -- query was already parsed for globs inside 'get_grep_cmd'
-    -- no need for our external headless instance to parse again
-    { rg_glob = false }))
-
-  -- by redirecting the error stream to stdout
-  -- we make sure a clear error message is displayed
-  -- when the user enters bad regex expressions
-  if type(contents) == "string" then
-    contents = contents .. " 2>&1"
-  end
+  -- query was already parsed for globs inside 'get_grep_cmd'
+  -- no need for our external headless instance to parse again
+  opts.rg_glob = false
 
   -- search query in header line
+  if type(opts._headers) == "table" then table.insert(opts._headers, "search") end
   opts = core.set_title_flags(opts, { "cmd" })
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd", "search" })
   opts = core.set_fzf_field_index(opts)
-  core.fzf_exec(contents, opts)
+  return core.fzf_exec(opts.cmd, opts)
 end
 
 local function normalize_live_grep_opts(opts)
@@ -222,6 +215,7 @@ local function normalize_live_grep_opts(opts)
   opts = opts or {}
   opts._treesitter = false
 
+  ---@type fzf-lua.config.Grep
   opts = config.normalize_opts(opts, "grep")
   if not opts then return end
 
@@ -290,98 +284,36 @@ local function normalize_live_grep_opts(opts)
   return opts
 end
 
--- single threaded version
-M.live_grep_st = function(opts)
+M.live_grep = function(opts)
   opts = normalize_live_grep_opts(opts)
   if not opts then return end
-
-  assert(not opts.multiprocess)
-
-  opts.fn_reload = function(query)
-    -- can be nil when called as fzf initial command
-    query = query or ""
-    opts.no_esc = nil
-    return get_grep_cmd(opts, query, true)
-  end
-
-  if opts.requires_processing or opts.git_icons or opts.file_icons then
-    opts.fn_transform = opts.fn_transform or
-        function(x)
-          return make_entry.file(x, opts)
-        end
-    opts.fn_preprocess = opts.fn_preprocess or
-        function(o)
-          return make_entry.preprocess(o)
-        end
-  end
-
-  -- search query in header line
-  opts = core.set_title_flags(opts, { "cmd", "live" })
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
-  opts = core.set_fzf_field_index(opts)
-  core.fzf_exec(nil, opts)
-end
-
--- multi threaded (multi-process actually) version
-M.live_grep_mt = function(opts)
-  opts = normalize_live_grep_opts(opts)
-  if not opts then return end
-
-  assert(opts.multiprocess)
 
   -- when using glob parsing, we must use the external
   -- headless instance for processing the query. This
   -- prevents 'file|git_icons=false' from overriding
   -- processing inside 'core.mt_cmd_wrapper'
   if opts.rg_glob then
-    opts.requires_processing = true
+    opts.multiprocess = opts.multiprocess and 1
   end
-
-  -- signal to preprocess we are looking to replace {argvz}
-  opts.argv_expr = true
 
   -- this will be replaced by the appropriate fzf
   -- FIELD INDEX EXPRESSION by 'fzf_exec'
-  opts.cmd = get_grep_cmd(opts, core.fzf_query_placeholder, 2)
-  if not opts.cmd then return end
-
-  local command = core.mt_cmd_wrapper(opts)
-
-  -- signal 'fzf_exec' to set 'change:reload' parameters
-  -- or skim's "interactive" mode (AKA "live query")
-  opts.fn_reload = command
+  local cmd = get_grep_cmd(opts, core.fzf_query_placeholder, 2)
+  opts.cmd = opts.multiprocess and cmd
 
   -- search query in header line
   opts = core.set_title_flags(opts, { "cmd", "live" })
-  opts = core.set_header(opts, opts.headers or { "actions", "cwd" })
   opts = core.set_fzf_field_index(opts)
-  core.fzf_exec(nil, opts)
-end
-
-M.live_grep_glob_st = function(opts)
-  if vim.fn.executable("rg") ~= 1 then
-    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
-    return
-  end
-
-  -- 'rg_glob = true' enables glob
-  -- processing in 'get_grep_cmd'
-  opts = opts or {}
-  opts.rg_glob = true
-  return M.live_grep_st(opts)
-end
-
-M.live_grep_glob_mt = function(opts)
-  if vim.fn.executable("rg") ~= 1 then
-    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
-    return
-  end
-
-  -- 'rg_glob = true' enables the glob processing in
-  -- 'make_entry.preprocess', only supported with multiprocess
-  opts = opts or {}
-  opts.rg_glob = true
-  return M.live_grep_mt(opts)
+  core.fzf_live(opts.cmd or function(s)
+    -- can be nil when called as fzf initial command
+    local query = s[1] or ""
+    opts.no_esc = nil
+    local cmd0 = get_grep_cmd(opts, query, true)
+    return core.can_transform(opts) and
+        ("reload:" .. (
+          not opts.exec_empty_query and #query == 0 and FzfLua.utils.shell_nop() or cmd0))
+        or cmd0
+  end, opts)
 end
 
 M.live_grep_native = function(opts)
@@ -391,43 +323,53 @@ M.live_grep_native = function(opts)
   opts = opts or {}
   opts.git_icons = false
   opts.file_icons = false
+  opts.file_ignore_patterns = false
+  opts.strip_cwd_prefix = false
   opts.path_shorten = false
   opts.formatter = false
+  opts.multiline = false
   opts.rg_glob = false
-  opts.multiprocess = true
-  return M.live_grep_mt(opts)
-end
-
-M.live_grep = function(opts)
-  opts = config.normalize_opts(opts, "grep")
-  if not opts then return end
-
-  if opts.multiprocess then
-    return M.live_grep_mt(opts)
-  else
-    return M.live_grep_st(opts)
-  end
+  opts.multiprocess = 1
+  return M.live_grep(opts)
 end
 
 M.live_grep_glob = function(opts)
-  opts = config.normalize_opts(opts, "grep")
-  if not opts then return end
-
-  if opts.multiprocess then
-    return M.live_grep_glob_mt(opts)
-  else
-    return M.live_grep_glob_st(opts)
+  vim.deprecate(
+    [['live_grep_glob']],
+    [[':FzfLua live_grep' or ':lua FzfLua.live_grep()' (glob parsing enabled by default)]],
+    "Jan 2026", "FzfLua"
+  )
+  if vim.fn.executable("rg") ~= 1 then
+    utils.warn("'--glob|iglob' flags requires 'rg' (https://github.com/BurntSushi/ripgrep)")
+    return
   end
+
+  -- 'rg_glob = true' enables the glob processing in
+  -- 'make_entry.preprocess', only supported with multiprocess
+  opts = opts or {}
+  opts.rg_glob = true
+  return M.live_grep(opts)
 end
 
+
 M.live_grep_resume = function(opts)
-  if not opts then opts = {} end
+  vim.deprecate(
+    [['live_grep_resume']],
+    [[':FzfLua live_grep resume=true' or ':lua FzfLua.live_grep({resume=true})']],
+    "Jan 2026", "FzfLua"
+  )
+  opts = opts or {}
   opts.resume = true
   return M.live_grep(opts)
 end
 
 M.grep_last = function(opts)
-  if not opts then opts = {} end
+  vim.deprecate(
+    [['grep_last']],
+    [[':FzfLua grep resume=true' or ':lua FzfLua.grep({resume=true})']],
+    "Jan 2026", "FzfLua"
+  )
+  opts = opts or {}
   opts.resume = true
   return M.grep(opts)
 end
@@ -472,10 +414,11 @@ M.grep_curbuf = function(opts, lgrep)
   -- call `normalize_opts` here as we want to store all previous
   -- options in the resume data store under the key "bgrep"
   -- 3rd arg is an override for resume data store lookup key
+  ---@type fzf-lua.config.GrepCurbuf
   opts = config.normalize_opts(opts, "grep_curbuf", "bgrep")
   if not opts then return end
 
-  opts.filename = vim.api.nvim_buf_get_name(core.CTX().bufnr)
+  opts.filename = vim.api.nvim_buf_get_name(utils.CTX().bufnr)
   if #opts.filename == 0 or not uv.fs_stat(opts.filename) then
     utils.info("Rg current buffer requires file on disk")
     return
@@ -525,6 +468,7 @@ local grep_list = function(opts, lgrep, loclist)
     return
   end
   opts.exec_empty_query = opts.exec_empty_query == nil and true
+  ---@type fzf-lua.config.Grep
   opts = config.normalize_opts(opts, "grep")
   if not opts then return end
   if lgrep then

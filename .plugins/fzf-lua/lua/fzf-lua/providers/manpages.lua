@@ -27,6 +27,7 @@ M.manpage_sh_arg = function(apropos_line)
 end
 
 M.manpages = function(opts)
+  ---@type fzf-lua.config.Manpages
   opts = config.normalize_opts(opts, "manpages")
   if not opts then return end
 
@@ -41,7 +42,7 @@ M.manpages = function(opts)
     return string.format("%-45s %s", man, desc)
   end
 
-  core.fzf_exec(opts.cmd, opts)
+  return core.fzf_exec(opts.cmd, opts)
 end
 
 return M

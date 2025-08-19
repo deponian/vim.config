@@ -1,4 +1,5 @@
 return {
+
   ["3gp"]            = { icon = "", color = "#FD971F", cterm_color = "208", name = "3gp"                        },
   ["3mf"]            = { icon = "󰆧", color = "#888888", cterm_color = "102", name = "3DObjectFile"               },
   ["7z"]             = { icon = "", color = "#ECA517", cterm_color = "214", name = "7z"                         },
@@ -50,7 +51,9 @@ return {
   ["cbl"]            = { icon = "", color = "#005CA5", cterm_color = "25",  name = "Cobol"                      },
   ["cc"]             = { icon = "", color = "#F34B7D", cterm_color = "204", name = "CPlusPlus"                  },
   ["ccm"]            = { icon = "", color = "#F34B7D", cterm_color = "204", name = "CPlusPlusModule"            },
+  ["cfc"]            = { icon = "", color = "#01A4BA", cterm_color = "38",  name = "ColdFusionScript"           },
   ["cfg"]            = { icon = "", color = "#6D8086", cterm_color = "66",  name = "Configuration"              },
+  ["cfm"]            = { icon = "", color = "#01A4BA", cterm_color = "38",  name = "ColdFusionTag"              },
   ["cjs"]            = { icon = "", color = "#CBCB41", cterm_color = "185", name = "Cjs"                        },
   ["clj"]            = { icon = "", color = "#8DC149", cterm_color = "113", name = "Clojure"                    },
   ["cljc"]           = { icon = "", color = "#8DC149", cterm_color = "113", name = "ClojureC"                   },
@@ -199,6 +202,7 @@ return {
   ["ipynb"]          = { icon = "", color = "#F57D01", cterm_color = "208", name = "Notebook"                   },
   ["iso"]            = { icon = "", color = "#D0BEC8", cterm_color = "181", name = "Iso"                        },
   ["ixx"]            = { icon = "", color = "#519ABA", cterm_color = "74",  name = "Ixx"                        },
+  ["jar"]            = { icon = "", color = "#ffaf67", cterm_color = "215", name = "Jar"                        },
   ["java"]           = { icon = "", color = "#CC3E44", cterm_color = "167", name = "Java"                       },
   ["jl"]             = { icon = "", color = "#A270BA", cterm_color = "133", name = "Jl"                         },
   ["jpeg"]           = { icon = "", color = "#A074C4", cterm_color = "140", name = "Jpeg"                       },
@@ -450,6 +454,7 @@ return {
   ["webp"]           = { icon = "", color = "#A074C4", cterm_color = "140", name = "Webp"                       },
   ["webpack"]        = { icon = "󰜫", color = "#519ABA", cterm_color = "74",  name = "Webpack"                    },
   ["wma"]            = { icon = "", color = "#00AFFF", cterm_color = "39",  name = "WindowsMediaAudio"          },
+  ["wmv"]            = { icon = "", color = "#FD971F", cterm_color = "208", name = "WindowsMediaVideo"          },
   ["woff"]           = { icon = "", color = "#ECECEC", cterm_color = "255", name = "WebOpenFontFormat"          },
   ["woff2"]          = { icon = "", color = "#ECECEC", cterm_color = "255", name = "WebOpenFontFormat"          },
   ["wrl"]            = { icon = "󰆧", color = "#888888", cterm_color = "102", name = "VRML"                       },

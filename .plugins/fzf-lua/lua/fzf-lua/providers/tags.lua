@@ -3,7 +3,6 @@ local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local libuv = require "fzf-lua.libuv"
 local config = require "fzf-lua.config"
-local make_entry = require "fzf-lua.make_entry"
 
 local M = {}
 
@@ -99,8 +98,10 @@ local function tags(opts)
         return
       end
     else
-      utils.info(("Tags file ('%s') does not exist. Create one with ctags -R")
-        :format(opts._ctags_file))
+      if opts.silent ~= true then
+        utils.info(("Tags file ('%s') does not exist. Create one with ctags -R")
+          :format(opts._ctags_file))
+      end
       return
     end
   end
@@ -141,14 +142,6 @@ local function tags(opts)
     end
   end ]]
 
-  -- prevents 'file|git_icons=false' from overriding processing
-  opts.requires_processing = true
-  if opts.multiprocess then
-    opts.__mt_transform = [[return require("fzf-lua.make_entry").tag]]
-  else
-    opts.__mt_transform = make_entry.tag
-  end
-
   if opts.lgrep then
     -- we need this for 'actions.grep_lgrep'
     opts.__ACT_TO = opts.__ACT_TO or M.grep
@@ -161,15 +154,7 @@ local function tags(opts)
     -- tags has its own formatter
     opts.formatter, opts._fmt = false, { _to = false, to = false, from = false }
     opts.filespec = libuv.shellescape(opts._ctags_file)
-    if opts.multiprocess then
-      return require "fzf-lua.providers.grep".live_grep_mt(opts)
-    else
-      -- 'live_grep_st' uses different signature 'fn_transform'
-      opts.fn_transform = function(x)
-        return make_entry.tag(x, opts)
-      end
-      return require "fzf-lua.providers.grep".live_grep_st(opts)
-    end
+    return require "fzf-lua.providers.grep".live_grep(opts)
   else
     -- we need this for 'actions.grep_lgrep'
     opts.__ACT_TO = opts.__ACT_TO or M.live_grep
@@ -190,17 +175,21 @@ local function tags(opts)
 end
 
 M.tags = function(opts)
+  ---@type fzf-lua.config.Tags
   opts = config.normalize_opts(opts, "tags")
   if not opts then return end
   return tags(opts)
 end
 
 M.btags = function(opts)
+  ---@type fzf-lua.config.Btags
   opts = config.normalize_opts(opts, "btags")
   if not opts then return end
   opts.filename = vim.api.nvim_buf_get_name(0)
   if #opts.filename == 0 then
-    utils.info("'btags' is not available for unnamed buffers.")
+    if opts.silent ~= true then
+      utils.info("'btags' is not available for unnamed buffers.")
+    end
     return
   end
   -- store the autogen command in case tags file doesn't exist.
@@ -216,7 +205,9 @@ M.btags = function(opts)
 end
 
 M.grep = function(opts)
+  ---@type fzf-lua.config.TagsGrep
   opts = config.normalize_opts(opts, "tags")
+  if not opts then return end
 
   if not opts.search then
     -- resume implies no input prompt
@@ -239,6 +230,7 @@ M.grep = function(opts)
 end
 
 M.live_grep = function(opts)
+  ---@type fzf-lua.config.TagsGrep
   opts = config.normalize_opts(opts, "tags")
   if not opts then return end
   opts.lgrep = true

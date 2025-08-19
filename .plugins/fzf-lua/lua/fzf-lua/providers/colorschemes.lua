@@ -20,6 +20,7 @@ end
 local M = {}
 
 M.colorschemes = function(opts)
+  ---@type fzf-lua.config.Colorschemes
   opts = config.normalize_opts(opts, "colorschemes")
   if not opts then return end
 
@@ -30,7 +31,7 @@ M.colorschemes = function(opts)
   local lazy = package.loaded["lazy.core.util"]
   if lazy and lazy.get_unloaded_rtp then
     local paths = lazy.get_unloaded_rtp("")
-    local all_files = vim.fn.globpath(table.concat(paths, ","), "colors/*", 1, 1)
+    local all_files = vim.fn.globpath(table.concat(paths, ","), "colors/*", true, true)
     for _, f in ipairs(all_files) do
       table.insert(colors, vim.fn.fnamemodify(f, ":t:r"))
     end
@@ -56,21 +57,22 @@ M.colorschemes = function(opts)
     end
   end
 
+  local live
   if opts.live_preview then
     -- must add ':nohidden' or fzf ignores the preview action
     opts.fzf_opts["--preview-window"] = "nohidden:right:0"
-    opts.preview = shell.raw_action(function(sel)
+    opts.preview = shell.stringify_data(function(sel)
       if opts.live_preview and sel then
-        opts._live = sel[1]
+        live = sel[1]
         vim.cmd("colorscheme " .. sel[1])
       end
-    end, nil, opts.debug)
+    end, opts, "{}")
   end
 
   opts.winopts = opts.winopts or {}
   opts.winopts.on_close = function()
     -- reset color scheme if live_preview is enabled
-    if opts._live and opts._live ~= current_colorscheme then
+    if live and live ~= current_colorscheme then
       vim.cmd("colorscheme " .. current_colorscheme)
       vim.o.background = current_background
     end
@@ -82,10 +84,11 @@ M.colorschemes = function(opts)
     utils.setup_highlights()
   end
 
-  core.fzf_exec(colors, opts)
+  return core.fzf_exec(colors, opts)
 end
 
 M.highlights = function(opts)
+  ---@type fzf-lua.config.Highlights
   opts = config.normalize_opts(opts, "highlights")
   if not opts then return end
 
@@ -115,7 +118,7 @@ M.highlights = function(opts)
       end)
     end
 
-    local coroutinify = (opts.coroutinify == nil) and false or opts.coroutinify
+    local coroutinify = false
 
     if not coroutinify then
       populate(highlights, add_entry)
@@ -137,7 +140,7 @@ M.highlights = function(opts)
     end
   end
 
-  core.fzf_exec(contents, opts)
+  return core.fzf_exec(contents, opts)
 end
 
 
@@ -149,13 +152,12 @@ function AsyncDownloadManager:new(opts)
   self.max_threads = tonumber(opts.max_threads) > 0 and tonumber(opts.max_threads) or 5
   local stat, _ = uv.fs_stat(self.path)
   if stat and stat.type ~= "directory" then
-    utils.warn(string.format(
-      [["%s" already exists and is not a directory (type:%s)]], self.path, stat.type))
+    utils.error([["%s" already exists and is not a directory (type:%s)]], self.path, stat.type)
     return
   end
   if not stat then
     if vim.fn.mkdir(self.path, "p") ~= 1 then
-      utils.warn(string.format([[Unable to create cache directory "%s"]], self.path))
+      utils.error([[Unable to create cache directory "%s"]], self.path)
       return
     end
   end
@@ -189,11 +191,11 @@ function AsyncDownloadManager:load_db(db)
   self.db = db
   for k, p in pairs(self.db or {}) do
     if type(p.url) ~= "string" then
-      utils.warn(string.format("package %s: missing 'url'", k))
+      utils.warn("package %s: missing 'url'", k)
       return false
     end
     if type(p.colorschemes) ~= "table" or utils.tbl_isempty(p.colorschemes) then
-      utils.warn(string.format("package %s: missing or empty 'colorschemes'", k))
+      utils.warn("package %s: missing or empty 'colorschemes'", k)
       return false
     end
     local github_url = "https://github.com/"
@@ -212,8 +214,7 @@ function AsyncDownloadManager:load_db(db)
     for i, v in ipairs(p.colorschemes) do
       p.colorschemes[i].disp_name = v.disp_name or p.disp_name
       if not v.name and not v.lua and not v.vim then
-        utils.warn(string.format(
-          "package %s: colorschemes[%d], must contain at least 'name|lua|vim'", k, i))
+        utils.warn("package %s: colorschemes[%d], must contain at least 'name|lua|vim'", k, i)
         return false
       end
     end
@@ -295,7 +296,7 @@ function AsyncDownloadManager:jobstart(plugin, job_args)
   job_args[2] = vim.tbl_extend("keep", job_args[2] or {},
     {
       on_exit = function(_, rc, _)
-        utils.info(string.format("%s [job_id:%d] finished with exit code %s", plugin, job_id, rc))
+        utils.info("%s [job_id:%d] finished with exit code %s", plugin, job_id, rc)
         if type(info.on_exit) == "function" then
           -- this calls `coroutine.resume` and resumes fzf's reload input stream
           info.on_exit(_, rc, _)
@@ -310,11 +311,10 @@ function AsyncDownloadManager:jobstart(plugin, job_args)
   if job_id == 0 then
     utils.warn("jobstart: invalid args")
   elseif job_id == -1 then
-    utils.warn(string.format([[jobstart: "%s" is not executable]], job_args[1]))
+    utils.warn([[jobstart: "%s" is not executable]], job_args[1])
   else
     -- job started successfully
-    utils.info(string.format("%s [path:%s] [job_id:%d]...",
-      msg, path.HOME_to_tilde(info.path), job_id))
+    utils.info("%s [path:%s] [job_id:%d]...", msg, path.HOME_to_tilde(assert(info.path)), job_id)
     self.job_ids[tostring(job_id)] = { plugin = plugin, args = job_args }
     self.db[plugin].job_id = job_id
   end
@@ -349,7 +349,7 @@ M.apply_awesome_theme = function(dbkey, idx, opts)
   -- TODO: should we check `package.loaded[...]` before packadd?
   local ok, out = pcall(function() vim.cmd("packadd " .. p.dir) end)
   if not ok then
-    utils.warn(string.format("Unable to packadd  %s: %s", p.dir, tostring(out)))
+    utils.error("Unable to packadd  %s: %s", p.dir, tostring(out))
     return
   end
   if cs.vim then
@@ -360,16 +360,17 @@ M.apply_awesome_theme = function(dbkey, idx, opts)
     ok, out = pcall(function() vim.cmd("colorscheme " .. cs.name) end)
   end
   if not ok then
-    utils.warn(string.format("Unable to apply colorscheme %s: %s", cs.disp_name, tostring(out)))
+    utils.error("Unable to apply colorscheme %s: %s", cs.disp_name, tostring(out))
   end
 end
 
 M.awesome_colorschemes = function(opts)
+  ---@type fzf-lua.config.AwesomeColorschemes
   opts = config.normalize_opts(opts, "awesome_colorschemes")
   if not opts then return end
 
-  opts._cur_colorscheme = get_current_colorscheme()
-  opts._cur_background = vim.o.background
+  local cur_colorscheme = get_current_colorscheme()
+  local cur_background = vim.o.background
 
   local dbfile = vim.fn.expand(opts.dbfile)
   if not path.is_absolute(dbfile) then
@@ -378,134 +379,120 @@ M.awesome_colorschemes = function(opts)
 
   local json_string = utils.read_file(dbfile)
   if not json_string or #json_string == 0 then
-    utils.warn(string.format("Unable to load json db (%s)", opts.dbfile))
+    utils.error("Unable to load json db (%s)", opts.dbfile)
     return
   end
 
   local ok, json_db = pcall(vim.json.decode, json_string)
   if not ok then
-    utils.warn(string.format("Json decode failed: %s", json_db))
+    utils.error(string.format("Json decode failed: %s", json_db))
     return
   end
 
   -- save a ref for action
   opts._apply_awesome_theme = M.apply_awesome_theme
 
-  opts._packpath = type(opts.packpath) == "function"
+  local packpath = type(opts.packpath) == "function"
       and opts.packpath() or tostring(opts.packpath)
 
   opts._adm = AsyncDownloadManager:new({
     db = json_db,
     dl_status = opts.dl_status,
     max_threads = opts.max_threads,
-    path = path.join({ opts._packpath, "pack", "fzf-lua", "opt" })
+    path = path.join({ packpath, "pack", "fzf-lua", "opt" })
   })
   -- Error creating cache directory
   if not opts._adm then return end
 
-  opts.func_async_callback = false
-  opts.__fn_reload = function(_)
-    return function(cb)
-      -- use coroutine & vim.schedule to avoid
-      -- E5560: vimL function must not be called in a lua loop callback
-      coroutine.wrap(function()
-        local co = coroutine.running()
+  local contents = function(cb)
+    -- use coroutine & vim.schedule to avoid
+    -- E5560: vimL function must not be called in a lua loop callback
+    coroutine.wrap(function()
+      local co = coroutine.running()
 
-        -- make sure our cache is in packpath
-        vim.opt.packpath:append(opts._packpath)
+      -- make sure our cache is in packpath
+      vim.opt.packpath:append(packpath)
 
-        -- since resume uses deepcopy having multiple db's is going to
-        -- create all sorts of voodoo issues when running resume
-        -- HACK: find a better solution (singleton?)
-        if config.__resume_data and type(config.__resume_data.opts) == "table" then
-          config.__resume_data.opts._adm.db = opts._adm.db
-        end
+      -- since resume uses deepcopy having multiple db's is going to
+      -- create all sorts of voodoo issues when running resume
+      -- HACK: find a better solution (singleton?)
+      if config.__resume_data and type(config.__resume_data.opts) == "table" then
+        config.__resume_data.opts._adm.db = opts._adm.db
+      end
 
-        local sorted = vim.tbl_keys(json_db)
-        table.sort(sorted)
+      local sorted = vim.tbl_keys(json_db)
+      table.sort(sorted)
 
-        for _, dbkey in ipairs(sorted) do
-          local downloaded = opts._adm:downloaded(dbkey)
-          local info = opts._adm:get(dbkey)
-          for i, cs in ipairs(info.colorschemes) do
-            if opts._adm:downloading(dbkey) then
-              -- downloading, set `on_exit` callback and wait for resume
-              opts._adm:set_once_on_exit(dbkey, function(_, _, _)
-                coroutine.resume(co)
-              end)
-              coroutine.yield()
-            end
-            vim.schedule(function()
-              local icon = not downloaded
-                  and opts.icons[1]           -- download icon
-                  or i == 1 and opts.icons[2] -- colorscheme (package) icon
-                  or opts.icons[3]            -- colorscheme (variant) noicon
-              local entry = string.format("%s:%d:%s  %s %s",
-                dbkey,
-                i,
-                icon,
-                cs.disp_name,
-                i == 1 and string.format("(%s)", info.disp_url) or "")
-              cb(entry, function()
-                coroutine.resume(co)
-              end)
+      for _, dbkey in ipairs(sorted) do
+        local downloaded = opts._adm:downloaded(dbkey)
+        local info = opts._adm:get(dbkey)
+        for i, cs in ipairs(info.colorschemes) do
+          if opts._adm:downloading(dbkey) then
+            -- downloading, set `on_exit` callback and wait for resume
+            opts._adm:set_once_on_exit(dbkey, function(_, _, _)
+              coroutine.resume(co)
             end)
             coroutine.yield()
           end
+          vim.schedule(function()
+            local icon = not downloaded
+                and opts.icons[1]           -- download icon
+                or i == 1 and opts.icons[2] -- colorscheme (package) icon
+                or opts.icons[3]            -- colorscheme (variant) noicon
+            local entry = string.format("%s:%d:%s  %s %s",
+              dbkey,
+              i,
+              icon,
+              cs.disp_name,
+              i == 1 and string.format("(%s)", info.disp_url) or "")
+            cb(entry, function()
+              coroutine.resume(co)
+            end)
+          end)
+          coroutine.yield()
         end
+      end
 
-        -- done
-        cb(nil)
-      end)()
-    end
+      -- done
+      cb(nil)
+    end)()
   end
 
-  local prev_act_id
+  local live
   if opts.live_preview then
     opts.fzf_opts["--preview-window"] = "nohidden:right:0"
-    opts.preview, prev_act_id = shell.raw_action(function(sel)
+    opts.preview = shell.stringify_data(function(sel)
       if opts.live_preview and sel then
         local dbkey, idx = sel[1]:match("^(.-):(%d+):")
         if opts._adm:downloaded(dbkey) then
           -- some colorschemes choose a different theme based on dark|light bg
           -- restore to the original background when interface was opened
           -- wrap in pcall as some colorschemes have bg triggers that can fail
-          pcall(function() vim.o.background = opts._cur_background end)
+          pcall(function() vim.o.background = cur_background end)
           M.apply_awesome_theme(dbkey, idx, opts)
-          opts._live = true
+          live = true
         else
-          vim.cmd("colorscheme " .. opts._cur_colorscheme)
-          vim.o.background = opts._cur_background
-          opts._live = nil
+          vim.cmd("colorscheme " .. cur_colorscheme)
+          vim.o.background = cur_background
+          live = nil
         end
       end
-    end, "{}", opts.debug)
-  end
-
-  -- build the "reload" cmd and remove '-- {+}' from the initial cmd
-  local contents, id = shell.reload_action_cmd(opts, "")
-  opts.__reload_cmd = contents
-
-  opts._fn_pre_fzf = function()
-    shell.set_protected(id)
-    if prev_act_id then
-      shell.set_protected(prev_act_id)
-    end
+    end, opts, "{}")
   end
 
   opts.winopts = opts.winopts or {}
   opts.winopts.on_close = function()
     -- reset color scheme if live_preview is enabled
-    if opts._live then
-      vim.cmd("colorscheme " .. opts._cur_colorscheme)
-      vim.o.background = opts._cur_background
+    if live then
+      vim.cmd("colorscheme " .. cur_colorscheme)
+      vim.o.background = cur_background
     end
   end
 
   opts.fn_selected = function(sel, o)
     -- do not remove our cache path from packpath
     -- or packadd in `apply_awesome_theme` fails
-    -- vim.opt.packpath:remove(o._packpath)
+    -- vim.opt.packpath:remove(packpath)
 
     -- cleanup AsyncDownloadManager
     o._adm:destruct()
@@ -513,8 +500,8 @@ M.awesome_colorschemes = function(opts)
     -- reset color scheme if live_preview is enabled
     -- and nothing or non-default action was selected
     if o.live_preview and (not sel or #sel[1] > 0) then
-      vim.cmd("colorscheme " .. o._cur_colorscheme)
-      vim.o.background = o._cur_background
+      vim.cmd("colorscheme " .. cur_colorscheme)
+      vim.o.background = cur_background
     end
 
     actions.act(sel, o)
@@ -523,7 +510,6 @@ M.awesome_colorschemes = function(opts)
     utils.setup_highlights()
   end
 
-  opts = core.set_header(opts, opts.headers or { "actions" })
   return core.fzf_exec(contents, opts)
 end
 

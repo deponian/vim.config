@@ -165,13 +165,101 @@ local function get_buf_context(bufnr)
 end
 
 --- @async
+--- @param bufnr integer
+--- @param old_relpath? string
+local function handle_moved(bufnr, old_relpath)
+  local bcache = assert(cache[bufnr])
+  local git_obj = bcache.git_obj
+
+  local orig_relpath = assert(git_obj.orig_relpath or old_relpath)
+  git_obj.orig_relpath = orig_relpath
+  local new_name = git_obj.repo:diff_rename_status()[orig_relpath]
+  if new_name then
+    dprintf('File moved to %s', new_name)
+    git_obj.relpath = new_name
+    git_obj.file = git_obj.repo.toplevel .. '/' .. new_name
+  elseif git_obj.orig_relpath then
+    local orig_file = Util.Path.join(git_obj.repo.toplevel, git_obj.orig_relpath)
+    if not git_obj.repo:file_info(orig_file, git_obj.revision) then
+      return
+    end
+    --- File was moved in the index, but then reset
+    dprintf('Moved file reset')
+    git_obj.relpath = git_obj.orig_relpath
+    git_obj.orig_relpath = nil
+  else
+    -- File removed from index, do nothing
+    return
+  end
+
+  git_obj.file = Util.Path.join(git_obj.repo.toplevel, git_obj.relpath)
+  bcache.file = git_obj.file
+  git_obj:refresh()
+  if not bcache:schedule() then
+    return
+  end
+
+  local bufexists = Util.bufexists(bcache.file)
+  local old_name = api.nvim_buf_get_name(bufnr)
+
+  if not bufexists then
+    -- Do not trigger BufFilePre/Post
+    -- TODO(lewis6991): figure out how to avoid reattaching without
+    -- disabling all autocommands.
+    Util.noautocmd({ 'BufFilePre', 'BufFilePost' }, function()
+      Util.buf_rename(bufnr, bcache.file)
+    end)
+  end
+
+  local msg = bufexists and 'Cannot rename' or 'Renamed'
+  dprintf('%s buffer %d from %s to %s', msg, bufnr, old_name, bcache.file)
+end
+
+--- @async
+--- @param bufnr integer
+local function watcher_handler(bufnr)
+  local bcache = cache[bufnr]
+  if not bcache then
+    return
+  end
+
+  dprintf('Watcher handler called for buffer %d %s', bufnr, bcache.file)
+
+  local git_obj = bcache.git_obj
+
+  Status.update(bufnr, { head = git_obj.repo.abbrev_head })
+
+  local was_tracked = git_obj.object_name ~= nil
+  local old_relpath = git_obj.relpath
+
+  bcache:invalidate(true)
+  git_obj:refresh()
+  if not bcache:schedule() then
+    dprint('buffer invalid (1)')
+    return
+  end
+
+  if config.watch_gitdir.follow_files and was_tracked and not git_obj.object_name then
+    -- File was tracked but is no longer tracked. Must of been removed or
+    -- moved. Check if it was moved and switch to it.
+    handle_moved(bufnr, old_relpath)
+    if not bcache:schedule() then
+      dprint('buffer invalid (2)')
+      return
+    end
+  end
+
+  require('gitsigns.manager').update(bufnr)
+end
+
+--- @async
 --- Ensure attaches cannot be interleaved for the same buffer.
 --- Since attaches are asynchronous we need to make sure an attach isn't
 --- performed whilst another one is in progress.
 --- @param cbuf integer
 --- @param ctx? Gitsigns.GitContext
 --- @param aucmd? string
-local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
+M.attach = throttle_by_id(function(cbuf, ctx, aucmd)
   local __FUNC__ = 'attach'
   local passed_ctx = ctx ~= nil
 
@@ -236,7 +324,7 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
     return
   end
 
-  Status:update(cbuf, {
+  Status.update(cbuf, {
     head = git_obj.repo.abbrev_head,
     root = git_obj.repo.toplevel,
     gitdir = git_obj.repo.gitdir,
@@ -267,8 +355,15 @@ local attach_throttled = throttle_by_id(function(cbuf, ctx, aucmd)
   cache[cbuf] = Cache.new(cbuf, file, git_obj)
 
   if config.watch_gitdir.enable then
-    local watcher = require('gitsigns.watcher')
-    cache[cbuf].gitdir_watcher = watcher.watch_gitdir(cbuf, git_obj.repo.gitdir)
+    dprintf('Watching git dir')
+    --- Throttle to:
+    --- - ensure handler is only triggered once per git operation.
+    --- - prevent updates to the same buffer from interleaving as the handler is
+    ---   async.
+    local throttled_watcher_handler = throttle_by_id(watcher_handler, true)
+    cache[cbuf].deregister_watcher = git_obj.repo:register_callback(function()
+      async.run(throttled_watcher_handler, cbuf):raise_on_error()
+    end)
   end
 
   if not api.nvim_buf_is_loaded(cbuf) then
@@ -313,8 +408,8 @@ end
 --- provided then the current buffer is used.
 ---
 --- @param bufnr integer Buffer number
---- @param _keep_signs? boolean
-function M.detach(bufnr, _keep_signs)
+--- @param keep_signs? boolean
+function M.detach(bufnr, keep_signs)
   -- When this is called interactively (with no arguments) we want to remove all
   -- the signs, however if called via a detach event (due to nvim_buf_attach)
   -- then we don't want to clear the signs in case the buffer is just being
@@ -329,38 +424,12 @@ function M.detach(bufnr, _keep_signs)
     return
   end
 
-  manager.detach(bufnr, _keep_signs)
+  manager.detach(bufnr, keep_signs)
 
   -- Clear status variables
-  Status:clear(bufnr)
+  Status.clear(bufnr)
 
   Cache.destroy(bufnr)
 end
-
---- Attach Gitsigns to the buffer.
----
---- Attributes: ~
----     {async}
----
---- @param bufnr integer Buffer number
---- @param ctx Gitsigns.GitContext|nil
----     Git context data that may optionally be used to attach to any
----     buffer that represents a real git object.
----     • {file}: (string)
----       Path to the file represented by the buffer, relative to the
----       top-level.
----     • {toplevel}: (string?)
----       Path to the top-level of the parent git repository.
----     • {gitdir}: (string?)
----       Path to the git directory of the parent git repository
----       (typically the ".git/" directory).
----     • {commit}: (string?)
----       The git revision that the file belongs to.
----     • {base}: (string?)
----       The git revision that the file should be compared to.
---- @param _trigger? string
-M.attach = async.create(3, function(bufnr, ctx, _trigger)
-  attach_throttled(bufnr or api.nvim_get_current_buf(), ctx, _trigger)
-end)
 
 return M

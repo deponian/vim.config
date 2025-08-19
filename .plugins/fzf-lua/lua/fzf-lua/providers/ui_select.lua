@@ -91,6 +91,12 @@ M.ui_select = function(items, ui_opts, on_choice)
     opts = opts(ui_opts, items)
   end
 
+  -- deepcopy register opts so we don't poullute the original tbl ref (#2241)
+  if type(opts) == "table" then
+    opts = utils.tbl_deep_clone(opts)
+    assert(opts) -- lint nil check
+  end
+
   opts.fzf_opts = vim.tbl_extend("keep", opts.fzf_opts or {}, {
     ["--no-multi"]       = true,
     ["--preview-window"] = "hidden:right:0",
@@ -151,7 +157,9 @@ M.ui_select = function(items, ui_opts, on_choice)
   -- inherit from defaults if not triggered by lsp_code_actions
   local opts_merge_strategy = "keep"
   if not _OPTS_ONCE and ui_opts.kind == "codeaction" then
+    ---@type fzf-lua.config.LspCodeActions
     _OPTS_ONCE = config.normalize_opts({}, "lsp.code_actions")
+    if not _OPTS_ONCE then return end
     -- auto-detected code actions, prioritize the ui_select
     -- options over `lsp.code_actions` (#999)
     opts_merge_strategy = "force"
@@ -172,12 +180,13 @@ M.ui_select = function(items, ui_opts, on_choice)
     opts.cb_co = (function()
       -- NOTE: use clojure  as `_OPTS_ONCE` is otherwise nullified
       local opts_once_ref = _OPTS_ONCE
+      ---@diagnostic disable-next-line: inject-field
       return function(co) opts_once_ref._co = co end
     end)()
     _OPTS_ONCE = nil
   end
 
-  core.fzf_exec(entries, opts)
+  return core.fzf_exec(entries, opts)
 end
 
 return M

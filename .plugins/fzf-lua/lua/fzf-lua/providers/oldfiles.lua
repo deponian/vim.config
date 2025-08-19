@@ -7,6 +7,7 @@ local make_entry = require "fzf-lua.make_entry"
 local M = {}
 
 M.oldfiles = function(opts)
+  ---@type fzf-lua.config.Oldfiles
   opts = config.normalize_opts(opts, "oldfiles")
   if not opts then return end
 
@@ -83,7 +84,6 @@ M.oldfiles = function(opts)
 
   -- for 'file_ignore_patterns' to work on relative paths
   opts.cwd = opts.cwd or uv.cwd()
-  opts = core.set_header(opts, opts.headers or { "cwd" })
   return core.fzf_exec(contents, opts)
 end
 

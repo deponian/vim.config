@@ -5,7 +5,7 @@ local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
 local libuv = require "fzf-lua.libuv"
 local devicons = require "fzf-lua.devicons"
-local config = nil
+local config
 
 -- attempt to load the current config
 -- should fail if we're running headless
@@ -27,7 +27,7 @@ local function load_config_section(s, datatype, optional)
     if datatype == "function" then
       is_bytecode = true
       exec_opts = { s, datatype }
-      exec_str = ("return require'fzf-lua'.config.bytecode(...)"):format(s)
+      exec_str = "return require'fzf-lua'.config.bytecode(...)"
     else
       exec_opts = {}
       exec_str = ("return require'fzf-lua'.config.%s"):format(s)
@@ -71,6 +71,16 @@ if _G._fzf_lua_is_headless then
   if _config.globals.nbsp then utils.nbsp = _config.globals.nbsp end
 
   config = _config
+
+  -- Compat global with known modules so we can use it in callbacks (fn_transform, etc)
+  _G.FzfLua = {
+    make_entry = M,
+    config = config,
+    path = path,
+    utils = utils,
+    libuv = libuv,
+    devicons = devicons,
+  }
 end
 
 M.get_diff_files = function(opts)
@@ -170,11 +180,8 @@ end
 M.preprocess = function(opts)
   local EOL = opts.multiline and "\0" or "\n"
   local argv = function(i, debug)
-    -- argv1 is actually the 7th argument if we count
-    -- arguments already supplied by 'wrap_spawn_stdio'.
-    -- If no index was supplied use the last argument
-    local idx = tonumber(i) and tonumber(i) + 6 or #vim.v.argv
-    local arg = vim.v.argv[idx]
+    local idx = tonumber(i) or #_G.arg
+    local arg = _G.arg[idx]
     if debug == "v" or debug == "verbose" then
       io.stdout:write(("[DEBUG] raw_argv(%d) = %s" .. EOL):format(idx, arg))
     end
@@ -230,7 +237,7 @@ M.preprocess = function(opts)
 
   -- nifty hack to avoid having to double escape quotations
   -- see my comment inside 'live_grep' initial_command code
-  if opts.argv_expr then
+  if opts.argv_expr and opts.cmd then
     opts.cmd = opts.cmd:gsub("{argv.*}",
       function(x)
         local idx = x:match("{argv(.*)}")
@@ -238,7 +245,7 @@ M.preprocess = function(opts)
       end)
   end
 
-  if utils.__IS_WINDOWS and opts.cmd:match("!") then
+  if utils.__IS_WINDOWS and opts.cmd and opts.cmd:match("!") then
     -- https://ss64.com/nt/syntax-esc.html
     -- This changes slightly if you are running with DelayedExpansion of variables:
     -- if any part of the command line includes an '!' then CMD will escape a second
@@ -529,8 +536,11 @@ M.git_hunk = function(x, opts)
       end
       -- Extract filename from the "b-line", e.g:
       --  +++ b/lua/fzf-lua/defaults.lua
+      -- NOTE: prefix can also appear as {i|w} (#2151)
+      --  --- i/<file>
+      --  +++ w/<file>
       if S.i == 3 then
-        S.filename = l:match("^%+%+%+ b/(.*)")
+        S.filename = l:match("^%+%+%+ %l/(.*)")
         return
       end
       -- Process only lines that start with + or -

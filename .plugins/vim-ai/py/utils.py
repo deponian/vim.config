@@ -15,13 +15,27 @@ utils_py_imported = True
 
 DEFAULT_ROLE_NAME = 'default'
 
-def is_ai_debugging():
-    return vim.eval("g:vim_ai_debug") == "1"
+_vimai_thread_is_debug_active = vim.eval("g:vim_ai_debug") == "1"
+_vimai_thread_log_file_path = vim.eval("g:vim_ai_debug_log_file")
+_vimai_thread_token_file_path = vim.eval("g:vim_ai_token_file_path")
+_vimai_thread_token_load_fn = vim.eval("g:vim_ai_token_load_fn")
+
+def update_thread_shared_variables():
+    global _vimai_thread_is_debug_active
+    global _vimai_thread_log_file_path
+    global _vimai_thread_token_file_path
+    global _vimai_thread_token_load_fn
+    _vimai_thread_is_debug_active = vim.eval("g:vim_ai_debug") == "1"
+    _vimai_thread_log_file_path = vim.eval("g:vim_ai_debug_log_file")
+    _vimai_thread_token_file_path = vim.eval("g:vim_ai_token_file_path")
+    _vimai_thread_token_load_fn = vim.eval("g:vim_ai_token_load_fn")
 
 def print_debug(text, *args):
-    if not is_ai_debugging():
+    global _vimai_thread_is_debug_active
+    global _vimai_thread_log_file_path
+    if not _vimai_thread_is_debug_active:
         return
-    with open(vim.eval("g:vim_ai_debug_log_file"), "a") as file:
+    with open(_vimai_thread_log_file_path, "a") as file:
         message = text.format(*args) if len(args) else text
         file.write(f"[{datetime.datetime.now()}] " + message + "\n")
 
@@ -54,8 +68,8 @@ class AIProviderUtils():
             lambda: load_token_from_file_path(token_file_path),
             lambda: load_token_from_fn(token_load_fn),
             lambda: load_token_from_env_variable(env_variable_name),
-            lambda: load_token_from_file_path(vim.eval("g:vim_ai_token_file_path")),
-            lambda: load_token_from_fn(vim.eval("g:vim_ai_token_load_fn")),
+            lambda: load_token_from_file_path(_vimai_thread_token_file_path),
+            lambda: load_token_from_fn(_vimai_thread_token_load_fn),
         )
         for loader in loaders:
             try:
@@ -72,11 +86,14 @@ ai_provider_utils = AIProviderUtils()
 def unwrap(input_var):
     return vim.eval(input_var)
 
-def make_config(config):
-    options = config['options']
+def make_options(options):
     # initial prompt can be both a string and a list of strings, normalize it to list
     if 'initial_prompt' in options and isinstance(options['initial_prompt'], str):
         options['initial_prompt'] = options['initial_prompt'].split('\n')
+    return options
+
+def make_config(config):
+    config['options'] = make_options(config['options'])
     return config
 
 # when running AIEdit on selection and cursor ends on the first column, it needs to
@@ -157,45 +174,59 @@ def parse_chat_messages(chat_content):
 
     current_type = ''
     for line in lines:
-        match line:
-            case '>>> system':
-                messages.append({'role': 'system', 'content': [{ 'type': 'text', 'text': '' }]})
-                current_type = 'system'
-            case '<<< thinking':
-                # nothing to do here, thinking messages are omited
-                current_type = 'thinking'
-            case '<<< assistant':
-                messages.append({'role': 'assistant', 'content': [{ 'type': 'text', 'text': '' }]})
-                current_type = 'assistant'
-            case '>>> user':
-                if messages and messages[-1]['role'] == 'user':
-                    messages[-1]['content'].append({ 'type': 'text', 'text': '' })
-                else:
-                    messages.append({'role': 'user', 'content': [{ 'type': 'text', 'text': '' }]})
-                current_type = 'user'
-            case '>>> include':
-                if not messages or messages[-1]['role'] != 'user':
-                    messages.append({'role': 'user', 'content': []})
-                current_type = 'include'
-            case '>>> exec':
-                if not messages or messages[-1]['role'] != 'user':
-                    messages.append({'role': 'user', 'content': []})
-                current_type = 'exec'
-            case _:
-                if not messages:
-                    continue
-                match current_type:
-                    case 'assistant' | 'system' | 'user':
-                        messages[-1]['content'][-1]['text'] += '\n' + line
-                    case 'include':
-                        paths = parse_include_paths(line)
-                        for path in paths:
-                            content = make_image_message(path) if is_image_path(path) else make_text_file_message(path)
-                            messages[-1]['content'].append(content)
-                    case 'exec':
-                        cmd = line.strip()
-                        if cmd:
-                            messages[-1]['content'].append(make_exec_output_message(cmd))
+        if line == '>>> system':
+            messages.append({'role': 'system', 'content': [{ 'type': 'text', 'text': '' }]})
+            current_type = 'system'
+        elif line == '<<< thinking':
+            # nothing to do here, thinking messages are omited
+            current_type = 'thinking'
+        elif line == '<<< assistant':
+            messages.append({'role': 'assistant', 'content': [{ 'type': 'text', 'text': '' }]})
+            current_type = 'assistant'
+        elif line == '>>> user':
+            if messages and messages[-1]['role'] == 'user':
+                messages[-1]['content'].append({ 'type': 'text', 'text': '' })
+            else:
+                messages.append({'role': 'user', 'content': [{ 'type': 'text', 'text': '' }]})
+            current_type = 'user'
+        elif line == '<<< tool_call':
+            messages.append({'role': 'assistant', 'content': [{ 'type': 'text', 'text': '' }], 'tool_calls':[]})
+            current_type = 'tool_call'
+        elif line == '<<< tool_response':
+            messages.append({'role': 'tool', 'content': [{ 'type': 'text', 'text': '' }]})
+            current_type = 'tool_response'
+        elif line == '<<< info':
+            # can be used to ask user for confirmation (by running :AIChat again)
+            current_type = 'info'
+        elif line == '>>> include':
+            if not messages or messages[-1]['role'] != 'user':
+                messages.append({'role': 'user', 'content': []})
+            current_type = 'include'
+        elif line == '>>> exec':
+            if not messages or messages[-1]['role'] != 'user':
+                messages.append({'role': 'user', 'content': []})
+            current_type = 'exec'
+        else:
+            if not messages:
+                continue
+            if current_type in ('assistant', 'system', 'user'):
+                messages[-1]['content'][-1]['text'] += '\n' + line
+            elif current_type == 'include':
+                paths = parse_include_paths(line)
+                for path in paths:
+                    content = make_image_message(path) if is_image_path(path) else make_text_file_message(path)
+                    messages[-1]['content'].append(content)
+            elif current_type == 'exec':
+                cmd = line.strip()
+                if cmd:
+                    messages[-1]['content'].append(make_exec_output_message(cmd))
+            elif current_type in ('tool_call', 'tool_response'):
+                l = line.strip()
+                if l:
+                    messages[-1] = json.loads(l)
+            elif current_type == 'info':
+                pass
+
 
     for message in messages:
         # strip newlines from the text content as it causes empty responses
@@ -225,7 +256,7 @@ def parse_chat_header_config():
                 if line == '':
                     # stop at the end of the region
                     break
-                (key, value) = line.strip().split('=')
+                (key, value) = line.strip().split('=', 1)
                 if key == 'provider':
                     config['provider'] = value
                 else:

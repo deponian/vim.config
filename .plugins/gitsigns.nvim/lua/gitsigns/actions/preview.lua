@@ -224,7 +224,7 @@ M.preview_hunk = noautocmd(function()
     return
   end
 
-  --- @type Gitsigns.LineSpec
+  --- @type Gitsigns.LineSpec[]
   local preview_linespec = {
     { { ('Hunk %d of %d'):format(index, #bcache.hunks), 'Title' } },
   }
@@ -252,7 +252,7 @@ function M.preview_hunk_inline()
     winid = show_deleted_in_float(bufnr, ns_inline, hunk, staged)
   end
 
-  api.nvim_create_autocmd({ 'CursorMoved', 'InsertEnter' }, {
+  api.nvim_create_autocmd({ 'CursorMoved', 'InsertEnter', 'BufLeave' }, {
     buffer = bufnr,
     desc = 'Clear gitsigns inline preview',
     callback = function()

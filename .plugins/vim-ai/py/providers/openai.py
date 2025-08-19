@@ -11,10 +11,15 @@ if "VIMAI_DUMMY_IMPORT" in os.environ:
 
 class OpenAIProvider():
 
+    default_options_varname_chat = "g:vim_ai_openai_chat"
+    default_options_varname_complete = "g:vim_ai_openai_complete"
+    default_options_varname_edit = "g:vim_ai_openai_edit"
+
     def __init__(self, command_type: AICommandType, raw_options: Mapping[str, str], utils: AIUtils) -> None:
         self.utils = utils
         self.command_type = command_type
-        raw_default_options = vim.eval(f"g:vim_ai_openai_{command_type}")
+        config_varname = getattr(self, f"default_options_varname_{command_type}")
+        raw_default_options = vim.eval(config_varname)
         self.options = self._parse_raw_options({**raw_default_options, **raw_options})
 
     def _protocol_type_check(self) -> None:
@@ -27,7 +32,7 @@ class OpenAIProvider():
         options = self.options
         openai_options = self._make_openai_options(options)
         http_options = {
-            'request_timeout': options['request_timeout'],
+            'request_timeout': options.get('request_timeout') or 20,
             'auth_type': options['auth_type'],
             'token_file_path': options['token_file_path'],
             'token_load_fn': options['token_load_fn'],
@@ -36,9 +41,8 @@ class OpenAIProvider():
         def _flatten_content(messages):
             # NOTE: Some providers like api.deepseek.com & api.groq.com expect a flat 'content' field.
             for message in messages:
-                match message['role']:
-                    case 'system' | 'assistant':
-                        message['content'] = '\n'.join(map(lambda c: c['text'], message['content']))
+                if message['role'] in ('system', 'assistant'):
+                    message['content'] = '\n'.join(map(lambda c: c['text'], message['content']))
             return messages
 
         request = {
@@ -49,7 +53,7 @@ class OpenAIProvider():
         url = options['endpoint_url']
         response = self._openai_request(url, request, http_options)
 
-        _choice_key = 'delta' if openai_options['stream'] else 'message'
+        _choice_key = 'delta' if openai_options.get('stream') else 'message'
 
         def _get_delta(resp):
             choices = resp.get('choices') or [{}]
@@ -96,31 +100,75 @@ class OpenAIProvider():
             raise self.utils.make_known_error("`enable_auth = 0` option is no longer supported. use `auth_type = none` instead")
 
         options = {**raw_options}
-        options['request_timeout'] = float(options['request_timeout'])
+
+        def _convert_option(name, converter):
+            if name in options and isinstance(options[name], str) and options[name] != '':
+                try:
+                    options[name] = converter(options[name])
+                except (ValueError, TypeError, json.JSONDecodeError) as e:
+                    raise self.utils.make_known_error(f"Invalid value for option '{name}': {options[name]}. Error: {e}")
+
+        _convert_option('request_timeout', float)
+
         if self.command_type != 'image':
-            options['max_tokens'] = int(options['max_tokens'])
-            options['max_completion_tokens'] = int(options['max_completion_tokens'])
-            options['temperature'] = float(options['temperature'])
-            options['stream'] = bool(int(options['stream']))
+            _convert_option('stream', lambda x: bool(int(x)))
+            _convert_option('max_tokens', int)
+            _convert_option('max_completion_tokens', int)
+            _convert_option('temperature', float)
+            _convert_option('frequency_penalty', float)
+            _convert_option('presence_penalty', float)
+            _convert_option('top_p', float)
+            _convert_option('seed', int)
+            _convert_option('top_logprobs', int)
+            _convert_option('logprobs', lambda x: bool(int(x)))
+            _convert_option('stop', json.loads)
+            _convert_option('logit_bias', json.loads)
+            # reasoning_effort is a string, no conversion needed
+
         return options
 
     def _make_openai_options(self, options):
-        max_tokens = options['max_tokens']
-        max_completion_tokens = options['max_completion_tokens']
         result = {
             'model': options['model'],
-            'stream': options['stream'],
         }
-        if options['temperature'] > -1:
-            result['temperature'] = options['temperature']
 
-        if 'web_search_options' in options:
-            result['web_search_options'] = options['web_search_options']
+        option_keys = [
+            'stream',
+            'temperature',
+            'max_tokens',
+            'max_completion_tokens',
+            'web_search_options',
+            'frequency_penalty',
+            'logit_bias',
+            'logprobs',
+            'presence_penalty',
+            'reasoning_effort',
+            'seed',
+            'stop',
+            'top_logprobs',
+            'top_p',
+        ]
 
-        if max_tokens > 0:
-            result['max_tokens'] = max_tokens
-        if max_completion_tokens > 0:
-            result['max_completion_tokens'] = max_completion_tokens
+        for key in option_keys:
+            if key not in options:
+                continue
+
+            value = options[key]
+
+            if value == '':
+                continue
+
+            # Backward compatibility: before using empty string "", values below
+            # were used to exclude these params from the request
+            if key == 'temperature' and value == -1:
+                continue
+            if key == 'max_tokens' and value == 0:
+                continue
+            if key == 'max_completion_tokens' and value == 0:
+                continue
+
+            result[key] = value
+
         return result
 
     def request_image(self, prompt: str) -> list[AIImageResponseChunk]:

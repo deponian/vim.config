@@ -98,10 +98,10 @@ function SystemObj:is_closing()
   return handle == nil or handle:is_closing() or false
 end
 
---- @param output? uv.read_start.callback|false
+--- @param output? fun(err: string?, data: string?)|false
 --- @param text? boolean
 --- @return uv.uv_stream_t? pipe
---- @return uv.read_start.callback? handler
+--- @return fun(err: string?, data: string?)? handler
 --- @return string[]? data
 local function setup_output(output, text)
   if output == false then
@@ -109,7 +109,7 @@ local function setup_output(output, text)
   end
 
   local bucket --- @type string[]?
-  local handler --- @type uv.read_start.callback
+  local handler --- @type fun(err: string?, data: string?)
 
   if type(output) == 'function' then
     handler = output
@@ -129,7 +129,8 @@ local function setup_output(output, text)
 
   local pipe = assert(uv.new_pipe(false))
 
-  --- @type uv.read_start.callback
+  --- @param err? string
+  --- @param data? string
   local function handler_with_close(err, data)
     handler(err, data)
     if data == nil then
@@ -172,12 +173,15 @@ end
 --- @param clear_env? boolean
 --- @return string[]?
 local function setup_env(env, clear_env)
-  if clear_env then
-    return env
+  if not env and clear_env then
+    return
   end
 
-  --- @type table<string,string|number>
-  env = vim.tbl_extend('force', base_env(), env or {})
+  env = env or {}
+  if not clear_env then
+    --- @type table<string,string|number>
+    env = vim.tbl_extend('force', base_env(), env)
+  end
 
   local renv = {} --- @type string[]
   for k, v in pairs(env) do
@@ -238,7 +242,7 @@ local function _on_exit(state, code, signal, on_exit)
   close_handle(state.stdin)
   close_handle(state.timer)
 
-  local check = assert(uv.new_check())
+  local check = uv.new_check()
   check:start(function()
     for _, pipe in pairs({ state.stdin, state.stdout, state.stderr }) do
       if not pipe:is_closing() then
@@ -290,6 +294,7 @@ end
 --- @param on_exit? fun(out: vim.SystemCompleted)
 --- @return vim.SystemObj
 local function system(cmd, opts, on_exit)
+  ---@diagnostic disable-next-line: param-type-not-match FIXME
   vim.validate({
     cmd = { cmd, 'table' },
     opts = { opts, 'table', true },
@@ -314,12 +319,12 @@ local function system(cmd, opts, on_exit)
     stderr_data = stderr_data,
   }
 
-  --- @diagnostic disable-next-line:missing-fields
+  --- @diagnostic disable-next-line:missing-fields, param-type-not-match
   state.handle, state.pid = spawn(assert(cmd[1]), {
     args = vim.list_slice(cmd, 2),
     stdio = { stdin, stdout, stderr },
     cwd = opts.cwd,
-    --- @diagnostic disable-next-line:assign-type-mismatch
+    --- @diagnostic disable-next-line: assign-type-mismatch luvit/luv#777
     env = setup_env(opts.env, opts.clear_env),
     detached = opts.detach,
     hide = true,
@@ -347,7 +352,7 @@ local function system(cmd, opts, on_exit)
   if opts.timeout then
     state.timer = timer_oneshot(opts.timeout, function()
       if state.handle and state.handle:is_active() then
-        --- @diagnostic disable-next-line: invisible
+        --- @diagnostic disable-next-line: access-invisible
         obj:_timeout()
       end
     end)

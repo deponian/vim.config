@@ -1,6 +1,7 @@
 local uv = vim.uv or vim.loop
 local fzf = require("fzf-lua")
 local shell = require "fzf-lua.shell"
+local libuv = require "fzf-lua.libuv"
 return {
   desc     = "hide interface instead of abort",
   keymap   = {
@@ -83,15 +84,23 @@ return {
         end
         return act
       end, opts.actions)
+      -- resize event was only added in fzf v0.46
+      if not FzfLua.utils.has(opts, "fzf", { 0, 46 }) then
+        return opts
+      end
       -- Hijack the resize event to reload buffer/tab list on unhide
-      opts.keymap.fzf.resize = "transform:" .. shell.raw_action(function(_, _, _)
-        if opts._unhide_called then
-          opts._unhide_called = nil
-          if opts.__reload_cmd then
-            return string.format("reload:%s", opts.__reload_cmd)
+      table.insert(opts._fzf_cli_args, "--bind=" .. libuv.shellescape("resize:+transform:"
+        .. shell.stringify_data(function(_, _, _)
+          if opts._unhide_called then
+            opts._unhide_called = nil
+            if type(opts._contents) == "string"
+                and (opts._resume_reload == true
+                  or type(opts._resume_reload) == "function" and opts._resume_reload(opts))
+            then
+              return string.format("reload:%s", opts._contents)
+            end
           end
-        end
-      end, "{q}", opts.debug)
+        end, opts)))
       return opts
     end,
   },

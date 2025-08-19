@@ -39,6 +39,9 @@ function M._man_cmd_fn(bat_pager)
   return string.format("%s %%s 2>/dev/null | %s", cmd, pager)
 end
 
+---missing fields are injected later, not sure how to tell luals about it
+---@diagnostic disable: missing-fields
+---@type fzf-lua.config.Defaults
 M.defaults                      = {
   nbsp          = utils.nbsp,
   winopts       = {
@@ -81,8 +84,7 @@ M.defaults                      = {
         list           = false,
         foldenable     = false,
         foldmethod     = "manual",
-        -- >0 to prevent scrolling issues (#500)
-        scrolloff      = 1,
+        scrolloff      = 0,
       },
     },
     -- on_create  = function(_)
@@ -336,7 +338,8 @@ M.defaults                      = {
 M.defaults.files                = {
   previewer              = M._default_previewer_fn,
   cmd                    = nil, -- default: auto detect find|fd
-  multiprocess           = true,
+  multiprocess           = 1,
+  _type                  = "file",
   file_icons             = 1,
   color_icons            = true,
   git_icons              = false,
@@ -356,8 +359,67 @@ M.defaults.files                = {
   toggle_hidden_flag     = "--hidden",
   toggle_follow_flag     = "-L",
   _actions               = function() return M.globals.actions.files end,
+  _headers               = { "actions", "cwd" },
   winopts                = { preview = { winopts = { cursorline = false } } },
 }
+
+---@diagnostic disable-next-line: assign-type-mismatch
+M.defaults.global               = vim.tbl_deep_extend("force", M.defaults.files, {
+  silent            = true,
+  -- TODO: lsp_workspace_symbols locate, not working yet
+  -- as opts.__locate_pos is inside the symbols picker opts
+  -- locate            = true,
+  cwd_prompt        = true,
+  line_query        = true,
+  pickers           = function()
+    local clients = utils.lsp_get_clients({ bufnr = utils.CTX().bufnr })
+    local doc_sym_supported = vim.iter(clients):any(function(client)
+      return client:supports_method("textDocument/documentSymbol")
+    end)
+    local wks_sym_supported = vim.iter(clients):any(function(client)
+      return client:supports_method("workspace/symbol")
+    end)
+    return {
+      { "files",   desc = "Files" },
+      { "buffers", desc = "Bufs", prefix = "$" },
+      doc_sym_supported and {
+        "lsp_document_symbols",
+        desc = "Symbols (buf)",
+        prefix = "@",
+        opts = { no_autoclose = true }
+      } or {
+        "btags",
+        desc = "Tags (buf)",
+        prefix = "@",
+        opts = {
+          previewer    = { _ctor = previewers.builtin.tags },
+          fn_transform = [[return require("fzf-lua.make_entry").tag]],
+        }
+      },
+      wks_sym_supported and
+      {
+        "lsp_workspace_symbols",
+        desc = "Symbols (project)",
+        prefix = "#",
+        opts = { no_autoclose = true }
+      } or {
+        "tags",
+        desc = "Tags (project)",
+        prefix = "#",
+        opts = {
+          previewer    = { _ctor = previewers.builtin.tags },
+          fn_transform = [[return require("fzf-lua.make_entry").tag]],
+          rg_opts      = "--no-heading --color=always --smart-case",
+          grep_opts    = "--color=auto --perl-regexp",
+        }
+      },
+    }
+  end,
+  fzf_opts          = { ["--nth"] = false, ["--with-nth"] = false },
+  winopts           = { preview = { winopts = { cursorline = true } } },
+  _ctx              = { includeBuflist = true }, -- we include a buffer picker
+  _fzf_nth_devicons = false,
+})
 
 -- Must construct our opts table in stages
 -- so we can reference 'M.globals.files'
@@ -365,13 +427,15 @@ M.defaults.git                  = {
   files = {
     previewer         = M._default_previewer_fn,
     cmd               = "git ls-files --exclude-standard",
-    multiprocess      = true,
+    multiprocess      = 1,
+    _type             = "file",
     file_icons        = 1,
     color_icons       = true,
     git_icons         = true,
     fzf_opts          = { ["--multi"] = true, ["--scheme"] = "path" },
     _fzf_nth_devicons = true,
     _actions          = function() return M.globals.actions.files end,
+    _headers          = { "cwd" },
     winopts           = { preview = { winopts = { cursorline = false } } },
   },
   status = {
@@ -380,11 +444,14 @@ M.defaults.git                  = {
     cmd               = "git -c color.status=false --no-optional-locks status --porcelain=v1 -u",
     previewer         = "git_diff",
     multiprocess      = true,
+    fn_transform      = [[return require("fzf-lua.make_entry").git_status]],
+    fn_preprocess     = [[return require("fzf-lua.make_entry").preprocess]],
     file_icons        = 1,
     color_icons       = true,
     fzf_opts          = { ["--multi"] = true },
     _fzf_nth_devicons = true,
     _actions          = function() return M.globals.actions.files end,
+    _headers          = { "actions", "cwd" },
     actions           = {
       ["right"]  = { fn = actions.git_unstage, reload = true },
       ["left"]   = { fn = actions.git_stage, reload = true },
@@ -399,18 +466,22 @@ M.defaults.git                  = {
     ref               = "HEAD",
     preview           = "git diff {ref} {file}",
     preview_pager     = M._preview_pager_fn,
-    multiprocess      = true,
+    multiprocess      = 1,
+    _type             = "file",
     file_icons        = 1,
     color_icons       = true,
     fzf_opts          = { ["--multi"] = true },
     _fzf_nth_devicons = true,
     _actions          = function() return M.globals.actions.files end,
+    _headers          = { "cwd" },
   },
   hunks = {
     previewer         = M._default_previewer_fn,
     cmd               = "git --no-pager diff --color=always {ref}",
     ref               = "HEAD",
     multiprocess      = true,
+    fn_transform      = [[return require("fzf-lua.make_entry").git_hunk]],
+    fn_preprocess     = [[return require("fzf-lua.make_entry").preprocess]],
     file_icons        = 1,
     color_icons       = true,
     fzf_opts          = {
@@ -420,6 +491,7 @@ M.defaults.git                  = {
     },
     _fzf_nth_devicons = true,
     _actions          = function() return M.globals.actions.files end,
+    _headers          = { "cwd" },
   },
   commits = {
     cmd           = [[git log --color --pretty=format:"%C(yellow)%h%Creset ]]
@@ -431,6 +503,7 @@ M.defaults.git                  = {
       ["ctrl-y"] = { fn = actions.git_yank_commit, exec_silent = true },
     },
     fzf_opts      = { ["--no-multi"] = true },
+    _headers      = { "actions", "cwd" },
     _multiline    = false,
   },
   bcommits = {
@@ -446,6 +519,7 @@ M.defaults.git                  = {
       ["ctrl-y"] = { fn = actions.git_yank_commit, exec_silent = true },
     },
     fzf_opts      = { ["--no-multi"] = true },
+    _headers      = { "actions", "cwd" },
     _multiline    = false,
   },
   blame = {
@@ -476,6 +550,7 @@ M.defaults.git                  = {
     cmd_add    = { "git", "branch" },
     cmd_del    = { "git", "branch", "--delete" },
     fzf_opts   = { ["--no-multi"] = true },
+    _headers   = { "actions", "cwd" },
     _multiline = false,
   },
   tags = {
@@ -487,6 +562,7 @@ M.defaults.git                  = {
         .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset" {1}]],
     actions    = { ["enter"] = actions.git_checkout },
     fzf_opts   = { ["--no-multi"] = true },
+    _headers   = { "cwd" },
     _multiline = false,
   },
   stash = {
@@ -504,6 +580,7 @@ M.defaults.git                  = {
       ["--no-multi"]  = true,
       ["--delimiter"] = "[:]",
     },
+    _headers      = { "actions", "cwd", "search" },
   },
   icons = {
     ["M"] = { icon = "M", color = "yellow" },
@@ -520,7 +597,8 @@ M.defaults.grep                 = {
   previewer      = M._default_previewer_fn,
   input_prompt   = "Grep For> ",
   cmd            = nil, -- default: auto detect rg|grep
-  multiprocess   = true,
+  multiprocess   = 1,
+  _type          = "file",
   file_icons     = 1,
   color_icons    = true,
   git_icons      = false,
@@ -539,8 +617,10 @@ M.defaults.grep                 = {
   glob_flag      = "--iglob", -- for case sensitive globs use '--glob'
   glob_separator = "%s%-%-",  -- query separator pattern (lua): ' --'
   _treesitter    = true,
+  _headers       = { "actions", "cwd" },
 }
 
+---@diagnostic disable-next-line: assign-type-mismatch
 M.defaults.grep_curbuf          = vim.tbl_deep_extend("force", M.defaults.grep, {
   rg_glob          = false, -- meaningless for single file rg
   exec_empty_query = true,  -- makes sense to display lines immediately
@@ -561,6 +641,7 @@ M.defaults.args                 = {
   _fzf_nth_devicons = true,
   _actions          = function() return M.globals.actions.files end,
   actions           = { ["ctrl-x"] = { fn = actions.arg_del, reload = true } },
+  _headers          = { "actions", "cwd" },
 }
 
 M.defaults.oldfiles             = {
@@ -572,6 +653,7 @@ M.defaults.oldfiles             = {
   fzf_opts          = { ["--tiebreak"] = "index", ["--multi"] = true },
   _fzf_nth_devicons = true,
   _actions          = function() return M.globals.actions.files end,
+  _headers          = { "cwd" },
 }
 
 M.defaults.quickfix             = {
@@ -580,11 +662,17 @@ M.defaults.quickfix             = {
   file_icons  = 1,
   color_icons = true,
   git_icons   = false,
-  only_valid  = false,
-  fzf_opts    = { ["--multi"] = true },
+  valid_only  = false,
+  fzf_opts    = {
+    ["--multi"]     = true,
+    ["--delimiter"] = "[\\]:]",
+    ["--with-nth"]  = "2..",
+  },
+  actions     = { ["ctrl-x"] = { fn = actions.list_del, reload = true } },
   _actions    = function() return M.globals.actions.files end,
   _treesitter = true,
   _cached_hls = { "path_colnr", "path_linenr" },
+  _headers    = { "actions", "cwd" },
 }
 
 M.defaults.quickfix_stack       = {
@@ -600,11 +688,17 @@ M.defaults.loclist              = {
   file_icons  = 1,
   color_icons = true,
   git_icons   = false,
-  only_valid  = false,
-  fzf_opts    = { ["--multi"] = true },
+  valid_only  = false,
+  fzf_opts    = {
+    ["--multi"]     = true,
+    ["--delimiter"] = "[\\]:]",
+    ["--with-nth"]  = "2..",
+  },
+  actions     = { ["ctrl-x"] = { fn = actions.list_del, reload = true } },
   _actions    = function() return M.globals.actions.files end,
   _treesitter = true,
   _cached_hls = { "path_colnr", "path_linenr" },
+  _headers    = { "actions", "cwd" },
 }
 
 M.defaults.loclist_stack        = {
@@ -615,6 +709,7 @@ M.defaults.loclist_stack        = {
 }
 
 M.defaults.buffers              = {
+  _type                 = "file",
   previewer             = M._default_previewer_fn,
   file_icons            = 1,
   color_icons           = true,
@@ -631,28 +726,35 @@ M.defaults.buffers              = {
   end,
   actions               = { ["ctrl-x"] = { fn = actions.buf_del, reload = true } },
   _cached_hls           = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "path_linenr" },
+  _headers              = { "actions", "cwd" },
+  _ctx                  = { includeBuflist = true },
+  _resume_reload        = true,
 }
 
 M.defaults.tabs                 = {
-  previewer   = M._default_previewer_fn,
-  tab_title   = "Tab",
-  tab_marker  = "<<",
-  locate      = true,
-  file_icons  = 1,
-  color_icons = true,
-  _actions    = function()
+  _type          = "file",
+  previewer      = M._default_previewer_fn,
+  tab_title      = "Tab",
+  tab_marker     = "<<",
+  locate         = true,
+  file_icons     = 1,
+  color_icons    = true,
+  _actions       = function()
     return M.globals.actions.buffers or M.globals.actions.files
   end,
-  actions     = {
+  actions        = {
     ["enter"]  = actions.buf_switch,
     ["ctrl-x"] = { fn = actions.buf_del, reload = true },
   },
-  fzf_opts    = {
+  fzf_opts       = {
     ["--multi"]     = true,
     ["--delimiter"] = "[\\):]",
     ["--with-nth"]  = "5..",
   },
-  _cached_hls = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker", "path_linenr" },
+  _cached_hls    = { "buf_nr", "buf_flag_cur", "buf_flag_alt", "tab_title", "tab_marker", "path_linenr" },
+  _headers       = { "actions", "cwd" },
+  _ctx           = { includeBuflist = true },
+  _resume_reload = true,
 }
 
 M.defaults.lines                = {
@@ -692,8 +794,10 @@ M.defaults.lines                = {
   _actions         = function()
     return M.globals.actions.buffers or M.globals.actions.files
   end,
+  _ctx             = { includeBuflist = true },
 }
 
+---@diagnostic disable-next-line: assign-type-mismatch
 M.defaults.blines               = vim.tbl_deep_extend("force", M.defaults.lines, {
   show_bufname    = false,
   show_unloaded   = true,
@@ -703,6 +807,7 @@ M.defaults.blines               = vim.tbl_deep_extend("force", M.defaults.lines,
     ["--with-nth"] = "4..",
     ["--nth"]      = "2..",
   },
+  _resume_reload  = true,
 })
 
 M.defaults.treesitter           = {
@@ -747,6 +852,7 @@ M.defaults.spellcheck           = {
     ["ctrl-s"] = { fn = actions.spell_suggest, header = "spell suggest" }
   },
   _cached_hls      = { "buf_name", "buf_nr", "buf_linenr", "path_colnr" },
+  _headers         = { "actions" },
   _fmt             = {
     to   = false,
     from = function(s, _)
@@ -756,23 +862,25 @@ M.defaults.spellcheck           = {
 }
 
 M.defaults.tags                 = {
-  previewer    = { _ctor = previewers.builtin.tags },
-  input_prompt = "[tags] Grep For> ",
-  ctags_file   = nil, -- auto-detect
-  rg_opts      = "--no-heading --color=always --smart-case",
-  grep_opts    = "--color=auto --perl-regexp",
-  multiprocess = true,
-  file_icons   = 1,
-  git_icons    = false,
-  color_icons  = true,
-  fzf_opts     = {
+  previewer     = { _ctor = previewers.builtin.tags },
+  input_prompt  = "[tags] Grep For> ",
+  ctags_file    = nil, -- auto-detect
+  rg_opts       = "--no-heading --color=always --smart-case",
+  grep_opts     = "--color=auto --perl-regexp",
+  multiprocess  = true,
+  fn_transform  = [[return require("fzf-lua.make_entry").tag]],
+  fn_preprocess = [[return require("fzf-lua.make_entry").preprocess]],
+  file_icons    = 1,
+  git_icons     = false,
+  color_icons   = true,
+  fzf_opts      = {
     ["--no-multi"]  = true,
     ["--delimiter"] = string.format("[:%s]", utils.nbsp),
     ["--tiebreak"]  = "begin",
   },
-  _actions     = function() return M.globals.actions.files end,
-  actions      = { ["ctrl-g"] = { actions.grep_lgrep } },
-  formatter    = false,
+  _actions      = function() return M.globals.actions.files end,
+  actions       = { ["ctrl-g"] = { actions.grep_lgrep } },
+  formatter     = false,
 }
 
 M.defaults.btags                = {
@@ -781,6 +889,8 @@ M.defaults.btags                = {
   rg_opts       = "--color=never --no-heading",
   grep_opts     = "--color=never --perl-regexp",
   multiprocess  = true,
+  fn_transform  = [[return require("fzf-lua.make_entry").tag]],
+  fn_preprocess = [[return require("fzf-lua.make_entry").preprocess]],
   file_icons    = false,
   git_icons     = false,
   color_icons   = true,
@@ -801,6 +911,7 @@ M.defaults.colorschemes         = {
   winopts      = { height = 0.55, width = 0.50, backdrop = false },
   fzf_opts     = { ["--no-multi"] = true },
   actions      = { ["enter"] = actions.colorscheme },
+  _headers     = { "actions" },
 }
 
 M.defaults.highlights           = {
@@ -828,7 +939,7 @@ M.defaults.awesome_colorschemes = {
   actions      = {
     ["enter"]  = actions.colorscheme,
     ["ctrl-g"] = { fn = actions.toggle_bg, exec_silent = true },
-    ["ctrl-r"] = { fn = actions.cs_update, reload = true },
+    ["ctrl-d"] = { fn = actions.cs_update, reload = true },
     ["ctrl-x"] = { fn = actions.cs_delete, reload = true },
   }
 }
@@ -877,10 +988,12 @@ M.defaults.lsp                  = {
   _treesitter      = true,
   -- Signals actions to use uri triggering the use of `lsp.util.show_document`
   _uri             = true,
+  _headers         = { "actions", "regex_filter" },
 }
 
 M.defaults.lsp.symbols          = {
   previewer        = M._default_previewer_fn,
+  locate           = false,
   file_icons       = 1,
   color_icons      = true,
   git_icons        = false,
@@ -947,6 +1060,7 @@ M.defaults.lsp.symbols          = {
   _actions         = function() return M.globals.actions.files end,
   actions          = { ["ctrl-g"] = { actions.sym_lsym } },
   _cached_hls      = { "live_sym", "path_colnr", "path_linenr" },
+  _headers         = { "actions", "cwd", "regex_filter" },
   _uri             = true,
 }
 
@@ -982,6 +1096,7 @@ M.defaults.lsp.finder           = {
   fzf_opts    = { ["--multi"] = true },
   _treesitter = true,
   _cached_hls = { "path_colnr", "path_linenr" },
+  _headers    = { "actions", "regex_filter" },
   _uri        = true,
 }
 
@@ -1012,6 +1127,7 @@ M.defaults.diagnostics          = {
   },
   _actions       = function() return M.globals.actions.files end,
   _cached_hls    = { "path_colnr", "path_linenr" },
+  _headers       = { "actions", "cwd" },
   -- signs = {
   --   ["Error"] = { text = "e", texthl = "DiagnosticError" },
   --   ["Warn"]  = { text = "w", texthl = "DiagnosticWarn" },
@@ -1050,8 +1166,10 @@ M.defaults.marks                = {
 }
 
 M.defaults.changes              = {
-  cmd = "changes",
-  h1 = "change",
+  cmd       = "changes",
+  h1        = "change",
+  actions   = { ["enter"] = actions.goto_jump },
+  previewer = { _ctor = previewers.builtin.jumps },
 }
 
 M.defaults.jumps                = {
@@ -1095,6 +1213,7 @@ M.defaults.command_history      = {
     ["enter"]  = actions.ex_run_cr,
     ["ctrl-e"] = actions.ex_run,
   },
+  _headers    = { "actions" },
 }
 
 M.defaults.search_history       = {
@@ -1105,6 +1224,7 @@ M.defaults.search_history       = {
     ["enter"]  = actions.search_cr,
     ["ctrl-e"] = actions.search,
   },
+  _headers    = { "actions" },
 }
 
 M.defaults.registers            = {
@@ -1200,6 +1320,7 @@ M.defaults.dap                  = {
       ["--with-nth"]  = "2..",
     },
     _cached_hls = { "path_colnr", "path_linenr" },
+    _headers    = { "actions", "cwd" },
   },
 }
 
@@ -1208,7 +1329,8 @@ M.defaults.complete_path        = {
   file_icons        = false,
   git_icons         = false,
   color_icons       = true,
-  multiprocess      = true,
+  multiprocess      = 1,
+  _type             = "file",
   word_pattern      = nil,
   fzf_opts          = { ["--no-multi"] = true },
   _fzf_nth_devicons = true,
@@ -1217,7 +1339,8 @@ M.defaults.complete_path        = {
 
 M.defaults.complete_file        = {
   cmd               = nil, -- default: auto detect rg|fd|find
-  multiprocess      = true,
+  multiprocess      = 1,
+  _type             = "file",
   file_icons        = 1,
   color_icons       = true,
   git_icons         = false,
@@ -1231,11 +1354,13 @@ M.defaults.complete_file        = {
 }
 
 M.defaults.zoxide               = {
-  multiprocess = true,
-  cmd          = "zoxide query --list --score",
-  git_root     = false,
-  formatter    = "path.dirname_first",
-  fzf_opts     = {
+  multiprocess  = true,
+  fn_transform  = [[return require("fzf-lua.make_entry").zoxide]],
+  fn_preprocess = [[nil]],
+  cmd           = "zoxide query --list --score",
+  git_root      = false,
+  formatter     = "path.dirname_first",
+  fzf_opts      = {
     ["--no-multi"]  = true,
     ["--delimiter"] = "[\t]",
     ["--tabstop"]   = "4",
@@ -1243,7 +1368,7 @@ M.defaults.zoxide               = {
     ["--nth"]       = "2..",
     ["--no-sort"]   = true, -- sort by score
   },
-  actions      = { enter = actions.cd }
+  actions       = { enter = actions.cd }
 }
 
 M.defaults.complete_line        = { complete = true }

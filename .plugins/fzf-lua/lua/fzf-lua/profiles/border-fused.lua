@@ -38,8 +38,29 @@ return {
       scrollbar = "border",
       border = function(_, m)
         if m.type == "fzf" then
-          -- Always return none, let `bat --style=default` to draw our border
-          return "single"
+          if FzfLua.utils.has(m.opts, "fzf", { 0, 63 }) then
+            return "border-line"
+          else
+            return "border-sharp"
+          end
+        elseif m.opts.winopts.split then
+          assert(m.type == "nvim" and m.name == "prev" and type(m.layout) == "string")
+          -- default rounded: { "╭", "─", "╮", "│", "╯", "─", "╰", "│" }
+          local b = { "", "", "", "", "", "", "", "" }
+          if m.layout == "down" then
+            b[1] = "─"
+            b[2] = "─"
+            b[3] = "─"
+          elseif m.layout == "up" then
+            b[5] = "─"
+            b[6] = "─"
+            b[7] = "─"
+          elseif m.layout == "left" then
+            b[4] = "│"
+          else   -- right
+            b[8] = "│"
+          end
+          return b
         else
           assert(m.type == "nvim" and m.name == "prev" and type(m.layout) == "string")
           local b = vim.deepcopy(_border)

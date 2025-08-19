@@ -72,27 +72,27 @@ local function setup_cwd_watcher(cwd, towatch)
 
   local debounce_trailing = require('gitsigns.debounce').debounce_trailing
 
-  local update_head = debounce_trailing(
-    100,
-    --- @diagnostic disable-next-line: param-type-mismatch
-    async().async(function()
-      local git = require('gitsigns.git')
-      local info = git.Repo.get_info(cwd) or {}
-      local new_head = info.abbrev_head
-      async().schedule()
-      if new_head ~= vim.g.gitsigns_head then
-        vim.g.gitsigns_head = new_head
-        api.nvim_exec_autocmds('User', {
-          pattern = 'GitSignsUpdate',
-          modeline = false,
-        })
-      end
-    end)
-  )
+  local update_head = debounce_trailing(100, function()
+    async()
+      .run(function()
+        local git = require('gitsigns.git')
+        local info = git.Repo.get_info(cwd) or {}
+        local new_head = info.abbrev_head
+        async().schedule()
+        if new_head ~= vim.g.gitsigns_head then
+          vim.g.gitsigns_head = new_head
+          api.nvim_exec_autocmds('User', {
+            pattern = 'GitSignsUpdate',
+            modeline = false,
+          })
+        end
+      end)
+      :raise_on_error()
+  end)
 
   -- Watch .git/HEAD to detect branch changes
   cwd_watcher:start(towatch, {}, function()
-    async().arun(function(err)
+    async().run(function(err)
       local __FUNC__ = 'cwd_watcher_cb'
       if err then
         log().dprintf('Git dir update error: %s', err)
@@ -177,7 +177,7 @@ local function setup_attach()
         log().dprint('Attaching is disabled')
         return
       end
-      require('gitsigns.attach').attach(bufnr, nil, args.event)
+      require('gitsigns.actions').attach(bufnr, nil, args.event)
     end,
   })
 
@@ -198,7 +198,7 @@ local function setup_attach()
       if api.nvim_buf_is_loaded(buf) and api.nvim_buf_get_name(buf) ~= '' then
         -- Make sure to run each attach in its on async context in case one of the
         -- attaches is aborted.
-        require('gitsigns.attach').attach(buf, nil, 'setup')
+        require('gitsigns.actions').attach(buf, nil, 'setup')
       end
     end
   end
@@ -207,7 +207,7 @@ end
 local function setup_cwd_head()
   local debounce_trailing = require('gitsigns.debounce').debounce_trailing
   local update_cwd_head_debounced = debounce_trailing(100, function()
-    async().arun(update_cwd_head):raise_on_error()
+    async().run(update_cwd_head):raise_on_error()
   end)
 
   update_cwd_head_debounced()
@@ -257,11 +257,6 @@ end
 --- @type gitsigns.main|gitsigns.actions|gitsigns.attach|gitsigns.debug
 M = setmetatable(M, {
   __index = function(_, f)
-    local attach = require('gitsigns.attach')
-    if attach[f] then
-      return attach[f]
-    end
-
     local actions = require('gitsigns.actions')
     if actions[f] then
       return actions[f]

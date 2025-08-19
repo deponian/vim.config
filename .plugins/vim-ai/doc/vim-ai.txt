@@ -45,6 +45,15 @@ Options: >
   \    "token_load_fn": "",
   \    "selection_boundary": "#####",
   \    "initial_prompt": s:initial_complete_prompt,
+  \    "frequency_penalty": "",
+  \    "logit_bias": "",
+  \    "logprobs": "",
+  \    "presence_penalty": "",
+  \    "reasoning_effort": "",
+  \    "seed": "",
+  \    "stop": "",
+  \    "top_logprobs": "",
+  \    "top_p": "",
   \  },
   \  "ui": {
   \    "paste_mode": 1,
@@ -86,6 +95,15 @@ Options: >
   \    "token_load_fn": "",
   \    "selection_boundary": "#####",
   \    "initial_prompt": s:initial_complete_prompt,
+  \    "frequency_penalty": "",
+  \    "logit_bias": "",
+  \    "logprobs": "",
+  \    "presence_penalty": "",
+  \    "reasoning_effort": "",
+  \    "seed": "",
+  \    "stop": "",
+  \    "top_logprobs": "",
+  \    "top_p": "",
   \  },
   \  "ui": {
   \    "paste_mode": 1,
@@ -125,9 +143,19 @@ Options: >
   \    "token_load_fn": "",
   \    "selection_boundary": "",
   \    "initial_prompt": s:initial_chat_prompt,
+  \    "frequency_penalty": "",
+  \    "logit_bias": "",
+  \    "logprobs": "",
+  \    "presence_penalty": "",
+  \    "reasoning_effort": "",
+  \    "seed": "",
+  \    "stop": "",
+  \    "top_logprobs": "",
+  \    "top_p": "",
   \  },
   \  "ui": {
   \    "populate_options": 0,
+  \    "populate_all_options": 0,
   \    "open_chat_command": "preset_below",
   \    "scratch_buffer_keep_open": 0,
   \    "paste_mode": 1,
@@ -136,6 +164,13 @@ Options: >
 
 Check OpenAI docs for more information:
 https://platform.openai.com/docs/api-reference/chat
+
+                                                *:AIStopChat*
+AIStopChat                          Cancel the currently running AI chat
+                                    generation for the active chat buffer.
+                                    If no task is running or if it has already
+                                    completed, this command has no effect.
+
 
 INCLUDE FILES                                  *vim-ai-include*
 

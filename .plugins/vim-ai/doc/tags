@@ -3,6 +3,7 @@
 :AIEdit	vim-ai.txt	/*:AIEdit*
 :AIImage	vim-ai.txt	/*:AIImage*
 :AIRedo	vim-ai.txt	/*:AIRedo*
+:AIStopChat	vim-ai.txt	/*:AIStopChat*
 :AIUtilDebugOff	vim-ai.txt	/*:AIUtilDebugOff*
 :AIUtilDebugOn	vim-ai.txt	/*:AIUtilDebugOn*
 :AIUtilRolesOpen	vim-ai.txt	/*:AIUtilRolesOpen*

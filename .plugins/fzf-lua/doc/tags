@@ -1,5 +1,6 @@
 fzf-lua-available-profiles	fzf-lua.txt	/*fzf-lua-available-profiles*
 fzf-lua-buffers-and-files	fzf-lua.txt	/*fzf-lua-buffers-and-files*
+fzf-lua-combining-pickers	fzf-lua.txt	/*fzf-lua-combining-pickers*
 fzf-lua-coming-from-fzf.vim?	fzf-lua.txt	/*fzf-lua-coming-from-fzf.vim?*
 fzf-lua-commands	fzf-lua.txt	/*fzf-lua-commands*
 fzf-lua-completion-functions	fzf-lua.txt	/*fzf-lua-completion-functions*
@@ -11,6 +12,7 @@ fzf-lua-extensibility	fzf-lua.txt	/*fzf-lua-extensibility*
 fzf-lua-fzf-:heart:-lua	fzf-lua.txt	/*fzf-lua-fzf-:heart:-lua*
 fzf-lua-fzf-colors	fzf-lua.txt	/*fzf-lua-fzf-colors*
 fzf-lua-git	fzf-lua.txt	/*fzf-lua-git*
+fzf-lua-global-picker	fzf-lua.txt	/*fzf-lua-global-picker*
 fzf-lua-highlight-groups	fzf-lua.txt	/*fzf-lua-highlight-groups*
 fzf-lua-highlights	fzf-lua.txt	/*fzf-lua-highlights*
 fzf-lua-inline-customization	fzf-lua.txt	/*fzf-lua-inline-customization*
