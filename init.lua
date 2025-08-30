@@ -52,7 +52,7 @@ require("lazy").setup({
   require("configs.nvim-cmp"),
   require("configs.nvim-colorizer"),
   require("configs.nvim-lint"),
-  require("configs.nvim-lspconfig"),
+  require("configs.lsp"),
   require("configs.nvim-tree"),
   require("configs.others"),
   require("configs.scalpelua"),
