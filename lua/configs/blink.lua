@@ -106,6 +106,15 @@ M.opts = {
       },
     }
   },
+
+  cmdline = {
+    keymap = { preset = 'inherit' },
+    completion = {
+      menu = {
+        auto_show = true
+      }
+    },
+  },
 }
 
 return M
