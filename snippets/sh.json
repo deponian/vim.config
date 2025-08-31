@@ -1,0 +1,30 @@
+{
+  "shebang": {
+    "prefix": ["shebang"],
+    "body": [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "shopt -s extglob nullglob",
+      "IFS=\\$'\\n\\t'", "", ""
+    ],
+    "description": "Shebang"
+  },
+  "foreachline": {
+    "prefix": ["foreachline"],
+    "body": [
+      "while read -r line; do",
+      "\techo \"\\${line}\"",
+      "\t${1}", "done < file.txt", ""
+    ],
+    "description": "Do something for each line in a file"
+  },
+  "heredoc": {
+    "prefix": ["heredoc", "catmultiline"],
+    "body": [
+      "cat <<- EOF",
+      "${1}",
+      "EOF"
+    ],
+    "description": "Shell heredoc"
+  }
+}
