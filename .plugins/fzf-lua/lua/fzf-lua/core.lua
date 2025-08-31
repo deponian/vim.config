@@ -169,6 +169,7 @@ end
 ---@return boolean
 M.can_transform = function(opts)
   return utils.has(opts, "fzf", { 0, 45 })
+      and opts.fn_reload -- currently only used for "live" picker
       and opts.rg_glob
       and not opts.multiprocess
       and not opts.fn_transform
@@ -177,12 +178,12 @@ M.can_transform = function(opts)
 end
 
 ---@param contents string|fun(query: string[]): string|string[]|function?
----@param opts? table
+---@param opts? fzf-lua.config.Base|{}
 ---@return thread?, string?, table?
 M.fzf_live = function(contents, opts)
+  opts.fn_reload = true
   opts = config.normalize_opts(opts or {}, {})
   if not opts then return end
-  opts.fn_reload = contents
   -- AKA "live": fzf acts as a selector only (fuzzy matching is disabled)
   -- each keypress reloads fzf's input usually based on the typed query
   -- utilizes fzf's 'change:reload' event or skim's "interactive" mode
@@ -201,7 +202,7 @@ M.fzf_live = function(contents, opts)
   if type(contents) == "function" and M.can_transform(opts) then
     local cmd = shell.stringify_data(contents, opts, fzf_field_index)
     M.setup_fzf_live_flags(cmd, fzf_field_index, opts)
-    return M.fzf_wrap(utils.shell_nop(), opts, true)
+    return M.fzf_wrap(cmd, opts, true)
   end
   local cmd0 = contents ---@type string
   local func_contents = type(contents) == "function"
@@ -216,7 +217,7 @@ M.fzf_live = function(contents, opts)
       shell.stringify(func_contents, opts, fzf_field_index)
   cmd = mt and M.expand_query(cmd, fzf_field_index) or cmd
   M.setup_fzf_live_flags(cmd, fzf_field_index, opts)
-  return M.fzf_wrap(utils.shell_nop(), opts, true)
+  return M.fzf_wrap(cmd, opts, true)
 end
 
 M.fzf_resume = function(opts)
@@ -227,6 +228,7 @@ M.fzf_resume = function(opts)
     return
   end
   opts = utils.tbl_deep_extend("force", config.__resume_data.opts, opts or {})
+  utils.set_info(opts.__INFO) -- restore original picker info
   assert(opts == config.__resume_data.opts)
   opts.cwd = opts.cwd and libuv.expand(opts.cwd) or nil
   M.fzf_wrap(config.__resume_data.contents, config.__resume_data.opts)
@@ -235,7 +237,7 @@ end
 ---@param cmd string?
 ---@param opts table
 ---@param convert_actions boolean?
----@return thread, string, table
+---@return thread?, string, table
 M.fzf_wrap = function(cmd, opts, convert_actions)
   opts = opts or {}
   M.set_header(opts)
@@ -243,31 +245,32 @@ M.fzf_wrap = function(cmd, opts, convert_actions)
     opts = M.convert_reload_actions(cmd, opts)
     opts = M.convert_exec_silent_actions(opts)
   end
-  local _co
-  local wrapped = coroutine.wrap(function()
-    _co = coroutine.running()
-    if type(opts.cb_co) == "function" then opts.cb_co(_co) end
-    local selected, exit_code = M.fzf(cmd, opts)
-    -- If aborted (e.g. unhide process kill), do nothing
-    if not tonumber(exit_code) then return end
-    -- Default fzf exit callback acts upon the selected items
-    local fn_selected = opts.fn_selected or actions.act
-    if not fn_selected then return end
-    -- errors thrown here gets silenced possibly
-    -- due to a coroutine, so catch explicitly
-    local _, err = pcall(fn_selected, selected, opts)
-    -- ignore existing swap file error, the choices dialog will still be
-    -- displayed to user to make a selection once fzf-lua exits (#1011)
-    if err and err:match("Vim%(edit%):E325") then
-      return
-    end
-    utils.error("fn_selected threw an error: " .. debug.traceback(err, 1))
-  end)
   -- Do not strt fzf, return the stringified contents and opts onlu
   -- used by the "combine" picker to merge inputs
-  if opts._start ~= false then
-    wrapped()
-  end
+  if opts._start == false then return nil, cmd, opts end
+  local _co, fn_selected
+  coroutine.wrap(function()
+    _co = coroutine.running()
+    -- xpcall to get full traceback https://www.lua.org/pil/8.5.html
+    local _, err = xpcall(function()
+      if type(opts.cb_co) == "function" then opts.cb_co(_co) end
+      local selected, exit_code = M.fzf(cmd, opts)
+      -- If aborted (e.g. unhide process kill), do nothing
+      if not tonumber(exit_code) then return end
+      -- Default fzf exit callback acts upon the selected items
+      fn_selected = opts.fn_selected or actions.act
+      if not fn_selected then return end
+      -- errors thrown here gets silenced possibly
+      -- due to a coroutine, so catch explicitly
+      fn_selected(selected, opts)
+    end, debug.traceback)
+    -- ignore existing swap file error, the choices dialog will still be
+    -- displayed to user to make a selection once fzf-lua exits (#1011)
+    if err then
+      if fn_selected and err:match("Vim%(edit%):E325") then return end
+      utils.error("fn_selected threw an error: " .. err)
+    end
+  end)()
   return _co, cmd, opts
 end
 
@@ -325,31 +328,12 @@ M.fzf = function(contents, opts)
   if previewer then
     -- Attach the previewer to the windows
     fzf_win:attach_previewer(previewer)
-    -- Set the preview command line
-    opts.preview = previewer:cmdline()
-    -- fzf 0.40 added 'zero' event for when there's no match
-    -- clears the preview when there are no matching entries
-    if utils.has(opts, "fzf", { 0, 40 }) and previewer.zero then
-      table.insert(opts._fzf_cli_args, "--bind="
-        .. libuv.shellescape("zero:+" .. previewer:zero()))
+    -- Setup --preview/--preview-window/--bind=zero:... etc
+    if type(previewer.setup_opts) == "function" then
+      opts = previewer:setup_opts(opts)
     end
-    if type(previewer.preview_window) == "function" then
-      -- do we need to override the preview_window args?
-      -- this can happen with the builtin previewer
-      -- (1) when using a split we use the previewer as placeholder
-      -- (2) we use 'nohidden:right:0' to trigger preview function
-      --     calls without displaying the native fzf previewer split
-      opts.fzf_opts["--preview-window"] = previewer:preview_window()
-    end
-    -- provides preview offset when using native previewers
-    -- (bat/cat/etc) with providers that supply line numbers
-    -- (grep/quickfix/LSP)
-    if type(previewer.fzf_delimiter) == "function" then
-      opts.fzf_opts["--delimiter"] = previewer:fzf_delimiter()
-    end
-    if opts.preview_offset == nil and type(previewer._preview_offset) == "function" then
-      opts.preview_offset = previewer:_preview_offset()
-    end
+  elseif opts.preview and type(opts.preview) ~= "string" then
+    opts.preview = require("fzf-lua.previewer").normalize_spec(opts.preview, opts)
   elseif not opts.preview and not opts.fzf_opts["--preview"] then
     -- no preview available, override in case $FZF_DEFAULT_OPTS
     -- contains a preview which will most likely fail
@@ -370,15 +354,14 @@ M.fzf = function(contents, opts)
       -- Only enable flex layout native rotate if native previewer size > 0
       and not (opts.fzf_opts["--preview-window"] or ""):match(":0")
   then
-    table.insert(opts._fzf_cli_args, "--bind="
-      .. libuv.shellescape("resize:+transform:" .. shell.stringify_data(function(args)
-        -- Only set the layout if preview isn't hidden
-        if not tonumber(args[1]) then return end
-        -- NOTE: do not use local ref `fzf_win` as it my change on resume (#2255)
-        local winobj = utils.fzf_winobj()
-        if not winobj then return end
-        return string.format("change-preview-window(%s)", winobj:fzf_preview_layout_str())
-      end, opts, utils.__IS_WINDOWS and "%FZF_PREVIEW_LINES%" or "$FZF_PREVIEW_LINES")))
+    win.on_SIGWINCH(opts, nil, function(args)
+      -- Only set the layout if preview isn't hidden
+      if not tonumber(args[1]) then return end
+      -- NOTE: do not use local ref `fzf_win` as it my change on resume (#2255)
+      local winobj = utils.fzf_winobj()
+      if not winobj then return end
+      return string.format("change-preview-window(%s)", winobj:normalize_preview_layout().str)
+    end)
   end
 
   local selected, exit_code = fzf.raw_fzf(contents, M.build_fzf_cli(opts),
@@ -435,6 +418,9 @@ M.fzf = function(contents, opts)
 end
 
 -- Best approximation of neovim border types to fzf border types
+---@param winopts fzf-lua.config.Winopts|{}
+---@param metadata fzf-lua.win.borderMetadata
+---@return string|table
 local function translate_border(winopts, metadata)
   local neovim2fzf = {
     none       = "noborder",
@@ -631,29 +617,6 @@ M.build_fzf_cli = function(opts)
   for _, flag in ipairs({ "query", "prompt", "header", "preview" }) do
     if opts[flag] ~= nil then
       opts.fzf_opts["--" .. flag] = opts[flag]
-    end
-  end
-  -- convert preview action functions to strings using our shell wrapper
-  do
-    local preview_cmd
-    local preview_spec = opts.fzf_opts["--preview"]
-    if type(preview_spec) == "function" then
-      preview_cmd = shell.stringify_data(preview_spec, opts, "{}")
-    elseif type(preview_spec) == "table" then
-      preview_spec = vim.tbl_extend("keep", preview_spec, {
-        fn = preview_spec.fn or preview_spec[1],
-        -- by default we use current item only "{}"
-        -- using "{+}" will send multiple selected items
-        field_index = "{}",
-      })
-      if preview_spec.type == "cmd" then
-        preview_cmd = shell.stringify_cmd(preview_spec.fn, opts, preview_spec.field_index)
-      else
-        preview_cmd = shell.stringify_data(preview_spec.fn, opts, preview_spec.field_index)
-      end
-    end
-    if preview_cmd then
-      opts.fzf_opts["--preview"] = preview_cmd
     end
   end
   opts.fzf_opts["--bind"] = M.create_fzf_binds(opts)
@@ -1020,10 +983,11 @@ M.convert_reload_actions = function(reload_cmd, opts)
       end
       local cmd = shell.stringify_data2(v.fn, opts, v.field_index or "{+}")
       opts.keymap.fzf[k] = {
-        string.format("%s%sexecute-silent(%s)+reload(%s)%s",
+        string.format("%s%sexecute-silent(%s)+%s(%s)%s",
           type(v.prefix) == "string" and v.prefix or "",
           unbind and (unbind .. "+") or "",
           cmd,
+          M.can_transform(opts) and "transform" or "reload", -- contents is not "cmd" but "reload:cmd"
           reload_cmd,
           type(v.postfix) == "string" and v.postfix or ""),
         desc = v.desc or config.get_action_helpstr(v.fn)

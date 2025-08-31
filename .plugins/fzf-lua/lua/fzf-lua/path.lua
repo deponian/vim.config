@@ -360,16 +360,6 @@ function M.lengthen(path)
       or string.format("<glob expand failed for '%s'>", glob_expr)
 end
 
-local function lastIndexOf(haystack, needle)
-  local i = haystack:match(".*" .. needle .. "()")
-  if i == nil then return nil else return i - 1 end
-end
-
-local function stripBeforeLastOccurrenceOf(str, sep)
-  local idx = lastIndexOf(str, sep) or 0
-  return str:sub(idx + 1), idx
-end
-
 function M.entry_to_ctag(entry, noesc)
   local ctag = entry:match("%:.-[/\\]^?\t?(.*)[/\\]")
   -- if tag name contains a slash we could
@@ -436,7 +426,21 @@ function M.entry_to_file(entry, opts, force_uri)
   end
   -- Remove ANSI coloring and prefixed icons
   entry = utils.strip_ansi_coloring(entry)
-  local stripped, idx = stripBeforeLastOccurrenceOf(entry, utils.nbsp)
+  local stripped, idx = (function()
+    -- Returns the first viable path:line?:col? + rest of line
+    -- stripping until the last occurrence of utils.nbsp may err
+    -- if the line contents contains utils.nbsp (#2259)
+    local parts = utils.strsplit(entry, utils.nbsp)
+    local idx = 1
+    for i = 1, #parts - 1 do
+      local s = parts[i]
+      if s:match(".-:%d+:") then
+        break
+      end
+      idx = idx + #s + #utils.nbsp
+    end
+    return entry:sub(idx), idx
+  end)()
   -- Convert "~" to "$HOME"
   stripped = M.tilde_to_HOME(stripped)
   -- Prepend cwd unless entry is already a URI (e.g. nvim-jdtls "jdt://...")
@@ -470,9 +474,13 @@ function M.entry_to_file(entry, opts, force_uri)
     s[1] = s[1] .. ":" .. s[2]
     table.remove(s, 2)
   end
-  local file = s[1]
-  local line = s[2]
-  local col  = s[3]
+  local file, line, col
+  if isURI then
+    local loc = M.entry_to_location(stripped, opts)
+    file, line, col = loc.uri, loc.line, loc.col
+  else
+    file, line, col = s[1], s[2], s[3]
+  end
   -- if the filename contains ':' we will have the wrong filename.
   -- test for existence on the longest possible match on the file
   -- system so we can accept files that end with ':', for example:

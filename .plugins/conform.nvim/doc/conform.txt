@@ -280,6 +280,7 @@ FORMATTERS                                                    *conform-formatter
             pyflakes.
 `autopep8` - A tool that automatically formats Python code to conform to the PEP
            8 style guide.
+`bake` - A Makefile formatter and linter.
 `bean-format` - Reformat Beancount files to right-align all the numbers at the
               same, minimal column.
 `beautysh` - A Bash beautifier for the masses.
@@ -287,11 +288,16 @@ FORMATTERS                                                    *conform-formatter
 `bicep` - Bicep is a Domain Specific Language (DSL) for deploying Azure
         resources declaratively.
 `biome` - A toolchain for web projects, aimed to provide functionalities to
-        maintain them.
+        maintain them. This config runs formatting *only*. See `biome-check` or
+        `biome-organize-imports` for other options.
 `biome-check` - A toolchain for web projects, aimed to provide functionalities
-              to maintain them.
+              to maintain them. This config runs formatting, linting and import
+              sorting. See `biome` or `biome-organize-imports` for other
+              options.
 `biome-organize-imports` - A toolchain for web projects, aimed to provide
-                         functionalities to maintain them.
+                         functionalities to maintain them. This config runs
+                         import sorting *only*. See `biome` or `biome-check` for
+                         other options.
 `black` - The uncompromising Python code formatter.
 `blade-formatter` - An opinionated blade template formatter for Laravel that
                   respects readability.
@@ -334,6 +340,7 @@ FORMATTERS                                                    *conform-formatter
          Handlebars - GoLang.
 `docformatter` - docformatter automatically formats docstrings to follow a
                subset of the PEP 257 conventions.
+`dockerfmt` - Dockerfile formatter. a modern dockfmt.
 `docstrfmt` - reStructuredText formatter.
 `doctoc` - Generates table of contents for markdown files inside local git
          repository.
@@ -364,6 +371,7 @@ FORMATTERS                                                    *conform-formatter
       deterministic.
 `gdformat` - A formatter for Godot's gdscript.
 `gersemi` - A formatter to make your CMake code the real treasure.
+`ghdl` - Open-source analyzer, compiler, simulator and synthesizer for VHDL.
 `ghokin` - Parallelized formatter with no external dependencies for gherkin.
 `gleam` - ⭐️ A friendly language for building type-safe, scalable systems!
 `gluon_fmt` - Code formatting for the gluon programming language.
@@ -476,6 +484,7 @@ FORMATTERS                                                    *conform-formatter
 `pycln` - A Python formatter for finding and removing unused import statements.
 `pyink` - A Python formatter, forked from Black with a few different formatting
         behaviors.
+`pymarkdownlnt` - A markdown linter and formatter.
 `pyproject-fmt` - Apply a consistent format to your pyproject.toml file with
                 comment support.
 `python-ly` - A Python package and commandline tool to manipulate LilyPond
@@ -508,6 +517,8 @@ FORMATTERS                                                    *conform-formatter
 `smlfmt` - A custom parser and code formatter for Standard ML.
 `snakefmt` - a formatting tool for Snakemake files following the design of
            Black.
+`spotless_gradle` - Spotless plugin for Gradle.
+`spotless_maven` - Spotless plugin for Maven.
 `sql_formatter` - A whitespace formatter for different query languages.
 `sqlfluff` - A modular SQL linter and auto-formatter with support for multiple
            dialects and templated code.

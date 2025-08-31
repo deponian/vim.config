@@ -193,6 +193,7 @@ nvim-tree.actions.remove_file.close_window	nvim-tree-lua.txt	/*nvim-tree.actions
 nvim-tree.actions.use_system_clipboard	nvim-tree-lua.txt	/*nvim-tree.actions.use_system_clipboard*
 nvim-tree.auto_reload_on_write	nvim-tree-lua.txt	/*nvim-tree.auto_reload_on_write*
 nvim-tree.diagnostics.debounce_delay	nvim-tree-lua.txt	/*nvim-tree.diagnostics.debounce_delay*
+nvim-tree.diagnostics.diagnostic_opts	nvim-tree-lua.txt	/*nvim-tree.diagnostics.diagnostic_opts*
 nvim-tree.diagnostics.enable	nvim-tree-lua.txt	/*nvim-tree.diagnostics.enable*
 nvim-tree.diagnostics.icons	nvim-tree-lua.txt	/*nvim-tree.diagnostics.icons*
 nvim-tree.diagnostics.severity	nvim-tree-lua.txt	/*nvim-tree.diagnostics.severity*

@@ -107,9 +107,7 @@ function TSContext.update(winid, bufnr, opts)
           if win and api.nvim_win_is_valid(win) and api.nvim_win_get_config(win).zindex ~= zindex then
             api.nvim_win_set_config(win, { zindex = zindex })
             -- noautocmd don't ignore WinResized/WinScrolled
-            if fn.exists("+eventignorewin") == 1 and vim.wo[win][0].eventignorewin == "" then
-              vim.wo[win][0].eventignorewin = "WinResized"
-            end
+            utils.wo[win].eventignorewin = "WinResized"
           end
         end
         api.nvim_win_call(winid, function()
@@ -211,6 +209,20 @@ function Previewer.base:new(o, opts)
     return map
   end)()
   return self
+end
+
+---@param opts table
+---@return table
+function Previewer.base:setup_opts(opts)
+  -- Set the preview command line
+  opts.preview = self:cmdline()
+  opts.fzf_opts["--preview-window"] = self:preview_window()
+  -- fzf 0.40 added 'zero' event for when there's no match
+  -- clears the preview when there are no matching entries
+  if utils.has(opts, "fzf", { 0, 40 }) then
+    table.insert(opts._fzf_cli_args, "--bind=" .. libuv.shellescape("zero:+" .. self:zero()))
+  end
+  return opts
 end
 
 ---@param do_not_clear_cache boolean?
@@ -620,6 +632,11 @@ function Previewer.buffer_or_file:parse_entry(entry_str)
   if entry.path then
     entry.fs_stat = uv.fs_stat(entry.path)
     entry.tick = vim.tbl_get(entry.fs_stat or {}, "mtime", "nsec")
+    if entry.path:find("^fugitive://") then
+      entry.do_not_cache = true
+      api.nvim_buf_call(entry.bufnr,
+        function() vim.cmd(("do fugitive BufReadCmd %s"):format(entry.path)) end)
+    end
   end
   return entry
 end
@@ -1053,22 +1070,44 @@ function Previewer.base:attach_snacks_image_inline()
   if not ft then return end
   _G._fzf_lua_snacks_langs = _G._fzf_lua_snacks_langs or simg.langs()
   if not vim.tbl_contains(_G._fzf_lua_snacks_langs, vim.treesitter.language.get_lang(ft)) then
-    vim.wo[preview_winid].winblend = self.winblend
+    utils.wo[preview_winid].winblend = self.winblend
     return
   end
 
-  vim.wo[preview_winid].winblend = 0 -- https://github.com/folke/snacks.nvim/pull/1615
+  utils.wo[preview_winid].winblend = 0 -- https://github.com/folke/snacks.nvim/pull/1615
   vim.b[bufnr].snacks_image_attached = simg.inline.new(bufnr)
   vim.defer_fn(function()
     self.win:update_preview_scrollbar()
   end, 500)
 end
 
+--- `:h filetype-detect`
+---@param bufnr integer
+---@param filepath string
+---@return string
+local filetype_detect = function(bufnr, filepath)
+  -- prepend the buffer number to the path and
+  -- set as buffer name, this makes sure 'filetype detect'
+  -- gets the right filetype which enables the syntax
+  local tempname = path.join({ tostring(bufnr), filepath })
+  pcall(api.nvim_buf_set_name, bufnr, tempname)
+  -- nvim_buf_call has less side-effects than window switch
+  -- doautocmd filetypedetect BufRead (vim.filetype.match + ftdetect) + do_modeline
+  local ok, _ = pcall(api.nvim_buf_call, bufnr, function()
+    utils.eventignore(function() vim.cmd("filetype detect") end, "FileType")
+  end)
+  if not ok then
+    utils.warn(("':filetype detect' failed for '%s'"):format(filepath))
+  end
+  return vim.bo[bufnr].filetype
+end
+
+---@param entry? fzf-lua.buffer_or_file.Entry
 function Previewer.buffer_or_file:do_syntax(entry)
-  if not self.preview_bufnr then return end
-  if not entry or not entry.path then return end
+  if not self.preview_bufnr or not entry or not entry.path then return end
   local bufnr = self.preview_bufnr
   local preview_winid = self.win.preview_winid
+  local filepath = entry.path ---@type string
   if not api.nvim_buf_is_valid(bufnr)
       or vim.bo[bufnr].filetype ~= ""
       or fn.bufwinid(bufnr) ~= preview_winid
@@ -1079,7 +1118,7 @@ function Previewer.buffer_or_file:do_syntax(entry)
   -- assign a name for noname scratch buffer
   -- can be used by snacks.image to abspath e.g. [file.png]
   -- https://github.com/folke/snacks.nvim/pull/1618
-  vim.b[bufnr].bufpath = entry.path
+  vim.b[bufnr].bufpath = filepath
 
   -- do not enable for large files, treesitter still has perf issues:
   -- https://github.com/nvim-treesitter/nvim-treesitter/issues/556
@@ -1095,7 +1134,7 @@ function Previewer.buffer_or_file:do_syntax(entry)
   end
   if syntax_limit_reached > 0 and self.opts.silent == false then
     utils.info(
-      "syntax disabled for '%s' (%s), consider increasing '%s(%d)'", entry.path,
+      "syntax disabled for '%s' (%s), consider increasing '%s(%d)'", filepath,
       syntax_limit_reached == 1 and ("%d lines"):format(lcount) or ("%db"):format(bytes),
       syntax_limit_reached == 1 and "syntax_limit_l" or "syntax_limit_b",
       syntax_limit_reached == 1 and self.syntax_limit_l or self.syntax_limit_b
@@ -1107,27 +1146,12 @@ function Previewer.buffer_or_file:do_syntax(entry)
   end
 
   -- filetype detect
-  ---@type string
-  local ft = (function()
-    local ft = entry.filetype or vim.filetype.match({ buf = bufnr, filename = entry.path })
-    if type(ft) == "string" then
-      return ft
-    end
-    -- prepend the buffer number to the path and
-    -- set as buffer name, this makes sure 'filetype detect'
-    -- gets the right filetype which enables the syntax
-    local tempname = path.join({ tostring(bufnr), entry.path })
-    pcall(api.nvim_buf_set_name, bufnr, tempname)
-    -- nvim_buf_call has less side-effects than window switch
-    -- doautocmd filetypedetect BufRead (vim.filetype.match + ftdetect) + do_modeline
-    local ok, _ = pcall(api.nvim_buf_call, bufnr, function()
-      utils.eventignore(function() vim.cmd("filetype detect") end, preview_winid, "FileType")
-    end)
-    if not ok then
-      utils.warn(("':filetype detect' failed for '%s'"):format(entry.path or "<null>"))
-    end
-    return vim.bo[bufnr].filetype
-  end)()
+  local did_filetype_detect
+  local ft = entry.filetype or vim.filetype.match({ buf = bufnr, filename = filepath })
+  if not ft then
+    ft = filetype_detect(bufnr, filepath)
+    did_filetype_detect = true
+  end
 
   if ft == "" then return end
 
@@ -1150,13 +1174,21 @@ function Previewer.buffer_or_file:do_syntax(entry)
     return true
   end)()
 
-  local ts_success = ts_enabled and ts_attach(bufnr, ft)
-  if not ts_success then
-    pcall(function() vim.bo[bufnr].syntax = ft end)
-    return
+  while true do
+    local ts_success = ts_enabled and ts_attach(bufnr, ft)
+    if ts_success then
+      self:update_render_markdown()
+      break
+    end
+    if did_filetype_detect then
+      vim.bo[bufnr].syntax = ft
+      break
+    end
+    -- sometimes vim.filetype.match get a poor filetype (e.g. ft=text)
+    -- this should be a fallback we should detect it again from ftdetect/modeline
+    ft = filetype_detect(bufnr, filepath)
+    did_filetype_detect = true
   end
-
-  self:update_render_markdown()
 end
 
 function Previewer.base:maybe_set_cursorline(win, pos)
@@ -1172,9 +1204,7 @@ function Previewer.base:maybe_set_cursorline(win, pos)
     vim.api.nvim_win_set_cursor(win, pos)
     cursorline = self.winopts.cursorline
   end
-  if cursorline ~= vim.wo[win].cursorline then
-    vim.wo[win].cursorline = cursorline
-  end
+  utils.wo[win].cursorline = cursorline
 end
 
 function Previewer.buffer_or_file:set_cursor_hl(entry)
@@ -1211,7 +1241,7 @@ function Previewer.buffer_or_file:set_cursor_hl(entry)
     local lnum, col = tonumber(entry.line), tonumber(entry.col) or 0
     if not lnum or lnum < 1 then
       -- set win option is slow with bigfile
-      if vim.wo.cursorline then vim.wo.cursorline = false end
+      utils.wo.cursorline = false
       self.orig_pos = { 1, 0 }
       api.nvim_win_set_cursor(self.win.preview_winid, cached_pos or self.orig_pos)
       return

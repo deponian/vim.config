@@ -141,6 +141,36 @@ function M.setup_highlights(override)
     vim.api.nvim_set_hl(0, hl_name, hl_def)
   end
 
+  -- courtesy of fzf.vim
+  do
+    local termguicolors = vim.o.termguicolors
+    vim.api.nvim_set_hl(0, "fzf1",
+      {
+        default = true,
+        ctermfg = termguicolors and 1 or 161,
+        ctermbg = termguicolors and 8 or 238,
+        fg = "#E12672",
+        bg = "#565656"
+      })
+    vim.api.nvim_set_hl(0, "fzf2",
+      {
+        default = true,
+        ctermfg = termguicolors and 2 or 151,
+        ctermbg = termguicolors and 8 or 238,
+        fg = "#BCDDBD",
+        bg =
+        "#565656"
+      })
+    vim.api.nvim_set_hl(0, "fzf3",
+      {
+        default = true,
+        ctermfg = termguicolors and 7 or 252,
+        ctermbg = termguicolors and 8 or 238,
+        fg = "#D9D9D9",
+        bg = "#565656"
+      })
+  end
+
   -- Init the colormap singleton
   utils.COLORMAP()
 end
@@ -174,6 +204,13 @@ function M.setup(opts, do_not_reset_defaults)
       local newk = ("defaults = { %s = %s }"):format(gopt, tostring(opts.defaults[o]))
       vim.deprecate(oldk, newk, "Jan 2026", "FzfLua")
     end
+  end
+  -- backward compat, merge lsp.symbols into lsp.{document|workspace}_synbols
+  if opts.lsp and opts.lsp.symbols then
+    opts.lsp.document_symbols = vim.tbl_deep_extend("keep",
+      opts.lsp.document_symbols or {}, opts.lsp.symbols)
+    opts.lsp.workspace_symbols = vim.tbl_deep_extend("keep",
+      opts.lsp.workspace_symbols or {}, opts.lsp.symbols)
   end
   -- set custom &nbsp if caller requested
   if opts.nbsp then utils.nbsp = opts.nbsp end

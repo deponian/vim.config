@@ -15,7 +15,7 @@ M.__HAS_NVIM_0102 = vim.fn.has("nvim-0.10.2") == 1
 M.__HAS_NVIM_011 = vim.fn.has("nvim-0.11") == 1
 M.__IS_WINDOWS = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 -- `:help shellslash` (for more info see #1055)
-M.__WIN_HAS_SHELLSLASH = M.__IS_WINDOWS and vim.fn.exists("+shellslash")
+M.__WIN_HAS_SHELLSLASH = M.__IS_WINDOWS and vim.fn.exists("+shellslash") == 1
 
 function M.__FILE__() return debug.getinfo(2, "S").source end
 
@@ -133,10 +133,6 @@ function M.round(num, limit)
   return math.floor(num)
 end
 
-function M.nvim_has_option(option)
-  return vim.fn.exists("&" .. option) == 1
-end
-
 M._notify_header = "LineNr"
 
 --- Fancy notification wrapper, idea borrowed from blink.nvim
@@ -227,8 +223,8 @@ end
 
 function M.regex_to_magic(str)
   -- Convert regex to "very magic" pattern, basically a regex
-  -- with special meaning for "=&<>", `:help /magic`
-  return [[\v]] .. str:gsub("[=&@<>]", function(x)
+  -- with special meaning for "%=&<>", `:help /magic`
+  return [[\v]] .. str:gsub("[%%=&@<>]", function(x)
     return "\\" .. x
   end)
 end
@@ -379,6 +375,9 @@ end
 -- deepcopy can fail with: "Cannot deepcopy object of type userdata" (#353)
 -- this can happen when copying items/on_choice params of vim.ui.select
 -- run in a pcall and fallback to our poor man's clone
+---@generic T: table
+---@param t T?
+---@return T?
 function M.deepcopy(t)
   local ok, res = pcall(vim.deepcopy, t)
   if ok then
@@ -388,6 +387,9 @@ function M.deepcopy(t)
   end
 end
 
+---@generic T: table
+---@param t T?
+---@return T?
 function M.tbl_deep_clone(t)
   if not t then return end
   local clone = {}
@@ -482,6 +484,17 @@ function M.tbl_get(T, ...)
     return nil
   end
   return M.map_get(T, keys)
+end
+
+---@generic T
+---@param list T[]
+---@return { [T]: boolean }
+function M.list_to_map(list)
+  local map = {}
+  for _, v in ipairs(list) do
+    map[v] = true
+  end
+  return map
 end
 
 -- Get map value from string key
@@ -1153,16 +1166,8 @@ end
 
 ---@param func function
 ---@param scope string?
----@param win integer?
 ---@return ... any
-function M.eventignore(func, win, scope)
-  if win and vim.fn.exists("+eventignorewin") == 1 then
-    local save_ei = vim.wo[win][0].eventignorewin
-    vim.wo[win][0].eventignorewin = scope or "all"
-    local ret = { func() }
-    vim.wo[win][0].eventignorewin = save_ei
-    return unpack(ret)
-  end
+function M.eventignore(func, scope)
   local save_ei = vim.o.eventignore
   vim.o.eventignore = scope or "all"
   local ret = { func() }
@@ -1321,6 +1326,7 @@ end
 function M.neovim_bind_to_fzf(key)
   local conv_map = {
     ["a"] = "alt",
+    ["m"] = "alt",
     ["c"] = "ctrl",
     ["s"] = "shift",
   }
@@ -1445,11 +1451,17 @@ function M.create_user_command_callback(provider, arg, altmap)
   end
 end
 
--- setmetatable wrapper, also enable `__gc`
-function M.setmetatable__gc(t, mt)
-  local prox = newproxy(true)
-  getmetatable(prox).__gc = function() mt.__gc(t) end
-  t[prox] = true
+-- setmetatable wrapper support `__gc`
+---@generic T
+---@param t T
+---@param mt table
+---@return T
+function M.setmetatable(t, mt)
+  if mt.__gc then
+    local prox = newproxy(true)
+    getmetatable(prox).__gc = function() mt.__gc(t) end
+    t[prox] = true
+  end
   return setmetatable(t, mt)
 end
 
@@ -1559,5 +1571,31 @@ function M.pid_object(key, opts)
 
   return Pid:new(key, opts)
 end
+
+-- modified version of vim.wo
+-- 1. always setlocal (to avoid potential pollute on win split)
+-- 2. nop on non-exist option
+-- 3. nop if unchange (set win option can be slow #2018)
+local function new_win_opt_accessor(winid)
+  return setmetatable({}, {
+    __index = function(_, k)
+      if type(k) == "number" then return new_win_opt_accessor(k) end
+      if vim.fn.exists("+" .. k) == 0 then return end
+      return vim.api.nvim_get_option_value(k, { scope = "local", win = winid or 0 })
+    end,
+    __newindex = function(_, k, v)
+      if vim.fn.exists("+" .. k) == 0
+          or vim.api.nvim_get_option_value(k, { scope = "local", win = winid or 0 }) == v then
+        return
+      end
+      vim.wo[winid or 0][k] = v
+      -- TODO: causes issues with highlights
+      -- vim.api.nvim_set_option_value(k, v, { scope = "local", win = winid or 0 })
+    end,
+  })
+end
+---@type {}|vim.wo
+M.wo = new_win_opt_accessor()
+
 
 return M

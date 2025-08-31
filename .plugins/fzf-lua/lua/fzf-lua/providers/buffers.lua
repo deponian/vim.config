@@ -73,7 +73,8 @@ local getbuf = function(buf)
     flag = (buf == utils.CTX().bufnr and "%")
         or (buf == utils.CTX().alt_bufnr and "#") or " ",
     info = utils.getbufinfo(buf),
-    readonly = vim.bo[buf].readonly
+    readonly = vim.bo[buf].readonly,
+    loaded = vim.api.nvim_buf_is_loaded(buf),
   }
 end
 
@@ -131,7 +132,7 @@ end
 
 
 local function gen_buffer_entry(opts, buf, max_bufnr, cwd, prefix)
-  local hidden = buf.info.hidden == 1 and "h" or "a"
+  local hidden = buf.info.hidden == 1 and "h" or buf.loaded and "a" or " "
   local readonly = buf.readonly and "=" or " "
   local changed = buf.info.changed == 1 and "+" or " "
   local flags = hidden .. readonly .. changed
@@ -466,7 +467,7 @@ M.treesitter = function(opts)
   local ft = vim.bo[bufnr0].ft
   local lang = ts.language.get_lang(ft) or ft
   if not utils.has_ts_parser(lang) then
-    utils.info("No treesitter parser found for '%s' (bufnr=%d).", bufname0, bufnr0)
+    utils.info("No treesitter parser found for '%s' (bufnr=%d)", bufname0, bufnr0)
     return
   end
 
@@ -482,7 +483,10 @@ M.treesitter = function(opts)
   if not root then return end
 
   local query = (ts.query.get(lang, "locals"))
-  if not query then return end
+  if not query then
+    utils.warn([[ts.query.get("%s","locals") returned nil]], lang)
+    return
+  end
 
   local get = function(bufnr)
     local definitions = {}
