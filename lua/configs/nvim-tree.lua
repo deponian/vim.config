@@ -104,6 +104,7 @@ M.config = function()
       enable = false,
     },
     filters = {
+      git_ignored = false,
       dotfiles = true,
     },
     modified = {
