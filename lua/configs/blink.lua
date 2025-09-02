@@ -48,6 +48,11 @@ M.opts = {
   },
 
   completion = {
+    list = {
+      selection = {
+        preselect = false
+      }
+    },
     menu = {
       min_width = 25,
       max_height = 25,
@@ -111,9 +116,16 @@ M.opts = {
     keymap = { preset = 'inherit' },
     completion = {
       menu = {
-        auto_show = true
+        auto_show = function()
+          local type = vim.fn.getcmdtype()
+          if type == '/' or type == '?' then
+            return false
+          else
+            return true
+          end
+        end
       }
-    },
+    }
   },
 }
 
