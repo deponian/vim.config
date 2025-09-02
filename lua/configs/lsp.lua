@@ -6,12 +6,11 @@ M.config = function ()
   vim.api.nvim_create_autocmd('LspAttach', {
     group = vim.api.nvim_create_augroup('OnAttach', {}),
     callback = function(args)
-      vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = true, silent = true})
-      vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = true, silent = true})
-      vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = true, silent = true})
-      vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = true, silent = true})
-      vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = true, silent = true})
-      vim.wo.signcolumn = 'yes'
+      vim.keymap.set('n', '<Leader>ld', "<cmd>lua vim.diagnostic.open_float()<CR>", {buffer = args.buf, silent = true})
+      vim.keymap.set('n', 'gd', '<cmd>lua vim.lsp.buf.definition()<CR>', {buffer = args.buf, silent = true})
+      vim.keymap.set('n', 'gh', "<cmd>lua vim.lsp.buf.hover()<CR>", {buffer = args.buf, silent = true})
+      vim.keymap.set('n', 'gD', '<cmd>lua vim.lsp.buf.declaration()<CR>', {buffer = args.buf, silent = true})
+      vim.keymap.set('n', 'gr', '<cmd>lua vim.lsp.buf.rename()<CR>', {buffer = args.buf, silent = true})
 
       -- disable diagnostics for .env files
       local bufname = vim.api.nvim_buf_get_name(args.buf)

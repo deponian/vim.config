@@ -4,6 +4,7 @@ local M = {
 
 local function on_attach(bufnr)
   local api = require('nvim-tree.api')
+  local utils = require('nvim-tree.utils')
 
   local function opts(desc)
     return { desc = 'nvim-tree: ' .. desc, buffer = bufnr, noremap = true, silent = true, nowait = true }
@@ -14,7 +15,6 @@ local function on_attach(bufnr)
 
   -- Custom mappings
   vim.keymap.del('n', '<Tab>', { buffer = bufnr })
-  vim.keymap.set('n', ';', api.node.open.edit, opts('Open or focus'))
   vim.keymap.set('n', 'v', api.node.open.vertical, opts('Open: Vertical Split'))
   vim.keymap.set('n', 's', api.node.open.horizontal, opts('Open: Horizontal Split'))
   vim.keymap.set('n', 't', api.node.open.tab, opts('Open: New Tab'))
@@ -26,6 +26,16 @@ local function on_attach(bufnr)
   vim.keymap.set('n', 'Y', api.fs.copy.absolute_path, opts('Copy Absolute Path'))
   vim.keymap.set('n', 'gy', api.fs.copy.relative_path, opts('Copy Relative Path'))
   vim.keymap.set('n', 'o', api.node.run.system, opts('Run System'))
+
+  vim.keymap.set('n', ';', function()
+    local node = api.tree.get_node_under_cursor()
+    local found_win = utils.get_win_buf_from_path(node.absolute_path)
+    if found_win then
+      api.node.open.edit()
+    else
+      api.node.open.preview()
+    end
+  end, opts('preview_and_open'))
 
   -- find a string in a directory under the cursor
   vim.keymap.set('n', 'f', function()

@@ -51,6 +51,7 @@ vim.opt.wildcharm = 26                                -- ('<C-z>') substitute fo
 vim.opt.wildignore:append('*.o,*.rej')                -- patterns to ignore during file-navigation
 vim.opt.wildmode = 'longest:full,full'                -- shell-like autocomplete to unambiguous portion
 vim.opt.winborder = 'bold'                            -- border style of floating windows
+vim.opt.signcolumn = 'yes'                            -- always show signcolumn
 
 -- use these only for small files
 if not vim.g.bigfile_mode then
