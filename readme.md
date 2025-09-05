@@ -15,19 +15,15 @@ Many thanks to Greg Hurrell for his amazing [repository](https://github.com/winc
 
 And, of course, many thanks to the authors of the plugins that make Vim and Neovim so convenient and powerful:
 
+- https://github.com/catgoose/nvim-colorizer.lua
 - https://github.com/ch-danreif/haproxy.vim
-- https://github.com/cuducos/yaml.nvim
 - https://github.com/deponian/mini.map
 - https://github.com/deponian/nvim-base64
 - https://github.com/deponian/nvim-lualine-whitespace
 - https://github.com/deponian/nvim-scalpelua
-- https://github.com/echasnovski/mini.jump
-- https://github.com/echasnovski/mini.splitjoin
-- https://github.com/echasnovski/mini.surround
 - https://github.com/folke/lazy.nvim
 - https://github.com/folke/tokyonight.nvim
 - https://github.com/folke/trouble.nvim
-- https://github.com/godlygeek/tabular
 - https://github.com/HiPhish/rainbow-delimiters.nvim
 - https://github.com/ibhagwan/fzf-lua
 - https://github.com/Kaiser-Yang/blink-cmp-dictionary
@@ -41,21 +37,21 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/mustache/vim-mustache-handlebars
 - https://github.com/neovim/nvim-lspconfig
 - https://github.com/nfnty/vim-nftables
-- https://github.com/nvchad/nvim-colorizer.lua
 - https://github.com/nvim-lua/plenary.nvim
 - https://github.com/nvim-lualine/lualine.nvim
+- https://github.com/nvim-mini/mini.jump
+- https://github.com/nvim-mini/mini.splitjoin
+- https://github.com/nvim-mini/mini.surround
 - https://github.com/nvim-tree/nvim-tree.lua
 - https://github.com/nvim-tree/nvim-web-devicons
+- https://github.com/nvim-treesitter/nvim-treesitter-context
 - https://github.com/nvim-treesitter/nvim-treesitter
-- https://github.com/pearofducks/ansible-vim
 - https://github.com/rafamadriz/friendly-snippets
 - https://github.com/rrethy/vim-illuminate
 - https://github.com/saghen/blink.cmp
 - https://github.com/sindrets/diffview.nvim
 - https://github.com/stevearc/conform.nvim
 - https://github.com/towolf/vim-helm
-- https://github.com/tpope/vim-commentary
 - https://github.com/tpope/vim-fugitive
 - https://github.com/tpope/vim-git
-- https://github.com/tpope/vim-repeat
 - https://github.com/yasuhiroki/github-actions-yaml.vim
