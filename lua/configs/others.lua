@@ -99,7 +99,6 @@ return {
     "nvim-treesitter/nvim-treesitter-context"
   },
 
-  { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
   { "nvim-lua/plenary.nvim", lazy = true },
   { "HiPhish/rainbow-delimiters.nvim" },
