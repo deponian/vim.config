@@ -46,9 +46,7 @@ M.opts = {
     colors.bg_visual = "#553a19"
   end,
 
-  on_highlights = function(hl, c)
-    -- hl.NvimTreeNormal = { bg = "#1e2030", fg = "#c8d3f5" }
-    -- hl.NvimTreeNormalNC = { bg = "#1e2030", fg = "#c8d3f5" }
+  on_highlights = function(hl, _)
     hl.NvimTreeWinSeparator = { bg = "#222436", fg = "#222436" }
   end,
 }

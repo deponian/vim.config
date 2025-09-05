@@ -38,15 +38,20 @@ return {
   },
 
   {
-    "echasnovski/mini.splitjoin",
+    "nvim-mini/mini.splitjoin",
     lazy = false,
-    config = function()
-      require("mini.splitjoin").setup()
+    opts = {
+      mappings = {
+        toggle = "gs",
+      },
+    },
+    config = function(_, opts)
+      require("mini.splitjoin").setup(opts)
     end
   },
 
   {
-    "echasnovski/mini.jump",
+    "nvim-mini/mini.jump",
     lazy = false,
     opts = {
       mappings = {
@@ -60,7 +65,7 @@ return {
   },
 
   {
-    "echasnovski/mini.surround",
+    "nvim-mini/mini.surround",
     lazy = false,
     config = function()
       vim.keymap.set("n", "s", "<Nop>")
@@ -88,10 +93,7 @@ return {
     }
   },
 
-  {
-    "nvim-treesitter/nvim-treesitter-context"
-  },
-
+  { "nvim-treesitter/nvim-treesitter-context" },
   { "tpope/vim-fugitive" },
   { "nvim-lua/plenary.nvim", lazy = true },
   { "HiPhish/rainbow-delimiters.nvim" },
