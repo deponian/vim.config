@@ -103,7 +103,6 @@ return {
   { "tpope/vim-fugitive" },
   { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
-  { "godlygeek/tabular" },
   { "HiPhish/rainbow-delimiters.nvim" },
 
   -- language/syntax/filetype plugins
