@@ -69,13 +69,6 @@ return {
   },
 
   {
-    "pearofducks/ansible-vim",
-    init = function()
-      vim.g.ansible_ftdetect_filename_regex = [[\v(playbook|site|local|requirements)\.ya?ml$]]
-    end
-  },
-
-  {
     "sindrets/diffview.nvim",
     opts = {
       keymaps = {

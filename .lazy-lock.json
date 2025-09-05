@@ -1,5 +1,4 @@
 {
-  "ansible-vim": { "branch": "master", "commit": "3329367d2e5f90d203c8d340c53fa83c60a1ad41" },
   "blink-cmp-dictionary": { "branch": "master", "commit": "43b701fe9728a704bc63e4667c5d8b398bf129b2" },
   "blink-ripgrep.nvim": { "branch": "main", "commit": "b035188bc6d8bcbf86c49ac230ee0bbadca7f7fb" },
   "blink.cmp": { "branch": "main", "commit": "bae4bae0eedd1fa55f34b685862e94a222d5c6f8" },
