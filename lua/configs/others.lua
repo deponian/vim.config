@@ -101,7 +101,6 @@ return {
 
   { "tpope/vim-commentary" },
   { "tpope/vim-fugitive" },
-  { "tpope/vim-repeat" },
   { "nvim-lua/plenary.nvim", lazy = true },
   { "HiPhish/rainbow-delimiters.nvim" },
 
