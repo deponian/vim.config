@@ -334,7 +334,10 @@ function FzfWin:generate_layout()
       pwopts.col = col
       pwopts.width = width
       -- https://github.com/junegunn/fzf/blob/1afd14381079a35eac0a4c2a5cacb86e2a3f476b/src/terminal.go#L1820
-      pwopts.height = math.floor(height * preview_size / 100)
+      -- fzf's previewer border is draw inside preview window, so shrink builtin previewer if it have "top border"
+      -- to ensure the fzf list height is the same between fzf/builtin
+      local off = (self.previewer_is_builtin and ph > 0) and 1 or 0
+      pwopts.height = math.floor((height + off) * preview_size / 100) - off
       height = height - pwopts.height
       if preview_pos == "down" then
         -- next row
@@ -343,10 +346,14 @@ function FzfWin:generate_layout()
         pwopts.row = row
         row = pwopts.row + ph + pwopts.height
       end
+      -- enlarge the height to align fzf with preview win
+      width = width + math.max(pw - w, 0)
+      pwopts.width = pwopts.width + math.max(w - pw, 0)
     else -- left|right
       pwopts.row = row
       pwopts.height = height
-      pwopts.width = math.floor(width * preview_size / 100)
+      local off = (self.previewer_is_builtin and pw > 0) and 1 or 0
+      pwopts.width = math.floor((width + off) * preview_size / 100) - off
       width = width - pwopts.width
       if preview_pos == "right" then
         -- next col
@@ -355,6 +362,9 @@ function FzfWin:generate_layout()
         pwopts.col = col
         col = pwopts.col + pw + pwopts.width
       end
+      -- enlarge the height to align fzf with preview win
+      height = height + math.max(ph - h, 0)
+      pwopts.height = pwopts.height + math.max(h - ph, 0)
     end
   end
   self.layout = {
@@ -567,8 +577,8 @@ function FzfWin:normalize_winopts()
   local ch = winopts.zindex >= 200 and 0 or vim.o.cmdheight
   local max_width = vim.o.columns
   local max_height = vim.o.lines - ch
-  winopts.width = self:normalize_size(winopts.width, max_width)
-  winopts.height = self:normalize_size(winopts.height, max_height)
+  winopts.width = self:normalize_size(tonumber(winopts.width), max_width)
+  winopts.height = self:normalize_size(tonumber(winopts.height), max_height)
   if winopts.relative == "cursor" then
     -- convert cursor relative to absolute ('editor'),
     -- this solves the preview positioning seamlessly
@@ -582,8 +592,8 @@ function FzfWin:normalize_winopts()
   else
     -- make row close to the center of screen (include cmdheight)
     -- avoid breaking existing test
-    winopts.row = self:normalize_size(winopts.row, vim.o.lines - winopts.height)
-    winopts.col = self:normalize_size(winopts.col, max_width - winopts.width)
+    winopts.row = self:normalize_size(tonumber(winopts.row), vim.o.lines - winopts.height)
+    winopts.col = self:normalize_size(tonumber(winopts.col), max_width - winopts.width)
     winopts.row = math.min(winopts.row, max_height - winopts.height)
   end
   -- width/height can be used for text area
@@ -938,8 +948,8 @@ function FzfWin:set_winleave_autocmd()
 end
 
 function FzfWin:treesitter_detach(buf)
-  TSInjector.clear_cache(buf)
   TSInjector.deregister()
+  TSInjector.clear_cache(buf)
 end
 
 function FzfWin:treesitter_attach()
@@ -952,6 +962,8 @@ function FzfWin:treesitter_attach()
   end
   vim.api.nvim_buf_attach(self.fzf_bufnr, false, {
     on_lines = function(_, bufnr)
+      -- Called after `:close` triggers an attach after clear_cache (#2322)
+      if self.closing then return end
       local lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
       local regions = {}
       local empty_regions = {}
@@ -1297,7 +1309,6 @@ function FzfWin:close(fzf_bufnr, hide, hidden)
   self.closing = nil
   self._reuse = nil
   _self = nil
-  utils.set_info({}) -- clear info
 end
 
 function FzfWin.win_leave()

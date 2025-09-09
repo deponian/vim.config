@@ -614,9 +614,6 @@ end
 function Previewer.buffer_or_file:parse_entry(entry_str)
   ---@type fzf-lua.buffer_or_file.Entry
   local entry = self:entry_to_file(entry_str)
-  -- if enabled, query can contain line no, e.g. "file:40"
-  local lnum = self.opts.line_query and tonumber(self.opts._last_query:match(":(%d+)$"))
-  entry.line = lnum or entry.line
   entry.buf_is_loaded = entry.bufnr and api.nvim_buf_is_loaded(entry.bufnr)
   entry.buf_is_valid = entry.bufnr and api.nvim_buf_is_valid(entry.bufnr)
   if entry.buf_is_valid and entry.buf_is_loaded then
@@ -920,8 +917,8 @@ function Previewer.buffer_or_file:populate_preview_buf(entry_str)
     end
     do
       local lines = nil
-      if entry.path:match("^%[DEBUG]") then
-        lines = { tostring(entry.path:gsub("^%[DEBUG]", "")) }
+      if entry.debug then
+        lines = { entry.debug }
       elseif entry.content then
         lines = entry.content
       else
@@ -1288,16 +1285,12 @@ function Previewer.buffer_or_file:update_title(entry)
   if not self.title then return end
   local filepath = entry.path
   if filepath then
-    if filepath:match("^%[DEBUG]") then
-      filepath = "[DEBUG]"
-    else
-      if self.opts.cwd then
-        filepath = path.relative_to(entry.path, self.opts.cwd)
-      end
-      filepath = path.HOME_to_tilde(filepath)
+    if self.opts.cwd then
+      filepath = path.relative_to(entry.path, self.opts.cwd)
     end
+    filepath = path.HOME_to_tilde(filepath)
   end
-  local title = filepath or entry.uri or entry.bufname
+  local title = entry.debug and "[DEBUG]" or filepath or entry.uri or entry.bufname
   -- was transform function defined?
   if self.title_fnamemodify then
     local wincfg = vim.api.nvim_win_get_config(self.win.preview_winid)

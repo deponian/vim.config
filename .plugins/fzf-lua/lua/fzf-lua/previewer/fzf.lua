@@ -196,7 +196,6 @@ end
 
 function Previewer.cmd_async:parse_entry_and_verify(entrystr)
   local entry = path.entry_to_file(entrystr, self.opts)
-  entry.line = self.opts.line_query and tonumber(self._last_query:match(":(%d+)$")) or entry.line
   -- make relative for bat's header display
   local filepath = path.relative_to(entry.bufname or entry.path or "", uv.cwd())
   if self.opts._ctag then
@@ -213,8 +212,8 @@ function Previewer.cmd_async:parse_entry_and_verify(entrystr)
     end
   end
   local errcmd = nil
-  if filepath:match("^%[DEBUG]") then
-    errcmd = "echo " .. libuv.shellescape(tostring(filepath:gsub("^%[DEBUG]", "")))
+  if entry.debug then
+    errcmd = "echo " .. libuv.shellescape(entry.debug)
   else
     -- verify the file exists on disk and is accessible
     if #filepath == 0 or not uv.fs_stat(filepath) then

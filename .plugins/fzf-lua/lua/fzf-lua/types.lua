@@ -68,6 +68,7 @@ _G.FzfLua = require("fzf-lua")
 ---@field ctag string?
 ---@field uri string?
 ---@field range { start: { line: integer, col: integer } }?
+---@field debug string? debug information
 
 ---@class fzf-lua.buffer_or_file.Entry : fzf-lua.path.Entry, {}
 ---@field do_not_cache boolean?
@@ -341,7 +342,7 @@ _G.FzfLua = require("fzf-lua")
 ---@field toggle_follow_flag string
 ---@field ignore_current_file boolean
 ---@field file_ignore_patterns string[]
----@field line_query boolean?
+---@field line_query boolean|fun(query: string): lnum: string?, new_query: string?
 ---@field raw_cmd string
 
 ---@class fzf-lua.config.Global : fzf-lua.config.Files

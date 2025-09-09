@@ -22,6 +22,7 @@ FIXED
 ADDED
 
 New languages:
+    • F#
     • GLSL
     • Nu shell
     • Yuck
@@ -42,6 +43,17 @@ Missing patterns:
         - `curly_group_path_list`
         - `label_definition`
         - `math_delimiter`
+    • OCaml:
+        - `abstract_type`
+        - `function_expression`
+        - `let_expression`
+        - `let_module_expression`
+        - `let_open_expression`
+        - `package_pattern`
+        - `packed_module`
+        - `parameter`
+        - `polymorphic_variant_type`
+        - `type_binding`
     • Python:
         - `with_clause`
     • TypeScript:

@@ -228,7 +228,6 @@ M.fzf_resume = function(opts)
     return
   end
   opts = utils.tbl_deep_extend("force", config.__resume_data.opts, opts or {})
-  utils.set_info(opts.__INFO) -- restore original picker info
   assert(opts == config.__resume_data.opts)
   opts.cwd = opts.cwd and libuv.expand(opts.cwd) or nil
   M.fzf_wrap(config.__resume_data.contents, config.__resume_data.opts)
@@ -371,7 +370,7 @@ M.fzf = function(contents, opts)
       pipe_cmd = opts.pipe_cmd,
       silent_fail = opts.silent_fail,
       is_fzf_tmux = opts._is_fzf_tmux,
-      debug = opts.debug == true or opts.debug == "verbose",
+      debug = opts.debug,
       RIPGREP_CONFIG_PATH = opts.RIPGREP_CONFIG_PATH,
     })
   -- kill fzf piped process PID
@@ -499,6 +498,10 @@ end
 
 -- Create fzf --color arguments from a table of vim highlight groups.
 M.create_fzf_colors = function(opts)
+  -- In case the user already set fzf_opts["--color"] (#1052)
+  if opts.fzf_opts and type(opts.fzf_opts["--color"]) == "string" then
+    table.insert(opts._fzf_cli_args, "--color=" .. opts.fzf_opts["--color"])
+  end
   if type(opts.fzf_colors) ~= "table" then return end
   local colors = opts.fzf_colors
 
@@ -515,11 +518,6 @@ M.create_fzf_colors = function(opts)
   end
 
   local tbl = {}
-
-  -- In case the user already set fzf_opts["--color"] (#1052)
-  if opts.fzf_colors and type(opts.fzf_colors["--color"]) == "string" then
-    table.insert(tbl, opts.fzf_opts["--color"])
-  end
 
   for flag, list in pairs(colors) do
     if type(list) == "table" then
@@ -766,6 +764,7 @@ end
 
 M.set_header = function(opts)
   opts = opts or {}
+  opts._headers = opts._headers == nil and { "actions" } or opts._headers
   if opts.header ~= nil
       or opts.headers == false
       or type(opts._headers) ~= "table"

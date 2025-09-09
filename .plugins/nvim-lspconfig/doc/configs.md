@@ -373,6 +373,7 @@ Nvim by running `:help lspconfig-all`.
 - [ziggy_schema](#ziggy_schema)
 - [zk](#zk)
 - [zls](#zls)
+- [zuban](#zuban)
 
 ## ada_ls
 
@@ -2344,11 +2345,11 @@ Default config:
   {
     editorInfo = {
       name = "Neovim",
-      version = "0.12.0-dev+g6a330f893b"
+      version = "0.12.0-dev+g21f2c2b19c"
     },
     editorPluginInfo = {
       name = "Neovim",
-      version = "0.12.0-dev+g6a330f893b"
+      version = "0.12.0-dev+g21f2c2b19c"
     }
   }
   ```
@@ -3537,7 +3538,9 @@ https://github.com/elixir-lsp/elixir-ls
    chmod +x /path/to/elixir-ls/language_server.sh
    ```
 
-**By default, elixir-ls doesn't have a `cmd` set.** This is because nvim-lspconfig does not make assumptions about your path. You must add the following to your init.vim or init.lua to set `cmd` to the absolute path ($HOME and ~ are not expanded) of your unzipped elixir-ls.
+**By default, elixir-ls doesn't have a `cmd` set.** This is because nvim-lspconfig does not make assumptions about
+your path. You must add the following to your init.vim or init.lua to set `cmd` to the absolute path ($HOME and
+~ are not expanded) of your unzipped elixir-ls.
 
 ```lua
 vim.lsp.config('elixirls', {
@@ -3549,7 +3552,9 @@ vim.lsp.config('elixirls', {
 })
 ```
 
-'root_dir' is chosen like this: if two or more directories containing `mix.exs` were found when searching directories upward, the second one (higher up) is chosen, with the assumption that it is the root of an umbrella app. Otherwise the directory containing the single mix.exs that was found is chosen.
+'root_dir' is chosen like this: if two or more directories containing `mix.exs` were found when searching
+directories upward, the second one (higher up) is chosen, with the assumption that it is the root of an umbrella
+app. Otherwise the directory containing the single mix.exs that was found is chosen.
 
 Snippet to enable the language server:
 ```lua
@@ -3561,7 +3566,7 @@ Default config:
   ```lua
   { "elixir", "eelixir", "heex", "surface" }
   ```
-- `root_dir`: [../lsp/elixirls.lua:30](../lsp/elixirls.lua#L30)
+- `root_dir`: [../lsp/elixirls.lua:34](../lsp/elixirls.lua#L34)
 
 ---
 
@@ -4008,6 +4013,11 @@ https://github.com/elixir-lang/expert
 
 Expert is the official language server implementation for the Elixir programming language.
 
+'root_dir' is chosen like this: if two or more directories containing `mix.exs` were found when
+searching directories upward, the second one (higher up) is chosen, with the assumption that it
+is the root of an umbrella app. Otherwise the directory containing the single mix.exs that was
+found is chosen.
+
 Snippet to enable the language server:
 ```lua
 vim.lsp.enable('expert')
@@ -4022,10 +4032,7 @@ Default config:
   ```lua
   { "elixir", "eelixir", "heex", "surface" }
   ```
-- `root_markers` :
-  ```lua
-  { "mix.exs", ".git" }
-  ```
+- `root_dir`: [../lsp/expert.lua:13](../lsp/expert.lua#L13)
 
 ---
 
@@ -4544,6 +4551,12 @@ Default config:
 - `filetypes` :
   ```lua
   { "yaml" }
+  ```
+- `handlers` :
+  ```lua
+  {
+    ["actions/readFile"] = <function 1>
+  }
   ```
 - `init_options` :
   ```lua
@@ -9769,6 +9782,9 @@ Snippet to enable the language server:
 vim.lsp.enable('roslyn_ls')
 ```
 
+Commands:
+- roslyn.client.completionComplexEdit
+
 Default config:
 - `capabilities` :
   ```lua
@@ -9784,6 +9800,12 @@ Default config:
   ```lua
   { "Microsoft.CodeAnalysis.LanguageServer", "--logLevel", "Information", "--extensionLogDirectory", "/tmp/roslyn_ls/logs", "--stdio" }
   ```
+- `commands` :
+  ```lua
+  {
+    ["roslyn.client.completionComplexEdit"] = <function 1>
+  }
+  ```
 - `filetypes` :
   ```lua
   { "cs" }
@@ -9792,9 +9814,8 @@ Default config:
   ```lua
   {
     ["razor/provideDynamicFileInfo"] = <function 1>,
-    ["workspace/_roslyn_projectHasUnresolvedDependencies"] = <function 2>,
-    ["workspace/_roslyn_projectNeedsRestore"] = <function 3>,
-    ["workspace/projectInitializationComplete"] = <function 4>
+    ["workspace/_roslyn_projectNeedsRestore"] = <function 2>,
+    ["workspace/projectInitializationComplete"] = <function 3>
   }
   ```
 - `name` :
@@ -9805,11 +9826,12 @@ Default config:
   ```lua
   "utf-8"
   ```
+- `on_attach`: [../lsp/roslyn_ls.lua:101](../lsp/roslyn_ls.lua#L101)
 - `on_init` :
   ```lua
   { <function 1> }
   ```
-- `root_dir`: [../lsp/roslyn_ls.lua:95](../lsp/roslyn_ls.lua#L95)
+- `root_dir`: [../lsp/roslyn_ls.lua:101](../lsp/roslyn_ls.lua#L101)
 - `settings` :
   ```lua
   {
@@ -12387,25 +12409,17 @@ https://github.com/ribru17/ts_query_ls
 Can be configured by passing a "settings" object to `vim.lsp.config('ts_query_ls', {})`:
 ```lua
 vim.lsp.config('ts_query_ls', {
-    settings = {
-      parser_install_directories = {
-        -- If using nvim-treesitter with lazy.nvim
-        vim.fs.joinpath(
-          vim.fn.stdpath('data'),
-          '/lazy/nvim-treesitter/parser/'
-        ),
-      },
-      -- This setting is provided by default
-      parser_aliases = {
-        ecma = 'javascript',
-        jsx = 'javascript',
-        php_only = 'php',
-      },
-      -- E.g. zed support
-      language_retrieval_patterns = {
-        'languages/src/([^/]+)/[^/]+\\.scm$',
-      },
+  init_options = {
+    parser_install_directories = {
+      '/my/parser/install/dir',
     },
+    -- This setting is provided by default
+    parser_aliases = {
+      ecma = 'javascript',
+      jsx = 'javascript',
+      php_only = 'php',
+    },
+  },
 })
 ```
 
@@ -12423,19 +12437,21 @@ Default config:
   ```lua
   { "query" }
   ```
-- `root_markers` :
-  ```lua
-  { "queries", ".git" }
-  ```
-- `settings` :
+- `init_options` :
   ```lua
   {
     parser_aliases = {
       ecma = "javascript",
       jsx = "javascript",
       php_only = "php"
-    }
+    },
+    parser_install_directories = { "/home/runner/.local/share/nvim/site/parser" }
   }
+  ```
+- `on_attach`: [../lsp/ts_query_ls.lua:26](../lsp/ts_query_ls.lua#L26)
+- `root_markers` :
+  ```lua
+  { ".tsqueryrc.json", ".git" }
   ```
 
 ---
@@ -13867,7 +13883,7 @@ Default config:
 
 ## zk
 
-https://github.com/mickael-menu/zk
+https://github.com/zk-org/zk
 
 A plain text note-taking assistant
 
@@ -13885,11 +13901,12 @@ Default config:
   ```lua
   { "markdown" }
   ```
-- `on_attach`: [../lsp/zk.lua:16](../lsp/zk.lua#L16)
+- `on_attach`: [../lsp/zk.lua:40](../lsp/zk.lua#L40)
 - `root_markers` :
   ```lua
   { ".zk" }
   ```
+- `workspace_required` : `true`
 
 ---
 
@@ -13918,6 +13935,33 @@ Default config:
   { "zls.json", "build.zig", ".git" }
   ```
 - `workspace_required` : `false`
+
+---
+
+## zuban
+
+https://zubanls.com/
+
+A high-performance Python Language Server and type checker implemented in Rust, by the author of Jedi.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('zuban')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "zuban", "server" }
+  ```
+- `filetypes` :
+  ```lua
+  { "python" }
+  ```
+- `root_markers` :
+  ```lua
+  { "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "Pipfile", ".git" }
+  ```
 
 ---
 
