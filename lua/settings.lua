@@ -29,9 +29,6 @@ for _, plugin in pairs(disabled_built_ins) do
   vim.g["loaded_" .. plugin] = 1
 end
 
--- Python
-vim.g.python_recommended_style = 0
-
 -- Set mapleader and maplocalleader
 vim.g.mapleader = ' '
 vim.g.maplocalleader = '\\'
