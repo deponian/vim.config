@@ -49,10 +49,6 @@ vim.keymap.set("v", "<Leader>S", [[y/\V<C-R>=escape(@",'\/')<CR><CR>]])
 vim.keymap.set("n", "<Leader>s", [[:%s/\v]])
 vim.keymap.set("x", "<Leader>s", [[:s/\v]])
 
--- <Leader>F -- Open file under cursor in new tab
--- (mnemonic: file)
-vim.keymap.set("n", "<Leader>F", "<C-W>gf")
-
 -- <Leader>c -- Fold all #-comments in buffer
 -- (mnemonic: comment)
 vim.keymap.set("n", "<Leader>c", [[:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\\s*#'\\|\\|getline(v:lnum)=~'^\\s*$'<CR>zM]])

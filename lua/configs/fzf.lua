@@ -3,134 +3,44 @@ local M = { "ibhagwan/fzf-lua" }
 M.opts = {
   winopts = {
     fullscreen = true,
-    hls = {
-      normal = 'Normal',
-      border = 'FloatBorder',
-      preview_border = 'FloatBorder',
-      help_normal = 'Normal',
-      help_border = 'FloatBorder',
-      -- Only used with the builtin previewer:
-      cursor = 'Cursor',
-      cursorline = 'CursorLine',
-      cursorlinenr = 'CursorLineNr',
-      search = 'IncSearch',
-      title = 'SignColumn',
-      -- Only used with 'winopts.preview.scrollbar = 'border'
-      scrollborder_e = 'FloatBorder',
-      scrollborder_f = 'Delimiter',
-    },
-    preview = {
-      title_pos = "center",
-      scrollchars = {'┃', '' },
-    },
   },
   previewers = {
     builtin = {
-      treesitter = { enabled = true, disabled = {"yaml"} },
-      extensions = {
-        ["bmp"] = { "chafa" },
-        ["jpg"] = { "chafa" },
-        ["jpeg"] = { "chafa" },
-        ["png"] = { "chafa" },
+      treesitter = {
+        context = {
+          max_lines = 5
+        }
       },
     },
   },
+  defaults = {
+    hidden = true,
+    no_ignore = true,
+    follow = true,
+    toggle_ignore_flag = "--no-ignore", -- flag toggled in `actions.toggle_ignore`
+    toggle_hidden_flag = "--hidden",    -- flag toggled in `actions.toggle_hidden`
+    -- hack: replacing "--follow" flag with "--fixed-strings"
+    toggle_follow_flag = "--fixed-strings", -- flag toggled in `actions.toggle_follow`
+  },
   files = {
-    prompt = 'Files: ',
-    fzf_opts = { ["--info"] = "inline", },
-    fd_opts = "--color=never --type f --no-ignore --hidden --follow --exclude .git",
     cwd_prompt_shorten_val = 3,
   },
-  git = {
-    files = {
-      prompt = 'GitFiles: ',
-    },
-    status = {
-      prompt = 'GitStatus: ',
-    },
-    commits = {
-      prompt = 'Commits: ',
-      cmd = "git log --color --pretty=format:'%C(#5398dd)%h %C(#00d7af)%cd%C(reset)%C(#f2684b)%d %C(#d9d9d9)%s' --date=format:'%F'",
-      preview_pager = "delta --width=$FZF_PREVIEW_COLUMNS",
-    },
-    bcommits = {
-      prompt = 'File History: ',
-      cmd = "git log --color --pretty=format:'%C(#5398dd)%h %C(#00d7af)%cd%C(reset)%C(#f2684b)%d %C(#d9d9d9)%s' --date=format:'%F' <file>",
-      preview_pager = "delta --width=$FZF_PREVIEW_COLUMNS",
-    },
-    branches = {
-      prompt = 'Branches: ',
-    },
-    stash = {
-      prompt = 'Stash: ',
-    },
-  },
   grep = {
-    prompt = ' ',
     rg_opts = "--column --line-number --glob='!.git/' --no-heading --color=always --no-ignore --hidden --fixed-strings --smart-case --max-columns=4096 -e",
     no_header_i = true,
-    rg_glob = true,
-    exec_empty_query = true,
-    actions = {
-      ["ctrl-i"] = { require("deponian.fzf-lua").rg_toggle_flag("--hidden") },
-      ["ctrl-r"] = { require("deponian.fzf-lua").rg_toggle_flag("--fixed-strings") },
-    },
-  },
-  args = {
-    prompt = 'Args: ',
-  },
-  oldfiles = {
-    prompt = 'History: ',
-  },
-  buffers = {
-    prompt = 'Buffers: ',
-  },
-  tabs = {
-    prompt = 'Tabs: ',
-  },
-  lines = {
-    prompt = 'Lines: ',
-  },
-  blines = {
-    prompt = 'BLines: ',
-  },
-  tags = {
-    prompt = 'Tags: ',
-  },
-  btags = {
-    prompt = 'BTags: ',
-  },
-  colorschemes = {
-    prompt = 'Colorschemes: ',
-  },
-  quickfix = {
-    prompt = "Quickfix: ",
-  },
-  quickfix_stack = {
-    prompt = "Quickfix Stack: ",
-  },
-  lsp = {
-    prompt_postfix = ': ',
-    code_actions = {
-        prompt = 'Code Actions: ',
-    },
-    finder = {
-        prompt = "LSP Finder: ",
-    }
-  },
-  diagnostics ={
-    prompt = 'Diagnostics: ',
-    signs = {
-      ["Error"] = { text = "", texthl = "DiagnosticError" },
-      ["Warn"]  = { text = "", texthl = "DiagnosticWarn" },
-      ["Info"]  = { text = "", texthl = "DiagnosticInfo" },
-      ["Hint"]  = { text = "", texthl = "DiagnosticHint" },
-    },
-  },
+  }
 }
 
 M.config = function(_, opts)
-  -- setup plugin settings
+  -- actions can be set only here because they need require("fzf-lua")...
+  opts.actions = {
+    files = {
+      true,
+      ["ctrl-i"] = require("fzf-lua").actions.toggle_hidden,
+      ["ctrl-h"] = require("fzf-lua").actions.toggle_ignore,
+      ["ctrl-r"] = require("fzf-lua").actions.toggle_follow,
+    },
+  }
   require("fzf-lua").setup(opts)
 end
 
@@ -147,7 +57,7 @@ M.keys = {
   -- (mnemonic: find)
   { "<Leader>f",
     function()
-      require("fzf-lua").live_grep({})
+      require("fzf-lua").live_grep()
     end },
   { "<Leader>f",
     function()
@@ -158,6 +68,13 @@ M.keys = {
     end,
     mode = "x",
     silent = true },
+
+  -- <Leader>F -- Search in current buffer
+  -- (mnemonic: find)
+  { "<Leader>F",
+    function()
+      require("fzf-lua").blines()
+    end },
 
   -- <Leader>g -- git commands
   -- mnemonic: [g]it [l]s-files
