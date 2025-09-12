@@ -1,4 +1,7 @@
-local M = { "mfussenegger/nvim-lint" }
+local M = {
+  "mfussenegger/nvim-lint",
+  enabled = not vim.g.bigfile_mode,
+}
 
 M.config = function ()
   require("lint").linters_by_ft = {

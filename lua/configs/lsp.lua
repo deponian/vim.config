@@ -1,5 +1,6 @@
 local M = {
   "neovim/nvim-lspconfig",
+  enabled = not vim.g.bigfile_mode,
 }
 
 M.config = function ()
