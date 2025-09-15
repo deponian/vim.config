@@ -5,7 +5,7 @@ M.opts = {
   highlighting = {
     regular_search_pattern = "Search",
     current_search_pattern = "CurSearch",
-    minimap_integration = "Constant",
+    minimap_integration = "Keyword",
   },
 }
 
@@ -14,6 +14,7 @@ M.keys = {
   -- (mnemonic: [r]eplace)
   { "<Leader>r", "<Plug>(Scalpelua)", mode = "x" },
   { "<Leader>R", "<Plug>(ScalpeluaMultiline)", mode = "x" },
+  { "<Leader>r", "<Plug>(Scalpelua)", mode = "n" },
 }
 
 return M

@@ -21,7 +21,7 @@
   "nvim-lint": { "branch": "master", "commit": "f126af5345c7472e9a0cdbe1d1a29209be72c4c4" },
   "nvim-lspconfig": { "branch": "master", "commit": "c8b90ae5cbe21d547b342b05c9266dcb8ca0de8f" },
   "nvim-lualine-whitespace": { "branch": "main", "commit": "0086d3a813ee4840f6bc426e1aec0a359f122afa" },
-  "nvim-scalpelua": { "branch": "main", "commit": "e6ebd3f595ca636c1fd4115de6fc58860c8f28b7" },
+  "nvim-scalpelua": { "branch": "main", "commit": "ce3a7408c34ededb383db1026ef74db019acf857" },
   "nvim-tree.lua": { "branch": "master", "commit": "e179ad2f83b5955ab0af653069a493a1828c2697" },
   "nvim-treesitter": { "branch": "master", "commit": "42fc28ba918343ebfd5565147a42a26580579482" },
   "nvim-treesitter-context": { "branch": "master", "commit": "66a9b5fa9e806918b5fe3dba00c6cce7e230abd2" },
