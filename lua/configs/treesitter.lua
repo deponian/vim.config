@@ -12,7 +12,7 @@ M.config = function()
     ignore_install = {'ipkg'},
     highlight = {
       enable = true,
-      disable = {'dockerfile'}
+      disable = {'dockerfile', 'tmux'}
     },
   })
 
