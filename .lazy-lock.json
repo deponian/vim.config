@@ -2,7 +2,7 @@
   "blink-cmp-dictionary": { "branch": "master", "commit": "43b701fe9728a704bc63e4667c5d8b398bf129b2" },
   "blink-ripgrep.nvim": { "branch": "main", "commit": "f8d4dc5d826ddfa7539472f3fbbe72646788534f" },
   "blink.cmp": { "branch": "main", "commit": "bae4bae0eedd1fa55f34b685862e94a222d5c6f8" },
-  "conform.nvim": { "branch": "master", "commit": "b4aab989db276993ea5dcb78872be494ce546521" },
+  "conform.nvim": { "branch": "master", "commit": "3bad87250ed85246fe8c5bc10005ab5a6289ae4c" },
   "diffview.nvim": { "branch": "main", "commit": "4516612fe98ff56ae0415a259ff6361a89419b0a" },
   "friendly-snippets": { "branch": "main", "commit": "572f5660cf05f8cd8834e096d7b4c921ba18e175" },
   "fzf-lua": { "branch": "main", "commit": "c2d9b8693792c6dd810162d9e8c90782cec19404" },
