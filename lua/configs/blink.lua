@@ -117,18 +117,6 @@ M.opts = {
       preset = 'inherit',
       ['<CR>'] = { 'accept_and_enter', 'fallback' },
     },
-    completion = {
-      menu = {
-        auto_show = function()
-          local type = vim.fn.getcmdtype()
-          if type == '/' or type == '?' then
-            return false
-          else
-            return true
-          end
-        end
-      }
-    }
   },
 }
 
