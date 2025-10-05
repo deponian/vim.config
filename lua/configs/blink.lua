@@ -120,4 +120,16 @@ M.opts = {
   },
 }
 
+M.config = function(_, opts)
+  -- use lua implementation in server mode
+  if vim.g.server_mode then
+    opts.fuzzy = { implementation = "lua" }
+  else
+    opts.fuzzy = { implementation = "rust" }
+  end
+
+  require("blink.cmp").setup(opts)
+end
+
+
 return M
