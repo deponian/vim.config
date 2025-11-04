@@ -7,7 +7,7 @@ local presets_keymaps = {
   default = {
     ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
     ['<C-e>'] = { 'cancel', 'fallback' },
-    ['<C-y>'] = { 'select_and_accept' },
+    ['<C-y>'] = { 'select_and_accept', 'fallback' },
 
     ['<Up>'] = { 'select_prev', 'fallback' },
     ['<Down>'] = { 'select_next', 'fallback' },
@@ -24,8 +24,8 @@ local presets_keymaps = {
   },
 
   cmdline = {
-    ['<Tab>'] = { 'show_and_insert', 'select_next' },
-    ['<S-Tab>'] = { 'show_and_insert', 'select_prev' },
+    ['<Tab>'] = { 'show_and_insert_or_accept_single', 'select_next' },
+    ['<S-Tab>'] = { 'show_and_insert_or_accept_single', 'select_prev' },
 
     ['<C-space>'] = { 'show', 'fallback' },
 
@@ -34,8 +34,9 @@ local presets_keymaps = {
     ['<Right>'] = { 'select_next', 'fallback' },
     ['<Left>'] = { 'select_prev', 'fallback' },
 
-    ['<C-y>'] = { 'select_and_accept' },
-    ['<C-e>'] = { 'cancel' },
+    ['<C-y>'] = { 'select_and_accept', 'fallback' },
+    ['<C-e>'] = { 'cancel', 'fallback' },
+    ['<End>'] = { 'hide', 'fallback' },
   },
 
   ['super-tab'] = {

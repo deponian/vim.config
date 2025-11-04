@@ -23,11 +23,10 @@ function cmp.setup(opts)
     if err then error(err) end
     require('blink.cmp.fuzzy').set_implementation(fuzzy_implementation)
 
-    -- setup highlights, keymap, completion, commands and signature help
+    -- setup highlights, keymap, completion, and signature help
     require('blink.cmp.highlights').setup()
     require('blink.cmp.keymap').setup()
     require('blink.cmp.completion').setup()
-    require('blink.cmp.commands').setup()
     if config.signature.enabled then require('blink.cmp.signature').setup() end
   end)
 end
@@ -63,7 +62,7 @@ function cmp.show(opts)
   if require('blink.cmp.completion.windows.menu').win:is_open() and not (opts and opts.providers) then return end
 
   vim.schedule(function()
-    require('blink.cmp.completion.windows.menu').auto_show = true
+    require('blink.cmp.completion.windows.menu').force_auto_show()
 
     -- HACK: because blink is event based, we don't have an easy way to know when the "show"
     -- event completes. So we wait for the list to trigger the show event and check if we're
@@ -95,6 +94,28 @@ function cmp.show_and_insert(opts)
   opts = opts or {}
   opts.initial_selected_item_idx = 1
   return cmp.show(opts)
+end
+
+--- Select the first completion item if there are multiple candidates, or accept it if there is only one, after showing
+--- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
+function cmp.show_and_insert_or_accept_single(opts)
+  local list = require('blink.cmp.completion.list')
+
+  -- If the candidate list has been filtered down to exactly one item, accept it.
+  if #list.items == 1 then
+    vim.schedule(function() list.accept({ index = 1, callback = opts and opts.callback }) end)
+    return true
+  end
+
+  return cmp.show_and_insert({
+    callback = function()
+      if #list.items == 1 then
+        list.accept({ index = 1, callback = opts and opts.callback })
+      elseif opts and opts.callback then
+        opts.callback()
+      end
+    end,
+  })
 end
 
 --- Hide the completion window
@@ -152,7 +173,7 @@ function cmp.select_and_accept(opts)
   return true
 end
 
---- Select the first completion item, if there's no selection, and enter
+--- Accept the current completion item and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
 --- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
 function cmp.accept_and_enter(opts)
   return cmp.accept({
@@ -163,7 +184,7 @@ function cmp.accept_and_enter(opts)
   })
 end
 
---- Select the first completion item, if there's no selection, and enter
+--- Select the first completion item, if there's no selection, accept and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
 --- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
 function cmp.select_accept_and_enter(opts)
   return cmp.select_and_accept({
@@ -177,8 +198,7 @@ end
 --- Select the previous completion item
 --- @param opts? blink.cmp.CompletionListSelectOpts
 function cmp.select_prev(opts)
-  local on_ghost_text = opts and opts.on_ghost_text
-  if not cmp.is_menu_visible() and (not on_ghost_text or not cmp.is_ghost_text_visible()) then return end
+  if not require('blink.cmp.completion.list').can_select(opts) then return end
   vim.schedule(function() require('blink.cmp.completion.list').select_prev(opts) end)
   return true
 end
@@ -186,8 +206,7 @@ end
 --- Select the next completion item
 --- @param opts? blink.cmp.CompletionListSelectOpts
 function cmp.select_next(opts)
-  local on_ghost_text = opts and opts.on_ghost_text
-  if not cmp.is_menu_visible() and (not on_ghost_text or not cmp.is_ghost_text_visible()) then return end
+  if not require('blink.cmp.completion.list').can_select(opts) then return end
   vim.schedule(function() require('blink.cmp.completion.list').select_next(opts) end)
   return true
 end
@@ -196,6 +215,8 @@ end
 --- This will trigger completions if none are available, unlike `select_next` which would fallback to the next keymap in this case.
 function cmp.insert_next()
   if not cmp.is_active() then return cmp.show_and_insert() end
+  if not require('blink.cmp.completion.list').can_select({ auto_insert = true }) then return end
+
   vim.schedule(function() require('blink.cmp.completion.list').select_next({ auto_insert = true }) end)
   return true
 end
@@ -204,6 +225,8 @@ end
 --- This will trigger completions if none are available, unlike `select_prev` which would fallback to the next keymap in this case.
 function cmp.insert_prev()
   if not cmp.is_active() then return cmp.show_and_insert() end
+  if not require('blink.cmp.completion.list').can_select({ auto_insert = true }) then return end
+
   vim.schedule(function() require('blink.cmp.completion.list').select_prev({ auto_insert = true }) end)
   return true
 end
@@ -284,6 +307,26 @@ function cmp.hide_signature()
   local config = require('blink.cmp.config').signature
   if not config.enabled or not cmp.is_signature_visible() then return end
   vim.schedule(function() require('blink.cmp.signature.trigger').hide() end)
+  return true
+end
+
+--- Scroll the documentation window up
+--- @param count? number
+function cmp.scroll_signature_up(count)
+  local sig = require('blink.cmp.signature.window')
+  if not sig.win:is_open() then return end
+
+  vim.schedule(function() sig.scroll_up(count or 4) end)
+  return true
+end
+
+--- Scroll the documentation window down
+--- @param count? number
+function cmp.scroll_signature_down(count)
+  local sig = require('blink.cmp.signature.window')
+  if not sig.win:is_open() then return end
+
+  vim.schedule(function() sig.scroll_down(count or 4) end)
   return true
 end
 

@@ -5,21 +5,22 @@ local Item = require("trouble.item")
 local Promise = require("trouble.promise")
 local Util = require("trouble.util")
 
----@param line string line to be indexed
+local str_byteindex_new = pcall(vim.str_byteindex, "aa", "utf-8", 1)
+
+---@param s string line to be indexed
 ---@param index integer UTF index
 ---@param encoding string utf-8|utf-16|utf-32| defaults to utf-16
 ---@return integer byte (utf-8) index of `encoding` index `index` in `line`
-local function get_line_col(line, index, encoding)
-  local function get()
-    if vim.str_byteindex then
-      -- FIXME: uses old-style func signature, since there's no way to
-      -- properly detect if new style is available
-      return vim.str_byteindex(line, index, encoding == "utf-16")
-    end
-    return vim.lsp.util._str_byteindex_enc(line, index, encoding)
+local function get_line_col(s, index, encoding)
+  if str_byteindex_new then
+    return vim.str_byteindex(s, encoding, index, false)
+  elseif vim.str_byteindex then
+    ---@diagnostic disable-next-line: param-type-mismatch
+    return vim.str_byteindex(s, index, encoding == "utf-16")
+  elseif vim.lsp.util._str_byteindex then
+    return vim.lsp.util._str_byteindex(s, index, encoding)
   end
-  local ok, ret = pcall(get)
-  return ok and ret or #line
+  error("No str_byteindex function available")
 end
 
 ---@class trouble.Source.lsp: trouble.Source
@@ -144,7 +145,12 @@ function M.request(method, params, opts)
   return Promise.all(vim.tbl_map(function(client)
     return Promise.new(function(resolve)
       local p = type(params) == "function" and params(client) or params --[[@as table]]
-      client.request(method, p, function(err, result)
+      local request = vim.fn.has("nvim-0.11") == 0
+          and function(_, ...)
+            return client.request(...)
+          end
+        or client.request
+      request(client, method, p, function(err, result)
         resolve({ client = client, result = result, err = err, params = p })
       end, buf)
     end)

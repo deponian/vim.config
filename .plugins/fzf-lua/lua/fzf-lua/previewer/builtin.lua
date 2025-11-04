@@ -966,7 +966,7 @@ local ts_attach = function(bufnr, ft)
   -- ts is already attach, see $VIMRUNTIME/lua/vim/treesitter/highlighter.lua
   if vim.b[bufnr].ts_highlight then return true end
   local lang = vim.treesitter.language.get_lang(ft)
-  local loaded = lang and utils.has_ts_parser(lang)
+  local loaded = lang and utils.has_ts_parser(lang, "highlights")
   if lang and loaded then
     local ok, err = pcall(vim.treesitter.start, bufnr, lang)
     if not ok then
@@ -978,14 +978,18 @@ end
 
 function Previewer.base:update_ts_context()
   local bufnr = self.preview_bufnr
-  if not bufnr or not package.loaded["treesitter-context"] then return end
-  local ft = vim.b[bufnr] and vim.b[bufnr]._ft
-  if not ft
+  if not bufnr
       or not self.win
       or not self.win:validate_preview()
       or not self.treesitter.enabled
       or not self.treesitter.context
+      or not package.loaded["treesitter-context"]
   then
+    return
+  end
+  local ft = vim.b[bufnr] and vim.b[bufnr]._ft
+  if not ft then
+    TSContext.close(self.win.preview_winid)
     return
   end
   -- HACK: since TS async parsing commit we cannot guarantee the TSContext ranges as these will
@@ -993,9 +997,18 @@ function Previewer.base:update_ts_context()
   -- https://github.com/neovim/neovim/commit/45e606b1fddbfeee8fe28385b5371ca6f2fba71b
   -- For more info see #1922
   local lang = vim.treesitter.language.get_lang(ft)
-  if not utils.has_ts_parser(lang) then return end
-  local parser = vim.treesitter.get_parser(self.preview_bufnr, lang)
-  if not parser then return end
+  if not utils.has_ts_parser(lang, "context") then
+    TSContext.close(self.win.preview_winid)
+    return
+  end
+  local parser, err = vim.treesitter.get_parser(self.preview_bufnr, lang, { error = false })
+  -- TODO: fix `has_ts_parser` regression from a953548 (#2366)
+  -- should never fail since `utils.has_ts_parser` returned true
+  -- assert(parser, "'vim.treesitter.get_parser' err: " .. tostring(err))
+  if not parser or err then
+    TSContext.close(self.win.preview_winid)
+    return
+  end
   local context_updated
   TSContext.zindex = self.win.winopts.zindex + 20
   for _, t in ipairs({ 0, 20, 50, 100 }) do
@@ -1042,7 +1055,7 @@ end
 function Previewer.base:attach_snacks_image_buf(buf, entry)
   ---@diagnostic disable-next-line: undefined-field
   local simg = self.snacks_image.enabled and (_G.Snacks or {}).image
-  if not simg or not simg.supports(entry.path) then
+  if not simg or not simg.config.enabled or not simg.supports(entry.path) then
     return false
   end
   simg.buf.attach(buf, { src = entry.path })
@@ -1054,11 +1067,17 @@ function Previewer.base:attach_snacks_image_inline()
   local simg = (_G.Snacks or {}).image
   local bufnr, preview_winid = self.preview_bufnr, self.win.preview_winid
   if not simg
+      or not simg.config.enabled
       or not self.snacks_image.enabled
       or not self.snacks_image.render_inline
-      or not simg.supports_terminal()
-      or not simg.terminal.env().placeholders
       or vim.b[bufnr].snacks_image_attached then
+    return
+  end
+  if not simg.terminal._terminal then -- detection must be done before terminal.env()
+    simg.terminal.detect(function() end)
+    return
+  end
+  if not simg.supports_terminal() or not simg.terminal.env().placeholders then
     return
   end
 
@@ -1218,7 +1237,7 @@ function Previewer.buffer_or_file:set_cursor_hl(entry)
     (function()
       -- Check both the cmd and glob_args in case the user has a custom
       -- `rg_glob_fn` which uses raw args (as the wiki example)
-      for _, s in ipairs({ self.opts.cmd, glob_args }) do
+      for _, s in ipairs({ self.opts.cmd or self.opts._cmd, glob_args }) do
         if s and (s:match("%-%-fixed%-strings") or s:match("%-F")) then
           regex = utils.rg_escape(regex)
           return
@@ -1468,7 +1487,7 @@ end
 
 function Previewer.marks:parse_entry(entry_str)
   local bufnr = nil
-  local mark, lnum, col, filepath = entry_str:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
+  local mark, lnum, col, filepath = entry_str:match("([^ ])%s+(%d+)%s+(%d+)%s+(.*)")
   if not mark then return {} end
   -- try to acquire position from sending buffer
   -- if this succeeds (line>0) the mark is inside
@@ -1481,7 +1500,6 @@ function Previewer.marks:parse_entry(entry_str)
     return vim.api.nvim_buf_get_mark(buf, mark)
   end)
   if pos and pos[1] > 0 then
-    assert(pos[1] == tonumber(lnum))
     bufnr = self.win.src_bufnr
     filepath = api.nvim_buf_get_name(bufnr)
   end
@@ -1585,67 +1603,39 @@ function Previewer.highlights:new(o, opts)
   return self
 end
 
-function Previewer.highlights:close()
-  -- Remove our scratch buffer from "listed" so it gets wiped
-  self.listed_buffers[tostring(self.tmpbuf)] = nil
-  Previewer.highlights.super.close(self)
-  self.tmpbuf = nil
-end
-
 function Previewer.highlights:populate_preview_buf(entry_str)
-  if not self.tmpbuf then
-    local output = vim.split(vim.fn.execute "highlight", "\n")
-    local hl_groups = {}
-    for _, v in ipairs(output) do
-      if v ~= "" then
-        if v:sub(1, 1) == " " then
-          local part_of_old = v:match "%s+(.*)"
-          hl_groups[#hl_groups] = hl_groups[#hl_groups] .. part_of_old
-        else
-          table.insert(hl_groups, v)
-        end
-      end
-    end
-
-    -- Get a scratch buffer that doesn't wipe on hide (vs `self:get_tmp_buffer`)
-    -- and mark it as "listed" so it doesn't get cleared on fzf's zero event
-    self.tmpbuf = api.nvim_create_buf(false, true)
-    self.listed_buffers[tostring(self.tmpbuf)] = true
-
-    pcall(vim.api.nvim_buf_clear_namespace, self.tmpbuf, self.ns_previewer, 0, -1)
-    vim.api.nvim_buf_set_lines(self.tmpbuf, 0, -1, false, hl_groups)
-    for k, v in ipairs(hl_groups) do
-      local startPos = string.find(v, "xxx", 1, true) - 1
-      local endPos = startPos + 3
-      local hlgroup = string.match(v, "([^ ]*)%s+.*")
-      vim.api.nvim_buf_set_extmark(self.tmpbuf, self.ns_previewer, k - 1, startPos, {
-        end_line = k - 1,
-        end_col = endPos,
-        hl_group = hlgroup,
-        hl_mode = "combine",
-      })
-    end
-  end
-
   -- Preview buffer isn't set on init and after fzf's zero event
   if not self.preview_bufnr then
-    self:set_preview_buf(self.tmpbuf)
+    local buf = self:get_tmp_buffer()
+    vim.bo[buf].ft = "lua"
+    ts_attach(buf, "lua")
+    self:set_preview_buf(buf)
   end
 
-  local selected_hl = "^" .. utils.strip_ansi_coloring(entry_str) .. "\\>"
-  pcall(api.nvim_win_call, self.win.preview_winid, function()
-    -- start searching at line 1 in case we
-    -- didn't reload the buffer (same file)
-    api.nvim_win_set_cursor(0, { 1, 0 })
-    fn.clearmatches()
-    fn.search(selected_hl, "W")
-    if self.win.hls.search then
-      fn.matchadd(self.win.hls.search, selected_hl)
-    end
-    self.orig_pos = api.nvim_win_get_cursor(0)
-    utils.zz()
-  end)
+  local serpent = require "fzf-lua.lib.serpent"
+  local buf = self.preview_bufnr
+  local hl = entry_str:match("^[^%s]+")
+  local hlgroup = hl
+  local lines = {}
+  repeat
+    local hl_def = vim.api.nvim_get_hl(0, { name = hl, link = true })
+    local block = utils.strsplit(serpent.block(hl_def, { comment = false, sortkeys = false }), "\n")
+    block[1] = string.format("%s = %s", hl, block[1])
+    vim.tbl_map(function(l) table.insert(lines, l) end, block)
+    hl = hl_def.link
+  until not hl
+  table.insert(lines, [[]])
+  table.insert(lines, [["THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"]])
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  self.win:update_preview_title(hl)
   self.win:update_preview_scrollbar()
+  vim.api.nvim_win_call(self.win.preview_winid, function()
+    if self.match_id then
+      pcall(fn.matchdelete, self.match_id)
+      self.match_id = nil
+    end
+    self.match_id = fn.matchaddpos(hlgroup, { { #lines } }, self.ns_previewer)
+  end)
 end
 
 ---@class fzf-lua.previewer.Quickfix : fzf-lua.previewer.Builtin,{}

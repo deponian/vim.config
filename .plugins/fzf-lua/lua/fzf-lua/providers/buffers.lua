@@ -140,7 +140,7 @@ local function gen_buffer_entry(opts, buf, max_bufnr, cwd, prefix)
   local rightbr = "]"
   local bufname = (function()
     local bname = buf.info.name
-    if bname:match("^%[.*%]$") or path.is_uri(bname) then
+    if bname:match("^%[.*%]$") or (path.is_uri(bname) and not utils.is_term_bufname(bname)) then
       return bname
     elseif opts.filename_only then
       return path.tail(bname)
@@ -466,8 +466,8 @@ M.treesitter = function(opts)
   local ts = vim.treesitter
   local ft = vim.bo[bufnr0].ft
   local lang = ts.language.get_lang(ft) or ft
-  if not utils.has_ts_parser(lang) then
-    utils.info("No treesitter parser found for '%s' (bufnr=%d)", bufname0, bufnr0)
+  if not utils.has_ts_parser(lang, "locals") then
+    utils.info("No treesitter parser or no 'locals.scm' found for '%s' (bufnr=%d)", bufname0, bufnr0)
     return
   end
 

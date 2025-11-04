@@ -94,14 +94,14 @@ _G.FzfLua = require("fzf-lua")
 ---@field invalid_pos boolean? position changed
 ---@field tick integer?
 
----@alias fzf-lua.config.Action fzf-lua.ActionSpec|function|function[]|false
+---@alias fzf-lua.config.Action fzf-lua.ActionSpec|fzf-lua.shell.data2|fzf-lua.shell.data2[]|false
 ---@alias fzf-lua.config.Actions { [string]: fzf-lua.config.Action }
 
 ---@class fzf-lua.ActionSpec
----@field [1] function?
----@field fn function?
+---@field [1] fzf-lua.shell.data2?
+---@field fn fzf-lua.shell.data2?
 ---@field exec_silent boolean?
----@field reload boolean|fun(opts: fzf-lua.Config):content?
+---@field reload boolean
 ---@field field_index string?
 ---@field desc string?
 ---@field prefix string?
@@ -145,8 +145,9 @@ _G.FzfLua = require("fzf-lua")
 ---...
 ---@field cwd string?
 ---@field multiprocess integer|boolean?
----@field fn_transform string?
----@field fn_preprocess string?
+---@field fn_transform boolean|string|function?
+---@field fn_preprocess boolean|string|function?
+---@field fn_postprocess boolean|string|function?
 ---@field file_icons boolean|integer?
 ---@field color_icons boolean?
 ---@field _type "file"?
@@ -164,7 +165,7 @@ _G.FzfLua = require("fzf-lua")
 ---@field resume boolean?
 ---@field no_resume boolean?
 ---@field profile string|table?
----@field fn_reload boolean? is "live" picker
+---@field is_live boolean? is "live" picker
 ---@field silent_fail boolean?
 ---set_headers
 ---@field _headers string[]?
@@ -183,6 +184,11 @@ _G.FzfLua = require("fzf-lua")
 ---@field _fmt table
 ---FzfWin:treesitter_attach
 ---@field _treesitter (fun(line:string):string,string?,string?,string?)|boolean?
+---stringify_mt
+---@field cmd? string
+---@field contents? fzf-lua.content|fzf-lua.shell.data2
+---@field debug? boolean|'v'|'verbose'
+---@field rg_glob? boolean
 
 ---mostly ai generated currently...
 ---@class fzf-lua.config.Defaults
@@ -360,6 +366,7 @@ _G.FzfLua = require("fzf-lua")
 ---@field bcommits  fzf-lua.config.GitBcommits
 ---@field blame     fzf-lua.config.GitBlame
 ---@field branches  fzf-lua.config.GitBranches
+---@field worktrees fzf-lua.config.GitWorktrees
 ---@field tags      fzf-lua.config.GitTags
 ---@field stash     fzf-lua.config.GitStash
 ---@field icons     table<string, {icon:string, color:string}>
@@ -398,6 +405,9 @@ _G.FzfLua = require("fzf-lua")
 ---@field remotes? string
 ---@field cmd_add? table
 ---@field cmd_del? table
+---@field _multiline? boolean
+
+---@class fzf-lua.config.GitWorktrees: fzf-lua.config.GitBase
 ---@field _multiline? boolean
 
 ---@class fzf-lua.config.GitTags: fzf-lua.config.GitBase
@@ -612,6 +622,7 @@ _G.FzfLua = require("fzf-lua")
 ---@field load table
 
 ---@class fzf-lua.config.Marks: fzf-lua.config.Base
+---@field sort boolean sort mark list?
 ---@field marks string lua pattern to filter marks
 
 ---@class fzf-lua.config.Changes: fzf-lua.config.Jumps
@@ -769,6 +780,7 @@ _G.FzfLua = require("fzf-lua")
 ---@class fzf-lua.config.GitBcommits.p: fzf-lua.config.GitBcommits, {}
 ---@class fzf-lua.config.GitBlame.p: fzf-lua.config.GitBlame, {}
 ---@class fzf-lua.config.GitBranches.p: fzf-lua.config.GitBranches, {}
+---@class fzf-lua.config.GitWorktrees.p: fzf-lua.config.GitWorktrees, {}
 ---@class fzf-lua.config.GitCommits.p: fzf-lua.config.GitCommits, {}
 ---@class fzf-lua.config.GitDiff.p: fzf-lua.config.GitDiff, {}
 ---@class fzf-lua.config.GitFiles.p: fzf-lua.config.GitFiles, {}

@@ -103,7 +103,7 @@ function TSInjector._attach_lang(buf, lang, regions)
 end
 
 ---@alias fzf-lua.win.previewPos "up"|"down"|"left"|"right"
----@alias fzf-lua.win.previewLayout { pos: fzf-lua.win.previewPos, size: integer, str: string }
+---@alias fzf-lua.win.previewLayout { pos: fzf-lua.win.previewPos, size: number, str: string }
 
 ---@class fzf-lua.Win
 ---@field winopts fzf-lua.config.Winopts|{}
@@ -235,26 +235,28 @@ end
 
 ---@return fzf-lua.win.previewLayout
 function FzfWin:normalize_preview_layout()
-  local preview_str ---@type string
+  local preview_str, pos ---@type string, fzf-lua.win.previewPos
   if self._preview_pos_force then
     -- Get the correct layout string and size when set from `:toggle_preview_cw`
     preview_str = (self._preview_pos_force == "up" or self._preview_pos_force == "down")
         and self.winopts.preview.vertical or self.winopts.preview.horizontal
     assert(preview_str)
-    self._preview_pos = self._preview_pos_force
+    pos = self._preview_pos_force
   else
     preview_str = self:fzf_preview_layout_str()
-    self._preview_pos = preview_str:match("[^:]+") or "right"
+    pos = preview_str:match("[^:]+") or "right"
   end
-  self._preview_size = tonumber(preview_str:match(":(%d+)%%")) or 50
+  local percent = tonumber(preview_str:match(":(%d+)%%"))
+  local abs = not percent and tonumber(preview_str:match(":(%d+)")) or nil
+  percent = percent or 50
   return {
-    pos = self._preview_pos,
-    size = self._preview_size,
-    str = string.format("%s:%s%%", self._preview_pos, tostring(self._preview_size))
+    pos = pos,
+    size = abs or (percent / 100),
+    str = string.format("%s:%s", pos, tostring(abs or percent) .. ((not abs) and "%" or ""))
   }
 end
 
----@return integer, fzf-lua.win.previewLayout?
+---@return integer nwin, boolean preview
 function FzfWin:normalize_layout()
   -- when to use full fzf layout
   -- 1. no previewer (always)
@@ -263,11 +265,11 @@ function FzfWin:normalize_layout()
   if not self:has_previewer()
       or (self.previewer_is_builtin and (self.preview_hidden and self.toggle_behavior ~= "extend"))
       or (not self.previewer_is_builtin and (self.toggle_behavior ~= "extend" or not self.preview_hidden)) then
-    return 1, nil
+    return 1, false
   end
   -- has previewer, but when nwin=1, reduce fzf main layout as if the previewer is displayed
   local nwin = self.preview_hidden and self.toggle_behavior == "extend" and 1 or 2
-  return nwin, self:normalize_preview_layout()
+  return nwin, true
 end
 
 function FzfWin:generate_layout()
@@ -275,9 +277,9 @@ function FzfWin:generate_layout()
   local winopts = self.winopts
 
   local nwin, preview = self:normalize_layout()
-  local layout = preview and preview.pos or nil
+  local layout = self:normalize_preview_layout()
   local border, h, w = self:normalize_border(self._o.winopts.border,
-    { type = "nvim", name = "fzf", layout = layout, nwin = nwin, opts = self._o })
+    { type = "nvim", name = "fzf", layout = preview and layout.pos, nwin = nwin, opts = self._o })
   if not preview then
     self.layout = {
       fzf = {
@@ -308,21 +310,21 @@ function FzfWin:generate_layout()
   local pwopts
   local row, col = winopts.row, winopts.col
   local height, width = winopts.height, winopts.width
-  local preview_pos, preview_size = preview.pos, preview.size
+  local preview_pos, preview_size = layout.pos, layout.size
   local pborder, ph, pw = self:normalize_border(self._o.winopts.preview.border,
-    { type = "nvim", name = "prev", layout = layout, nwin = nwin, opts = self._o })
+    { type = "nvim", name = "prev", layout = preview and layout.pos, nwin = nwin, opts = self._o })
   if winopts.split then
     -- Custom "split"
     pwopts = { relative = "win", anchor = "NW", row = 0, col = 0 }
     if preview_pos == "down" or preview_pos == "up" then
       pwopts.width = width - pw
-      pwopts.height = math.floor(height * preview_size / 100) - ph
+      pwopts.height = self:normalize_size(preview_size, height) - ph
       if preview_pos == "down" then
         pwopts.row = height - pwopts.height - ph
       end
     else -- left|right
       pwopts.height = height - ph
-      pwopts.width = math.floor(width * preview_size / 100) - pw
+      pwopts.width = self:normalize_size(preview_size, width) - pw
       if preview_pos == "right" then
         pwopts.col = width - pwopts.width + pw
       end
@@ -336,8 +338,10 @@ function FzfWin:generate_layout()
       -- https://github.com/junegunn/fzf/blob/1afd14381079a35eac0a4c2a5cacb86e2a3f476b/src/terminal.go#L1820
       -- fzf's previewer border is draw inside preview window, so shrink builtin previewer if it have "top border"
       -- to ensure the fzf list height is the same between fzf/builtin
-      local off = (self.previewer_is_builtin and ph > 0) and 1 or 0
-      pwopts.height = math.floor((height + off) * preview_size / 100) - off
+      local off = (preview_size < 1 and self.previewer_is_builtin and ph > 0) and 1
+          or (preview_size >= 1 and not self.previewer_is_builtin and ph > 0) and -ph
+          or 0
+      pwopts.height = self:normalize_size(preview_size, (height + off)) - off
       height = height - pwopts.height
       if preview_pos == "down" then
         -- next row
@@ -347,13 +351,17 @@ function FzfWin:generate_layout()
         row = pwopts.row + ph + pwopts.height
       end
       -- enlarge the height to align fzf with preview win
-      width = width + math.max(pw - w, 0)
-      pwopts.width = pwopts.width + math.max(w - pw, 0)
+      if self.previewer_is_builtin then
+        width = width + math.max(pw - w, 0)
+        pwopts.width = pwopts.width + math.max(w - pw, 0)
+      end
     else -- left|right
       pwopts.row = row
       pwopts.height = height
-      local off = (self.previewer_is_builtin and pw > 0) and 1 or 0
-      pwopts.width = math.floor((width + off) * preview_size / 100) - off
+      local off = (preview_size < 1 and self.previewer_is_builtin and pw > 0) and 1
+          or (preview_size >= 1 and not self.previewer_is_builtin and pw > 0) and -pw
+          or 0
+      pwopts.width = self:normalize_size(preview_size, (width + off)) - off
       width = width - pwopts.width
       if preview_pos == "right" then
         -- next col
@@ -363,8 +371,10 @@ function FzfWin:generate_layout()
         col = pwopts.col + pw + pwopts.width
       end
       -- enlarge the height to align fzf with preview win
-      height = height + math.max(ph - h, 0)
-      pwopts.height = pwopts.height + math.max(h - ph, 0)
+      if self.previewer_is_builtin then
+        height = height + math.max(ph - h, 0)
+        pwopts.height = pwopts.height + math.max(h - ph, 0)
+      end
     end
   end
   self.layout = {
@@ -559,14 +569,14 @@ function FzfWin:normalize_winopts()
   }
 
   local nwin, preview = self:normalize_layout()
-  local layout = (preview or {}).pos
+  local preview_pos = preview and self:normalize_preview_layout().pos or nil
   if preview and self.previewer_is_builtin then nwin = 2 end
   local _, h, w = self:normalize_border(self._o.winopts.border,
-    { type = "nvim", name = "fzf", layout = layout, nwin = nwin, opts = self._o })
+    { type = "nvim", name = "fzf", layout = preview_pos, nwin = nwin, opts = self._o })
   if preview and self.previewer_is_builtin then
     local _, ph, pw = self:normalize_border(self._o.winopts.preview.border,
-      { type = "nvim", name = "prev", layout = layout, nwin = nwin, opts = self._o })
-    if preview.pos == "up" or preview.pos == "down" then
+      { type = "nvim", name = "prev", layout = preview_pos, nwin = nwin, opts = self._o })
+    if preview_pos == "up" or preview_pos == "down" then
       h, w = h + ph, math.max(w, pw)
     else -- left|right
       h, w = math.max(h, ph), w + pw
@@ -977,12 +987,11 @@ function FzfWin:treesitter_attach()
             and vim.api.nvim_win_is_valid(self.fzf_winid)
         then
           local win_width = vim.api.nvim_win_get_width(self.fzf_winid)
-          local layout = self:fzf_preview_layout_str()
-          local percent = layout:match("(%d+)%%") or 50
-          local prev_width = math.floor(win_width * percent / 100)
-          if layout:match("left") then
+          local layout = self:normalize_preview_layout()
+          local prev_width = self:normalize_size(layout.size, win_width)
+          if layout.pos == "left" then
             min = prev_width
-          elseif layout:match("right") then
+          elseif layout.pos == "right" then
             max = win_width - prev_width
           end
         end
@@ -1020,7 +1029,7 @@ function FzfWin:treesitter_attach()
 
           local lang = vim.treesitter.language.get_lang(ft)
           if not lang then return end
-          local loaded = lang and utils.has_ts_parser(lang)
+          local loaded = lang and utils.has_ts_parser(lang, "highlights")
           if not loaded then return end
 
           -- NOTE: if the line contains unicode characters `#line > win_width`
@@ -1249,7 +1258,10 @@ function FzfWin:close(fzf_bufnr, hide, hidden)
       -- "split" reused the current win (e.g. "enew")
       -- restore the original buffer and styling options
       self:set_winopts(self.fzf_winid, self.src_winid_style or {})
-      utils.win_set_buf_noautocmd(self.fzf_winid, self.src_bufnr)
+      -- buf may be invalid if we switched away from a scratch buffer
+      if vim.api.nvim_buf_is_valid(self.src_bufnr) then
+        utils.win_set_buf_noautocmd(self.fzf_winid, self.src_bufnr)
+      end
       -- also restore the original alternate buffer
       local alt_bname = (function()
         local alt_bufnr = utils.__CTX() and utils.__CTX().alt_bufnr
@@ -1302,6 +1314,12 @@ function FzfWin:close(fzf_bufnr, hide, hidden)
     -- use `vim.o.hlsearch` as `vim.cmd("hls")` is invalid
     vim.o.hlsearch = true
     self.hls_on_close = nil
+  end
+  -- Restore insert/normal-terminal mode (#2054)
+  if utils.__CTX().mode == "nt" then
+    utils.feed_keys_termcodes([[<C-\><C-n>]])
+  elseif utils.__CTX().mode == "i" then
+    vim.cmd [[noautocmd lua vim.api.nvim_feedkeys('i', 'n', true)]]
   end
   if self.winopts and type(self.winopts.on_close) == "function" then
     self.winopts.on_close()

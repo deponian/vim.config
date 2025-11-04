@@ -39,7 +39,8 @@ end
 ---@return table selected
 ---@return integer exit_code
 function M.raw_fzf(contents, fzf_cli_args, opts)
-  assert(not contents or type(contents) == "string", "contents must be of type function")
+  assert(not contents or type(contents) == "string",
+    "contents must be of type string: " .. tostring(contents))
   if not coroutine.running() then
     error("[Fzf-lua] function must be called inside a coroutine.")
   end
@@ -115,7 +116,7 @@ function M.raw_fzf(contents, fzf_cli_args, opts)
     -- })
   end
 
-  if opts.debug then
+  if opts.debug and type(opts.debug) ~= "number" then
     utils.info("FZF_DEFAULT_COMMAND: %s", tostring(FZF_DEFAULT_COMMAND))
     utils.info("fzf cmd: %s", table.concat(cmd, " "))
   end

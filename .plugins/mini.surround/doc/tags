@@ -1,9 +1,9 @@
 MiniSurround	mini-surround.txt	/*MiniSurround*
-MiniSurround-count	mini-surround.txt	/*MiniSurround-count*
+MiniSurround-builtin-surroundings	mini-surround.txt	/*MiniSurround-builtin-surroundings*
+MiniSurround-count-with-actions	mini-surround.txt	/*MiniSurround-count-with-actions*
 MiniSurround-glossary	mini-surround.txt	/*MiniSurround-glossary*
 MiniSurround-search-algorithm	mini-surround.txt	/*MiniSurround-search-algorithm*
-MiniSurround-surround-builtin	mini-surround.txt	/*MiniSurround-surround-builtin*
-MiniSurround-surround-specification	mini-surround.txt	/*MiniSurround-surround-specification*
+MiniSurround-surrounding-specification	mini-surround.txt	/*MiniSurround-surrounding-specification*
 MiniSurround-vim-surround-config	mini-surround.txt	/*MiniSurround-vim-surround-config*
 MiniSurround.add()	mini-surround.txt	/*MiniSurround.add()*
 MiniSurround.config	mini-surround.txt	/*MiniSurround.config*

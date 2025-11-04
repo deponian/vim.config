@@ -179,11 +179,15 @@ local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
 end
 
 -- Copied from vim.lsp.util.symbols_to_items, then added space prefix to child symbols.
-local function symbols_to_items(symbols, bufnr, child_prefix)
+local function symbols_to_items(opts, symbols, bufnr, child_prefix)
   ---@private
-  local function _symbols_to_items(_symbols, _items, _bufnr, prefix)
+  local function _symbols_to_items(_symbols, _items, _bufnr, prefix, parents)
+    parents = parents or {}
     for _, symbol in ipairs(_symbols) do
       local kind = vim.lsp.protocol.SymbolKind[symbol.kind] or "Unknown"
+      local name = opts.parent_postfix and not utils.tbl_isempty(parents)
+          and table.concat(parents, opts.parent_postfix) .. opts.parent_postfix .. symbol.name
+          or symbol.name
       if symbol.location then -- SymbolInformation type
         local range = symbol.location.range
         table.insert(_items, {
@@ -191,7 +195,7 @@ local function symbols_to_items(symbols, bufnr, child_prefix)
           lnum = range.start.line + 1,
           col = range.start.character + 1,
           kind = kind,
-          text = prefix .. "[" .. kind .. "] " .. symbol.name,
+          text = prefix .. "[" .. kind .. "] " .. name,
         })
       elseif symbol.selectionRange then -- DocumentSymbole type
         table.insert(_items, {
@@ -200,14 +204,18 @@ local function symbols_to_items(symbols, bufnr, child_prefix)
           lnum = symbol.selectionRange.start.line + 1,
           col = symbol.selectionRange.start.character + 1,
           kind = kind,
-          text = prefix .. "[" .. kind .. "] " .. symbol.name,
+          text = prefix .. "[" .. kind .. "] " .. name,
         })
         if symbol.children then
-          for _, v in ipairs(_symbols_to_items(symbol.children, _items, _bufnr, prefix .. child_prefix)) do
+          table.insert(parents, symbol.name)
+          for _, v in ipairs(
+            _symbols_to_items(symbol.children, _items, _bufnr, prefix .. child_prefix, parents))
+          do
             for _, s in ipairs(v) do
               table.insert(_items, s)
             end
           end
+          table.remove(parents)
         end
       end
     end
@@ -220,7 +228,7 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
   result = utils.tbl_islist(result) and result or { result }
   local items
   if opts.child_prefix then
-    items = symbols_to_items(result, utils.CTX().bufnr,
+    items = symbols_to_items(opts, result, utils.CTX().bufnr,
       opts.child_prefix == true and string.rep(" ", 2) or opts.child_prefix)
   else
     local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
@@ -233,7 +241,7 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
     if (not opts.current_buffer_only or utils.CTX().bname == entry.filename) and
         (not opts._regex_filter_fn or opts._regex_filter_fn(entry, utils.CTX())) then
       local mbicon_align = 0
-      if opts.fn_reload and type(opts.query) == "string" and #opts.query > 0 then
+      if opts.is_live and type(opts.query) == "string" and #opts.query > 0 then
         -- highlight exact matches with `live_workspace_symbols` (#1028)
         local sym, text = entry.text:match("^(.+%])(.*)$")
         local pattern = "[" .. utils.lua_regex_escape(
@@ -300,70 +308,71 @@ end
 local handlers = {
   ["code_actions"] = {
     label = "Code Actions",
-    server_capability = "codeActionProvider",
     method = "textDocument/codeAction",
   },
   ["references"] = {
     label = "References",
-    server_capability = "referencesProvider",
     method = "textDocument/references",
     handler = location_handler
   },
   ["definitions"] = {
     label = "Definitions",
-    server_capability = "definitionProvider",
     method = "textDocument/definition",
     handler = location_handler
   },
   ["declarations"] = {
     label = "Declarations",
-    server_capability = "declarationProvider",
     method = "textDocument/declaration",
     handler = location_handler
   },
   ["typedefs"] = {
     label = "Type Definitions",
-    server_capability = "typeDefinitionProvider",
     method = "textDocument/typeDefinition",
     handler = location_handler
   },
   ["implementations"] = {
     label = "Implementations",
-    server_capability = "implementationProvider",
     method = "textDocument/implementation",
     handler = location_handler
   },
   ["document_symbols"] = {
     label = "Document Symbols",
-    server_capability = "documentSymbolProvider",
     method = "textDocument/documentSymbol",
     handler = symbol_handler
   },
   ["workspace_symbols"] = {
     label = "Workspace Symbols",
-    server_capability = "workspaceSymbolProvider",
     method = "workspace/symbol",
     handler = symbol_handler
   },
   ["live_workspace_symbols"] = {
     label = "Workspace Symbols",
-    server_capability = "workspaceSymbolProvider",
     method = "workspace/symbol",
     handler = symbol_handler
   },
   ["incoming_calls"] = {
     label = "Incoming Calls",
-    server_capability = "callHierarchyProvider",
     method = "callHierarchy/incomingCalls",
     prep = "textDocument/prepareCallHierarchy",
     handler = call_hierarchy_handler
   },
   ["outgoing_calls"] = {
     label = "Outgoing Calls",
-    server_capability = "callHierarchyProvider",
     method = "callHierarchy/outgoingCalls",
     prep = "textDocument/prepareCallHierarchy",
     handler = call_hierarchy_handler
+  },
+  ["type_sub"] = {
+    label = "TypeHierarchy Sub",
+    method = "typeHierarchy/subtypes",
+    prep = "textDocument/prepareTypeHierarchy",
+    handler = location_handler
+  },
+  ["type_super"] = {
+    label = "TypeHierarchy Super",
+    method = "typeHierarchy/supertypes",
+    prep = "textDocument/prepareTypeHierarchy",
+    handler = location_handler
   },
 }
 
@@ -434,7 +443,7 @@ local function gen_lsp_contents(opts)
         end
       end
       if utils.tbl_isempty(results) then
-        if opts.fn_reload then
+        if opts.is_live then
           -- return an empty set or the results wouldn't be
           -- cleared on live_workspace_symbols (#468)
           opts.__contents = {}
@@ -485,8 +494,8 @@ local function gen_lsp_contents(opts)
           -- is returned, important for `live_workspace_symbols` when the user
           -- inputs a query that returns no results
           -- also used with `finder` to prevent the window from being closed
-          no_autoclose  = opts.no_autoclose or opts.fn_reload,
-          silent        = opts.silent or opts.fn_reload,
+          no_autoclose  = opts.no_autoclose or opts.is_live,
+          silent        = opts.silent or opts.is_live,
         }
 
         -- when used with 'live_workspace_symbols'
@@ -569,7 +578,7 @@ local function gen_lsp_contents(opts)
 end
 
 -- see $VIMRUNTIME/lua/vim/buf.lua:pick_call_hierarchy_item()
-local function gen_lsp_contents_call_hierarchy(opts)
+local function gen_lsp_contents_hierarchy(opts)
   local timeout = 5000
   if type(opts.async_or_timeout) == "number" then
     timeout = opts.async_or_timeout
@@ -655,11 +664,19 @@ M.implementations = function(opts)
 end
 
 M.incoming_calls = function(opts)
-  return fzf_lsp_locations(opts, gen_lsp_contents_call_hierarchy)
+  return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
 end
 
 M.outgoing_calls = function(opts)
-  return fzf_lsp_locations(opts, gen_lsp_contents_call_hierarchy)
+  return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
+end
+
+M.type_sub = function(opts)
+  return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
+end
+
+M.type_super = function(opts)
+  return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
 end
 
 M.finder = function(opts)
@@ -676,7 +693,6 @@ M.finder = function(opts)
       opts.silent = opts.silent == nil and true or opts.silent
       opts.no_autoclose = true
       opts.lsp_handler = handlers[method]
-      opts.lsp_handler.capability = opts.lsp_handler.server_capability
       opts.lsp_params = lsp_params -- reset previous calls params if existed
 
       -- returns nil for no client attached, false for unsupported capability
@@ -687,8 +703,12 @@ M.finder = function(opts)
         return
       elseif check then
         local _, c = (function()
-          if method == "incoming_calls" or method == "outgoing_calls" then
-            return gen_lsp_contents_call_hierarchy(opts)
+          if method == "incoming_calls"
+              or method == "outgoing_calls"
+              or method == "type_sub"
+              or method == "type_super"
+          then
+            return gen_lsp_contents_hierarchy(opts)
           else
             return gen_lsp_contents(opts)
           end
@@ -891,7 +911,6 @@ local function wrap_fn(key, fn)
   return function(opts)
     opts = opts or {}
     opts.lsp_handler = handlers[key]
-    opts.lsp_handler.capability = opts.lsp_handler.server_capability
 
     -- check_capabilities will print the appropriate warning
     if not check_capabilities(opts.lsp_handler, opts.silent) then

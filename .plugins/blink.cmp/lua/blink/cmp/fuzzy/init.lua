@@ -20,7 +20,7 @@ end
 function fuzzy.init_db()
   if fuzzy.has_init_db then return end
 
-  fuzzy.implementation.init_db(vim.fn.stdpath('data') .. '/blink/cmp/fuzzy.db', config.use_unsafe_no_lock)
+  fuzzy.implementation.init_db(config.fuzzy.frecency.path, config.fuzzy.frecency.unsafe_no_lock)
 
   vim.api.nvim_create_autocmd('VimLeavePre', {
     callback = fuzzy.implementation.destroy_db,
@@ -31,7 +31,7 @@ end
 
 ---@param item blink.cmp.CompletionItem
 function fuzzy.access(item)
-  if fuzzy.implementation_type ~= 'rust' then return end
+  if fuzzy.implementation_type ~= 'rust' or not config.fuzzy.frecency.enabled then return end
 
   fuzzy.init_db()
 
@@ -72,7 +72,7 @@ end
 --- @param range blink.cmp.CompletionKeywordRange
 --- @return blink.cmp.CompletionItem[]
 function fuzzy.fuzzy(line, cursor_col, haystacks_by_provider, range)
-  fuzzy.init_db()
+  if config.fuzzy.frecency.enabled then fuzzy.init_db() end
 
   for provider_id, haystack in pairs(haystacks_by_provider) do
     -- set the provider items once since Lua <-> Rust takes the majority of the time
@@ -94,7 +94,7 @@ function fuzzy.fuzzy(line, cursor_col, haystacks_by_provider, range)
   local keyword_length = keyword_end_col - keyword_start_col
   local keyword = line:sub(keyword_start_col, keyword_end_col)
 
-  -- Sort in rust if none of the sort functions are lua functions
+  -- sort in rust if none of the sort functions are lua functions
   local sort_in_rust = fuzzy.implementation_type == 'rust'
     and #vim.tbl_filter(function(v) return type(v) ~= 'function' end, config.fuzzy.sorts) == #config.fuzzy.sorts
 
@@ -106,7 +106,7 @@ function fuzzy.fuzzy(line, cursor_col, haystacks_by_provider, range)
   local provider_ids = vim.tbl_keys(haystacks_by_provider)
   local provider_idxs, matched_indices, scores, exacts = fuzzy.implementation.fuzzy(line, cursor_col, provider_ids, {
     max_typos = max_typos,
-    use_frecency = config.fuzzy.use_frecency and keyword_length > 0,
+    use_frecency = config.fuzzy.frecency.enabled and keyword_length > 0,
     use_proximity = config.fuzzy.use_proximity and keyword_length > 0,
     nearby_words = nearby_words,
     match_suffix = range == 'full',

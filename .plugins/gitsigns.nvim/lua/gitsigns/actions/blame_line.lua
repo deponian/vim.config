@@ -95,8 +95,9 @@ end
 --- @param result Gitsigns.BlameInfoPublic
 --- @param repo Gitsigns.Repo
 --- @param fileformat string
+--- @param with_gh boolean
 --- @return Gitsigns.LineSpec[]
-local function create_blame_linespec(full, result, repo, fileformat)
+local function create_blame_linespec(full, result, repo, fileformat, with_gh)
   local is_committed = result.sha and tonumber('0x' .. result.sha) ~= 0
 
   if not is_committed then
@@ -106,7 +107,7 @@ local function create_blame_linespec(full, result, repo, fileformat)
   end
 
   local gh --- @module 'gitsigns.gh'?
-  if config.gh then
+  if config.gh and with_gh then
     gh = require('gitsigns.gh')
   end
 
@@ -114,7 +115,8 @@ local function create_blame_linespec(full, result, repo, fileformat)
 
   --- @type Gitsigns.LineSpec
   local title = {
-    { result.abbrev_sha .. ' ', 'Directory', commit_url },
+    { result.abbrev_sha, 'Directory', commit_url },
+    { ' ', 'NormalFloat' },
   }
 
   if gh then
@@ -169,22 +171,36 @@ return function(opts)
 
   local fileformat = vim.bo[bufnr].fileformat
   local lnum = api.nvim_win_get_cursor(0)[1]
+  local function is_stale()
+    return api.nvim_get_current_buf() ~= bufnr or api.nvim_win_get_cursor(0)[1] ~= lnum
+  end
   local info = bcache:get_blame(lnum, opts)
   pcall(function()
     loading:close()
   end)
 
-  if not bcache:schedule() then
+  if not bcache:schedule() or is_stale() then
     return
   end
 
   local result = util.convert_blame_info(assert(info))
 
-  local blame_linespec = create_blame_linespec(opts.full, result, bcache.git_obj.repo, fileformat)
+  local blame_linespec =
+    create_blame_linespec(opts.full, result, bcache.git_obj.repo, fileformat, false)
 
-  if not bcache:schedule() then
+  if not bcache:schedule() or is_stale() then
     return
   end
 
-  popup.create(blame_linespec, config.preview_config, 'blame')
+  local popup_winid, popup_bufnr = popup.create(blame_linespec, config.preview_config, 'blame')
+
+  blame_linespec = create_blame_linespec(opts.full, result, bcache.git_obj.repo, fileformat, true)
+
+  if not bcache:schedule() or is_stale() then
+    return
+  end
+
+  if vim.api.nvim_win_is_valid(popup_winid) and vim.api.nvim_buf_is_valid(popup_bufnr) then
+    popup.update(popup_winid, popup_bufnr, blame_linespec, config.preview_config)
+  end
 end

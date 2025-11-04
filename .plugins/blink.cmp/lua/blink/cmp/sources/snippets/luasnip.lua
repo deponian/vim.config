@@ -2,6 +2,7 @@
 --- @field use_show_condition? boolean Whether to use show_condition for filtering snippets
 --- @field show_autosnippets? boolean Whether to show autosnippets in the completion list
 --- @field prefer_doc_trig? boolean When expanding `regTrig` snippets, prefer `docTrig` over `trig` placeholder
+--- @field use_label_description? boolean Whether to put the snippet description in the label description
 
 --- @class blink.cmp.LuasnipSource : blink.cmp.Source
 --- @field config blink.cmp.LuasnipSourceOptions
@@ -13,10 +14,11 @@ local utils = require('blink.cmp.lib.utils')
 --- @diagnostic disable-next-line: missing-fields
 local source = {}
 
-local defaults_config = {
+local default_config = {
   use_show_condition = true,
   show_autosnippets = true,
   prefer_doc_trig = false,
+  use_label_description = false,
 }
 
 ---@param snippet table
@@ -31,11 +33,12 @@ local function add_luasnip_callback(snippet, event, callback)
 end
 
 function source.new(opts)
-  local config = vim.tbl_deep_extend('keep', opts, defaults_config)
-  require('blink.cmp.config.utils').validate('sources.providers.luasnip', {
+  local config = vim.tbl_deep_extend('keep', opts, default_config)
+  require('blink.cmp.config.utils').validate('sources.providers.snippets.opts', {
     use_show_condition = { config.use_show_condition, 'boolean' },
     show_autosnippets = { config.show_autosnippets, 'boolean' },
     prefer_doc_trig = { config.prefer_doc_trig, 'boolean' },
+    use_label_description = { config.use_label_description, 'boolean' },
   }, config)
 
   local self = setmetatable({}, { __index = source })
@@ -111,6 +114,9 @@ function source:get_completions(ctx, callback)
         insertTextFormat = vim.lsp.protocol.InsertTextFormat.PlainText,
         sortText = sort_text,
         data = { snip_id = snip.id, show_condition = snip.show_condition },
+        labelDetails = snip.dscr and self.config.use_label_description and {
+          description = table.concat(snip.dscr, ' '),
+        } or nil,
       }
       -- populate snippet cache for this filetype
       table.insert(self.items_cache[ft], item)
@@ -188,7 +194,12 @@ function source:execute(ctx, item)
     to = cursor,
   }
 
-  local expand_params = snip:matches(require('luasnip.util.util').get_current_line_to_cursor())
+  local line = ctx.get_line()
+  local line_to_cursor = line:sub(1, range['end'].character)
+  local range_text = line:sub(range.start.character + 1, range['end'].character)
+
+  local expand_params = snip:matches(line_to_cursor, { fallback_match = range_text })
+
   if expand_params ~= nil then
     if expand_params.clear_region ~= nil then
       clear_region = expand_params.clear_region

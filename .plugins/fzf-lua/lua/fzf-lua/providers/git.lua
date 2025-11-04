@@ -134,6 +134,8 @@ M.bcommits = function(opts)
     local _, sel = utils.get_visual_selection()
     if not sel then return end
     range = string.format("-L %d,%d:%s --no-patch", sel.start.line, sel["end"].line, file)
+    -- when range is specified remove "end of options" marker (#2375)
+    opts.cmd = opts.cmd:gsub("%s+%-%-%s-$", " "):gsub("%-%-%s+[<{]file[}>]", " {file}")
   end
   if opts.cmd:match("[<{]file") then
     opts.cmd = opts.cmd:gsub("[<{]file[}>]", range or file)
@@ -182,13 +184,30 @@ M.branches = function(opts)
   if opts.preview then
     local preview = path.git_cwd(opts.preview, opts)
     opts.preview = shell.stringify_cmd(function(items)
-      -- all possible options:
+      -- The beginning of the selected line looks like the below,
+      -- but we only want the string containing the branch name,
+      -- so match the first sequence not including spaces:
       --   branch
       -- * branch
       --   remotes/origin/branch
       --   (HEAD detached at origin/branch)
-      local branch = items[1]:match("[^%s%*]*$"):gsub("%)$", "")
+      local branch = items[1]:match("^[%*+]*[%s]*[(]?([^%s)]+)")
       return (preview:gsub("{.*}", branch))
+    end, opts, "{}")
+  end
+  return git_cmd(opts)
+end
+
+M.worktrees = function(opts)
+  ---@type fzf-lua.config.GitWorktrees
+  opts = config.normalize_opts(opts, "git.worktrees")
+  if not opts then return end
+  if opts.preview then
+    local preview_cmd = opts.preview
+    opts.preview = shell.stringify_cmd(function(items)
+      local cwd = items[1]:match("^[^%s]+")
+      local cmd = path.git_cwd(preview_cmd, { cwd = cwd })
+      return cmd
     end, opts, "{}")
   end
   return git_cmd(opts)

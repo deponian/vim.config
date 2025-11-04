@@ -19,6 +19,7 @@ colorizer.color-lua-api	colorizer.txt	/*colorizer.color-lua-api*
 colorizer.color.hsl_to_rgb	colorizer.txt	/*colorizer.color.hsl_to_rgb*
 colorizer.color.hue_to_rgb	colorizer.txt	/*colorizer.color.hue_to_rgb*
 colorizer.color.is_bright	colorizer.txt	/*colorizer.color.is_bright*
+colorizer.color.oklch_to_rgb	colorizer.txt	/*colorizer.color.oklch_to_rgb*
 colorizer.config-introduction	colorizer.txt	/*colorizer.config-introduction*
 colorizer.config-lua-api	colorizer.txt	/*colorizer.config-lua-api*
 colorizer.config.apply_alias_options	colorizer.txt	/*colorizer.config.apply_alias_options*
@@ -52,6 +53,9 @@ colorizer.parser.names-lua-api	colorizer.txt	/*colorizer.parser.names-lua-api*
 colorizer.parser.names.parser	colorizer.txt	/*colorizer.parser.names.parser*
 colorizer.parser.names.reset_cache	colorizer.txt	/*colorizer.parser.names.reset_cache*
 colorizer.parser.names.update_color	colorizer.txt	/*colorizer.parser.names.update_color*
+colorizer.parser.oklch-introduction	colorizer.txt	/*colorizer.parser.oklch-introduction*
+colorizer.parser.oklch-lua-api	colorizer.txt	/*colorizer.parser.oklch-lua-api*
+colorizer.parser.oklch.parser	colorizer.txt	/*colorizer.parser.oklch.parser*
 colorizer.parser.rgb-introduction	colorizer.txt	/*colorizer.parser.rgb-introduction*
 colorizer.parser.rgb-lua-api	colorizer.txt	/*colorizer.parser.rgb-lua-api*
 colorizer.parser.rgb.parser	colorizer.txt	/*colorizer.parser.rgb.parser*

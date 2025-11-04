@@ -47,14 +47,24 @@ end
 
 ---@param opts {cwd: string, cmd: string|table, env: table?, cb_finish: function,
 ---cb_write: function?, cb_write_lines: function?, cb_err: function, cb_pid: function,
----fn_transform: function?, EOL: string?, process1: boolean?, profiler: boolean?,
----use_queue: boolean?}
+---fn_transform: function?, EOL: string?, EOL_data: string?, process1: boolean?,
+---profiler: boolean?, use_queue: boolean?}
 ---@param fn_transform function?
 ---@param fn_done function?
 ---@return uv.uv_process_t proc
 ---@return integer         pid
 M.spawn = function(opts, fn_transform, fn_done)
   local EOL = opts.EOL or "\n"
+  local EOL_data = type(opts.cmd) == "string"
+      -- fd -0|--print0
+      -- rg -0|--null
+      -- grep -Z|--null
+      -- find . -print0
+      and (opts.cmd:match("%s%-0")
+        or opts.cmd:match("%s%-?%-print0")  -- -print0|--print0
+        or opts.cmd:match("%s%-%-null")
+        or opts.cmd:match("%s%-Z"))
+      and "\0" or "\n"
   local output_pipe = assert(uv.new_pipe(false))
   local error_pipe = assert(uv.new_pipe(false))
   local write_cb_count, read_cb_count = 0, 0
@@ -109,8 +119,7 @@ M.spawn = function(opts, fn_transform, fn_done)
   local args = _is_win and { "/d", "/e:off", "/f:off", "/v:on", "/c" } or { "-c" }
   if type(opts.cmd) == "table" then
     if _is_win then
-      ---@diagnostic disable-next-line: deprecated
-      table.move(opts.cmd, 1, #opts.cmd, #args + 1, args)
+      vim.list_extend(args, opts.cmd)
     else
       table.insert(args, table.concat(opts.cmd, " "))
     end
@@ -177,7 +186,7 @@ M.spawn = function(opts, fn_transform, fn_done)
     local ret = {}
     local start_idx = 1
     repeat
-      local nl_idx = data:find("\n", start_idx, true)
+      local nl_idx = data:find(EOL_data, start_idx, true)
       if nl_idx then
         local cr = data:byte(nl_idx - 1, nl_idx - 1) == 13 -- \r
         local line = data:sub(start_idx, nl_idx - (cr and 2 or 1))
@@ -351,7 +360,8 @@ M.deserialize = function(str, b64)
   local res = loadstring(str)()
   if type(res) == "table" then return res --[[@as table]] end -- ./scripts/headless_fd.sh
   res = b64 ~= false and base64.decode(res) or res
-  local _, obj = serpent.load(res)
+  -- safe=false enable call function
+  local _, obj = serpent.load(res, { safe = false })
   assert(type(obj) == "table")
   return obj
 end
@@ -369,11 +379,15 @@ M.load_fn = function(fn_str)
   return fn_loaded
 end
 
+local posix_exec = function(cmd)
+  if type(cmd) ~= "string" or _is_win or not pcall(require, "ffi") then return end
+  require("ffi").cdef([[int execl(const char *, const char *, ...);]])
+  require("ffi").C.execl("/bin/sh", "sh", "-c", cmd, nil)
+end
+
 ---@param opts table
 ---@return uv.uv_process_t, integer
 M.spawn_stdio = function(opts)
-  local EOL = opts.multiline and "\0" or "\n"
-
   -- stdin/stdout are already buffered, not stderr. This means
   -- that every character is flushed immediately which caused
   -- rendering issues on Mac (#316, #287) and Linux (#414)
@@ -391,38 +405,60 @@ M.spawn_stdio = function(opts)
   -- setup global vars
   for k, v in pairs(opts.g or {}) do _G[k] = v end
 
+  ---@diagnostic disable-next-line: undefined-field
+  local EOL = _G._EOL or opts.multiline and "\0" or "\n"
+
   -- Requiring make_entry will create the pseudo `_G.FzfLua` global
   -- Must be called after global vars are created or devicons will
   -- err with "fzf-lua fatal: '_G._fzf_lua_server', '_G._devicons_path' both nil"
   pcall(require, "fzf-lua.make_entry")
 
-  local fn_transform_str = opts.fn_transform
-  local fn_preprocess_str = opts.fn_preprocess
-  local fn_postprocess_str = opts.fn_postprocess
+  -- still need load_fn from str val? now deserialize do all the thing automatically
+  -- or because we want to debugprint them, so we still make a string?
+  local fn_transform = M.load_fn(opts.fn_transform) or opts.fn_transform
+  local fn_preprocess = M.load_fn(opts.fn_preprocess) or opts.fn_preprocess
+  local fn_postprocess = M.load_fn(opts.fn_postprocess) or opts.fn_postprocess
 
-  local fn_transform = M.load_fn(opts.fn_transform)
-  local fn_preprocess = M.load_fn(opts.fn_preprocess)
-  local fn_postprocess = M.load_fn(opts.fn_postprocess)
+  local argv = function(i)
+    local idx = tonumber(i) or #_G.arg
+    local arg = _G.arg[idx]
+    if opts.debug == "v" or opts.debug == 2 then
+      io.stdout:write(("[DEBUG] raw_argv(%d) = %s" .. EOL):format(idx, arg))
+    end
+    -- TODO: maybe not needed anymore? since we're not using v:argv
+    if FzfLua.utils.__IS_WINDOWS then
+      arg = M.unescape_fzf(arg, FzfLua.utils.has(opts, "fzf", { 0, 52 }) and 0.52 or 0)
+    end
+    if opts.debug == "v" or opts.debug == 2 then
+      io.stdout:write(("[DEBUG] esc_argv(%d) = %s" .. EOL):format(idx, M.shellescape(arg)))
+    end
+    return arg
+  end
+
+  -- Since the `rg` command will be wrapped inside the shell escaped
+  -- 'nvim -l ...', we won't be able to search single quotes
+  -- NOTE: since we cannot guarantee the positional index
+  -- of arguments (#291), we use the last argument instead
+  if opts.is_live and type(opts.contents) == "string" then
+    opts.contents = FzfLua.make_entry.expand_query(opts, argv(), opts.contents)
+  end
 
   -- run the preprocessing fn
   if fn_preprocess then fn_preprocess(opts) end
 
-  if opts.cmd and opts.cmd:match("%-%-color[=%s]+never") then
+  ---@type fzf-lua.content|fzf-lua.shell.data2
+  local cmd = opts.contents
+  if type(cmd) == "string" and cmd:match("%-%-color[=%s]+never") then
     -- perf: skip stripping ansi coloring in `make_file.entry`
     opts.no_ansi_colors = true
   end
 
-  if opts.debug == "v" or opts.debug == "verbose" then
+  if opts.debug == "v" or opts.debug == 2 then
     for k, v in vim.spairs(opts) do
       io.stdout:write(string.format("[DEBUG] %s=%s" .. EOL, k, vim.inspect(v)))
     end
   elseif opts.debug then
-    io.stdout:write("[DEBUG] [mt] " .. opts.cmd .. EOL)
-  end
-
-  if not fn_transform and not fn_postprocess and not _is_win and opts.cmd and pcall(require, "ffi") then
-    require("ffi").cdef([[int execl(const char *, const char *, ...);]])
-    require("ffi").C.execl("/bin/sh", "sh", "-c", opts.cmd, nil) -- noreturn
+    io.stdout:write("[DEBUG] [mt] " .. tostring(cmd) .. EOL)
   end
 
   local stderr, stdout = nil, nil
@@ -525,9 +561,29 @@ M.spawn_stdio = function(opts)
         end
       end
 
+  if type(cmd) ~= "string" then
+    local f = fn_transform or function(x) return x end
+    local w = function(s) if s then io.stdout:write(f(s) .. EOL) else on_finish(0) end end
+    local wn = function(s) if s then return io.stdout:write(f(s)) else on_finish(0) end end
+    if opts.is_live then ---@cast cmd fzf-lua.shell.data2
+      local items = vim.deepcopy(_G.arg)
+      items[0] = nil
+      table.remove(items, 1)
+      cmd = cmd(items, opts)
+    end ---@cast cmd fzf-lua.content
+    if type(cmd) == "function" then cmd(w, wn) end
+    if type(cmd) == "table" then for _, v in ipairs(cmd) do w(v) end end
+    if type(cmd) ~= "string" then on_finish(0) end
+    if opts.debug then
+      io.stdout:write(("[DEBUG] [mt] %s" .. EOL):format(cmd))
+    end
+  end
+
+  if not fn_transform and not fn_postprocess then posix_exec(cmd) end
+
   return M.spawn({
       cwd = opts.cwd,
-      cmd = opts.cmd,
+      cmd = cmd,
       cb_finish = on_finish,
       cb_write = on_write,
       cb_err = on_err,

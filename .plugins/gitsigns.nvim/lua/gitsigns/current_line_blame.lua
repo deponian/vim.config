@@ -44,9 +44,10 @@ local function flatten_virt_text(virt_text)
   return table.concat(res)
 end
 
+--- @param winid integer?
 --- @return integer
-local function win_width()
-  local winid = api.nvim_get_current_win()
+local function win_width(winid)
+  winid = winid or api.nvim_get_current_win()
   local wininfo = vim.fn.getwininfo(winid)[1]
   local textoff = wininfo and wininfo.textoff or 0
   return api.nvim_win_get_width(winid) - textoff
@@ -126,10 +127,7 @@ local function handle_blame_info(bcache, lnum, blame_info, opts)
     -- obscured and the blame is truncated.
     if virt_text_pos == 'right_align' then
       local win = vim.fn.bufwinid(bufnr)
-      if
-        not vim.wo[win].wrap
-        and api.nvim_strwidth(virt_text_str) > (win_width() - line_len(bufnr, lnum))
-      then
+      if api.nvim_strwidth(virt_text_str) > (win_width(win) - line_len(bufnr, lnum)) then
         virt_text_pos = 'eol'
       end
     end
@@ -236,13 +234,8 @@ function M.setup()
   -- show current buffer line blame immediately
   M.update(api.nvim_get_current_buf())
 
-  local update_events = { 'BufEnter', 'CursorMoved', 'CursorMovedI' }
+  local update_events = { 'BufEnter', 'CursorMoved', 'CursorMovedI', 'WinResized' }
   local reset_events = { 'InsertEnter', 'BufLeave' }
-
-  if vim.fn.exists('#WinResized') == 1 then
-    -- For nvim 0.9+
-    update_events[#update_events + 1] = 'WinResized'
-  end
 
   if config.current_line_blame_opts.use_focus then
     update_events[#update_events + 1] = 'FocusGained'

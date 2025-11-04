@@ -9,6 +9,7 @@ lspconfig-completion	lspconfig.txt	/*lspconfig-completion*
 lspconfig-configurations	lspconfig.txt	/*lspconfig-configurations*
 lspconfig-debugging	lspconfig.txt	/*lspconfig-debugging*
 lspconfig-new	lspconfig.txt	/*lspconfig-new*
+lspconfig-nvim-0.11	lspconfig.txt	/*lspconfig-nvim-0.11*
 lspconfig-quickstart	lspconfig.txt	/*lspconfig-quickstart*
 lspconfig-resolved	lspconfig.txt	/*lspconfig-resolved*
 lspconfig-usage	lspconfig.txt	/*lspconfig-usage*

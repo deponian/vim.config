@@ -89,6 +89,7 @@
 --- @field _test_mode boolean
 --- @field _new_sign_calc boolean
 --- @field _update_lock boolean
+--- @field _commit_maps boolean
 
 --- @class Gitsigns.config
 local M = {}
@@ -276,7 +277,7 @@ M.schema = {
     description = [[
     Show signs for staged hunks.
 
-    When enabled the signs defined in |git-config-signs_staged|` are used.
+    When enabled the signs defined in |git-config-signs_staged| are used.
     ]],
   },
 
@@ -694,7 +695,7 @@ M.schema = {
           • `%X`  time (e.g., 23:48:10)
           • `%Y`  full year (1998)
           • `%y`  two-digit year (98) [00-99]
-          • `%%`  the character `%´
+          • `%%`  the character `%`
           • `%R`  relative (e.g., 4 months ago)
 
       When a function:
@@ -836,6 +837,14 @@ M.schema = {
     default = false,
     description = [[
       Acquire a lock when updating signs.
+    ]],
+  },
+
+  _commit_maps = {
+    type = 'boolean',
+    default = false,
+    description = [[
+      Enable new mappings in commit buffers
     ]],
   },
 

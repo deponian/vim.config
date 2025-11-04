@@ -67,7 +67,7 @@ function M.get(c, opts)
     ["@markup.strikethrough"]       = { strikethrough = true },
     ["@markup.strong"]              = { bold = true },
     ["@markup.underline"]           = { underline = true },
-    ["@module"]                     = "Directory",
+    ["@module"]                     = "Include",
     ["@module.builtin"]             = { fg = c.red }, -- Variable names that are defined by the languages, like `this` or `self`.
     ["@namespace.builtin"]          = "@variable.builtin",
     ["@none"]                       = {},
@@ -101,7 +101,7 @@ function M.get(c, opts)
   }
 
   for i, color in ipairs(c.rainbow) do
-    ret["@markup.heading." .. i .. ".markdown"] = { fg = color, bold = true }
+    ret["@markup.heading." .. i .. ".markdown"] = { fg = color, bold = true, bg = Util.blend_bg(color, 0.1) }
   end
   return ret
 end

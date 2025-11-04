@@ -74,14 +74,14 @@ M.commands = function(opts)
 
   opts.flatten = opts.flatten or {}
   for k, _ in pairs(global_commands) do
-    table.insert(entries, utils.ansi_codes.blue(k))
-    add_subcommand(k, utils.ansi_codes.blue)
+    table.insert(entries, utils.ansi_codes[opts.hls.cmd_global](k))
+    add_subcommand(k, utils.ansi_codes[opts.hls.cmd_global])
   end
 
   for k, v in pairs(buf_commands) do
     if type(v) == "table" then
-      table.insert(entries, utils.ansi_codes.green(k))
-      add_subcommand(k, utils.ansi_codes.green)
+      table.insert(entries, utils.ansi_codes[opts.hls.cmd_buf](k))
+      add_subcommand(k, utils.ansi_codes[opts.hls.cmd_buf])
     end
   end
 
@@ -91,7 +91,7 @@ M.commands = function(opts)
   end
 
   for k, _ in pairs(builtin_commands) do
-    table.insert(entries, utils.ansi_codes.magenta(k))
+    table.insert(entries, utils.ansi_codes[opts.hls.cmd_ex](k))
   end
 
   opts.preview = function(args)
@@ -251,32 +251,42 @@ M.marks = function(opts)
   if not opts then return end
 
   local contents = function(cb)
-    local win = utils.CTX().winid
     local buf = utils.CTX().bufnr
-    win = vim.api.nvim_win_is_valid(win) and win or 0
-    buf = vim.api.nvim_win_is_valid(buf) and buf or 0
-    local marks = vim.api.nvim_win_call(win, function()
-      return vim.api.nvim_buf_call(buf, function() return vim.fn.execute("marks") end)
-    end)
-    marks = vim.split(marks, "\n")
     local entries = {}
-    local pattern = opts.marks and opts.marks or ""
-    for i = #marks, 3, -1 do
-      local mark, line, col, text = marks[i]:match("(.)%s+(%d+)%s+(%d+)%s+(.*)")
-      col = tostring(tonumber(col) + 1)
-      if path.is_absolute(text) then
-        text = path.HOME_to_tilde(text)
+    local function add_mark(mark, line, col, text)
+      if opts.marks and not string.match(mark, opts.marks) then return end
+      table.insert(entries, string.format("%s  %s  %s %s",
+        utils.ansi_codes[opts.hls.buf_nr](string.format("%4s", mark)),
+        utils.ansi_codes[opts.hls.path_linenr](string.format("%4s", tostring(line))),
+        utils.ansi_codes[opts.hls.path_colnr](string.format("%3s", tostring(col))),
+        text))
+    end
+
+    -- local buffer marks
+    for _, m in ipairs(vim.fn.getmarklist(buf)) do
+      local mark, lnum, col = m.mark:sub(2, 2), m.pos[2], m.pos[3]
+      local text = vim.api.nvim_buf_get_lines(buf, lnum - 1, lnum, false)[1]
+      add_mark(mark, lnum, col, utils.ansi_from_hl("Directory", text or "-invalid-"))
+    end
+
+    -- global marks
+    for _, m in ipairs(vim.fn.getmarklist()) do
+      local mark, bufnr, lnum, col, file = m.mark:sub(2, 2), m.pos[1], m.pos[2], m.pos[3], m.file
+      file = path.relative_to(file, uv.cwd())
+      if path.is_absolute(file) then
+        file = path.HOME_to_tilde(file)
       end
-      if not pattern or string.match(mark, pattern) then
-        table.insert(entries, string.format(" %-15s %15s %15s %s",
-          utils.ansi_codes.yellow(mark),
-          utils.ansi_codes.blue(line),
-          utils.ansi_codes.green(col),
-          text))
+      if bufnr == utils.CTX().bufnr then
+        local text = vim.api.nvim_buf_get_lines(bufnr, lnum - 1, lnum, false)[1]
+        add_mark(mark, lnum, col, utils.ansi_from_hl("Directory", text or "-invalid-"))
+      else
+        add_mark(mark, lnum, col, file or "-invalid-")
       end
     end
 
-    table.sort(entries, function(a, b) return a < b end)
+    if opts.sort then
+      table.sort(entries, function(a, b) return a < b end)
+    end
     table.insert(entries, 1,
       string.format("%-5s %s  %s %s", "mark", "line", "col", "file/text"))
 

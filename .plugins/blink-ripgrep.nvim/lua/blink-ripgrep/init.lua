@@ -24,6 +24,7 @@
 ---| "gitgrep" # Use git grep for searching. This is faster but only works in git repositories.
 
 ---@class blink-ripgrep.GitGrepBackendOptions
+---@field additional_gitgrep_options? string[] # Any extra options you want to give to git grep.
 
 ---@class blink-ripgrep.RipGrepBackendOptions
 ---@field ignore_paths? string[] # Absolute root paths where the rg command will not be executed. Usually you want to exclude paths using gitignore files or ripgrep specific ignore files, but this can be used to only ignore the paths in blink-ripgrep.nvim, maintaining the ability to use ripgrep for those paths on the command line. If you need to find out where the searches are executed, enable `debug` and look at `:messages`.
@@ -48,7 +49,7 @@
 local RgSource = {}
 RgSource.__index = RgSource
 
-RgSource.version = "1.0.0" -- x-release-please-version
+RgSource.version = "2.2.0" -- x-release-please-version
 
 ---@type blink-ripgrep.Options
 RgSource.config = {
@@ -75,24 +76,6 @@ RgSource.config = {
 ---@param options? blink-ripgrep.Options
 function RgSource.setup(options)
   RgSource.config = vim.tbl_deep_extend("force", RgSource.config, options or {})
-
-  do
-    local opts, migrations =
-      require("blink-ripgrep.migrate_config").migrate_config(
-        RgSource.config,
-        options
-      )
-    if vim.tbl_count(migrations) > 0 then
-      vim.notify_once(
-        string.format(
-          "blink-ripgrep.nvim: The configuration format has changed. An automatic migration will be done for some time. Please migrate your blink-ripgrep config to the new config format (oldkey -> newkey): %s",
-          vim.inspect(migrations)
-        )
-      )
-    end
-
-    RgSource.config = opts
-  end
 
   if not RgSource.config.toggles then
     if RgSource.config.debug then

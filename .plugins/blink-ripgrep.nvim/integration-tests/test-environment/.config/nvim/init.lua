@@ -1,3 +1,6 @@
+-- renovate: datasource=github-releases depName=folke/lazy.nvim
+local lazy_version = "v11.17.4"
+
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
@@ -6,7 +9,7 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
     "git",
     "clone",
     "--filter=blob:none",
-    "--branch=stable",
+    "--branch=" .. lazy_version,
     lazyrepo,
     lazypath,
   })
@@ -39,7 +42,8 @@ local plugins = {
     event = "VeryLazy",
     -- use a release tag to download pre-built binaries
     -- https://github.com/Saghen/blink.cmp/releases
-    version = "v0.13.1",
+    -- renovate: datasource=github-releases depName=saghen/blink.cmp
+    version = "v1.7.0",
 
     -- to (locally) track nightly builds, use the following:
     -- version = false,
@@ -141,8 +145,15 @@ local plugins = {
     end,
   },
 
-  { "folke/snacks.nvim" },
-  { "catppuccin/nvim", name = "catppuccin", priority = 1000 },
+  -- renovate: datasource=github-releases depName=folke/snacks.nvim
+  { "folke/snacks.nvim", version = "v2.28.0" },
+  {
+    "catppuccin/nvim",
+    name = "catppuccin",
+    priority = 1000,
+    -- renovate: datasource=github-releases depName=catppuccin/nvim
+    version = "v1.11.0",
+  },
 }
 require("lazy").setup({ spec = plugins })
 

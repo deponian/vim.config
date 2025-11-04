@@ -10,12 +10,45 @@ https://semver.org/
 ==============================================================================
 Unreleased
 
+------------------------------------------------------------------------------
+ADDED
+
+New languages:
+    • QML
+
+Missing pattersn:
+    • C++:
+        - `decltype`
+        - `parenthesized_declarator`
+        - `sizeof_expression`
+        - `static_assert_declaration`
+        - `structured_binding_declarator`
+
+
+
+==============================================================================
+Version 0.10.0 (released on 2025-09-29)
+
 
 FIXED
 ------------------------------------------------------------------------------
 
-• Highlighting disappearing when scrolling if the language has macros (e.g. C,
-  C++, Rust)
+Highlighting disappearing when scrolling if the language has macros (e.g. C,
+C++, Rust).
+
+Replaced `verilog` with `systemverilog`.
+
+Missing patters:
+    • LaTeX:
+        - `curly_group_label`
+        - `curly_group_label_list`
+
+Fixed patterns:
+    • LaTeX:
+        - `curly_group_label` instead of `curly_group_text`
+    • Templ:
+        - Missing `script_tag_start` and `script_tag_end` nodes in
+          `script_element`
 
 
 ------------------------------------------------------------------------------

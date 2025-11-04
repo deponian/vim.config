@@ -505,7 +505,7 @@ M.defaults.git                   = {
   },
   bcommits = {
     cmd           = [[git log --color --pretty=format:"%C(yellow)%h%Creset ]]
-        .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset" {file}]],
+        .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset" -- {file}]],
     preview       = "git show --color {1} -- {file}",
     preview_pager = M._preview_pager_fn,
     actions       = {
@@ -536,7 +536,8 @@ M.defaults.git                   = {
     _treesitter   = function(line) return line:match("(%s+)(%d+)%)(.+)$") end,
   },
   branches = {
-    cmd        = "git branch --all --color",
+    cmd        = [[git branch --all --color -vv ]]
+        .. [[--sort=-'committerdate' --sort='refname:rstrip=-2' --sort=-'HEAD']],
     preview    = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
     remotes    = "local",
     actions    = {
@@ -546,6 +547,20 @@ M.defaults.git                   = {
     },
     cmd_add    = { "git", "branch" },
     cmd_del    = { "git", "branch", "--delete" },
+    fzf_opts   = { ["--no-multi"] = true, ["--tiebreak"] = "begin" },
+    _headers   = { "actions", "cwd" },
+    _multiline = false,
+  },
+  worktrees = {
+    scope      = "global", -- cd action scope "local|win|tab"
+    cmd        = "git worktree list",
+    preview    = [[git log --color --pretty=format:"%C(yellow)%h%Creset ]]
+        .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset"]],
+    actions    = {
+      ["enter"]  = actions.git_worktree_cd,
+      ["ctrl-x"] = { fn = actions.git_worktree_del, reload = true },
+      ["ctrl-a"] = { fn = actions.git_worktree_add, field_index = "{q}", reload = true },
+    },
     fzf_opts   = { ["--no-multi"] = true },
     _headers   = { "actions", "cwd" },
     _multiline = false,
@@ -1027,6 +1042,7 @@ M.defaults.lsp.symbols           = {
   symbol_hl        = function(s) return "@" .. s:lower() end,
   symbol_fmt       = function(s, _) return "[" .. s .. "]" end,
   child_prefix     = true,
+  parent_postfix   = false,
   async_or_timeout = true,
   -- new formatting options with symbol name at the start
   fzf_opts         = {
@@ -1066,7 +1082,7 @@ M.defaults.lsp.document_symbols  = vim.tbl_deep_extend("force", {}, M.defaults.l
     ["--multi"]     = true,
     ["--tabstop"]   = "4",
     ["--delimiter"] = "[:]",
-    ["--with-nth"]  = "2..",
+    ["--with-nth"]  = utils.__IS_WINDOWS and "3.." or "2..",
   },
   _fmt        = {
     _from = function(s)
@@ -1103,6 +1119,8 @@ M.defaults.lsp.finder            = {
     implementations = true,
     incoming_calls  = true,
     outgoing_calls  = true,
+    type_sub        = true,
+    type_super      = true,
   },
   -- by default display all supported providers
   providers   = {
@@ -1113,6 +1131,8 @@ M.defaults.lsp.finder            = {
     { "references",      prefix = utils.ansi_codes.blue("ref ") },
     { "incoming_calls",  prefix = utils.ansi_codes.cyan("in  ") },
     { "outgoing_calls",  prefix = utils.ansi_codes.yellow("out ") },
+    { "type_sub",        prefix = utils.ansi_codes.cyan("sub ") },
+    { "type_super",      prefix = utils.ansi_codes.yellow("supr") },
   },
   fzf_opts    = { ["--multi"] = true },
   _treesitter = true,
@@ -1179,12 +1199,17 @@ M.defaults.profiles              = {
 }
 
 M.defaults.marks                 = {
-  fzf_opts  = { ["--no-multi"] = true },
-  actions   = {
+  sort        = false,
+  fzf_opts    = { ["--no-multi"] = true },
+  actions     = {
     ["enter"] = actions.goto_mark,
+    ["ctrl-s"] = actions.goto_mark_split,
+    ["ctrl-v"] = actions.goto_mark_vsplit,
+    ["ctrl-t"] = actions.goto_mark_tabedit,
     ["ctrl-x"] = { fn = actions.mark_del, reload = true }
   },
-  previewer = { _ctor = previewers.builtin.marks },
+  previewer   = { _ctor = previewers.builtin.marks },
+  _cached_hls = { "buf_nr", "path_linenr", "path_colnr" },
 }
 
 M.defaults.changes               = {
@@ -1214,6 +1239,7 @@ M.defaults.commands              = {
   actions         = { ["enter"] = actions.ex_run },
   flatten         = {},
   include_builtin = true,
+  _cached_hls     = { "cmd_ex", "cmd_buf", "cmd_global" },
 }
 
 M.defaults.autocmds              = {
@@ -1380,6 +1406,7 @@ M.defaults.zoxide                = {
   fn_transform  = [[return require("fzf-lua.make_entry").zoxide]],
   fn_preprocess = [[return require("fzf-lua.make_entry").preprocess]],
   cmd           = "zoxide query --list --score",
+  scope         = "global",
   git_root      = false,
   formatter     = "path.dirname_first",
   fzf_opts      = {
@@ -1390,7 +1417,7 @@ M.defaults.zoxide                = {
     ["--nth"]       = "2..",
     ["--no-sort"]   = true, -- sort by score
   },
-  actions       = { enter = actions.cd }
+  actions       = { enter = actions.zoxide_cd }
 }
 
 M.defaults.complete_line         = { complete = true }
@@ -1438,6 +1465,9 @@ M.defaults.__HLS                 = {
   file_part      = "FzfLuaFilePart",
   live_prompt    = "FzfLuaLivePrompt",
   live_sym       = "FzfLuaLiveSym",
+  cmd_ex         = "FzfLuaCmdEx",
+  cmd_buf        = "FzfLuaCmdBuf",
+  cmd_global     = "FzfLuaCmdGlobal",
   fzf            = {
     normal     = "FzfLuaFzfNormal",
     cursorline = "FzfLuaFzfCursorLine",

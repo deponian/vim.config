@@ -12,6 +12,8 @@ local validate = require('blink.cmp.config.utils').validate
 --- @field direction_priority ("n" | "s")[]| fun(): table Which directions to show the window, or a function returning such a table, falling back to the next direction when there's not enough space
 --- @field order blink.cmp.CompletionMenuOrderConfig TODO: implement
 --- @field auto_show boolean | fun(ctx: blink.cmp.Context, items: blink.cmp.CompletionItem[]): boolean Whether to automatically show the window when new completion items are available
+--- @field auto_show_delay_ms number | fun(ctx: blink.cmp.Context, items: blink.cmp.CompletionItem[]): number Delay before showing the completion menu
+
 --- @field cmdline_position fun(): number[] Screen coordinates (0-indexed) of the command line
 --- @field draw blink.cmp.Draw Controls how the completion items are rendered on the popup window
 
@@ -41,6 +43,8 @@ local window = {
 
     -- Whether to automatically show the window when new completion items are available
     auto_show = true,
+    -- Delay before showing the completion menu
+    auto_show_delay_ms = 0,
 
     -- Screen coordinates of the command line
     cmdline_position = function()
@@ -62,7 +66,10 @@ local window = {
       gap = 1,
       -- Priority of the cursorline highlight, setting this to 0 will render it below other highlights
       cursorline_priority = 10000,
-      treesitter = {}, -- Use treesitter to highlight the label text of completions from these sources
+      -- Appends an indicator to snippets label, `'~'` by default
+      snippet_indicator = '~',
+      -- Use treesitter to highlight the label text of completions from these sources
+      treesitter = {},
       -- Components to render, grouped by column
       columns = { { 'kind_icon' }, { 'label', 'label_description', gap = 1 } },
       -- Definitions for possible components to render. Each component defines:
@@ -157,6 +164,7 @@ function window.validate(config)
     },
     order = { config.order, 'table' },
     auto_show = { config.auto_show, { 'boolean', 'function' } },
+    auto_show_delay_ms = { config.auto_show_delay_ms, { 'number', 'function' } },
     cmdline_position = { config.cmdline_position, 'function' },
     draw = { config.draw, 'table' },
   }, config)
@@ -193,6 +201,7 @@ function window.validate(config)
     },
     gap = { config.draw.gap, 'number' },
     cursorline_priority = { config.draw.cursorline_priority, 'number' },
+    snippet_indicator = { config.draw.snippet_indicator, 'string' },
 
     treesitter = { config.draw.treesitter, 'table' },
 

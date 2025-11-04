@@ -2,7 +2,8 @@
 --- | 'fallback' Fallback to mappings or the built-in behavior
 --- | 'fallback_to_mappings' Fallback to mappings only (not built-in behavior)
 --- | 'show' Show the completion window
---- | 'show_and_insert' Show the completion window and select the first item
+--- | 'show_and_insert' Show the completion menu and insert the first item. Short form for `cmp.show({ initial_selected_item_idx = 1 })` when `auto_insert = true`
+--- | 'show_and_insert_or_accept_single' Show the completion menu and insert the first item, or accepts the first item if there is only one
 --- | 'hide' Hide the completion window
 --- | 'cancel' Cancel the current completion, undoing the preview from auto_insert
 --- | 'accept' Accept the current completion item
@@ -19,6 +20,8 @@
 --- | 'scroll_documentation_down' Scroll the documentation window down
 --- | 'show_signature' Show the signature help window
 --- | 'hide_signature' Hide the signature help window
+--- | 'scroll_signature_up' Scroll the signature window up
+--- | 'scroll_signature_down' Scroll the signature window down
 --- | 'snippet_forward' Move the cursor forward to the next snippet placeholder
 --- | 'snippet_backward' Move the cursor backward to the previous snippet placeholder
 --- | (fun(cmp: blink.cmp.API): boolean?) Custom function where returning true will prevent the next command from running
@@ -31,7 +34,7 @@
 --- {
 ---   ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
 ---   ['<C-e>'] = { 'cancel', 'fallback' },
----   ['<C-y>'] = { 'select_and_accept' },
+---   ['<C-y>'] = { 'select_and_accept', 'fallback' },
 ---
 ---   ['<Up>'] = { 'select_prev', 'fallback' },
 ---   ['<Down>'] = { 'select_next', 'fallback' },
@@ -52,20 +55,14 @@
 --- Mappings similar to the built-in completion in cmdline mode:
 --- ```lua
 --- {
----   ['<Tab>'] = {
----     function(cmp)
----       if cmp.is_ghost_text_visible() and not cmp.is_menu_visible() then return cmp.accept() end
----     end,
----     'show_and_insert',
----     'select_next',
----   },
----   ['<S-Tab>'] = { 'show_and_insert', 'select_prev' },
+---   ['<Tab>'] = { 'show_and_insert_or_accept_single', 'select_next' },
+---   ['<S-Tab>'] = { 'show_and_insert_or_accept_single', 'select_prev' },
 ---
 ---   ['<C-n>'] = { 'select_next' },
 ---   ['<C-p>'] = { 'select_prev' },
 ---
----   ['<C-y>'] = { 'select_and_accept' },
----   ['<C-e>'] = { 'cancel' },
+---   ['<C-y>'] = { 'select_and_accept', 'fallback' },
+---   ['<C-e>'] = { 'cancel', 'fallback' },
 --- }
 --- ```
 --- | 'cmdline'
@@ -134,7 +131,7 @@
 ---   ['<Down>'] = { 'select_next', 'fallback' },
 ---
 ---   -- disable a keymap from the preset
----   ['<C-e>'] = {},
+---   ['<C-e>'] = false,
 ---
 ---   -- show with a list of providers
 ---   ['<C-space>'] = { function(cmp) cmp.show({ providers = { 'snippets' } }) end },
@@ -173,6 +170,7 @@ function keymap.validate(config, is_mode)
     'fallback_to_mappings',
     'show',
     'show_and_insert',
+    'show_and_insert_or_accept_single',
     'hide',
     'cancel',
     'accept',
@@ -189,6 +187,8 @@ function keymap.validate(config, is_mode)
     'scroll_documentation_down',
     'show_signature',
     'hide_signature',
+    'scroll_signature_up',
+    'scroll_signature_down',
     'snippet_forward',
     'snippet_backward',
   }

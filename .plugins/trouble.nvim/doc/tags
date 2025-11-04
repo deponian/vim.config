@@ -1,3 +1,17 @@
+trouble.nvim-examples-filtering	trouble.nvim-examples.txt	/*trouble.nvim-examples-filtering*
+trouble.nvim-examples-filtering-diagnostics-cascade	trouble.nvim-examples.txt	/*trouble.nvim-examples-filtering-diagnostics-cascade*
+trouble.nvim-examples-links	trouble.nvim-examples.txt	/*trouble.nvim-examples-links*
+trouble.nvim-examples-other	trouble.nvim-examples.txt	/*trouble.nvim-examples-other*
+trouble.nvim-examples-table-of-contents	trouble.nvim-examples.txt	/*trouble.nvim-examples-table-of-contents*
+trouble.nvim-examples-window-options	trouble.nvim-examples.txt	/*trouble.nvim-examples-window-options*
+trouble.nvim-examples.txt	trouble.nvim-examples.txt	/*trouble.nvim-examples.txt*
+trouble.nvim-filter-advanced-examples	trouble.nvim-filter.txt	/*trouble.nvim-filter-advanced-examples*
+trouble.nvim-filter-advanced-examples-the-any-filter	trouble.nvim-filter.txt	/*trouble.nvim-filter-advanced-examples-the-any-filter*
+trouble.nvim-filter-advanced-examples-the-not-filter	trouble.nvim-filter.txt	/*trouble.nvim-filter-advanced-examples-the-not-filter*
+trouble.nvim-filter-examples	trouble.nvim-filter.txt	/*trouble.nvim-filter-examples*
+trouble.nvim-filter-item-attributes	trouble.nvim-filter.txt	/*trouble.nvim-filter-item-attributes*
+trouble.nvim-filter-table-of-contents	trouble.nvim-filter.txt	/*trouble.nvim-filter-table-of-contents*
+trouble.nvim-filter.txt	trouble.nvim-filter.txt	/*trouble.nvim-filter.txt*
 trouble.nvim-links	trouble.nvim.txt	/*trouble.nvim-links*
 trouble.nvim-table-of-contents	trouble.nvim.txt	/*trouble.nvim-table-of-contents*
 trouble.nvim-trouble	trouble.nvim.txt	/*trouble.nvim-trouble*

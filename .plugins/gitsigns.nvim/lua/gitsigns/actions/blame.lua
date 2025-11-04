@@ -63,7 +63,7 @@ end
 ---@param text string
 ---@return string
 local function lalign(amount, text)
-  local len = vim.str_utfindex(text, 'utf-8')
+  local len = vim.fn.strdisplaywidth(text)
   return text .. string.rep(' ', math.max(0, amount - len))
 end
 
@@ -86,11 +86,7 @@ local function render(blame, win, main_win, buf_sha)
   local entries = blame.entries
 
   for _, b in pairs(entries) do
-    if vim.fn.has('nvim-0.11') == 1 then
-      max_author_len = math.max(max_author_len, (vim.str_utfindex(b.commit.author, 'utf-8')))
-    else
-      max_author_len = math.max(max_author_len, #b.commit.author)
-    end
+    max_author_len = math.max(max_author_len, vim.fn.strdisplaywidth(b.commit.author))
   end
 
   local lines = {} --- @type string[]
@@ -454,12 +450,25 @@ function M.blame()
 
   local group = api.nvim_create_augroup('GitsignsBlame', {})
 
+  api.nvim_create_autocmd('BufHidden', {
+    buffer = bufnr,
+    group = group,
+    once = true,
+    callback = function()
+      if api.nvim_win_is_valid(blm_win) then
+        api.nvim_win_close(blm_win, true)
+      end
+    end,
+  })
+
   api.nvim_create_autocmd({ 'CursorMoved', 'BufLeave' }, {
     buffer = blm_bufnr,
     group = group,
     callback = function()
       api.nvim_buf_clear_namespace(blm_bufnr, ns_hl, 0, -1)
-      api.nvim_buf_clear_namespace(bufnr, ns_hl, 0, -1)
+      if api.nvim_buf_is_valid(bufnr) then
+        api.nvim_buf_clear_namespace(bufnr, ns_hl, 0, -1)
+      end
     end,
   })
 

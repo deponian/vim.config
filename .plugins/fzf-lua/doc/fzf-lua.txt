@@ -1,4 +1,4 @@
-*fzf-lua.txt*        For Neovim >= 0.9.0        Last change: 2025 September 02
+*fzf-lua.txt*         For Neovim >= 0.9.0         Last change: 2025 October 24
 
 ==============================================================================
 Table of Contents                                  *fzf-lua-table-of-contents*
@@ -163,14 +163,15 @@ Fzf-lua aims to be as plug and play as possible with sane defaults, you can
 run any fzf-lua command like this:
 
 >lua
-    :lua require('fzf-lua').files()
-    -- or using the `FzfLua` vim command:
+    :lua require("fzf-lua").files()
+    -- once loaded we can use the global object
+    :lua FzfLua.files()
+    -- or the vim command:
     :FzfLua files
 <
 or with arguments:
 
 >lua
-    -- Once fzf-lua is loaded you can also use the lua global `_G.FzfLua`
     :lua FzfLua.files({ cwd = '~/.config' })
     -- or using the `FzfLua` vim command:
     :FzfLua files cwd=~/.config
@@ -193,20 +194,6 @@ Alternatively, resuming work on a specific picker:
     -- or
     :FzfLua files resume=true
 <
-  [!TIP] By default pressing esc or ctrl-c terminates the fzf process, as such
-  resume is not perfect and is limited to resuming the picker/query and
-  sometimes additional parameters such as regex in grep, etc, for a more
-  complete resume use the "hide" profile, this will modify the esc bind to hide
-  fzf-lua and keep the fzf process running in the background allowing `:FzfLua
-  resume` to restore the picker state entirely, including cursor position and
-  selection. To configure hiding by default:
->lua
-    require("fzf-lua").setup({
-    >   "hide",
-    >   -- your other settings here 
-    > })
-<
-
 
                                                                               
 COMBINING PICKERS                                  *fzf-lua-combining-pickers*
@@ -309,18 +296,19 @@ TAGS                                                            *fzf-lua-tags*
                                                                               
 GIT                                                              *fzf-lua-git*
 
-| Command        | List                     |
-| -------------- | ------------------------ |
-| `git_files`    | `git ls-files`           |
-| `git_status`   | `git status`             |
-| `git_diff`     | `git diff {ref}`         |
-| `git_hunks`    | `git hunks {ref}`        |
-| `git_commits`  | git commit log (project) |
-| `git_bcommits` | git commit log (buffer)  |
-| `git_blame`    | git blame (buffer)       |
-| `git_branches` | git branches             |
-| `git_tags`     | git tags                 |
-| `git_stash`    | git stash                |
+| Command         | List                     |
+| --------------- | ------------------------ |
+| `git_files`     | `git ls-files`           |
+| `git_status`    | `git status`             |
+| `git_diff`      | `git diff {ref}`         |
+| `git_hunks`     | `git hunks {ref}`        |
+| `git_commits`   | git commit log (project) |
+| `git_bcommits`  | git commit log (buffer)  |
+| `git_blame`     | git blame (buffer)       |
+| `git_branches`  | git branches             |
+| `git_worktrees` | git worktrees            |
+| `git_tags`      | git tags                 |
+| `git_stash`     | git stash                |
 
 
                                                                               
@@ -338,6 +326,8 @@ LSP/DIAGNOSTICS                                      *fzf-lua-lsp/diagnostics*
 | `lsp_live_workspace_symbols` | Workspace Symbols (live query)   |
 | `lsp_incoming_calls`         | Incoming Calls                   |
 | `lsp_outgoing_calls`         | Outgoing Calls                   |
+| `lsp_type_sub`               | Sub Types                        |
+| `lsp_type_super`             | Super Types                     |
 | `lsp_code_actions`           | Code Actions                     |
 | `lsp_finder`                 | All LSP locations, combined view |
 | `diagnostics_document`       | Document Diagnostics             |
@@ -440,7 +430,7 @@ CUSTOMIZATION                                          *fzf-lua-customization*
   usage notes and a comprehensive list of yet more(!) available options.
 
 >lua
-    require("fzf-lua").setup{
+    require("fzf-lua").setup {
       -- MISC GLOBAL SETUP OPTIONS, SEE BELOW
       -- fzf_bin = ...,
       -- each of these options can also be passed as function that return options table
@@ -592,7 +582,6 @@ CUSTOMIZATION                                          *fzf-lua-customization*
     },
 <
 >lua
-    local actions = require("fzf-lua").actions
     actions = {
         -- Below are the default actions, setting any value in these tables will override
         -- the defaults, to inherit from the defaults change [1] from `false` to `true`
@@ -604,15 +593,15 @@ CUSTOMIZATION                                          *fzf-lua-customization*
           -- `file_edit_or_qf` opens a single selection or sends multiple selection to quickfix
           -- replace `enter` with `file_edit` to open all files/bufs whether single or multiple
           -- replace `enter` with `file_switch_or_edit` to attempt a switch in current tab first
-          ["enter"]       = actions.file_edit_or_qf,
-          ["ctrl-s"]      = actions.file_split,
-          ["ctrl-v"]      = actions.file_vsplit,
-          ["ctrl-t"]      = actions.file_tabedit,
-          ["alt-q"]       = actions.file_sel_to_qf,
-          ["alt-Q"]       = actions.file_sel_to_ll,
-          ["alt-i"]       = actions.toggle_ignore,
-          ["alt-h"]       = actions.toggle_hidden,
-          ["alt-f"]       = actions.toggle_follow,
+          ["enter"]       = FzfLua.actions.file_edit_or_qf,
+          ["ctrl-s"]      = FzfLua.actions.file_split,
+          ["ctrl-v"]      = FzfLua.actions.file_vsplit,
+          ["ctrl-t"]      = FzfLua.actions.file_tabedit,
+          ["alt-q"]       = FzfLua.actions.file_sel_to_qf,
+          ["alt-Q"]       = FzfLua.actions.file_sel_to_ll,
+          ["alt-i"]       = FzfLua.actions.toggle_ignore,
+          ["alt-h"]       = FzfLua.actions.toggle_hidden,
+          ["alt-f"]       = FzfLua.actions.toggle_follow,
         },
       }
 <
@@ -821,6 +810,7 @@ CUSTOMIZATION                                          *fzf-lua-customization*
         hidden             = true,          -- enable hidden files by default
         follow             = false,         -- do not follow symlinks by default
         no_ignore          = false,         -- respect ".gitignore"  by default
+        absolute_path      = false,         -- display absolute paths
         actions = {
           -- inherits from 'actions.files', here we can override
           -- or set bind to 'false' to disable a default action
@@ -1044,7 +1034,7 @@ CUSTOMIZATION                                          *fzf-lua-customization*
         cwd_only          = false,
         stat_file         = true,         -- verify files exist on disk
         -- can also be a lua function, for example:
-        -- stat_file = require("fzf-lua").utils.file_is_readable,
+        -- stat_file = FzfLua.utils.file_is_readable,
         -- stat_file = function() return true end,
         include_current_session = false,  -- include bufs from current session
       },
@@ -1253,6 +1243,8 @@ CUSTOMIZATION                                          *fzf-lua-customization*
             symbol_fmt        = function(s, opts) return "[" .. s .. "]" end,
             -- prefix child symbols. set to any string or `false` to disable
             child_prefix      = true,
+            -- prepend parent to symbol, set to any string or `false` to disable
+            -- parent_postfix    = ".",
             fzf_opts          = { ["--tiebreak"] = "begin" },
         },
         code_actions = {
@@ -1274,13 +1266,15 @@ CUSTOMIZATION                                          *fzf-lua-customization*
             -- by default display all LSP locations
             -- to customize, duplicate table and delete unwanted providers
             providers   = {
-                { "references",      prefix = require("fzf-lua").utils.ansi_codes.blue("ref ") },
-                { "definitions",     prefix = require("fzf-lua").utils.ansi_codes.green("def ") },
-                { "declarations",    prefix = require("fzf-lua").utils.ansi_codes.magenta("decl") },
-                { "typedefs",        prefix = require("fzf-lua").utils.ansi_codes.red("tdef") },
-                { "implementations", prefix = require("fzf-lua").utils.ansi_codes.green("impl") },
-                { "incoming_calls",  prefix = require("fzf-lua").utils.ansi_codes.cyan("in  ") },
-                { "outgoing_calls",  prefix = require("fzf-lua").utils.ansi_codes.yellow("out ") },
+                { "references",      prefix = FzfLua.utils.ansi_codes.blue("ref ") },
+                { "definitions",     prefix = FzfLua.utils.ansi_codes.green("def ") },
+                { "declarations",    prefix = FzfLua.utils.ansi_codes.magenta("decl") },
+                { "typedefs",        prefix = FzfLua.utils.ansi_codes.red("tdef") },
+                { "implementations", prefix = FzfLua.utils.ansi_codes.green("impl") },
+                { "incoming_calls",  prefix = FzfLua.utils.ansi_codes.cyan("in  ") },
+                { "outgoing_calls",  prefix = FzfLua.utils.ansi_codes.yellow("out ") },
+                { "type_sub",        prefix = FzfLua.utils.utils.ansi_codes.cyan("sub ") },
+                { "type_super",      prefix = FzfLua.utils.utils.ansi_codes.yellow("supr") },
             },
         }
       },
@@ -1322,7 +1316,8 @@ CUSTOMIZATION                                          *fzf-lua-customization*
       },
       zoxide = {
         cmd          = "zoxide query --list --score",
-        git_root     = false, -- auto-detect git root
+        scope        = "global", -- cd action scope "local|win|tab"
+        git_root     = false,    -- auto-detect git root
         formatter    = "path.dirname_first",
         fzf_opts     = {
           ["--no-multi"]  = true,
@@ -1365,12 +1360,12 @@ Using `files` with a different command and working directory:
 Using `live_grep` with `git grep`:
 
 >lua
-    :lua require'fzf-lua'.live_grep({ cmd = "git grep --line-number --column --color=always" })
+    :lua FzfLua.live_grep({ cmd = "git grep --line-number --column --color=always" })
 <
 `spell_suggest` with non-default window size relative to cursor:
 
 >lua
-    :lua require'fzf-lua'.spell_suggest({ winopts = { height=0.33, width=0.33, relative="cursor" } })
+    :lua FzfLua.spell_suggest({ winopts = { height=0.33, width=0.33, relative="cursor" } })
     -- Or via the vimL command
     :FzfLua spell_suggest winopts={height=0.33,width=0.33,relative=cursor}
     :FzfLua spell_suggest winopts={height=0.33,width=0.33} winopts.relative=cursor
@@ -1405,6 +1400,18 @@ the first argument:
 >lua
     :lua require"fzf-lua".setup({{"telescope","fzf-native"},winopts={fullscreen=true}})
 <
+  [!TIP] The default profile is a combination of border-fused+hide profiles,
+  without the "hide" profile pressing esc terminates the fzf process which makes
+  for an imperfect resume limited to resuming only the picker/query (without
+  cursor position, selection, etc), to restore the default esc behavior combine
+  any existing profile with "hide" by using a table in `opts[1]`:
+>lua
+    require("fzf-lua").setup({
+    >   { "fzf-native", "hide" },
+    >   -- your other settings here
+    > })
+<
+
 
                                                                               
 COMING FROM FZF.VIM?                            *fzf-lua-coming-from-fzf.vim?*
@@ -1460,7 +1467,7 @@ path/completion using `<C-x><C-f>`:
 
 >lua
     vim.keymap.set({ "n", "v", "i" }, "<C-x><C-f>",
-      function() require("fzf-lua").complete_path() end,
+      function() FzfLua.complete_path() end,
       { silent = true, desc = "Fuzzy complete path" })
 <
 Or with a custom command and preview:
@@ -1471,7 +1478,7 @@ Or with a custom command and preview:
 >lua
     vim.keymap.set({ "i" }, "<C-x><C-f>",
       function()
-        require("fzf-lua").complete_file({
+        FzfLua.complete_file({
           cmd = "rg --files",
           winopts = { preview = { hidden = true } }
         })
@@ -1488,14 +1495,14 @@ sending `complete = true` in the options:
   `p` to paste the selected entry.
 
 >lua
-    require("fzf-lua").fzf_exec({"foo", "bar"}, {complete = true})
+    FzfLua.fzf_exec({"foo", "bar"}, {complete = true})
 <
 Custom completion is possible using a custom completion callback, the example
 below will replace the text from the current cursor column with the selected
 entry:
 
 >lua
-    require("fzf-lua").fzf_exec({"foo", "bar"}, {
+    FzfLua.fzf_exec({"foo", "bar"}, {
       -- @param selected: the selected entry or entries
       -- @param opts: fzf-lua caller/provider options
       -- @param line: originating buffer completed line
@@ -1577,6 +1584,9 @@ temporarily overridden by its corresponding `winopts` option:
 | FzfLuaFilePart          | @none            | `hls.file_part`      | Path formatters file hl group         |
 | FzfLuaLivePrompt        | \*PaleVioletRed1 | `hls.live_prompt`    | "live" queries prompt text            |
 | FzfLuaLiveSym           | \*PaleVioletRed1 | `hls.live_sym`       | LSP live symbols query match          |
+| FzfLuaCmdEx             | Statement        | `hls.cmd_ex`         | Ex commands in `commands`             |
+| FzfLuaCmdBuf            | Added            | `hls.cmd_buf`        | Buffer commands in `commands`         |
+| FzfLuaCmdGlobal         | Directory        | `hls.cmd_global`     | Global commands in `commands`         |
 | FzfLuaFzfNormal         | FzfLuaNormal     | `fzf.normal`         | fzf's `fg\|bg`                        |
 | FzfLuaFzfCursorLine     | FzfLuaCursorLine | `fzf.cursorline`     | fzf's `fg+\|bg+`                      |
 | FzfLuaFzfMatch          | Special          | `fzf.match`          | fzf's `hl+`                           |

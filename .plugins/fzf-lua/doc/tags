@@ -70,6 +70,7 @@ fzf-lua-opts-git_hunks	fzf-lua-opts.txt	/*fzf-lua-opts-git_hunks*
 fzf-lua-opts-git_stash	fzf-lua-opts.txt	/*fzf-lua-opts-git_stash*
 fzf-lua-opts-git_status	fzf-lua-opts.txt	/*fzf-lua-opts-git_status*
 fzf-lua-opts-git_tags	fzf-lua-opts.txt	/*fzf-lua-opts-git_tags*
+fzf-lua-opts-git_worktrees	fzf-lua-opts.txt	/*fzf-lua-opts-git_worktrees*
 fzf-lua-opts-global-options	fzf-lua-opts.txt	/*fzf-lua-opts-global-options*
 fzf-lua-opts-globals.color_icons	fzf-lua-opts.txt	/*fzf-lua-opts-globals.color_icons*
 fzf-lua-opts-globals.cwd	fzf-lua-opts.txt	/*fzf-lua-opts-globals.cwd*
@@ -85,6 +86,9 @@ fzf-lua-opts-globals.hls.buf_id	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_
 fzf-lua-opts-globals.hls.buf_linenr	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_linenr*
 fzf-lua-opts-globals.hls.buf_name	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_name*
 fzf-lua-opts-globals.hls.buf_nr	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.buf_nr*
+fzf-lua-opts-globals.hls.cmd_buf	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cmd_buf*
+fzf-lua-opts-globals.hls.cmd_ex	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cmd_ex*
+fzf-lua-opts-globals.hls.cmd_global	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cmd_global*
 fzf-lua-opts-globals.hls.cursor	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cursor*
 fzf-lua-opts-globals.hls.cursorline	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cursorline*
 fzf-lua-opts-globals.hls.cursorlinenr	fzf-lua-opts.txt	/*fzf-lua-opts-globals.hls.cursorlinenr*
@@ -184,6 +188,8 @@ fzf-lua-opts-lsp_incoming_calls	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_incoming_cal
 fzf-lua-opts-lsp_live_workspace_symbols	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_live_workspace_symbols*
 fzf-lua-opts-lsp_outgoing_calls	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_outgoing_calls*
 fzf-lua-opts-lsp_references	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_references*
+fzf-lua-opts-lsp_type_sub	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_type_sub*
+fzf-lua-opts-lsp_type_super	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_type_super*
 fzf-lua-opts-lsp_typedefs	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_typedefs*
 fzf-lua-opts-lsp_workspace_diagnostics	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_workspace_diagnostics*
 fzf-lua-opts-lsp_workspace_symbols	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_workspace_symbols*
