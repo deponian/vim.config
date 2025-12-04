@@ -8,8 +8,6 @@ vim.opt.completeopt:append("noselect")                -- don't automatically sel
 vim.opt.cursorline = true                             -- highlight current line
 vim.opt.diffopt:append("linematch:120,followwrap")    -- enable more accurate diff
 vim.opt.emoji = false                                 -- don't assume all emoji are double width
-vim.opt.fillchars:append({ diff = '⁚' })              -- TWO DOT PUNCTUATION (U+205A)
-vim.opt.fillchars:append({ eob = ' ' })               -- suppress ~ at EndOfBuffer
 vim.opt.foldlevelstart = 99                           -- start unfolded
 vim.opt.foldenable = false                            -- disable folding at startup
 vim.opt.formatoptions:append('ro')                    -- smart auto-commenting
@@ -60,6 +58,22 @@ if not vim.g.bigfile_mode then
 else
   vim.opt.foldmethod = "indent"                       -- use indent folding method for big files
 end
+
+-- fill chars
+vim.opt.fillchars = {
+  horiz = '━',     -- Box Drawings Heavy Horizontal (U+2501)
+  horizup = '┻',   -- Box Drawings Heavy Up And Horizontal (U+253B)
+  horizdown = '┳', -- Box Drawings Heavy Down And Horizontal (U+2533)
+
+  vert = '┃',      -- Box Drawings Heavy Vertical (U+2503)
+  vertleft = '┫',  -- Box Drawings Heavy Vertical And Left (U+252B)
+  vertright = '┣', -- Box Drawings Heavy Vertical And Right (U+2523)
+  verthoriz = '╋', -- Box Drawings Heavy Vertical And Horizontal (U+254B)
+
+  diff = '⁚', -- Two Dot Punctuation (U+205A)
+
+  eob = ' ' -- suppress ~ at EndOfBuffer
+}
 
 -- invisible chars
 vim.opt.listchars = {

@@ -32,6 +32,7 @@ M.opts = {
   on_colors = function(colors)
     colors.fg_sidebar = "#b2bcde"
 
+    colors.border = "#4d6393"
     colors.border_highlight = "#394b70"
 
     colors.git.change = colors.orange
