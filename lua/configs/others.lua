@@ -93,7 +93,11 @@ return {
     }
   },
 
-  { "nvim-treesitter/nvim-treesitter-context" },
+  {
+    "nvim-treesitter/nvim-treesitter-context",
+    enabled = not vim.wo.diff,
+  },
+
   { "tpope/vim-fugitive" },
   { "nvim-lua/plenary.nvim", lazy = true },
   { "HiPhish/rainbow-delimiters.nvim" },
