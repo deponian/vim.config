@@ -6,7 +6,7 @@ vim.opt.completeopt = "menu"                          -- show completion menu (f
 vim.opt.completeopt:append("menuone")                 -- show menu even if there is only one candidate (for nvim-cmp)
 vim.opt.completeopt:append("noselect")                -- don't automatically select candidate (for nvim-cmp)
 vim.opt.cursorline = true                             -- highlight current line
-vim.opt.diffopt:append("linematch:120,followwrap")    -- enable more accurate diff
+vim.opt.diffopt:append("linematch:120")               -- enable more accurate diff
 vim.opt.emoji = false                                 -- don't assume all emoji are double width
 vim.opt.foldlevelstart = 99                           -- start unfolded
 vim.opt.foldenable = false                            -- disable folding at startup
