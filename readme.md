@@ -30,7 +30,6 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/lambdalisue/suda.vim
 - https://github.com/lewis6991/gitsigns.nvim
 - https://github.com/lukas-reineke/indent-blankline.nvim
-- https://github.com/madox2/vim-ai
 - https://github.com/mfussenegger/nvim-lint
 - https://github.com/mikavilpas/blink-ripgrep.nvim
 - https://github.com/mtdl9/vim-log-highlighting

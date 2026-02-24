@@ -58,7 +58,6 @@ require("lazy").setup({
   require("configs.tokyonight"),
   require("configs.treesitter"),
   require("configs.trouble"),
-  require("configs.vim-ai"),
 }, {
   root = plugins_path,
   lockfile = vim.fn.stdpath("config") .. "/.lazy-lock.json",
