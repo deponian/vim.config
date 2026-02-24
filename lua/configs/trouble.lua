@@ -1,4 +1,7 @@
-local M = { "folke/trouble.nvim" }
+local M = {
+  "folke/trouble.nvim",
+  enabled = not vim.g.diff_mode,
+}
 
 M.opts = {}
 

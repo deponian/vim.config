@@ -1,6 +1,7 @@
 local M = {
   "deponian/mini.map",
   lazy = false,
+  enabled = not vim.g.diff_mode,
 }
 
 M.opts = function ()

@@ -1,6 +1,6 @@
 -- if .../lazy doesn't exist we activate so called "server mode"
 -- in this mode we use .plugins as the source of plugins
--- also tree-sitter and LSP configuration are disabled
+-- also tree-sitter, blink and nvim-lint have some special configuration changes
 local plugins_path = vim.fn.stdpath("data") .. "/lazy"
 vim.g.server_mode = false
 if vim.fn.isdirectory(plugins_path) == 0 then
@@ -33,6 +33,9 @@ if open_ok and stat_ok and stat.size > 500 * 1000 then
   vim.uv.fs_close(fd)
 end
 
+-- simply for consistency with bigfile_mode and server_mode
+vim.g.diff_mode = vim.o.diff
+
 -- everything we need before initialization of plugins
 require("options")
 require("settings")
@@ -41,17 +44,17 @@ require("keymaps")
 
 -- initialization of plugins
 require("lazy").setup({
+  require("configs.blink"),
   require("configs.conform"),
   require("configs.fzf"),
   require("configs.gitsigns"),
   require("configs.illuminate"),
   require("configs.indent-blankline"),
+  require("configs.lsp"),
   require("configs.lualine"),
   require("configs.minimap"),
-  require("configs.blink"),
   require("configs.nvim-colorizer"),
   require("configs.nvim-lint"),
-  require("configs.lsp"),
   require("configs.nvim-tree"),
   require("configs.others"),
   require("configs.scalpelua"),

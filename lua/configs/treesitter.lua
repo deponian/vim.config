@@ -1,6 +1,6 @@
 local M = {
   "nvim-treesitter/nvim-treesitter",
-  enabled = not vim.g.bigfile_mode,
+  enabled = not vim.g.bigfile_mode and not vim.g.diff_mode,
   branch = 'master'
 }
 

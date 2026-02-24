@@ -1,4 +1,7 @@
-local M = { "stevearc/conform.nvim" }
+local M = {
+  "stevearc/conform.nvim",
+  enabled = not vim.g.diff_mode,
+}
 
 M.opts = {
   formatters_by_ft = {

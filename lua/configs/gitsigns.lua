@@ -1,6 +1,7 @@
 local M = {
   "lewis6991/gitsigns.nvim",
   lazy = false,
+  enabled = not vim.g.diff_mode,
 }
 
 M.opts = {

@@ -1,6 +1,7 @@
 local M = {
   "catgoose/nvim-colorizer.lua",
   event = "BufReadPre",
+  enabled = not vim.g.diff_mode,
 }
 
 M.opts = {

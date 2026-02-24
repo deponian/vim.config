@@ -1,6 +1,6 @@
 local M = {
   "mfussenegger/nvim-lint",
-  enabled = not vim.g.bigfile_mode,
+  enabled = not vim.g.bigfile_mode and not vim.g.diff_mode,
 }
 
 M.config = function ()

@@ -1,6 +1,7 @@
 local M = {
   'saghen/blink.cmp',
   version = '1.*',
+  enabled = not vim.g.diff_mode,
 
   dependencies = {
     'rafamadriz/friendly-snippets',

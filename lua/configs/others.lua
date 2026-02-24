@@ -95,7 +95,7 @@ return {
 
   {
     "nvim-treesitter/nvim-treesitter-context",
-    enabled = not vim.wo.diff,
+    enabled = not vim.o.diff,
   },
 
   { "tpope/vim-fugitive" },

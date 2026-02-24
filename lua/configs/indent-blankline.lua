@@ -1,7 +1,7 @@
 local M = {
   "lukas-reineke/indent-blankline.nvim",
   event = { "BufReadPost", "BufNewFile" },
-  enabled = vim.o.background == "dark"
+  enabled = vim.o.background == "dark" and not vim.g.diff_mode,
 }
 
 M.opts = {

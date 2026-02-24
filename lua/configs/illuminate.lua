@@ -1,7 +1,7 @@
 local M = {
   "rrethy/vim-illuminate",
   lazy = false,
-  enabled = not vim.g.bigfile_mode,
+  enabled = not vim.g.bigfile_mode and not vim.g.diff_mode,
 }
 
 M.opts = {
