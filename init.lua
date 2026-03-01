@@ -41,6 +41,7 @@ require("options")
 require("settings")
 require("autocmd")
 require("keymaps")
+require("diff")
 
 -- initialization of plugins
 require("lazy").setup({

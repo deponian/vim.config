@@ -40,7 +40,7 @@ M.opts = {
     colors.git.delete = colors.red
 
     colors.diff.add = "#1d3c41"
-    colors.diff.change = "#252a3f"
+    colors.diff.change = "#3a3345"
     colors.diff.delete = "#40252e"
     colors.diff.text = "#026faf"
 
