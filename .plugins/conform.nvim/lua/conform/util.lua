@@ -18,12 +18,14 @@ M.find_executable = function(paths, default)
     for _, path in ipairs(paths) do
       local normpath = vim.fs.normalize(path)
       local is_absolute = vim.startswith(normpath, "/")
-      if is_absolute and vim.fn.executable(normpath) then
+
+      if is_absolute and vim.fn.executable(normpath) == 1 then
         return normpath
       end
 
       local idx = normpath:find("/", 1, true)
       local dir, subpath
+
       if idx then
         dir = normpath:sub(1, idx - 1)
         subpath = normpath:sub(idx)
@@ -32,9 +34,11 @@ M.find_executable = function(paths, default)
         dir = normpath
         subpath = ""
       end
+
       local results = vim.fs.find(dir, { upward = true, path = ctx.dirname, limit = math.huge })
       for _, result in ipairs(results) do
         local fullpath = result .. subpath
+
         if vim.fn.executable(fullpath) == 1 then
           return fullpath
         end
@@ -164,7 +168,8 @@ M.merge_formatter_configs = function(config, override)
   local ret = vim.tbl_deep_extend("force", config, override)
   if override.prepend_args then
     M.add_formatter_args(ret, override.prepend_args, { append = false })
-  elseif override.append_args then
+  end
+  if override.append_args then
     M.add_formatter_args(ret, override.append_args, { append = true })
   end
   return ret

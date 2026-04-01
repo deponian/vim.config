@@ -29,9 +29,8 @@ end
 --- @param path string
 --- @return boolean
 function Path.is_abs(path)
-  -- Check if the path is absolute on Windows
-  if is_win and M.cygpath(path):match('^%a:[/\\]') then
-    return true
+  if is_win then
+    return path:match('^%a:[/\\]') ~= nil or vim.startswith(path, '/') or vim.startswith(path, '\\')
   end
 
   -- Check if the path is absolute on Unix-like systems
@@ -58,6 +57,18 @@ function M.file_lines(path)
   local contents = file:read('*a')
   file:close()
   return vim.split(contents, '\n')
+end
+
+--- Convert a Lua string to a value accepted by VimL APIs.
+--- @param line string
+--- @return string
+function M.lua2viml_str(line)
+  -- VimL String values cannot safely carry embedded NUL bytes. Replace them
+  -- with a readable sentinel before crossing the vim.fn.* boundary.
+  if line:find('\0', 1, true) then
+    return (line:gsub('%z', '<NUL>'))
+  end
+  return line
 end
 
 M.path_sep = package.config:sub(1, 1)
@@ -162,7 +173,7 @@ function M.set_lines(bufnr, start_row, end_row, lines)
   end
   if start_row == 0 and end_row == -1 then
     if lines[#lines] == '' then
-      lines = vim.deepcopy(lines)
+      lines = vim.deepcopy(lines) --[[@as string[] ]]
       lines[#lines] = nil
     else
       vim.bo[bufnr].eol = false
@@ -414,7 +425,7 @@ local has_cygpath --- @type boolean?
 
 --- @async
 --- @param path string
---- @param mode? 'unix'|'windows' (default: 'windows')
+--- @param mode? 'unix'|'windows'|'mixed' (default: 'windows')
 --- @return string
 function M.cygpath(path, mode)
   local async = require('gitsigns.async')
@@ -440,26 +451,50 @@ function M.cygpath(path, mode)
 
   async.schedule()
 
-  return assert(vim.split(stdout, '\n')[1])
+  local result = vim.split(stdout, '\n')[1]
+  -- Strip trailing newline/carriage return that may be present in cygpath output on MSYS2
+  if result then
+    result = result:match('^(.-)[\r\n]*$')
+  end
+
+  return assert(result)
 end
 
 --- Flattens a nested table structure into a flat array of strings. Only
 --- traverses numeric keys, recursively flattening tables and collecting
 --- strings.
---- @param x table<any,any> The input table to flatten.
---- @return string[] A flat array of strings extracted from the nested table.
+--- @param x table<integer,string|string[]?> The input table to flatten.
+--- @return string[] # A flat array of strings extracted from the nested table.
 function M.flatten(x)
   local ret = {} --- @type string[]
-  for k, v in pairs(x) do
-    if type(k) == 'number' then
-      if type(v) == 'table' then
-        vim.list_extend(ret, M.flatten(v))
-      elseif type(v) == 'string' then
-        ret[#ret + 1] = v
-      end
+  for i = 1, table.maxn(x) do
+    local v = x[i]
+    if type(v) == 'table' then
+      vim.list_extend(ret, M.flatten(v))
+    elseif type(v) == 'string' then
+      ret[#ret + 1] = v
+    elseif not v then
+      -- skip
+    else
+      error('Expected string, table, false or nil, got ' .. type(v))
     end
   end
   return ret
+end
+
+--- @param fn fun()
+--- @return userdata
+function M.gc_proxy(fn)
+  local proxy = newproxy(true)
+  getmetatable(proxy).__gc = fn
+  return proxy
+end
+
+--- @generic T
+--- @param x T
+--- @return {ref: T}
+function M.weak_ref(x)
+  return setmetatable({ ref = x }, { __mode = 'v' })
 end
 
 return M

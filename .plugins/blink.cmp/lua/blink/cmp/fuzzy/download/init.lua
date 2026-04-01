@@ -15,7 +15,7 @@ function download.ensure_downloaded(callback)
   if fuzzy_config.implementation == 'lua' then return callback(nil, 'lua') end
 
   async.task
-    .all({ git.get_version(), files.get_version() })
+    .all({ git.get_version(download_config.force_version), files.get_version() })
     :map(function(results)
       return {
         git = results[1],
@@ -26,7 +26,7 @@ function download.ensure_downloaded(callback)
       -- no version file found, and found the shared rust library, user manually placed the .so file
       if version.current.missing and pcall(require, 'blink.cmp.fuzzy.rust') then return end
 
-      local target_git_tag = download_config.force_version or version.git.tag
+      local target_git_tag = version.git.tag
 
       -- built locally
       if version.current.sha ~= nil then
@@ -35,7 +35,7 @@ function download.ensure_downloaded(callback)
           local loaded, err = pcall(require, 'blink.cmp.fuzzy.rust')
           if loaded then return end
 
-          -- shared library missing despite matching version info (e.g., incomplete build)
+          -- shared library missing despite matching version info (e.g. incomplete build)
           utils.notify({
             { 'Incomplete build of the ' },
             { 'fuzzy matching library', 'DiagnosticInfo' },
@@ -61,7 +61,7 @@ function download.ensure_downloaded(callback)
             { "Couldn't update fuzzy matching library due to github downloads being disabled." },
             { ' Try setting ' },
             { " build = 'cargo build --release' ", 'DiagnosticVirtualTextInfo' },
-            { ' in your lazy.nvim spec and re-installing (requires Rust nightly), or enable ' },
+            { ' in your lazy.nvim spec and re-installing, or enable ' },
             { 'fuzzy.prebuilt_binaries.', 'DiagnosticInfo' },
             { 'ignore_version_mismatch', 'DiagnosticWarn' },
             { ' or set ' },
@@ -79,7 +79,7 @@ function download.ensure_downloaded(callback)
             { 'git tag', 'DiagnosticInfo' },
             { '. Try building from source via ' },
             { " build = 'cargo build --release' ", 'DiagnosticVirtualTextInfo' },
-            { ' in your lazy.nvim spec and re-installing (requires Rust nightly), or switch to a ' },
+            { ' in your lazy.nvim spec and re-installing, or switch to a ' },
             { 'git tag', 'DiagnosticInfo' },
             { ' via ' },
             { " version = '1.*' ", 'DiagnosticVirtualTextInfo' },
@@ -100,7 +100,7 @@ function download.ensure_downloaded(callback)
           { 'No fuzzy matching library found!' },
           { ' Try setting ' },
           { " build = 'cargo build --release' ", 'DiagnosticVirtualTextInfo' },
-          { ' in your lazy.nvim spec and re-installing (requires Rust nightly), or enable ' },
+          { ' in your lazy.nvim spec and re-installing, or enable ' },
           { 'fuzzy.prebuilt_binaries.', 'DiagnosticInfo' },
           { 'download', 'DiagnosticWarn' },
         })
@@ -113,7 +113,7 @@ function download.ensure_downloaded(callback)
           { 'No fuzzy matching library found!' },
           { ' Try building from source via ' },
           { " build = 'cargo build --release' ", 'DiagnosticVirtualTextInfo' },
-          { ' in your lazy.nvim spec and re-installing (requires Rust nightly), or switch to a ' },
+          { ' in your lazy.nvim spec and re-installing, or switch to a ' },
           { 'git tag', 'DiagnosticInfo' },
           { ' via ' },
           { " version = '1.*' ", 'DiagnosticVirtualTextInfo' },
@@ -203,7 +203,7 @@ function download.from_github(tag)
         { ' pre-built binaries ', 'DiagnosticVirtualTextInfo' },
         { '. Try building from source via ' },
         { " build = 'cargo build --release' ", 'DiagnosticVirtualTextInfo' },
-        { ' in your lazy.nvim spec and re-installing (requires Rust nightly)' },
+        { ' in your lazy.nvim spec and re-installing' },
       })
       return
     end

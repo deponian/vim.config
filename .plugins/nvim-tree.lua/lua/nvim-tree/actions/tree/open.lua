@@ -1,11 +1,12 @@
 local lib = require("nvim-tree.lib")
 local view = require("nvim-tree.view")
+local config = require("nvim-tree.config")
 local finders_find_file = require("nvim-tree.actions.finders.find-file")
 
 local M = {}
 
 ---Open the tree, focusing if already open.
----@param opts ApiTreeOpenOpts|nil|string legacy -> opts.path
+---@param opts? nvim_tree.api.tree.open.Opts|string legacy -> opts.path
 function M.fn(opts)
   -- legacy arguments
   if type(opts) == "string" then
@@ -37,7 +38,7 @@ function M.fn(opts)
   end
 
   -- find file
-  if M.config.update_focused_file.enable or opts.find_file then
+  if config.g.update_focused_file.enable or opts.find_file then
     -- update root
     if opts.update_root then
       require("nvim-tree").change_root(previous_path, previous_buf)
@@ -46,10 +47,6 @@ function M.fn(opts)
     -- find
     finders_find_file.fn(previous_path)
   end
-end
-
-function M.setup(opts)
-  M.config = opts or {}
 end
 
 return M

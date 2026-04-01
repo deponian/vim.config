@@ -59,6 +59,25 @@ local function get_hash_color(sha)
   return hl_name
 end
 
+--- Create a right-side extmark for the blame heatmap
+--- @param bufnr integer
+--- @param lnum integer (1-indexed)
+--- @param win_width integer
+--- @param min_time integer
+--- @param max_time integer
+--- @param author_time integer
+local function set_right_extmark(bufnr, lnum, win_width, min_time, max_time, author_time)
+  api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, 0, {
+    virt_text_win_col = win_width,
+    virt_text = {
+      {
+        '┃',
+        get_temp_hl(min_time, max_time, author_time, 0.5, true),
+      },
+    },
+  })
+end
+
 ---@param amount integer
 ---@param text string
 ---@return string
@@ -137,15 +156,7 @@ local function render(blame, win, main_win, buf_sha)
       hl_group = hash_hl,
     })
 
-    api.nvim_buf_set_extmark(bufnr, ns, i - 1, 0, {
-      virt_text_win_col = win_width,
-      virt_text = {
-        {
-          '┃',
-          get_temp_hl(min_time, max_time, blame_info.commit.author_time, 0.5, true),
-        },
-      },
-    })
+    set_right_extmark(bufnr, i, win_width, min_time, max_time, blame_info.commit.author_time)
 
     if not commit_lines[i] then
       api.nvim_buf_set_extmark(bufnr, ns, i - 1, 2, {
@@ -164,11 +175,12 @@ local function render(blame, win, main_win, buf_sha)
 end
 
 --- @async
+--- @param opts Gitsigns.BlameOpts?
 --- @param blame table<integer,Gitsigns.BlameInfo?>
 --- @param win integer
 --- @param revision? string
 --- @param parent? boolean
-local function reblame(blame, win, revision, parent)
+local function reblame(opts, blame, win, revision, parent)
   local blm_win = api.nvim_get_current_win()
   local lnum = api.nvim_win_get_cursor(blm_win)[1]
   local sha = assert(blame[lnum]).commit.sha
@@ -186,8 +198,14 @@ local function reblame(blame, win, revision, parent)
   if not did_attach then
     return
   end
+
+  local src_buf = api.nvim_win_get_buf(win)
+  local line_count = api.nvim_buf_line_count(src_buf)
+  local new_lnum = math.min(lnum, line_count)
+  api.nvim_win_set_cursor(win, { new_lnum, 0 })
+
   async.schedule()
-  M.blame()
+  M.blame(opts)
 end
 
 --- @async
@@ -305,11 +323,42 @@ local function diff(bufnr, blm_win, blame)
   local lnum = api.nvim_win_get_cursor(blm_win)[1]
   local info = assert(blame[lnum])
 
-  vim.cmd.tabnew()
-  api.nvim_set_current_buf(bufnr)
+  vim.cmd('tab sbuffer ' .. bufnr)
   require('gitsigns.actions.diffthis').show(bufnr, info.commit.sha, info.filename)
   if info.previous_sha then
     require('gitsigns.actions').diffthis(info.previous_sha)
+  end
+end
+
+--- Update the right-side extmarks when the window is resized
+--- @param blm_bufnr integer
+--- @param blm_win integer
+--- @param entries table<integer,Gitsigns.BlameInfo?>
+--- @param min_time integer
+--- @param max_time integer
+local function update_right_extmarks(blm_bufnr, blm_win, entries, min_time, max_time)
+  if not api.nvim_win_is_valid(blm_win) or not api.nvim_buf_is_valid(blm_bufnr) then
+    return
+  end
+
+  -- Get the actual window width (not the content width)
+  -- Subtract 1 because virt_text_win_col is 0-indexed
+  local win_width = api.nvim_win_get_width(blm_win) - 1
+
+  -- Get all extmarks and delete only those with virt_text_win_col
+  -- These are the right-side heatmap indicators that need repositioning
+  local extmarks = api.nvim_buf_get_extmarks(blm_bufnr, ns, 0, -1, { details = true })
+
+  for _, ext in ipairs(extmarks) do
+    local id, _row, _col, details = ext[1], ext[2], ext[3], assert(ext[4])
+    if details.virt_text_win_col then
+      api.nvim_buf_del_extmark(blm_bufnr, ns, id)
+    end
+  end
+
+  -- Recreate the right-side extmarks with updated position
+  for i, blame_info in ipairs(entries) do
+    set_right_extmark(blm_bufnr, i, win_width, min_time, max_time, blame_info.commit.author_time)
   end
 end
 
@@ -329,8 +378,8 @@ local function pmap(mode, lhs, cb, opts)
 end
 
 --- @async
-function M.blame()
-  local __FUNC__ = 'blame'
+--- @param opts Gitsigns.BlameOpts?
+function M.blame(opts)
   local bufnr = api.nvim_get_current_buf()
   local win = api.nvim_get_current_win()
   local bcache = cache[bufnr]
@@ -339,7 +388,8 @@ function M.blame()
     return
   end
 
-  bcache:get_blame()
+  local lnum = nil
+  bcache:get_blame(lnum, opts)
   local blame = assert(bcache.blame)
 
   -- Save position to align 'scrollbind'
@@ -353,9 +403,7 @@ function M.blame()
   api.nvim_win_set_buf(blm_win, blm_bufnr)
   api.nvim_buf_set_name(blm_bufnr, (bcache:get_rev_bufname():gsub('^gitsigns:', 'gitsigns-blame:')))
 
-  local revision = bcache.git_obj.revision
-
-  local commit_lines = render(blame, blm_win, win, revision)
+  local commit_lines = render(blame, blm_win, win, bcache.git_obj.revision)
 
   local blm_bo = vim.bo[blm_bufnr]
   blm_bo.buftype = 'nofile'
@@ -380,7 +428,7 @@ function M.blame()
     blm_wlo.winbar = vim.fn.fnamemodify(name, ':.')
   end
 
-  if vim.fn.exists('&winfixbuf') then
+  if vim.fn.exists('&winfixbuf') == 1 then
     blm_wlo.winfixbuf = true
   end
 
@@ -406,7 +454,7 @@ function M.blame()
   })
 
   pmap('n', 'r', function()
-    async.run(reblame, blame.entries, win, bcache.git_obj.revision):raise_on_error()
+    async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision):raise_on_error()
   end, {
     desc = 'Reblame at commit',
     buffer = blm_bufnr,
@@ -420,7 +468,7 @@ function M.blame()
   })
 
   pmap('n', 'R', function()
-    async.run(reblame, blame.entries, win, bcache.git_obj.revision, true):raise_on_error()
+    async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision, true):raise_on_error()
   end, {
     desc = 'Reblame at commit parent',
     buffer = blm_bufnr,
@@ -450,7 +498,7 @@ function M.blame()
 
   local group = api.nvim_create_augroup('GitsignsBlame', {})
 
-  api.nvim_create_autocmd('BufHidden', {
+  api.nvim_create_autocmd({ 'BufHidden', 'QuitPre' }, {
     buffer = bufnr,
     group = group,
     once = true,
@@ -481,11 +529,23 @@ function M.blame()
     end,
   })
 
+  -- Update right-side extmarks on window resize
+  api.nvim_create_autocmd('WinResized', {
+    buffer = blm_bufnr,
+    group = group,
+    callback = function()
+      local min_time, max_time = assert(cache[bufnr]):get_blame_times()
+      update_right_extmarks(blm_bufnr, blm_win, blame.entries, min_time, max_time)
+    end,
+  })
+
   api.nvim_create_autocmd('WinClosed', {
     pattern = tostring(blm_win),
     group = group,
     callback = function()
-      api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+      if api.nvim_buf_is_valid(bufnr) then
+        api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+      end
       if api.nvim_win_is_valid(win) then
         cur_wlo.foldenable, cur_wlo.scrollbind, cur_wlo.wrap = unpack(cur_orig_wlo)
       end

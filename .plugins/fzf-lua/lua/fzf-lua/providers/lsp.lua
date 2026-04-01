@@ -1,4 +1,3 @@
-local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
@@ -6,6 +5,7 @@ local config = require "fzf-lua.config"
 local actions = require "fzf-lua.actions"
 local make_entry = require "fzf-lua.make_entry"
 
+---@class fzf-lua.Lsp
 local M = {}
 
 local function check_capabilities(handler, silent)
@@ -47,20 +47,23 @@ local function check_capabilities(handler, silent)
   end
 end
 
-local function location_to_entry(location, enc)
-  local item = vim.lsp.util.locations_to_items({ location }, enc)[1]
-  return ("%s:%d:%d:"):format(item.filename, item.lnum, item.col)
+
+---@param locations lsp.Location[]|lsp.LocationLink[]
+---@param enc? 'utf-8'|'utf-16'|'utf-32'
+---@return string[]
+local function locations_to_entries(locations, enc)
+  local items = vim.lsp.util.locations_to_items(locations, enc)
+  local item2entry = function(item)
+    return ("%s:%d:%d:"):format(item.filename, item.lnum, item.col)
+  end
+  return vim.tbl_map(item2entry, items)
 end
 
 local jump_to_location = function(opts, result, enc)
-  -- exits the fzf window when use with async
-  -- safe to call even if the interface is closed
-  utils.fzf_exit()
-
   local action = opts.jump1_action
   if action then
-    local entry = location_to_entry(result, enc)
-    return opts.jump1_action({ entry }, opts)
+    local entries = locations_to_entries({ result }, enc)
+    return opts.jump1_action(entries, opts)
   end
 
   return utils.jump_to_location(result, enc, opts.reuse_win)
@@ -88,7 +91,7 @@ local regex_filter_fn = function(regex_filter)
 end
 
 local function location_handler(opts, cb, _, result, ctx, _)
-  local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
+  local encoding = assert(vim.lsp.get_client_by_id(ctx.client_id)).offset_encoding
   result = utils.tbl_islist(result) and result or { result }
   -- HACK: make sure target URI is valid for buggy LSPs (#1317)
   for i, x in ipairs(result) do
@@ -136,6 +139,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
   -- here to accurately determine `jump1` (#980)
   result = vim.tbl_filter(function(x)
     local item = vim.lsp.util.locations_to_items({ x }, encoding)[1]
+    assert(item and item.filename)
     if (opts.cwd_only and not path.is_relative_to(item.filename, opts.cwd)) or
         (opts._regex_filter_fn and not opts._regex_filter_fn(item, utils.CTX())) then
       return false
@@ -143,8 +147,8 @@ local function location_handler(opts, cb, _, result, ctx, _)
     if opts.current_buffer_only and not path.equals(utils.CTX().bname, item.filename) then
       return false
     end
-    local entry = make_entry.lcol(item, opts)
-    entry = make_entry.file(entry, opts)
+    local entry0 = make_entry.lcol(item, opts)
+    local entry = make_entry.file(entry0, opts)
     if not entry then
       -- Filtered by cwd / file_ignore_patterns, etc
       return false
@@ -158,7 +162,7 @@ local function location_handler(opts, cb, _, result, ctx, _)
 end
 
 local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
-  local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
+  local encoding = assert(vim.lsp.get_client_by_id(ctx.client_id)).offset_encoding
   for _, call_hierarchy_call in pairs(result) do
     --- "from" for incoming calls and "to" for outgoing calls
     local call_hierarchy_item = call_hierarchy_call.from or call_hierarchy_call.to
@@ -166,13 +170,13 @@ local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
       local location = {
         uri = call_hierarchy_item.uri,
         range = range,
-        filename = assert(vim.uri_to_fname(call_hierarchy_item.uri)),
+        filename = vim.uri_to_fname(call_hierarchy_item.uri),
         text = call_hierarchy_item.name,
         lnum = range.start.line + 1,
         col = range.start.character + 1,
       }
-      local entry = make_entry.lcol(location, opts)
-      entry = make_entry.file(entry, opts)
+      local entry0 = make_entry.lcol(location, opts)
+      local entry = make_entry.file(entry0, opts)
       if entry then cb(entry, { result = location, encoding = encoding }) end
     end
   end
@@ -224,6 +228,56 @@ local function symbols_to_items(opts, symbols, bufnr, child_prefix)
   return _symbols_to_items(symbols, {}, bufnr or 0, "")
 end
 
+---@param text string
+---@param query string
+---@param hl_func fun(s: string): string
+---@return string
+local function fuzzy_highlight(text, query, hl_func)
+  if not query or #query == 0 then
+    return text
+  end
+
+  local s, e
+  if query:find("%u") then -- exact match
+    s, e = text:find(query, 1, true)
+  end
+  if not s then -- case-insensitive match
+    s, e = text:lower():find(query:lower(), 1, true)
+  end
+  if s and e then
+    return text:sub(1, s - 1)
+        .. hl_func(text:sub(s, e))
+        .. text:sub(e + 1)
+  end
+
+  -- fuzzy match: highlight only matched chars
+  local text_lower = text:lower()
+  local query_lower = query:lower()
+  local match_indices = {}
+  local ti, qi = 1, 1
+  while ti <= #text and qi <= #query do
+    if text_lower:sub(ti, ti) == query_lower:sub(qi, qi) then
+      match_indices[#match_indices + 1] = ti
+      qi = qi + 1
+    end
+    ti = ti + 1
+  end
+  if #match_indices ~= #query then
+    return text
+  end
+  local buf = {}
+  local mi = 1
+  for i = 1, #text do
+    if mi <= #match_indices and i == match_indices[mi] then
+      buf[#buf + 1] = hl_func(text:sub(i, i))
+      mi = mi + 1
+    else
+      buf[#buf + 1] = text:sub(i, i)
+    end
+  end
+  return table.concat(buf)
+end
+
 local function symbol_handler(opts, cb, _, result, ctx, _)
   result = utils.tbl_islist(result) and result or { result }
   local items
@@ -231,7 +285,7 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
     items = symbols_to_items(opts, result, utils.CTX().bufnr,
       opts.child_prefix == true and string.rep(" ", 2) or opts.child_prefix)
   else
-    local encoding = vim.lsp.get_client_by_id(ctx.client_id).offset_encoding
+    local encoding = assert(vim.lsp.get_client_by_id(ctx.client_id)).offset_encoding
     items = vim.lsp.util.symbols_to_items(result, utils.CTX().bufnr, encoding)
   end
   if opts.regex_filter and opts._regex_filter_fn == nil then
@@ -242,16 +296,9 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
         (not opts._regex_filter_fn or opts._regex_filter_fn(entry, utils.CTX())) then
       local mbicon_align = 0
       if opts.is_live and type(opts.query) == "string" and #opts.query > 0 then
-        -- highlight exact matches with `live_workspace_symbols` (#1028)
+        -- highlight exact or fuzzy matches with `live_workspace_symbols` (#1028)
         local sym, text = entry.text:match("^(.+%])(.*)$")
-        local pattern = "[" .. utils.lua_regex_escape(
-          opts.query:gsub("%a", function(x)
-            return string.upper(x) .. string.lower(x)
-          end)
-        ) .. "]+"
-        entry.text = sym .. text:gsub(pattern, function(x)
-          return utils.ansi_codes[opts.hls.live_sym](x)
-        end)
+        entry.text = sym .. fuzzy_highlight(text, opts.query, utils.ansi_codes[opts.hls.live_sym])
       end
       if M._sym2style then
         local kind = entry.text:match("%[(.-)%]")
@@ -305,6 +352,7 @@ local function symbol_handler(opts, cb, _, result, ctx, _)
   end
 end
 
+---@class fzf-lua.LspHandler
 local handlers = {
   ["code_actions"] = {
     label = "Code Actions",
@@ -417,10 +465,7 @@ local function gen_lsp_contents(opts)
 
   if not opts.async then
     -- SYNC
-    local timeout = 5000
-    if type(opts.async_or_timeout) == "number" then
-      timeout = opts.async_or_timeout
-    end
+    local timeout = utils.tointeger(opts.async_or_timeout) or 5000
     local lsp_results, err = vim.lsp.buf_request_sync(utils.CTX().bufnr,
       lsp_handler.method, lsp_params, timeout)
     if err then
@@ -434,12 +479,22 @@ local function gen_lsp_contents(opts)
         if x and jump1 == nil then jump1 = { result = x.result, encoding = x.encoding } end
         table.insert(results, text)
       end
+      ---@diagnostic disable-next-line: param-type-mismatch
       for client_id, response in pairs(lsp_results) do
         if response.result then
           local context = { client_id = client_id }
           lsp_handler.handler(opts, cb, lsp_handler.method, response.result, context, nil)
-        elseif response.error then
-          utils.error("Error executing '%s': %s", lsp_handler.method, response.error.message)
+        elseif response.error and opts.silent ~= true then
+          -- HACK: since `client:supports_method()` always returns true for off-spec methods
+          -- we need to test for the "prep" method to validate the error, for example stylua
+          -- will return `true` for the first and `false` for the second call (see #2547):
+          -- :=(vim.lsp.get_clients({bufnr=0,name="stylua"})[1]):supports_method("callHierarchy/incomingCalls")
+          -- :=(vim.lsp.get_clients({bufnr=0,name="stylua"})[1]):supports_method("textDocument/prepareCallHierarchy")
+          local client = assert(vim.lsp.get_client_by_id(client_id))
+          if not lsp_handler.prep or client:supports_method(lsp_handler.prep) then
+            utils.warn("%s[%s]: %s",
+              tostring(client.name), lsp_handler.method, response.error.message)
+          end
         end
       end
       if utils.tbl_isempty(results) then
@@ -489,7 +544,12 @@ local function gen_lsp_contents(opts)
         -- so we can determine if all callbacks were completed (#468)
         local async_opts = {
           num_callbacks = 0,
-          num_clients   = check_capabilities(lsp_handler, opts.silent),
+          -- NOTE: since off-spec handlers (e.g. incomingCalls) always returns true it also always
+          -- gets called (and errs) on async mode so even though the prepare method returns `false`
+          -- we should take into account multiple callbacks, some of which will err (#2547)
+          num_clients   = lsp_handler.prep
+              and #utils.lsp_get_clients({ bufnr = utils.CTX().bufnr })
+              or check_capabilities(lsp_handler, opts.silent),
           -- signals the handler to not print a warning when empty result set
           -- is returned, important for `live_workspace_symbols` when the user
           -- inputs a query that returns no results
@@ -512,8 +572,12 @@ local function gen_lsp_contents(opts)
               async_opts.num_callbacks = async_opts.num_callbacks + 1
               -- did all clients send back their responses?
               local done = async_opts.num_callbacks == async_opts.num_clients
-              if err and not async_opts.silent then
-                utils.error("Error executing '%s': %s", lsp_handler.method, err)
+              if err and async_opts.silent ~= true then
+                -- NOTE: detailed notes in the "HACK" notes in "sync" error handling
+                local client = assert(vim.lsp.get_client_by_id(context.client_id))
+                if not lsp_handler.prep or client:supports_method(lsp_handler.prep) then
+                  utils.warn("%s[%s]: %s", tostring(client.name), lsp_handler.method, err)
+                end
               end
               coroutine.resume(co, done, err, result, context, lspcfg)
             end)
@@ -579,10 +643,7 @@ end
 
 -- see $VIMRUNTIME/lua/vim/buf.lua:pick_call_hierarchy_item()
 local function gen_lsp_contents_hierarchy(opts)
-  local timeout = 5000
-  if type(opts.async_or_timeout) == "number" then
-    timeout = opts.async_or_timeout
-  end
+  local timeout = utils.tointeger(opts.async_or_timeout) or 5000
   local lsp_params = opts.lsp_params
       ---@diagnostic disable-next-line: missing-parameter
       or not utils.__HAS_NVIM_011 and vim.lsp.util.make_position_params(utils.CTX().winid)
@@ -594,6 +655,7 @@ local function gen_lsp_contents_hierarchy(opts)
   if err then
     utils.error(("Error executing '%s': %s"):format(opts.lsp_handler.prep, err))
   else
+    ---@diagnostic disable-next-line: param-type-mismatch
     local _, response = next(res)
     if not response or not response.result or not response.result[1] then
       if not opts.silent then
@@ -621,7 +683,7 @@ local normalize_lsp_opts = function(opts, cfg, __resume_key)
 
   -- required for relative paths presentation
   if not opts.cwd or #opts.cwd == 0 then
-    opts.cwd = uv.cwd()
+    opts.cwd = utils.cwd()
   elseif opts.cwd_only == nil then
     opts.cwd_only = true
   end
@@ -630,7 +692,6 @@ local normalize_lsp_opts = function(opts, cfg, __resume_key)
 end
 
 local function fzf_lsp_locations(opts, fn_contents)
-  ---@type fzf-lua.config.Lsp
   opts = normalize_lsp_opts(opts, "lsp")
   if not opts then return end
   opts = core.set_fzf_field_index(opts)
@@ -643,30 +704,44 @@ local function fzf_lsp_locations(opts, fn_contents)
 end
 
 -- define the functions for wrap_module_fncs
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.references = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.definitions = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.declarations = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.typedefs = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.implementations = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.incoming_calls = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
 end
 
+---@param opts fzf-lua.config.Lsp|{}?
+---@return thread?, string?, table?
 M.outgoing_calls = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
 end
@@ -679,6 +754,8 @@ M.type_super = function(opts)
   return fzf_lsp_locations(opts, gen_lsp_contents_hierarchy)
 end
 
+---@param opts fzf-lua.config.LspFinder|{}?
+---@return thread?, string?, table?
 M.finder = function(opts)
   ---@type fzf-lua.config.LspFinder
   opts = normalize_lsp_opts(opts, "lsp.finder")
@@ -763,6 +840,8 @@ local function gen_sym2style_map(opts)
   end
 end
 
+---@param opts fzf-lua.config.LspDocumentSymbols|{}?
+---@return thread?, string?, table?
 M.document_symbols = function(opts)
   ---@type fzf-lua.config.LspDocumentSymbols
   opts = normalize_lsp_opts(opts, "lsp.document_symbols")
@@ -782,6 +861,8 @@ M.document_symbols = function(opts)
   return core.fzf_exec(opts.__contents, opts)
 end
 
+---@param opts fzf-lua.config.LspWorkspaceSymbols|{}?
+---@return thread?, string?, table?
 M.workspace_symbols = function(opts)
   ---@type fzf-lua.config.LspWorkspaceSymbols
   opts = normalize_lsp_opts(opts, "lsp.workspace_symbols")
@@ -808,8 +889,10 @@ M.workspace_symbols = function(opts)
 end
 
 
+---@param opts fzf-lua.config.LspWorkspaceSymbols|{}?
+---@return thread?, string?, table?
 M.live_workspace_symbols = function(opts)
-  ---@type fzf-lua.config.LspLiveWorkspaceSymbols
+  ---@type fzf-lua.config.LspWorkspaceSymbols
   opts = normalize_lsp_opts(opts, "lsp.workspace_symbols")
   if not opts then return end
 
@@ -867,16 +950,12 @@ M.live_workspace_symbols = function(opts)
   end, opts)
 end
 
+---@param opts fzf-lua.config.LspCodeActions|{}?
+---@return thread?, string?, table?
 M.code_actions = function(opts)
   ---@type fzf-lua.config.LspCodeActions
   opts = normalize_lsp_opts(opts, "lsp.code_actions")
   if not opts then return end
-
-  -- code actions uses `vim.ui.select`, requires neovim >= 0.6
-  if vim.fn.has("nvim-0.6") ~= 1 then
-    utils.info("LSP code actions requires neovim >= 0.6")
-    return
-  end
 
   local ui_select = require "fzf-lua.providers.ui_select"
   local registered = ui_select.is_registered()
@@ -922,7 +1001,8 @@ local function wrap_fn(key, fn)
   end
 end
 
-return setmetatable({}, {
+---@type fzf-lua.Lsp
+local _ = setmetatable({}, {
   __index = function(_, key)
     if handlers[key] then
       return wrap_fn(key, M[key])
@@ -931,3 +1011,4 @@ return setmetatable({}, {
     end
   end
 })
+return _

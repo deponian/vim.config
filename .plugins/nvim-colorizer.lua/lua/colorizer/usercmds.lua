@@ -1,24 +1,14 @@
---[[-- This module provides functions for creating user commands for the Colorizer plugin in Neovim.
-It allows the creation of commands to attach, detach, reload, and toggle the Colorizer functionality on buffers.
-Available commands are:
-<pre>
-- `ColorizerAttachToBuffer`: Attaches Colorizer to the current buffer
-- `ColorizerDetachFromBuffer`: Detaches Colorizer from the current buffer
-- `ColorizerReloadAllBuffers`: Reloads Colorizer for all buffers
-- `ColorizerToggle`: Toggles Colorizer attachment to the buffer </pre>
-]]
--- @module colorizer.usercmds
+---@mod colorizer.usercmds User Commands
+---@brief [[
+---This module provides functions for creating user commands for the Colorizer plugin in Neovim.
+---It allows the creation of commands to attach, detach, reload, and toggle the Colorizer functionality on buffers.
+---Available commands are:
+---- `ColorizerAttachToBuffer`: Attaches Colorizer to the current buffer
+---- `ColorizerDetachFromBuffer`: Detaches Colorizer from the current buffer
+---- `ColorizerReloadAllBuffers`: Reloads Colorizer for all buffers
+---- `ColorizerToggle`: Toggles Colorizer attachment to the buffer
+---@brief ]]
 local M = {}
-
---- Helper function to wrap a command function in a Neovim user command.
--- Creates a user command with the given name and function.
--- @param name string The name of the command to create
--- @param f function The function to execute when the command is run
-local wrap = function(name, f)
-  vim.api.nvim_create_user_command(name, function()
-    f()
-  end, {})
-end
 
 --- Create user commands for Colorizer based on the given command list.
 -- This function defines and registers Colorizer commands based on the provided list.
@@ -28,28 +18,31 @@ function M.make(cmds)
     return
   end
   local c = require("colorizer")
-  local cmd_list = {
-    ColorizerAttachToBuffer = wrap("ColorizerAttachToBuffer", c.attach_to_buffer),
-    ColorizerDetachFromBuffer = wrap("ColorizerDetachFromBuffer", c.detach_from_buffer),
-    ColorizerReloadAllBuffers = wrap("ColorizerReloadAllBuffers", c.reload_all_buffers),
-    ColorizerToggle = wrap("ColorizerToggle", function()
+  local cmd_defs = {
+    ColorizerAttachToBuffer = c.attach_to_buffer,
+    ColorizerDetachFromBuffer = c.detach_from_buffer,
+    ColorizerReloadAllBuffers = c.reload_all_buffers,
+    ColorizerToggle = function()
       if not c.is_buffer_attached() then
         c.attach_to_buffer()
       else
         c.detach_from_buffer()
       end
-    end),
+    end,
   }
 
   if type(cmds) == "boolean" and cmds then
-    cmds = vim.tbl_keys(cmd_list)
+    cmds = vim.tbl_keys(cmd_defs)
   end
   if type(cmds) ~= "table" then
     return
   end
   for _, cmd in ipairs(cmds) do
-    if cmd_list[cmd] then
-      cmd_list[cmd]()
+    local fn = cmd_defs[cmd]
+    if fn then
+      vim.api.nvim_create_user_command(cmd, function()
+        fn()
+      end, {})
     end
   end
 end

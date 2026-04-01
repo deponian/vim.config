@@ -1,3 +1,4 @@
+---@diagnostic disable-next-line: deprecated
 local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
@@ -7,6 +8,8 @@ local config = require "fzf-lua.config"
 
 local M = {}
 
+---@param opts fzf-lua.config.Builtin|{}
+---@return thread?, string?, table?
 M.metatable = function(opts)
   if not opts then return end
 
@@ -20,10 +23,6 @@ M.metatable = function(opts)
   end
 
   table.sort(methods, function(a, b) return a < b end)
-
-  -- builtin is excluded from global resume
-  -- as the behavior might confuse users (#267)
-  opts.no_resume = true
 
   return core.fzf_exec(methods, opts)
 end
@@ -43,10 +42,12 @@ local function ls(dir, fn)
     -- HACK: type is not always returned due to a bug in luv,
     -- so fecth it with fs_stat instead when needed.
     -- see https://github.com/folke/lazy.nvim/issues/306
-    fn(fname, name, t or uv.fs_stat(fname).type)
+    fn(fname, name, t or (uv.fs_stat(fname) or {}).type)
   end
 end
 
+---@param opts fzf-lua.config.Profiles|{}?
+---@return thread?, string?, table?
 M.profiles = function(opts)
   ---@type fzf-lua.config.Profiles
   opts = config.normalize_opts(opts, "profiles")
@@ -92,13 +93,22 @@ M.profiles = function(opts)
   return core.fzf_exec(contents, opts)
 end
 
+local function gen_def(n, o)
+  local _, contents, opts = FzfLua[n](o)
+  return {
+    name = n,
+    opts = opts,
+    contents = contents,
+  }
+end
+
 M.combine = function(t)
   t = t or {}
 
-  local pickers = type(t.pickers) == "table" and t.pickers
-      or type(t.pickers) == "string" and utils.strsplit(t.pickers, "[,;]")
-      or nil
+  local pickers = (type(t.pickers) == "table" and t.pickers
+    or type(t.pickers) == "string" and utils.strsplit(t.pickers, "[,;]"))
 
+  assert(pickers)
   local opts = t
   t.pickers = nil
 
@@ -109,19 +119,10 @@ M.combine = function(t)
   local opts_copy = vim.deepcopy(opts)
   for i, name in ipairs(pickers) do
     if FzfLua[name] then
-      local def
-      local function gen_def(n, o)
-        local wrapped = { FzfLua[n](o) }
-        return {
-          name = n,
-          opts = wrapped[3],
-          contents = wrapped[2],
-        }
-      end
       -- Default picker opts set the tone for this picker options
       -- this way convert reload / exec_silent actions will use a consistent
       -- opts ref in the callbacks so we can later modify internal values
-      def = gen_def(name, i == 1 and opts or opts_copy)
+      local def = gen_def(name, i == 1 and opts or opts_copy)
       if i == 1 then
         -- Override opts with the modified return opts and remove start suppression
         opts = def.opts
@@ -145,7 +146,10 @@ M.combine = function(t)
   return core.fzf_wrap(contents, opts)
 end
 
+---@param opts fzf-lua.config.Global|{}?
+---@return thread?, string?, table?
 M.global = function(opts)
+  -- -@type fzf-lua.config.GlobalStrict
   ---@type fzf-lua.config.Global
   opts = config.normalize_opts(opts, "global")
   if not opts then return end
@@ -167,14 +171,6 @@ M.global = function(opts)
     local name = t[1]
     if FzfLua[name] then
       local def
-      local function gen_def(n, o)
-        local wrapped = { FzfLua[n](o) }
-        return {
-          name = n,
-          opts = wrapped[3],
-          contents = wrapped[2],
-        }
-      end
       if not t.prefix then
         -- Default picker opts set the tone for this picker options
         -- this way convert reload / exec_silent actions will use a consistent
@@ -194,6 +190,14 @@ M.global = function(opts)
           or opts_copy)
         pickers[name] = def
       end
+      -- HACK: inherit fzf_opts from the normalized picker opts so we have
+      -- with-nth for the transform (e.g. for blines)
+      -- TODO: we can probably inerit all opts but I'm not sure what would be
+      -- the effects of that, this entire picker needs refactoring
+      local picker_opts = config.normalize_opts(t.opts,
+        name:gsub("^lsp_", "lsp."):gsub("^git_", "git."):gsub("^dap_", "dap."))
+      if not utils.map_get(def, "opts.fzf_opts") then utils.map_set(def, "opts.fzf_opts", {}) end
+      def.opts.fzf_opts = vim.tbl_deep_extend("force", def.opts.fzf_opts, picker_opts.fzf_opts)
       -- Instantiate the previewer, opts isn't guaranteed if the picker
       -- isn't avilable, e.g. `tags` when not tags file exists
       if def.opts and def.opts.previewer then
@@ -253,13 +257,23 @@ M.global = function(opts)
           win:redraw_preview()
         end
         reload = string.format("reload(%s)+", new_picker.contents)
+        -- fzf >= 0.69 supports `change-with-nth` to dynamically change `--with-nth`
+        -- dynamically update `--with-nth` per-picker (fzf >= 0.69)
+        -- e.g. blines uses `--with-nth=4..` to hide buffer numbers
+        if utils.has(opts, "fzf", { 0, 69 }) then
+          -- `false|nil` defaults to all fields (..)
+          local with_nth = utils.map_get(new_picker, "opts.fzf_opts.--with-nth")
+          reload = reload .. string.format("change-with-nth(%s)+", with_nth or "..")
+        end
         cur_sub = new_sub
         cur_picker = new_picker
       end
+      if not q or not cur_sub then return end
       return reload .. string.format("search(%s)", q:sub(cur_sub))
     end, opts, "{q}")
   end
 
+  opts._fzf_cli_args = opts._fzf_cli_args or {}
   -- Insert at the start of the args table so `line_query` callback is first
   table.insert(opts._fzf_cli_args, 1, "--bind="
     .. libuv.shellescape("start:+transform:" .. transform_picker(true)))

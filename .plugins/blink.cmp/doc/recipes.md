@@ -31,7 +31,7 @@ vim.b.completion = false
 
 ### Disable completion in *only* shell command mode
 
-When inside of git bash or WSL on windows, you may experience a hang with shell commands. The following disables cmdline completions only when running shell commands (i.e. `[':!' , ':%!']`), but still allows completion in other command modes (i.e. `[':' , ':help', '/' , '?', ...]`).
+When inside of git bash or WSL on windows, you may experience a hang with shell commands. The following disables cmdline completions only when running shell commands (e.g. `[':!' , ':%!']`), but still allows completion in other command modes (e.g. `[':' , ':help', '/' , '?']`).
 
 ```lua
 sources = {
@@ -146,6 +146,49 @@ completion = {
   }
 }
 ```
+
+### Accept a completion without visual feedback
+
+Full discussion: https://github.com/saghen/blink.cmp/discussions/2304
+
+You can accept a completion item without visual feedback (when the menu or ghost
+text is not visible) by using the `force` option.
+
+**Option 1: Select the first item if nothing is selected, then accept it**
+
+```lua
+['<C-y>'] = {
+  function(cmp)
+    return cmp.select_and_accept({ force = true })
+  end,
+  'fallback',
+}
+```
+
+**Option 2: Accept the first item in the list**
+
+```lua
+['<C-y>'] = {
+  function(cmp)
+    return cmp.accept({ index = 1, force = true })
+  end,
+  'fallback',
+}
+```
+
+**Option 3: If there is only one completion candidate, select and accept it without showing the completion menu; otherwise, open the completion menu and select the first candidate** 
+
+```lua
+['<C-y>'] = {
+  function(cmp)
+    return cmp.show_and_insert_or_accept_single({ force = true })
+  end,
+  'fallback',
+}
+```
+
+Note that if you already pre-select the first item in the list (see
+[`completion.list`](./configuration/completion.md#list)), the `index` option is not needed.
 
 ### Hide Copilot on suggestion
 
@@ -279,7 +322,7 @@ sources = {
 
 ### Buffer completion from all open buffers
 
-The default behavior is to only show completions from **visible** "normal" buffers (i.e. it wouldn't include neo-tree). This will instead show completions from all buffers, even if they're not visible on screen. Note that the performance impact of this has not been tested.
+The default behavior is to only show completions from **visible** "normal" buffers (e.g. it wouldn't include neo-tree). This will instead show completions from all buffers, even if they're not visible on screen. Note that the performance impact of this has not been tested.
 
 ```lua
 sources = {
@@ -392,7 +435,9 @@ completion = {
 }
 ```
 
-### `mini.icons`
+### Icons
+
+<details><summary><code>mini.icons</code></summary>
 
 [Original discussion](https://github.com/Saghen/blink.cmp/discussions/458)
 
@@ -425,7 +470,62 @@ completion = {
 }
 ```
 
-### `nvim-web-devicons` + `lspkind`
+</details>
+
+<details><summary><code>mini.icons</code> with file types</summary>
+
+[Original discussion](https://github.com/saghen/blink.cmp/issues/2366)
+
+```lua
+local function get_mini_icon(ctx)
+  if ctx.source_name == "Path" then
+    local is_unknown_type = vim.tbl_contains(
+        { "link", "socket", "fifo", "char", "block", "unknown" },
+        ctx.item.data.type
+    )
+    local mini_icon, mini_hl, _ = require("mini.icons").get(
+        is_unknown_type and "os" or ctx.item.data.type,
+        is_unknown_type and "" or ctx.label
+    )
+    if mini_icon then
+        return mini_icon, mini_hl
+    end
+  end
+  local mini_icon, mini_hl, _ = require("mini.icons").get("lsp", ctx.kind)
+  return mini_icon, mini_hl
+end
+
+completion = {
+  menu = {
+    draw = {
+      components = {
+        kind_icon = {
+          text = function(ctx)
+            local kind_icon, kind_hl = get_mini_icon(ctx)
+            return kind_icon
+          end,
+          -- (optional) use highlights from mini.icons
+          highlight = function(ctx)
+            local _, hl = get_mini_icon(ctx)
+            return hl
+          end,
+        },
+        kind = {
+          -- (optional) use highlights from mini.icons
+          highlight = function(ctx)
+            local _, hl = get_mini_icon(ctx)
+            return hl
+          end,
+        }
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details><summary><code>nvim-web-devicons</code> + <code>lspkind</code></summary>
 
 [Original discussion](https://github.com/Saghen/blink.cmp/discussions/1146)
 
@@ -443,9 +543,7 @@ completion = {
                     icon = dev_icon
                 end
             else
-                icon = require("lspkind").symbolic(ctx.kind, {
-                    mode = "symbol",
-                })
+                icon = require("lspkind").symbol_map[ctx.kind] or ""
             end
 
             return icon .. ctx.icon_gap
@@ -471,7 +569,11 @@ completion = {
 }
 ```
 
-### `mini.icons` + `lspkind`
+</details>
+
+<details><summary><code>mini.icons</code> + <code>lspkind</code></summary>
+
+Uses [mini.icons](https://github.com/echasnovski/mini.icons) to display icons for filetypes and [lspkind](https://github.com/onsails/lspkind-nvim) for LSP kinds.
 
 ```lua
 completion = {
@@ -480,34 +582,28 @@ completion = {
       components = {
         kind_icon = {
           text = function(ctx)
-            if vim.tbl_contains({ "Path" }, ctx.source_name) then
-                local mini_icon, _ = require("mini.icons").get_icon(ctx.item.data.type, ctx.label)
-                if mini_icon then return mini_icon .. ctx.icon_gap end
+            if ctx.source_name ~= "Path" then
+              return require("lspkind").symbol_map[ctx.kind] or "" .. ctx.icon_gap
             end
 
-            local icon = require("lspkind").symbolic(ctx.kind, { mode = "symbol" })
-            return icon .. ctx.icon_gap
+            local is_unknown_type = vim.tbl_contains({ "link", "socket", "fifo", "char", "block", "unknown" }, ctx.item.data.type)
+            local mini_icon, _ = require("mini.icons").get(
+              is_unknown_type and "os" or ctx.item.data.type,
+              is_unknown_type and "" or ctx.label
+            )
+
+            return (mini_icon or ctx.kind_icon) .. ctx.icon_gap
           end,
 
-          -- Optionally, use the highlight groups from mini.icons
-          -- You can also add the same function for `kind.highlight` if you want to
-          -- keep the highlight groups in sync with the icons.
           highlight = function(ctx)
-            if vim.tbl_contains({ "Path" }, ctx.source_name) then
-              local mini_icon, mini_hl = require("mini.icons").get_icon(ctx.item.data.type, ctx.label)
-              if mini_icon then return mini_hl end
-            end
-            return ctx.kind_hl
-          end,
-        },
-        kind = {
-          -- Optional, use highlights from mini.icons
-          highlight = function(ctx)
-            if vim.tbl_contains({ "Path" }, ctx.source_name) then
-              local mini_icon, mini_hl = require("mini.icons").get_icon(ctx.item.data.type, ctx.label)
-              if mini_icon then return mini_hl end
-            end
-            return ctx.kind_hl
+            if ctx.source_name ~= "Path" then return ctx.kind_hl end
+
+            local is_unknown_type = vim.tbl_contains({ "link", "socket", "fifo", "char", "block", "unknown" }, ctx.item.data.type)
+            local mini_icon, mini_hl = require("mini.icons").get(
+              is_unknown_type and "os" or ctx.item.data.type,
+              is_unknown_type and "" or ctx.label
+            )
+            return mini_icon ~= nil and mini_hl or ctx.kind_hl
           end,
         }
       }
@@ -515,6 +611,8 @@ completion = {
   }
 }
 ```
+
+</details>
 
 ## For writers
 

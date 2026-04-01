@@ -25,6 +25,12 @@ local function git_command(args, spec)
     '--literal-pathspecs',
     '-c',
     'gc.auto=0', -- Disable auto-packing which emits messages to stderr
+    '-c',
+    'core.quotepath=off',
+    '-c',
+    'color.ui=false',
+    '-c',
+    'color.diff=false',
   }
   vim.list_extend(cmd, args)
 
@@ -32,8 +38,16 @@ local function git_command(args, spec)
     spec.text = true
   end
 
+  -- Force English messages for git output parsing.
+  -- Git translations can cause our stderr pattern matching to fail.
+  spec.env = vim.tbl_extend('force', spec.env or {}, {
+    LC_ALL = 'C',
+    LANGUAGE = 'C',
+  })
+
   --- @type vim.SystemCompleted
   local obj = asystem(cmd, spec)
+  async.schedule()
 
   if not spec.ignore_error and obj.code > 0 then
     log.eprintf(

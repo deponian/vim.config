@@ -7,7 +7,7 @@ local Signs = require('gitsigns.signs')
 local Status = require('gitsigns.status')
 
 local debounce_trailing = require('gitsigns.debounce').debounce_trailing
-local throttle_by_id = require('gitsigns.debounce').throttle_by_id
+local throttle_async = require('gitsigns.debounce').throttle_async
 
 local cache = require('gitsigns.cache').cache
 local Config = require('gitsigns.config')
@@ -21,6 +21,59 @@ local signs_staged = Signs.new(true)
 --- @class gitsigns.manager
 local M = {}
 
+local statuscolumn_active = false
+
+--- @param bufnr? integer
+--- @param top? integer
+--- @param bot? integer
+local function redraw_statuscol(bufnr, top, bot)
+  if statuscolumn_active then
+    api.nvim__redraw({
+      buf = bufnr,
+      range = { top, bot },
+      statuscolumn = true,
+    })
+  end
+end
+
+--- @param bufnr? integer
+--- @param lnum? integer
+--- @return string
+function M.statuscolumn(bufnr, lnum)
+  bufnr = bufnr or 0
+  lnum = lnum or vim.v.lnum
+
+  if not config._statuscolumn then
+    config.signcolumn = false
+    config._statuscolumn = true
+  end
+
+  local res = {} --- @type string[]
+  local res_len = 0
+  for _, signs in ipairs({ signs_normal, signs_staged }) do
+    local buf_signs = signs.signs[bufnr]
+    if buf_signs and next(buf_signs) then
+      local marks = api.nvim_buf_get_extmarks(
+        bufnr,
+        signs.ns,
+        { lnum - 1, 0 },
+        { lnum - 1, -1 },
+        {}
+      )
+      for _, mark in ipairs(marks) do
+        local id = mark[1]
+        local s = buf_signs[id]
+        if s then
+          vim.list_extend(res, { '%#' .. s[2] .. '#', s[1], '%*' })
+          --- @diagnostic disable-next-line: missing-parameter
+          res_len = res_len + vim.str_utfindex(s[1])
+        end
+      end
+    end
+  end
+  local pad = math.max(0, 2 - res_len)
+  return table.concat(res) .. string.rep(' ', pad)
+end
 --- @param bufnr integer
 --- @param signs Gitsigns.Signs
 --- @param hunks? Gitsigns.Hunk.Hunk[]
@@ -81,6 +134,9 @@ local function apply_win_signs(bufnr, top, bot, clear)
       end
     )
   end
+  if clear then
+    redraw_statuscol(bufnr, top, bot)
+  end
 end
 
 --- @param blame table<integer,Gitsigns.BlameInfo?>?
@@ -138,7 +194,7 @@ function M.on_lines(buf, first, last_orig, last_new)
     end
   end
 
-  M.update_debounced(buf)
+  M.update_sync_debounced(buf)
 end
 
 local ns = api.nvim_create_namespace('gitsigns')
@@ -317,7 +373,7 @@ end
 --- whilst another one is in progress. If this happens then schedule another
 --- update after the current one has completed.
 --- @param bufnr integer
-M.update = throttle_by_id(function(bufnr)
+M.update = throttle_async({ hash = 1, schedule = true }, function(bufnr)
   local bcache = cache[bufnr]
   if not bcache or not bcache:schedule() then
     return
@@ -331,8 +387,6 @@ M.update = throttle_by_id(function(bufnr)
   bcache.update_on_view = nil
 
   update_lock(bcache, function()
-    got_lock = true
-
     local old_hunks, old_hunks_staged = bcache.hunks, bcache.hunks_staged
     bcache.hunks, bcache.hunks_staged = nil, nil
 
@@ -406,11 +460,16 @@ M.update = throttle_by_id(function(bufnr)
       Status.update(bufnr, summary)
     end
   end)
-end, true)
+end)
 
-M.update_debounced = debounce_trailing(function()
-  return config.update_debounce
-end, async.create(1, M.update), 1)
+M.update_sync_debounced = debounce_trailing({
+  timeout = function()
+    return config.update_debounce
+  end,
+  hash = 1,
+}, function(bufnr)
+  async.run(M.update, bufnr):raise_on_error()
+end)
 
 --- @param bufnr integer
 --- @param keep_signs? boolean
@@ -421,6 +480,7 @@ function M.detach(bufnr, keep_signs)
     if signs_staged then
       signs_staged:remove(bufnr)
     end
+    redraw_statuscol(bufnr)
   end
 end
 
@@ -466,7 +526,7 @@ function M.setup()
 
     for k, v in pairs(cache) do
       v:invalidate(true)
-      M.update_debounced(k)
+      M.update_sync_debounced(k)
     end
   end)
 
@@ -480,7 +540,7 @@ function M.setup()
         return
       end
       bcache:invalidate(true)
-      M.update_debounced(buf)
+      M.update_sync_debounced(buf)
     end,
   })
 

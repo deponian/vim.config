@@ -33,13 +33,12 @@
             (fs.fileFilter (file: file.hasExt "rs") ./.)
             # additional files
             ./.cargo
-            ./rust-toolchain.toml
           ];
           # nvim source files
           # all that are not nix, nor rust, nor other ignored files
           nvimFs =
             fs.difference ./. (fs.unions [ nixFs rustFs ./doc ./repro.lua ]);
-          version = "1.7.0";
+          version = "1.10.1";
         in {
           blink-fuzzy-lib = let
             inherit (inputs'.fenix.packages.minimal) toolchain;
@@ -57,10 +56,16 @@
             cargoLock = { lockFile = ./Cargo.lock; };
             buildInputs = with pkgs; lib.optionals stdenv.hostPlatform.isAarch64 [ rust-jemalloc-sys ]; # revisit once https://github.com/NixOS/nix/issues/12426 is solved
             nativeBuildInputs = with pkgs; [ git ];
+            env = {
+              # Allow undefined symbols on Darwin - they will be provided by Neovim's LuaJIT runtime
+              RUSTFLAGS = with pkgs;
+                lib.optionalString
+                stdenv.hostPlatform.isDarwin "-C link-arg=-undefined -C link-arg=dynamic_lookup";
+            };
           };
 
           blink-cmp = pkgs.vimUtils.buildVimPlugin {
-            pname = "blink-cmp";
+            pname = "blink.cmp";
             inherit version;
             src = fs.toSource {
               root = ./.;
@@ -98,7 +103,7 @@
             self'.packages.blink-cmp
             self'.apps.build-plugin
           ];
-          packages = with pkgs; [ rust-analyzer-nightly ];
+          packages = with pkgs; [ rust-analyzer ];
         };
 
         formatter = pkgs.nixfmt-classic;

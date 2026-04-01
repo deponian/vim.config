@@ -1,5 +1,6 @@
 local keymap = require("nvim-tree.keymap")
-local api = {} -- circular dependency
+local api = require("nvim-tree.api")
+local config = require("nvim-tree.config")
 
 local PAT_MOUSE = "^<.*Mouse"
 local PAT_CTRL = "^<C%-"
@@ -14,8 +15,6 @@ local WIN_HL = table.concat({
 local namespace_help_id = vim.api.nvim_create_namespace("NvimTreeHelp")
 
 local M = {
-  config = {},
-
   -- one and only buf/win
   bufnr = nil,
   winnr = nil,
@@ -45,7 +44,7 @@ local function tidy_lhs(lhs)
 end
 
 --- Remove prefix 'nvim-tree: '
---- Hardcoded to keep default_on_attach simple
+--- Hardcoded to keep on_attach_default simple
 ---@param desc string
 ---@return string
 local function tidy_desc(desc)
@@ -90,17 +89,28 @@ end
 local function compute(map)
   local head_lhs = "nvim-tree mappings"
   local head_rhs1 = "exit: q"
-  local head_rhs2 = string.format("sort by %s: s", M.config.sort_by == "key" and "description" or "keymap")
+  local head_rhs2 = string.format("sort by %s: s", config.g.help.sort_by == "key" and "description" or "keymap")
 
-  -- formatted lhs and desc from active keymap
-  local mappings = vim.tbl_map(function(m)
-    return { lhs = tidy_lhs(m.lhs), desc = tidy_desc(m.desc) }
-  end, map)
+  -- merge modes for duplicate lhs+desc entries e.g. "n" + "x" -> "nx"
+  local merged = {}
+  local mappings = {}
+  for _, m in ipairs(map) do
+    local lhs = tidy_lhs(m.lhs)
+    local desc = tidy_desc(m.desc)
+    local key = lhs .. "\0" .. desc
+    if merged[key] then
+      merged[key].mode = merged[key].mode .. m.mode
+    else
+      local entry = { lhs = lhs, desc = desc, mode = m.mode or "n" }
+      merged[key] = entry
+      table.insert(mappings, entry)
+    end
+  end
 
   -- sorter function for mappings
   local sort_fn
 
-  if M.config.sort_by == "desc" then
+  if config.g.help.sort_by == "desc" then
     sort_fn = function(a, b)
       return a.desc:lower() < b.desc:lower()
     end
@@ -113,21 +123,33 @@ local function compute(map)
 
   table.sort(mappings, sort_fn)
 
-  -- longest lhs and description
+  -- sort mode characters for deterministic display e.g. "nx" not "xn"
+  for _, entry in ipairs(mappings) do
+    local chars = {}
+    for c in entry.mode:gmatch(".") do
+      table.insert(chars, c)
+    end
+    table.sort(chars)
+    entry.mode = table.concat(chars)
+  end
+
+  -- longest lhs, mode and description
   local max_lhs = 0
+  local max_mode = 0
   local max_desc = 0
-  for _, l in pairs(mappings) do
+  for _, l in ipairs(mappings) do
     max_lhs = math.max(#l.lhs, max_lhs)
+    max_mode = math.max(#l.mode, max_mode)
     max_desc = math.max(#l.desc, max_desc)
   end
 
   -- increase desc if lines are shorter than the header
-  max_desc = math.max(max_desc, #head_lhs + #head_rhs1 - max_lhs)
+  max_desc = math.max(max_desc, #head_lhs + #head_rhs1 - max_lhs - max_mode)
 
   -- header text, not padded
   local lines = {
-    head_lhs .. string.rep(" ", max_desc + max_lhs - #head_lhs - #head_rhs1 + 2) .. head_rhs1,
-    string.rep(" ", max_desc + max_lhs - #head_rhs2 + 2) .. head_rhs2,
+    head_lhs .. string.rep(" ", max_lhs + max_mode + max_desc - #head_lhs - #head_rhs1 + 3) .. head_rhs1,
+    string.rep(" ", max_lhs + max_mode + max_desc - #head_rhs2 + 3) .. head_rhs2,
   }
   local width = #lines[1]
 
@@ -139,10 +161,10 @@ local function compute(map)
   }
 
   -- mappings, left padded 1
-  local fmt = string.format(" %%-%ds %%-%ds", max_lhs, max_desc)
+  local fmt = string.format(" %%-%ds %%-%ds %%-%ds", max_lhs, max_mode, max_desc)
   for i, l in ipairs(mappings) do
     -- format in left aligned columns
-    local line = string.format(fmt, l.lhs, l.desc)
+    local line = string.format(fmt, l.lhs, l.mode, l.desc)
     table.insert(lines, line)
     width = math.max(#line, width)
 
@@ -211,10 +233,10 @@ local function open()
 
   -- style it a bit like the tree
   vim.wo[M.winnr].winhl = WIN_HL
-  vim.wo[M.winnr].cursorline = M.config.cursorline
+  vim.wo[M.winnr].cursorline = config.g.view.cursorline
 
   local function toggle_sort()
-    M.config.sort_by = (M.config.sort_by == "desc") and "key" or "desc"
+    config.g.help.sort_by = (config.g.help.sort_by == "desc") and "key" or "desc"
     open()
   end
 
@@ -256,13 +278,6 @@ function M.toggle()
   else
     open()
   end
-end
-
-function M.setup(opts)
-  M.config.cursorline = opts.view.cursorline
-  M.config.sort_by = opts.help.sort_by
-
-  api = require("nvim-tree.api")
 end
 
 return M

@@ -6,7 +6,7 @@ title: Sources
 Check out the [recipes](../recipes.md#sources) for some common configurations
 :::
 
-Blink provides a sources interface, modelled after LSPs, for getting completion items, trigger characters, documentation and signature help. The `lsp`, `path`, `snippets`, `luasnip`, `buffer`, and `omni` sources are built-in. You may add additional [community sources](#community-sources) as well. Check out the [source boilerplate](../development/source-boilerplate.md) to learn how to write your own!
+Blink provides a sources interface, modelled after LSPs, for getting completion items, trigger characters, documentation and signature help. The `lsp`, `path`, `snippets`, `buffer`, and `omni` sources are built-in. You may add additional [community sources](#community-sources) as well. Check out the [source boilerplate](../development/source-boilerplate.md) to learn how to write your own!
 
 ## Providers
 
@@ -90,46 +90,49 @@ The command `:BlinkCmp status` can be used to view which sources providers are e
 
 ## Community sources
 
-See [blink.compat](https://github.com/Saghen/blink.compat) for using `nvim-cmp` sources
+::: info
+See [blink.compat](https://github.com/saghen/blink.compat) for using `nvim-cmp` sources
+:::
 
-- [lazydev](https://github.com/folke/lazydev.nvim)
-- [vim-dadbod-completion](https://github.com/kristijanhusak/vim-dadbod-completion)
-- [blink-ripgrep](https://github.com/mikavilpas/blink-ripgrep.nvim)
-- [blink-cmp-ripgrep](https://github.com/niuiic/blink-cmp-rg.nvim)
-- [blink-cmp-ctags](https://github.com/netmute/blink-cmp-ctags)
-- [blink-copilot](https://github.com/fang2hou/blink-copilot)
-- [blink-cmp-supermaven](https://github.com/Huijiro/blink-cmp-supermaven)
-- [blink-cmp-copilot](https://github.com/giuxtaposition/blink-cmp-copilot)
-- [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)
-- [blink-emoji.nvim](https://github.com/moyiz/blink-emoji.nvim)
-- [blink-nerdfont.nvim](https://github.com/MahanRahmati/blink-nerdfont.nvim)
-- [blink-cmp-dictionary](https://github.com/Kaiser-Yang/blink-cmp-dictionary)
-- [blink-cmp-git](https://github.com/Kaiser-Yang/blink-cmp-git)
-- [blink-cmp-spell](https://github.com/ribru17/blink-cmp-spell.git)
-- [blink-cmp-tmux](https://github.com/mgalliou/blink-cmp-tmux)
-- [blink-cmp-wezterm](https://github.com/junkblocker/blink-cmp-wezterm)
-- [css-vars.nvim](https://github.com/jdrupal-dev/css-vars.nvim)
-- [blink-cmp-env](https://github.com/bydlw98/blink-cmp-env)
-- [blink-cmp-avante](https://github.com/Kaiser-Yang/blink-cmp-avante)
-- [blink-cmp-conventional-commits](https://github.com/disrupted/blink-cmp-conventional-commits)
-- [cmp-pandoc-references](https://github.com/jmbuhr/cmp-pandoc-references)
-- [blink-cmp-im](https://github.com/yehuohan/blink-cmp-im): Input Method source
-- [ecolog.nvim](https://github.com/philosofonusus/ecolog.nvim)
-- [gitmoji.nvim](https://github.com/Dynge/gitmoji.nvim/): Completion for [gitmojis](https://gitmoji.dev/)
-- [blink-cmp-agda-symbols](https://github.com/4e554c4c/blink-cmp-agda-symbols): Completion for [Agda](https://wiki.portal.chalmers.se/agda/pmwiki.php)
-- [blink-cmp-latex](https://github.com/erooke/blink-cmp-latex): Completion for unicode symbols via latex macros
-- [blink-cmp-npm](https://github.com/alexandre-abrioux/blink-cmp-npm.nvim): Completion for NPM package names and versions
-- [blink-cmp-kitty](https://github.com/garyhurtz/blink_cmp_kitty): Kitty terminal completion source
-- [blink-cmp-yanky](https://github.com/marcoSven/blink-cmp-yanky): Completion for [yanky.nvim](https://github.com/gbprod/yanky.nvim)
-- [blink-cmp-register](https://github.com/phanen/blink-cmp-register)
-- [blink-cmp-sshconfig](https://github.com/bydlw98/blink-cmp-sshconfig)
-- [blink-cmp-words](https://github.com/archie-judd/blink-cmp-words): Definitions and synonyms
-- [blink-cmp-vsnip](https://codeberg.org/FelipeLema/blink-cmp-vsnip)
-- [blink-cmp-dat-word](https://github.com/xieyonn/blink-cmp-dat-word): Word completion
+Here is a non-exhaustive list of third-party plugins providing additional completion sources. Please open a PR to add yours.
 
-### Working `nvim-cmp` sources via `blink.compat`
-
-The vast majority of `nvim-cmp` sources work with `blink.compat`, see the [`nvim-cmp`](https://github.com/topics/nvim-cmp) topic on github. The following is a non-exhaustive list of sources that have been tested by their author or the community.
-
-- [cmp-rails-fixture-names](https://github.com/wassimk/cmp-rails-fixture-names): Ruby on Rails fixture names completion
-- [cmp-rails-fixture-types](https://github.com/wassimk/cmp-rails-fixture-types): Ruby on Rails fixture types completion
+- [blink-cmp-agda-symbols](https://github.com/4e554c4c/blink-cmp-agda-symbols) by `4e554c4c`: [Agda](https://wiki.portal.chalmers.se/agda/pmwiki.php) symbols
+- [blink-cmp-avante](https://github.com/Kaiser-Yang/blink-cmp-avante) by `Kaiser-Yang`: [Avante](https://github.com/yetone/avante.nvim)
+- [blink-cmp-conventional-commits](https://github.com/disrupted/blink-cmp-conventional-commits) by `disrupted`: Git [conventional commits](https://www.conventionalcommits.org)
+- [blink-cmp-copilot-chat](https://github.com/pxwg/blink-cmp-copilot-chat) by `pxwg`: [CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim)
+- [blink-cmp-copilot](https://github.com/giuxtaposition/blink-cmp-copilot) by `giuxtaposition`: Github Copilot
+- [blink-cmp-ctags](https://github.com/netmute/blink-cmp-ctags) by `netmute`: Ctags
+- [blink-cmp-dap](https://github.com/mayromr/blink-cmp-dap) by `mayromr`: DAP repl
+- [blink-cmp-dat-word](https://github.com/xieyonn/blink-cmp-dat-word) by `xieyonn`: Word
+- [blink-cmp-dictionary](https://github.com/Kaiser-Yang/blink-cmp-dictionary) by `Kaiser-Yang`: Word
+- [blink-cmp-env](https://github.com/bydlw98/blink-cmp-env) by `bydlw98`: Environment variables
+- [blink-cmp-ghostty](https://github.com/barrettruth/blink-cmp-ghostty) by `barrettruth`: [Ghostty](https://ghostty.org/) terminal
+- [blink-cmp-git](https://github.com/Kaiser-Yang/blink-cmp-git) by `Kaiser-Yang`: Git commits
+- [blink-cmp-im](https://github.com/yehuohan/blink-cmp-im) by `yehuohan`: Input Method
+- [blink-cmp-kitty](https://github.com/garyhurtz/blink_cmp_kitty) by `garyhurtz`: [Kitty](https://sw.kovidgoyal.net/kitty) terminal
+- [blink-cmp-latex](https://github.com/erooke/blink-cmp-latex) by `erooke`: Unicode symbols via latex macros
+- [blink-cmp-luasnip-choice](https://github.com/becknik/blink-cmp-luasnip-choice) by `becknik`: [LuaSnip](https://github.com/L3MON4D3/LuaSnip) choice node
+- [blink-cmp-npm](https://github.com/alexandre-abrioux/blink-cmp-npm.nvim) by `alexandre-abrioux`: NPM package names and versions
+- [blink-cmp-register](https://github.com/phanen/blink-cmp-register) by `phanen`: Registers
+- [blink-cmp-rg](https://github.com/niuiic/blink-cmp-rg.nvim) by `niuiic`: Ripgrep
+- [blink-cmp-spell](https://github.com/ribru17/blink-cmp-spell.git) by `ribru17`: Spell (based on Neovim's spellsuggest)
+- [blink-cmp-sshconfig](https://github.com/bydlw98/blink-cmp-sshconfig) by `bydlw98`: SSH config files
+- [blink-cmp-supermaven](https://github.com/Huijiro/blink-cmp-supermaven) by `Huijiro`: [supermaven-nvim](https://github.com/supermaven-inc/supermaven-nvim)
+- [blink-cmp-tmux](https://github.com/barrettruth/blink-cmp-tmux) by `barrettruth`: [Tmux](https://github.com/tmux/tmux)
+- [blink-cmp-tmux](https://github.com/mgalliou/blink-cmp-tmux) by `mgalliou`: [Tmux](https://github.com/tmux/tmux)
+- [blink-cmp-vsnip](https://codeberg.org/FelipeLema/blink-cmp-vsnip) by `FelipeLema`: [vim-vsnip](https://github.com/hrsh7th/vim-vsnip)
+- [blink-cmp-wezterm](https://github.com/junkblocker/blink-cmp-wezterm) by `junkblocker`: [WezTerm](https://wezterm.org) terminal
+- [blink-cmp-words](https://github.com/archie-judd/blink-cmp-words) by `archie-judd`: Words and synonyms
+- [blink-cmp-yanky](https://github.com/marcoSven/blink-cmp-yanky) by `marcoSven`: [yanky.nvim](https://github.com/gbprod/yanky.nvim)
+- [blink-copilot](https://github.com/fang2hou/blink-copilot) by `fang2hou`: Github Copilot
+- [blink-emoji.nvim](https://github.com/moyiz/blink-emoji.nvim) by `moyiz`: Emojis
+- [blink-nerdfont.nvim](https://github.com/MahanRahmati/blink-nerdfont.nvim) by `MahanRahmati`: [Nerd Fonts](https://www.nerdfonts.com)
+- [blink-ripgrep](https://github.com/mikavilpas/blink-ripgrep.nvim) by `mikavilpas`: Ripgrep
+- [cmp-pandoc-references](https://github.com/jmbuhr/cmp-pandoc-references) by `jmbuhr`: Bibliography, reference and cross-ref items
+- [css-vars.nvim](https://github.com/jdrupal-dev/css-vars.nvim) by `jdrupal-dev`: CSS variables
+- [ecolog.nvim](https://github.com/ph1losof/ecolog.nvim) by `ph1losof`: Environment variables
+- [gitmoji.nvim](https://github.com/Dynge/gitmoji.nvim) by `Dynge`: [gitmojis](https://gitmoji.dev)
+- [lazydev](https://github.com/folke/lazydev.nvim) by `folke`: [LuaLS](https://luals.github.io)
+- [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim) by `milanglacier`: AI
+- [vim-dadbod-completion](https://github.com/kristijanhusak/vim-dadbod-completion) by `kristijanhusak`: [vim-dadbod](https://github.com/tpope/vim-dadbod)
+- [hex-cmp](https://github.com/dbernheisel/hex-cmp) by `dbernheisel`: [Hex.pm](https://hex.pm) package completion for Elixir `mix.exs` files.

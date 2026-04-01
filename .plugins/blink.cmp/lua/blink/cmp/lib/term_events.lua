@@ -26,8 +26,8 @@ function term_events.new(opts)
   }, { __index = term_events })
 end
 
-local term_on_key_ns = vim.api.nvim_create_namespace('blink-term-keypress')
-local term_command_start_ns = vim.api.nvim_create_namespace('blink-term-command-start')
+local term_on_key_ns = vim.api.nvim_create_namespace('blink_cmp_term_keypress')
+local term_command_start_ns = vim.api.nvim_create_namespace('blink_cmp_term_command_start')
 
 --- Normalizes the autocmds + ctrl+c into a common api and handles ignored events
 function term_events:listen(opts)
@@ -87,8 +87,8 @@ function term_events:listen(opts)
   vim.api.nvim_create_autocmd('TermRequest', {
     callback = function(args)
       if string.match(args.data.sequence, '^\027]133;B') then
-        local row, col = table.unpack(args.data.cursor)
-        vim.api.nvim_buf_set_extmark(args.buf, term_command_start_ns, row - 1, col, {})
+        local row, col = unpack(args.data.cursor)
+        pcall(vim.api.nvim_buf_set_extmark, args.buf, term_command_start_ns, row - 1, col, {})
       end
     end,
   })

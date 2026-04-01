@@ -10,7 +10,9 @@ return {
     'sql', 'ruby', 'perl', 'lisp', 'scheme', 'clojure',
     'prolog', 'vb', 'elixir', 'smalltalk', 'applescript',
     'elm', 'rust', 'nu', 'cpp', 'fennel', 'janet', 'ps1',
-    'racket'
+    'racket',
+    -- https://github.com/saghen/blink.cmp/issues/1977
+    'objc', 'objcpp'
   },
   per_filetype = {
     -- languages with a space

@@ -9,8 +9,11 @@
 --- @field description string
 
 --- @class (exact) Gitsigns.DiffthisOpts
+---
+--- Split window vertically. Default to `config.diff_opts.vertical`. If running
+--- via command line, then shi is taken from the command modifiers.
 --- @field vertical? boolean
---- @field split? string
+--- @field split? 'aboveleft'|'belowright'|'topleft'|'botright'
 
 --- @class (exact) Gitsigns.DiffOpts
 --- @field algorithm 'myers'|'minimal'|'patience'|'histogram'
@@ -45,7 +48,9 @@
 --- @field use_focus? boolean
 
 --- @class (exact) Gitsigns.BlameOpts
+--- Ignore whitespace when running blame.
 --- @field ignore_whitespace? boolean
+--- Extra options passed to `git-blame`.
 --- @field extra_opts? string[]
 
 --- @class (exact) Gitsigns.Config
@@ -69,7 +74,7 @@
 --- @field watch_gitdir { enable: boolean, follow_files: boolean }
 --- @field max_file_length integer
 --- @field update_debounce integer
---- @field status_formatter fun(_: table<string,any>): string
+--- @field status_formatter fun(_: Gitsigns.StatusObj): string
 --- @field current_line_blame boolean
 --- @field current_line_blame_formatter string|Gitsigns.CurrentLineBlameFmtFun
 --- @field current_line_blame_formatter_nc string|Gitsigns.CurrentLineBlameFmtFun
@@ -90,6 +95,7 @@
 --- @field _new_sign_calc boolean
 --- @field _update_lock boolean
 --- @field _commit_maps boolean
+--- @field _statuscolumn? boolean
 
 --- @class Gitsigns.config
 local M = {}
@@ -848,6 +854,14 @@ M.schema = {
     ]],
   },
 
+  _statuscolumn = {
+    type = 'boolean',
+    default = false,
+    description = [[
+      Statuscolumn mode is enabled
+    ]],
+  },
+
   debug_mode = {
     type = 'boolean',
     default = false,
@@ -881,7 +895,7 @@ local function validate(k, v, ty)
     --- @diagnostic disable-next-line: redundant-parameter,param-type-mismatch
     vim.validate(k, v, ty)
   else
-    vim.validate({ [k] = { v, ty } })
+    vim.validate({ [k] = { v, ty, false } })
   end
 end
 
@@ -900,7 +914,7 @@ function M.build(user_config)
       local ty = s.type
       if type(ty) == 'string' or type(ty) == 'function' then
         --- EmmyLuaLs/emmylua-analyzer-rust#696
-        --- @diagnostic disable-next-line: param-type-not-match
+        --- @diagnostic disable-next-line: param-type-not-match, param-type-mismatch
         validate(k, v, ty)
       end
       if s.deprecated then

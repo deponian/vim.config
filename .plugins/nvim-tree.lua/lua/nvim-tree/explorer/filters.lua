@@ -5,7 +5,7 @@ local Class = require("nvim-tree.classic")
 
 ---@alias FilterType "custom" | "dotfiles" | "git_ignored" | "git_clean" | "no_buffer" | "no_bookmark"
 
----@class (exact) Filters: Class
+---@class (exact) Filters: nvim_tree.Class
 ---@field enabled boolean
 ---@field state table<FilterType, boolean>
 ---@field private explorer Explorer
@@ -65,7 +65,7 @@ end
 ---Check if the given path is git clean/ignored
 ---@private
 ---@param path string Absolute path
----@param project GitProject from prepare
+---@param project nvim_tree.git.Project from prepare
 ---@return boolean
 function Filters:git(path, project)
   if type(project) ~= "table" or type(project.files) ~= "table" or type(project.dirs) ~= "table" then
@@ -121,7 +121,7 @@ end
 ---@private
 ---@param path string
 ---@param path_type string|nil filetype of path
----@param bookmarks table<string, string|nil> path, filetype table of bookmarked files
+---@param bookmarks table<string, Node> path to bookmarked Node
 ---@return boolean
 function Filters:bookmark(path, path_type, bookmarks)
   if not self.state.no_bookmark then
@@ -132,21 +132,26 @@ function Filters:bookmark(path, path_type, bookmarks)
     return true
   end
 
+  local DirectoryNode = require("nvim-tree.node.directory")
   local mark_parent = utils.path_add_trailing(path)
-  for mark, mark_type in pairs(bookmarks) do
-    if path == mark then
+
+  for bookmark_path, bookmark_entry in pairs(bookmarks) do
+    if path == bookmark_path then
       return false
     end
 
     if path_type == "directory" then
       -- check if path is mark's parent
-      if vim.fn.stridx(mark, mark_parent) == 0 then
+      if vim.fn.stridx(bookmark_path, mark_parent) == 0 then
         return false
       end
     end
-    if mark_type == "directory" then
+
+    ---@type DirectoryNode?
+    local dir = bookmark_entry:as(DirectoryNode)
+    if dir then
       -- check if mark is path's parent
-      local path_parent = utils.path_add_trailing(mark)
+      local path_parent = utils.path_add_trailing(bookmark_path)
       if vim.fn.stridx(path, path_parent) == 0 then
         return false
       end
@@ -190,7 +195,7 @@ function Filters:custom(path)
 end
 
 ---Prepare arguments for should_filter. This is done prior to should_filter for efficiency reasons.
----@param project GitProject? optional results of git.load_projects(...)
+---@param project nvim_tree.git.Project? optional results of git.load_projects(...)
 ---@return table
 --- project: reference
 --- bufinfo: empty unless no_buffer set: vim.fn.getbufinfo { buflisted = 1 }
@@ -208,8 +213,8 @@ function Filters:prepare(project)
 
   local explorer = require("nvim-tree.core").get_explorer()
   if explorer then
-    for _, node in pairs(explorer.marks:list()) do
-      status.bookmarks[node.absolute_path] = node.type
+    for _, node in ipairs(explorer.marks:list()) do
+      status.bookmarks[node.absolute_path] = node
     end
   end
 
@@ -268,7 +273,6 @@ function Filters:should_filter_as_reason(path, fs_stat, status)
 end
 
 ---Toggle a type and refresh
----@private
 ---@param type FilterType? nil to disable all
 function Filters:toggle(type)
   if not type or self.state[type] == nil then

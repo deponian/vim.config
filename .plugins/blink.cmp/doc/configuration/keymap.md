@@ -30,6 +30,7 @@ keymap = {
   ['<C-n>'] = { 
     function(cmp)
       if some_condition then return end -- runs the next command
+      if some_other_condition then return "a" end -- simulate keypresses, doesn't run the next command
       return true -- doesn't run the next command
     end,
     'select_next'
@@ -48,6 +49,7 @@ keymap = {
 - `cancel`: Reverts `completion.list.selection.auto_insert` and hides the completion menu
 - `accept`: Accepts the currently selected item
   - Optionally pass an index to select a specific item in the list: `function(cmp) cmp.accept({ index = 1 }) end`
+  - Optionally force accept without visual feedback (no menu, no ghost text visible): `function(cmp) cmp.accept({ force = true }) end`
   - Optionally pass a `callback` to run after the item is accepted: `function(cmp) cmp.accept({ callback = function() some_function() end`
 - `accept_and_enter`: Accepts the currently selected item and feeds an enter key to neovim
   - Useful in `cmdline` mode to accept the current item and run the command

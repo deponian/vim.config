@@ -52,8 +52,13 @@ function cmp.is_ghost_text_visible() return require('blink.cmp.completion.window
 --- @return boolean
 function cmp.is_documentation_visible() return require('blink.cmp.completion.windows.documentation').win:is_open() end
 
+--- @class blink.cmp.ShowOpts
+--- @field providers? string[] List of providers to show
+--- @field initial_selected_item_idx? number The index of the item to select initially
+--- @field callback? fun() Called after the menu is shown
+
 --- Show the completion window
---- @param opts? { providers?: string[], initial_selected_item_idx?: number, callback?: fun() }
+--- @param opts? blink.cmp.ShowOpts
 function cmp.show(opts)
   opts = opts or {}
 
@@ -92,30 +97,32 @@ end
 --- @params opts? { providers?: string[], callback?: fun() }
 function cmp.show_and_insert(opts)
   opts = opts or {}
-  opts.initial_selected_item_idx = 1
+  opts.initial_selected_item_idx = opts.initial_selected_item_idx or 1
   return cmp.show(opts)
 end
 
 --- Select the first completion item if there are multiple candidates, or accept it if there is only one, after showing
---- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
+--- @param opts? blink.cmp.ShowOpts
 function cmp.show_and_insert_or_accept_single(opts)
   local list = require('blink.cmp.completion.list')
+  opts = opts or {}
 
   -- If the candidate list has been filtered down to exactly one item, accept it.
   if #list.items == 1 then
-    vim.schedule(function() list.accept({ index = 1, callback = opts and opts.callback }) end)
+    vim.schedule(function() list.accept({ index = 1, callback = opts.callback }) end)
     return true
   end
 
-  return cmp.show_and_insert({
-    callback = function()
-      if #list.items == 1 then
-        list.accept({ index = 1, callback = opts and opts.callback })
-      elseif opts and opts.callback then
-        opts.callback()
-      end
-    end,
-  })
+  local callback = opts.callback
+  opts.initial_selected_item_idx = opts.initial_selected_item_idx or 1
+  opts.callback = function()
+    if #list.items == 1 then
+      list.accept({ index = 1, callback = callback })
+    elseif callback then
+      callback()
+    end
+  end
+  return cmp.show(opts)
 end
 
 --- Hide the completion window
@@ -146,7 +153,7 @@ end
 --- @param opts? blink.cmp.CompletionListAcceptOpts
 function cmp.accept(opts)
   opts = opts or {}
-  if not cmp.is_visible() then return end
+  if not cmp.is_visible() and not opts.force then return end
 
   local completion_list = require('blink.cmp.completion.list')
   local item = opts.index ~= nil and completion_list.items[opts.index] or completion_list.get_selected_item()
@@ -159,21 +166,22 @@ end
 --- Select the first completion item, if there's no selection, and accept
 --- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
 function cmp.select_and_accept(opts)
-  if not cmp.is_visible() then return end
+  opts = opts or {}
+  if not cmp.is_visible() and not opts.force then return end
 
   local completion_list = require('blink.cmp.completion.list')
   vim.schedule(
     function()
       completion_list.accept({
         index = completion_list.selected_item_idx or 1,
-        callback = opts and opts.callback,
+        callback = opts.callback,
       })
     end
   )
   return true
 end
 
---- Accept the current completion item and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
+--- Accept the current completion item and feed an enter key to neovim (e.g. to execute the current command in cmdline mode)
 --- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
 function cmp.accept_and_enter(opts)
   return cmp.accept({
@@ -184,7 +192,7 @@ function cmp.accept_and_enter(opts)
   })
 end
 
---- Select the first completion item, if there's no selection, accept and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
+--- Select the first completion item, if there's no selection, accept and feed an enter key to neovim (e.g. to execute the current command in cmdline mode)
 --- @param opts? blink.cmp.CompletionListSelectAndAcceptOpts
 function cmp.select_accept_and_enter(opts)
   return cmp.select_and_accept({
@@ -310,7 +318,7 @@ function cmp.hide_signature()
   return true
 end
 
---- Scroll the documentation window up
+--- Scroll the signature window up
 --- @param count? number
 function cmp.scroll_signature_up(count)
   local sig = require('blink.cmp.signature.window')
@@ -320,7 +328,7 @@ function cmp.scroll_signature_up(count)
   return true
 end
 
---- Scroll the documentation window down
+--- Scroll the signature window down
 --- @param count? number
 function cmp.scroll_signature_down(count)
   local sig = require('blink.cmp.signature.window')
@@ -368,15 +376,7 @@ function cmp.get_lsp_capabilities(override, include_nvim_defaults)
 end
 
 --- Add a new source provider at runtime
---- @deprecated Use `cmp.add_source_provider` instead
---- @param source_id string
---- @param source_config blink.cmp.SourceProviderConfig
-function cmp.add_provider(source_id, source_config)
-  vim.deprecate('cmp.add_provider', 'cmp.add_source_provider', 'v1.0.0', 'blink-cmp')
-  return cmp.add_source_provider(source_id, source_config)
-end
-
---- Add a new source provider at runtime
+--- Equivalent to adding the source via `sources.providers.<source_id> = <source_config>`
 --- @param source_id string
 --- @param source_config blink.cmp.SourceProviderConfig
 function cmp.add_source_provider(source_id, source_config)
@@ -388,7 +388,11 @@ function cmp.add_source_provider(source_id, source_config)
   config.sources.providers[source_id] = source_config
 end
 
---- Adds a source provider to the list of enable sources for a given filetype
+--- Adds a source provider to the list of enabled sources for a given filetype
+---
+--- Equivalent to adding the source via `sources.per_filetype.<filetype> = { <source_id>, inherit_defaults = true }`
+--- in the config, appending to the existing list.
+--- If the user already has a source defined for the filetype, `inherit_defaults` will default to `false`.
 --- @param filetype string
 --- @param source_id string
 function cmp.add_filetype_source(filetype, source_id)

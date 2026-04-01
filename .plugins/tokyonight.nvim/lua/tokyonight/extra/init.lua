@@ -19,6 +19,7 @@ M.extras = {
   foot             = { ext = "ini", url = "https://codeberg.org/dnkl/foot", label = "Foot" },
   fuzzel           = { ext = "ini", url = "https://codeberg.org/dnkl/fuzzel", label = "Fuzzel" },
   fzf              = { ext = "sh", url = "https://github.com/junegunn/fzf", label = "Fzf" },
+  gemini_cli       = { ext = "json", url = "https://github.com/google-gemini/gemini-cli", label = "Gemini CLI" },
   ghostty          = { ext = "", url = "https://github.com/ghostty-org/ghostty", label = "Ghostty" },
   gitui            = { ext = "ron", url = "https://github.com/extrawurst/gitui", label = "GitUI" },
   gnome_terminal   = { ext = "dconf", url = "https://gitlab.gnome.org/GNOME/gnome-terminal", label = "GNOME Terminal" },
@@ -30,6 +31,7 @@ M.extras = {
   lazygit          = { ext = "yml", url = "https://github.com/jesseduffield/lazygit", label = "Lazygit" },
   lua              = { ext = "lua", url = "https://www.lua.org", label = "Lua Table for testing" },
   opencode         = { ext = "json", url = "https://github.com/sst/opencode", label = "opencode" },
+  pi               = { ext = "json", url = "https://github.com/badlogic/pi-mono", label = "pi" },
   prism            = { ext = "js", url = "https://prismjs.com", label = "Prism" },
   process_compose  = { ext = "yaml", url = "https://f1bonacc1.github.io/process-compose/", label = "process-compose" },
   qterminal        = { ext = "colorscheme", url = "https://github.com/lxqt/qterminal", label = "QTerminal" },
@@ -54,7 +56,7 @@ M.extras = {
 }
 
 function M.setup()
-  local tokyonight = require("tokyonight")
+  local tokyonight = require("tokyonight.theme")
   vim.o.background = "dark"
 
   -- map of style to style name
@@ -74,7 +76,7 @@ function M.setup()
     local info = M.extras[extra]
     local plugin = require("tokyonight.extra." .. extra)
     for style, style_name in pairs(styles) do
-      local colors, groups, opts = tokyonight.load({ style = style, plugins = { all = true } })
+      local colors, groups, opts = tokyonight.setup({ style = style, plugins = { all = true } })
       local fname = extra
         .. (info.subdir and "/" .. info.subdir .. "/" or "")
         .. "/tokyonight"
@@ -92,5 +94,6 @@ function M.setup()
     end
   end
 end
+M.setup()
 
 return M

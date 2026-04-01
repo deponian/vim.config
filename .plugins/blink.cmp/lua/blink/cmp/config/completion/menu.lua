@@ -9,11 +9,10 @@ local validate = require('blink.cmp.config.utils').validate
 --- @field winhighlight string
 --- @field scrolloff number Keep the cursor X lines away from the top/bottom of the window
 --- @field scrollbar boolean Note that the gutter will be disabled when border ~= 'none'
---- @field direction_priority ("n" | "s")[]| fun(): table Which directions to show the window, or a function returning such a table, falling back to the next direction when there's not enough space
+--- @field direction_priority ("n" | "s")[]| fun(): ("n" | "s")[] Which directions to show the window, or a function returning such a table, falling back to the next direction when there's not enough space
 --- @field order blink.cmp.CompletionMenuOrderConfig TODO: implement
 --- @field auto_show boolean | fun(ctx: blink.cmp.Context, items: blink.cmp.CompletionItem[]): boolean Whether to automatically show the window when new completion items are available
 --- @field auto_show_delay_ms number | fun(ctx: blink.cmp.Context, items: blink.cmp.CompletionItem[]): number Delay before showing the completion menu
-
 --- @field cmdline_position fun(): number[] Screen coordinates (0-indexed) of the command line
 --- @field draw blink.cmp.Draw Controls how the completion items are rendered on the popup window
 
@@ -197,7 +196,7 @@ function window.validate(config)
         if type(padding[1]) == 'number' and type(padding[2]) == 'number' then return true end
         return false
       end,
-      'a number or a tuple of 2 numbers (i.e. [1, 2])',
+      'a number or a tuple of 2 numbers, e.g. [1, 2]',
     },
     gap = { config.draw.gap, 'number' },
     cursorline_priority = { config.draw.cursorline_priority, 'number' },

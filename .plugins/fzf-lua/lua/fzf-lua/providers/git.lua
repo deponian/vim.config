@@ -21,6 +21,8 @@ local function set_git_cwd_args(opts)
   return opts
 end
 
+---@param opts fzf-lua.config.GitFiles|{}?
+---@return thread?, string?, table?
 M.files = function(opts)
   ---@type fzf-lua.config.GitFiles
   opts = config.normalize_opts(opts, "git.files")
@@ -30,6 +32,8 @@ M.files = function(opts)
   return core.fzf_exec(opts.cmd, opts)
 end
 
+---@param opts fzf-lua.config.GitStatus|{}?
+---@return thread?, string?, table?
 M.status = function(opts)
   ---@type fzf-lua.config.GitStatus
   opts = config.normalize_opts(opts, "git.status")
@@ -66,6 +70,11 @@ local function git_preview(opts, file)
   if file then
     opts.preview = opts.preview:gsub("[<{]file[}>]", file)
   end
+  -- Normalize the cwd passed to git_preview() so that it is the closest
+  -- directory up the path that is a Git repo. git_diff() passes file
+  -- paths relative to the Git repo root so to ensure the previewer
+  -- can interpret the paths correctly, it must use the repo root as cwd.
+  opts.cwd = path.git_root(opts)
   opts.preview = path.git_cwd(opts.preview, opts)
   if type(opts.preview_pager) == "function" then
     opts.preview_pager = opts.preview_pager()
@@ -82,25 +91,92 @@ local function git_preview(opts, file)
   return opts.preview
 end
 
+---@param opts fzf-lua.config.GitBase|{}?
+---@param ref string
+---@return boolean
+local git_validate_ref = function(opts, ref)
+  local cmd = path.git_cwd({ "git", "rev-parse", "--verify", ref }, opts --[[@as table]])
+  local _, exit_code = utils.io_systemlist(cmd --[[@as string[] ]])
+  if exit_code ~= 0 then
+    utils.warn("Invalid git ref %s", ref)
+    return false
+  end
+  return true
+end
+
+---@param opts fzf-lua.config.GitDiff|fzf-lua.config.GitHunks
+---@return table?
+local normalize_diff_opts = function(opts)
+  -- Backward compat `compare_against` -> `ref1`
+  ---@diagnostic disable-next-line: undefined-field
+  opts.ref1 = opts.compare_against or opts.ref1
+  -- Convinience: ref as string array
+  if type(opts.ref) == "table" then
+    opts.ref, opts.ref1 = opts.ref[1], (opts.ref[2] or opts.ref1)
+  end
+  -- Ensure supplied refs are valid in this git repository.
+  for _, r in ipairs({ "ref", "ref1" }) do
+    if type(opts[r]) == "string" and #opts[r] > 0 and not git_validate_ref(opts, opts[r]) then
+      return
+    end
+  end
+  -- If no ref was supplied default to last commit, otherwise compare against the index
+  if not opts.ref and not opts.ref1 then
+    local cmd = path.git_cwd(
+      { "git", "-c", "color.status=false", "--no-optional-locks", "status", "--porcelain=v1" },
+      opts --[[@as table]])
+    local out, exit_code = utils.io_systemlist(cmd --[[@as string[] ]])
+    if exit_code == 0 and #out == 0 then
+      opts.ref = "HEAD^"
+    else
+      opts.ref = "HEAD"
+    end
+  end
+  opts.cmd = opts.cmd:gsub("[<{]ref[}>]", opts.ref or "")
+  opts.cmd = opts.cmd:gsub("[<{]ref1[}>]", opts.ref1 or "")
+  opts.cmd = opts.cmd:gsub("[<{]file[}>]", opts.file and libuv.shellescape(opts.file) or "")
+  if type(opts.preview) == "string" then
+    opts.preview = opts.preview:gsub("[<{]ref[}>]", opts.ref or "")
+    opts.preview = opts.preview:gsub("[<{]ref1[}>]", opts.ref1 or "")
+    opts.preview = git_preview(opts, "{-1}")
+  end
+  if type(opts._headers) == "table" then
+    table.insert(opts._headers, "ref")
+    table.insert(opts._headers, "ref1")
+  end
+  return set_git_cwd_args(opts)
+end
+
+---@param opts fzf-lua.config.GitDiff|{}?
+---@return thread?, string?, table?
 M.diff = function(opts)
   ---@type fzf-lua.config.GitDiff
   opts = config.normalize_opts(opts, "git.diff")
   if not opts then return end
-  local cmd = path.git_cwd({ "git", "rev-parse", "--verify", opts.ref }, opts)
-  local _, err = utils.io_systemlist(cmd)
-  if err ~= 0 then
-    utils.warn("Invalid git ref %s", opts.ref)
-    return
-  end
-  for _, k in ipairs({ "cmd", "preview" }) do
-    opts[k] = opts[k]:gsub("[<{]ref[}>]", opts.ref)
-  end
-  opts = set_git_cwd_args(opts)
-  if not opts.cwd then return end
-  opts.preview = git_preview(opts, "{-1}")
+  opts = normalize_diff_opts(opts)
+  if not opts or not opts.cwd then return end
   return core.fzf_exec(opts.cmd, opts)
 end
 
+
+---@param opts fzf-lua.config.GitHunks|{}?
+---@return thread?, string?, table?
+M.hunks = function(opts)
+  ---@type fzf-lua.config.GitHunks
+  opts = config.normalize_opts(opts, "git.hunks")
+  if not opts then return end
+  opts = normalize_diff_opts(opts)
+  if not opts or not opts.cwd then return end
+
+  -- we don't need git icons since we get them
+  -- as part of our `git status -s`
+  opts.git_icons = false
+
+  return core.fzf_exec(opts.cmd, opts)
+end
+
+---@param opts fzf-lua.config.GitCommits|{}?
+---@return thread?, string?, table?
 M.commits = function(opts)
   ---@type fzf-lua.config.GitCommits
   opts = config.normalize_opts(opts, "git.commits")
@@ -109,6 +185,18 @@ M.commits = function(opts)
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitReflog|{}?
+---@return thread?, string?, table?
+M.reflog = function(opts)
+  ---@type fzf-lua.config.GitReflog
+  opts = config.normalize_opts(opts, "git.reflog")
+  if not opts then return end
+  opts.preview = git_preview(opts)
+  return git_cmd(opts)
+end
+
+---@param opts fzf-lua.config.GitBcommits|{}?
+---@return thread?, string?, table?
 M.bcommits = function(opts)
   ---@type fzf-lua.config.GitBcommits
   opts = config.normalize_opts(opts, "git.bcommits")
@@ -146,6 +234,8 @@ M.bcommits = function(opts)
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitBlame|{}?
+---@return thread?, string?, table?
 M.blame = function(opts)
   ---@type fzf-lua.config.GitBlame
   opts = config.normalize_opts(opts, "git.blame")
@@ -177,6 +267,8 @@ M.blame = function(opts)
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitBranches|{}?
+---@return thread?, string?, table?
 M.branches = function(opts)
   ---@type fzf-lua.config.GitBranches
   opts = config.normalize_opts(opts, "git.branches")
@@ -191,13 +283,20 @@ M.branches = function(opts)
       -- * branch
       --   remotes/origin/branch
       --   (HEAD detached at origin/branch)
-      local branch = items[1]:match("^[%*+]*[%s]*[(]?([^%s)]+)")
+      if not items[1] then return utils.shell_nop() end
+      -- git bisect detached preview (#2441)
+      if items[1]:match("%(no branch, bisect") then
+        items[1] = items[1]:gsub("%(no.-%)", " ")
+      end
+      local branch = assert(items[1]:match("^[%*+]*[%s]*[(]?([^%s)]+)"))
       return (preview:gsub("{.*}", branch))
     end, opts, "{}")
   end
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitWorktrees|{}?
+---@return thread?, string?, table?
 M.worktrees = function(opts)
   ---@type fzf-lua.config.GitWorktrees
   opts = config.normalize_opts(opts, "git.worktrees")
@@ -205,6 +304,7 @@ M.worktrees = function(opts)
   if opts.preview then
     local preview_cmd = opts.preview
     opts.preview = shell.stringify_cmd(function(items)
+      if not items[1] then return utils.shell_nop() end
       local cwd = items[1]:match("^[^%s]+")
       local cmd = path.git_cwd(preview_cmd, { cwd = cwd })
       return cmd
@@ -213,6 +313,8 @@ M.worktrees = function(opts)
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitTags|{}?
+---@return thread?, string?, table?
 M.tags = function(opts)
   ---@type fzf-lua.config.GitTags
   opts = config.normalize_opts(opts, "git.tags")
@@ -220,6 +322,8 @@ M.tags = function(opts)
   return git_cmd(opts)
 end
 
+---@param opts fzf-lua.config.GitStash|{}?
+---@return thread?, string?, table?
 M.stash = function(opts)
   ---@type fzf-lua.config.GitStash
   opts = config.normalize_opts(opts, "git.stash")
@@ -245,30 +349,6 @@ M.stash = function(opts)
     end
     return (not stash or not rest) and x or stash .. rest
   end
-
-  return core.fzf_exec(opts.cmd, opts)
-end
-
-M.hunks = function(opts)
-  ---@type fzf-lua.config.GitHunks
-  opts = config.normalize_opts(opts, "git.hunks")
-  if not opts then return end
-  local cmd = path.git_cwd({ "git", "rev-parse", "--verify", opts.ref }, opts)
-  local _, err = utils.io_systemlist(cmd)
-  if err ~= 0 then
-    utils.warn("Invalid git ref %s", opts.ref)
-    return
-  end
-  opts.cmd = opts.cmd:gsub("[<{]ref[}>]", opts.ref)
-  opts = set_git_cwd_args(opts)
-  if not opts.cwd then return end
-
-  -- we don't need git icons since we get them
-  -- as part of our `git status -s`
-  opts.git_icons = false
-
-  opts.header_prefix = opts.header_prefix or "+ -  "
-  opts.header_separator = opts.header_separator or "|"
 
   return core.fzf_exec(opts.cmd, opts)
 end

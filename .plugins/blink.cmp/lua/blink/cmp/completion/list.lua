@@ -18,7 +18,7 @@
 --- @field get_selected_item fun(): blink.cmp.CompletionItem?
 --- @field get_selection_mode fun(context: blink.cmp.Context): { preselect: boolean, auto_insert: boolean }
 --- @field get_item_idx_in_list fun(item?: blink.cmp.CompletionItem): number?
---- @field select fun(idx?: number, opts?: { auto_insert?: boolean, undo_preview?: boolean, is_explicit_selection?: boolean }): boolean
+--- @field select fun(idx?: number, opts?: { auto_insert?: boolean, is_explicit_selection?: boolean }): boolean
 --- @field select_next fun(opts?: blink.cmp.CompletionListSelectOpts): boolean
 --- @field select_prev fun(opts?: blink.cmp.CompletionListSelectOpts): boolean
 --- @field can_select fun(opts?: blink.cmp.CompletionListSelectOpts): boolean
@@ -47,6 +47,7 @@
 
 --- @class blink.cmp.CompletionListSelectAndAcceptOpts
 --- @field callback? fun() Called after the item is accepted
+--- @field force? boolean Force accept without visual feedback (no menu, no ghost text visible)
 
 --- @class blink.cmp.CompletionListAcceptOpts : blink.cmp.CompletionListSelectAndAcceptOpts
 --- @field index? number The index of the item to accept, if not provided, the currently selected item will be accepted
@@ -102,6 +103,10 @@ function list.show(context, items_by_source)
 
   local previous_selected_item = list.get_selected_item()
 
+  -- always undo preview before fuzzy matching, so that we filter on the correct keyword
+  -- the later selection will re-apply the preview
+  list.undo_preview()
+
   -- update the context/list and emit
   list.context = context
   list.items = list.fuzzy(context, items_by_source)
@@ -115,15 +120,15 @@ function list.show(context, items_by_source)
   -- maintain the selection if the user selected an item
   local previous_item_idx = list.get_item_idx_in_list(previous_selected_item)
   if list.is_explicitly_selected and previous_item_idx ~= nil and previous_item_idx <= 10 then
-    list.select(previous_item_idx, { auto_insert = false, undo_preview = false })
+    list.select(previous_item_idx)
   -- respect the context's initial selected item idx
   elseif context.initial_selected_item_idx ~= nil then
-    list.select(context.initial_selected_item_idx, { undo_preview = false, is_explicit_selection = true })
+    list.select(context.initial_selected_item_idx, { is_explicit_selection = true })
   -- otherwise, use the default selection
   else
     list.select(
       list.get_selection_mode(context).preselect and 1 or nil,
-      { auto_insert = false, undo_preview = false, is_explicit_selection = false }
+      { auto_insert = false, is_explicit_selection = false }
     )
   end
 end
@@ -145,8 +150,11 @@ function list.fuzzy(context, items_by_source)
 end
 
 function list.hide()
+  local context = list.context
+  list.context = nil
+  list.items = {}
   list.selected_item_idx = nil
-  list.hide_emitter:emit({ context = list.context })
+  list.hide_emitter:emit({ context = context })
 end
 
 ---------- Selection ----------
@@ -176,14 +184,16 @@ function list.get_item_idx_in_list(item)
 end
 
 function list.select(idx, opts)
+  if idx ~= nil and idx < 0 then idx = math.max(#list.items + idx + 1, 1) end
   opts = opts or {}
+
   local item = list.items[idx]
 
   local auto_insert = opts.auto_insert
   if auto_insert == nil then auto_insert = list.get_selection_mode(list.context).auto_insert end
 
   require('blink.cmp.completion.trigger').suppress_events_for_callback(function()
-    if opts.undo_preview ~= false then list.undo_preview() end
+    list.undo_preview()
     if auto_insert and item ~= nil then list.apply_preview(item) end
   end)
 

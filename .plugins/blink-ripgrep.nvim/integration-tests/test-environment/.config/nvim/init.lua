@@ -1,5 +1,5 @@
 -- renovate: datasource=github-releases depName=folke/lazy.nvim
-local lazy_version = "v11.17.4"
+local lazy_version = "v11.17.5"
 
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -32,6 +32,11 @@ vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.o.swapfile = false
 
+local config_dir =
+  assert(os.getenv("XDG_CONFIG_HOME"), "XDG_CONFIG_HOME not set")
+local repo_root =
+  vim.fs.abspath(vim.fs.joinpath(config_dir, "..", "..", "..", "..", ".."))
+
 -- install the following plugins
 ---@type LazySpec
 local plugins = {
@@ -43,7 +48,7 @@ local plugins = {
     -- use a release tag to download pre-built binaries
     -- https://github.com/Saghen/blink.cmp/releases
     -- renovate: datasource=github-releases depName=saghen/blink.cmp
-    version = "v1.7.0",
+    version = "v1.10.1",
 
     -- to (locally) track nightly builds, use the following:
     -- version = false,
@@ -127,7 +132,7 @@ local plugins = {
   {
     "mikavilpas/blink-ripgrep.nvim",
     -- for tests, always use the code from this repository
-    dir = "../..",
+    dir = repo_root,
     config = function()
       -- customize the search highlighting (Search)
       local colors = require("catppuccin.palettes.macchiato")
@@ -146,7 +151,7 @@ local plugins = {
   },
 
   -- renovate: datasource=github-releases depName=folke/snacks.nvim
-  { "folke/snacks.nvim", version = "v2.28.0" },
+  { "folke/snacks.nvim", version = "v2.31.0" },
   {
     "catppuccin/nvim",
     name = "catppuccin",

@@ -94,7 +94,6 @@ M.ui_select = function(items, ui_opts, on_choice)
   -- deepcopy register opts so we don't poullute the original tbl ref (#2241)
   if type(opts) == "table" then
     opts = utils.tbl_deep_clone(opts)
-    assert(opts) -- lint nil check
   end
 
   opts.fzf_opts = vim.tbl_extend("keep", opts.fzf_opts or {}, {
@@ -155,7 +154,18 @@ M.ui_select = function(items, ui_opts, on_choice)
 
   -- ui.select is code actions
   -- inherit from defaults if not triggered by lsp_code_actions
+  ---@type 'error'|'keep'|'force'
   local opts_merge_strategy = "keep"
+
+  -- fix error when vim.lsp.buf.code_action() called but didn't triggers vim.ui.select
+  -- _OPTS_ONCE also means pending deregister
+  -- since we only use it to custom codeaction preview now
+  if _OPTS_ONCE and ui_opts.kind ~= "codeaction" then
+    M.deregister({}, true, true)
+    _OPTS_ONCE = nil
+    return vim.ui.select(items, ui_opts, on_choice)
+  end
+
   if not _OPTS_ONCE and ui_opts.kind == "codeaction" then
     ---@type fzf-lua.config.LspCodeActions
     _OPTS_ONCE = config.normalize_opts({}, "lsp.code_actions")
@@ -164,13 +174,25 @@ M.ui_select = function(items, ui_opts, on_choice)
     -- options over `lsp.code_actions` (#999)
     opts_merge_strategy = "force"
   end
-  if _OPTS_ONCE then
+
+  if ui_opts.preview_item then
+    opts.previewer = {
+      _ctor = function()
+        local previewer = require("fzf-lua.previewer.builtin").buffer_or_file:extend()
+        ---@diagnostic disable-next-line: unused
+        function previewer:parse_entry(entry_str, cb) return ui_opts.preview_item(entry_str, cb) end
+
+        return previewer
+      end
+    }
+  elseif _OPTS_ONCE then
     -- merge and clear the once opts sent from lsp_code_actions.
     -- We also override actions to guarantee a single default
     -- action, otherwise selected[1] will be empty due to
     -- multiple keybinds trigger, sending `--expect` to fzf
     local previewer = _OPTS_ONCE.previewer
     _OPTS_ONCE.previewer = nil -- can't copy the previewer object
+    ---@diagnostic disable-next-line: param-type-mismatch
     opts = vim.tbl_deep_extend(opts_merge_strategy, _OPTS_ONCE, opts)
     opts.actions = vim.tbl_deep_extend("force", opts.actions or {},
       { ["enter"] = opts.actions.enter })
@@ -186,7 +208,11 @@ M.ui_select = function(items, ui_opts, on_choice)
     _OPTS_ONCE = nil
   end
 
-  return core.fzf_exec(entries, opts)
+  -- disable hide profile unless specifically requested
+  -- casues issues with abort as on_choice(nil) won't be called (#2439)
+  opts.no_hide = opts.no_hide == nil and true or opts.no_hide
+
+  core.fzf_exec(entries, opts)
 end
 
 return M

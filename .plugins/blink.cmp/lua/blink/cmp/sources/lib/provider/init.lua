@@ -47,8 +47,17 @@ function source.new(id, config)
 end
 
 function source:enabled()
+  -- Skip during fast events, many implementations use Vim APIs
+  -- (nvim_get_current_buf, win_gettype, etc.) which are forbidden and crash with E5560.
+  -- This is re-evaluated safely in the scheduled completion phase.
+  if vim.in_fast_event() then return false end
+
   -- user defined
-  if not self.config.enabled() then return false end
+  local user_enabled = self.config.enabled
+  if user_enabled ~= nil then
+    if type(user_enabled) == 'function' then return user_enabled() end
+    return user_enabled
+  end
 
   -- source defined
   if self.module.enabled == nil then return true end
@@ -111,7 +120,9 @@ function source:should_show_items(context, items)
     end
   end
 
-  local min_keyword_length = math.max(provider_min_keyword_length, global_min_keyword_length)
+  local min_keyword_length = global_min_keyword_length
+  if provider_min_keyword_length > 0 then min_keyword_length = provider_min_keyword_length end
+
   local current_keyword_length = context.bounds.length
   if current_keyword_length < min_keyword_length then return false end
 
@@ -119,8 +130,9 @@ function source:should_show_items(context, items)
   if self.module.should_show_items ~= nil and not self.module:should_show_items(context, items) then return false end
 
   -- check if the user wants to show items
-  if self.config.should_show_items == nil then return true end
-  return self.config.should_show_items(context, items)
+  if self.config.should_show_items ~= nil and not self.config.should_show_items(context, items) then return false end
+
+  return true
 end
 
 function source:transform_items(context, items)

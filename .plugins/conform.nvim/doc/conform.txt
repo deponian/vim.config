@@ -91,7 +91,8 @@ OPTIONS                                                          *conform-option
           env = {
             VAR = "value",
           },
-          -- Set to false to disable merging the config with the base definition
+          -- Set to false to disable merging the config with the base definition.
+          -- Can also be set to the name of the formatter to merge with (e.g. inherit = "black")
           inherit = true,
           -- When inherit = true, add these additional arguments to the beginning of the command.
           -- This can also be a function, like args
@@ -227,7 +228,7 @@ format({opts}, {callback}): boolean                               *conform.forma
       -- Asynchronously format the current buffer; will not block the UI
       conform.format({ async = true }, function(err, did_edit)
         -- called after formatting
-      end
+      end)
       -- Format the current buffer with a specific formatter
       conform.format({ formatters = { "ruff_fix" } })
 <
@@ -362,7 +363,6 @@ FORMATTERS                                                    *conform-formatter
 `forge_fmt` - Forge is a command-line tool that ships with Foundry. Forge tests,
             builds, and deploys your smart contracts.
 `format-dune-file` - Auto-formatter for Dune files.
-`format-queries` - Tree-sitter query formatter.
 `fourmolu` - A fork of ormolu that uses four space indentation and allows
            arbitrary configuration.
 `fprettify` - Auto-formatter for modern fortran source code.
@@ -370,6 +370,7 @@ FORMATTERS                                                    *conform-formatter
 `gci` - GCI, a tool that controls Go package import order and makes it always
       deterministic.
 `gdformat` - A formatter for Godot's gdscript.
+`gdscript-formatter` - A faster code formatter for GDScript and Godot 4.
 `gersemi` - A formatter to make your CMake code the real treasure.
 `ghdl` - Open-source analyzer, compiler, simulator and synthesizer for VHDL.
 `ghokin` - Parallelized formatter with no external dependencies for gherkin.
@@ -441,6 +442,8 @@ FORMATTERS                                                    *conform-formatter
 `mdslw` - Prepare your markdown for easy diff'ing by adding line breaks after
         every sentence.
 `meson` - Format meson source files.
+`mh_style` - A simple coding style checker and code formatter for MATLAB or
+           Octave code.
 `mix` - Format Elixir files using the mix format command.
 `mojo_format` - Official Formatter for The Mojo Programming Language
 `nginxfmt` - nginx config file formatter/beautifier written in Python with no
@@ -461,9 +464,14 @@ FORMATTERS                                                    *conform-formatter
 `odinfmt` - Auto-formatter for the Odin programming language.
 `opa_fmt` - Format Rego files using `opa fmt` command.
 `ormolu` - A formatter for Haskell source code.
+`oxfmt` - A Prettier-compatible code formatter.
+`oxlint` - An oxidized replacement for ESLint that fixes lint errors.
 `packer_fmt` - The packer fmt Packer command is used to format HCL2
              configuration files to a canonical format and style.
+`palantir-java-format` - A modern, lambda-friendly, 120 character Java
+                       formatter.
 `pangu` - Insert whitespace between CJK and half-width characters.
+`pasfmt` - Delphi code formatter.
 `perlimports` - Make implicit Perl imports explicit.
 `perltidy` - Perl::Tidy, a source code formatter for Perl.
 `pg_format` - PostgreSQL SQL syntax beautifier.
@@ -473,6 +481,7 @@ FORMATTERS                                                    *conform-formatter
 `phpinsights` - The perfect starting point to analyze the code quality of your
               PHP projects.
 `pint` - Laravel Pint is an opinionated PHP code style fixer for minimalists.
+`pkl` - Official canonical formatter for Pkl.
 `prettier` - Prettier is an opinionated code formatter. It enforces a consistent
            style by parsing your code and re-printing it with its own rules that
            take the maximum line length into account, wrapping code when
@@ -481,6 +490,7 @@ FORMATTERS                                                    *conform-formatter
 `pretty-php` - The opinionated PHP code formatter.
 `prettypst` - Formatter for Typst.
 `prolog` - Language Server Protocol server and formatter for SWI-Prolog.
+`pruner` - A language-agnostic, treesitter powered formatter.
 `puppet-lint` - Check that your Puppet manifests conform to the style guide.
 `purs-tidy` - A syntax tidy-upper for PureScript.
 `pycln` - A Python formatter for finding and removing unused import statements.
@@ -509,6 +519,7 @@ FORMATTERS                                                    *conform-formatter
 `ruff_organize_imports` - An extremely fast Python linter, written in Rust.
                         Organize imports.
 `rufo` - Rufo is an opinionated ruby formatter.
+`rumdl` - Markdown Linter and Formatter written in Rust.
 `runic` - Julia code formatter.
 `rustfmt` - A tool for formatting rust code according to style guidelines.
 `rustywind` - A tool for formatting Tailwind CSS classes.
@@ -549,6 +560,7 @@ FORMATTERS                                                    *conform-formatter
 `syntax_tree` - Syntax Tree is a suite of tools built on top of the internal
               CRuby parser.
 `taplo` - A TOML toolkit written in Rust.
+`tclfmt` - A formatter for Tcl scripts, part of the tclint project.
 `templ` - Formats templ template files.
 `terraform_fmt` - The terraform-fmt command rewrites `terraform` configuration
                 files to a canonical format and style.
@@ -562,7 +574,10 @@ FORMATTERS                                                    *conform-formatter
 `treefmt` - one CLI to format your repo.
 `trim_newlines` - Trim empty lines at the end of the file.
 `trim_whitespace` - Trim trailing whitespace.
+`trunk` - Trunk universal formatter.
 `twig-cs-fixer` - Automatically fix Twig Coding Standards issues
+`txtpbfmt` - txtpbfmt parses, edits and formats text proto files in a way that
+           preserves comments.
 `typespec` - TypeSpec compiler and CLI.
 `typos` - Source code spell checker
 `typstyle` - Beautiful and reliable typst code formatter.

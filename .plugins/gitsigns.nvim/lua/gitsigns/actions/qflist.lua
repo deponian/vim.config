@@ -24,11 +24,8 @@ local function hunks_to_qflist(buf_or_filename, hunks, qflist)
       hunk.added.start,
       hunk.added.count ~= 1 and ',' .. tostring(hunk.added.count) or ''
     )
-    local text = ('%-7s (%s): %s'):format(
-      kind,
-      header,
-      hunk.added.lines[1] or hunk.removed.lines[1]
-    )
+    local line = hunk.added.lines[1] or hunk.removed.lines[1] or ''
+    local text = ('%-7s (%s): %s'):format(kind, header, util.lua2viml_str(line))
     qflist[#qflist + 1] = {
       bufnr = type(buf_or_filename) == 'number' and buf_or_filename or nil,
       filename = type(buf_or_filename) == 'string' and buf_or_filename or nil,
@@ -74,21 +71,30 @@ local function buildqflist(target)
     end
 
     for _, r in pairs(repos) do
-      for _, f in ipairs(r:files_changed(config.base)) do
-        local f_abs = r.toplevel .. '/' .. f
-        local stat = uv.fs_stat(f_abs)
-        if stat and stat.type == 'file' then
-          ---@type string
+      local changed_files = r:files_changed(config.base, config.attach_to_untracked)
+      local changed_paths = {} --- @type string[]
+      for i, changed_file in ipairs(changed_files) do
+        changed_paths[i] = changed_file.path
+      end
+      local diff_attrs = r:check_attr('diff', changed_paths)
+
+      for _, changed_file in ipairs(changed_files) do
+        local f = changed_file.path
+        if diff_attrs[f] ~= 'unset' then
+          local f_abs = r.toplevel .. '/' .. f
+          local stat = uv.fs_stat(f_abs)
+          --- @type string
           local obj
-          if config.base and config.base ~= ':0' then
-            obj = config.base .. ':' .. f
-          else
-            obj = ':0:' .. f
+          if stat and stat.type == 'file' then
+            if config.base and config.base ~= ':0' then
+              obj = config.base .. ':' .. (changed_file.oldpath or f)
+            else
+              obj = ':0:' .. f
+            end
+            local a = r:get_show_text(obj)
+            local hunks = run_diff(a, util.file_lines(f_abs))
+            hunks_to_qflist(f_abs, hunks, qflist)
           end
-          local a = r:get_show_text(obj)
-          async.schedule()
-          local hunks = run_diff(a, util.file_lines(f_abs))
-          hunks_to_qflist(f_abs, hunks, qflist)
         end
       end
     end

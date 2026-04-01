@@ -11,7 +11,7 @@ local cache = Cache.cache
 local config = require('gitsigns.config').config
 local dprint = log.dprint
 local dprintf = log.dprintf
-local throttle_by_id = require('gitsigns.debounce').throttle_by_id
+local throttle_async = require('gitsigns.debounce').throttle_async
 
 local api = vim.api
 local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
@@ -67,10 +67,9 @@ end
 --- @param _ 'reload'
 --- @param bufnr integer
 local function on_reload(_, bufnr)
-  local __FUNC__ = 'on_reload'
   assert(cache[bufnr]):invalidate()
   dprint('Reload')
-  manager.update_debounced(bufnr)
+  manager.update_sync_debounced(bufnr)
 end
 
 --- @param _ 'detach'
@@ -123,11 +122,11 @@ local setup = Util.once(function()
   })
 end)
 
---- @class Gitsigns.GitContext
---- @field file string
---- @field toplevel? string
---- @field gitdir? string
---- @field base? string
+--- @class (exact) Gitsigns.GitContext
+--- @field file string Path to the file represented by the buffer.
+--- @field toplevel? string Path to the top-level of the parent git repository.
+--- @field gitdir? string Path to the git directory of the parent git repository.
+--- @field base? string Git revision to compare against.
 
 --- @async
 --- @param bufnr integer
@@ -223,7 +222,7 @@ end
 
 --- @async
 --- @param bufnr integer
-local function watcher_handler(bufnr)
+local function repo_update_handler(bufnr)
   local bcache = cache[bufnr]
   if not bcache then
     return
@@ -237,15 +236,34 @@ local function watcher_handler(bufnr)
 
   local was_tracked = git_obj.object_name ~= nil
   local old_relpath = git_obj.relpath
+  local old_object_name = git_obj.object_name
+  local old_mode_bits = git_obj.mode_bits
 
-  bcache:invalidate(true)
   git_obj:refresh()
+
+  local new_object_name = git_obj.object_name
+  local new_mode_bits = git_obj.mode_bits
+
   if not bcache:schedule() then
     dprint('buffer invalid (1)')
     return
   end
 
-  if config.watch_gitdir.follow_files and was_tracked and not git_obj.object_name then
+  local head_oid = git_obj.repo.head_oid
+
+  if
+    old_object_name ~= new_object_name
+    or old_mode_bits ~= new_mode_bits
+    -- Invalidate when the repo HEAD moves (checkout, pull/rebase, etc). The
+    -- file object can stay the same while the comparison base changes.
+    or bcache.head_oid ~= head_oid
+  then
+    bcache:invalidate(true)
+  end
+
+  bcache.head_oid = head_oid
+
+  if config.watch_gitdir.follow_files and was_tracked and not new_object_name then
     -- File was tracked but is no longer tracked. Must of been removed or
     -- moved. Check if it was moved and switch to it.
     handle_moved(bufnr, old_relpath)
@@ -265,7 +283,7 @@ end
 --- @param cbuf integer
 --- @param ctx? Gitsigns.GitContext
 --- @param aucmd? string
-M.attach = throttle_by_id(function(cbuf, ctx, aucmd)
+M.attach = throttle_async({ hash = 1 }, function(cbuf, ctx, aucmd)
   local __FUNC__ = 'attach'
   local passed_ctx = ctx ~= nil
 
@@ -341,8 +359,19 @@ M.attach = throttle_by_id(function(cbuf, ctx, aucmd)
     return
   end
 
-  if not config.attach_to_untracked and git_obj.object_name == nil then
+  local is_untracked = git_obj.object_name == nil
+
+  -- Manual attaches (`:Gitsigns attach`) should still be allowed for
+  -- untracked buffers.
+  if aucmd and not config.attach_to_untracked and is_untracked then
     dprint('File is untracked')
+    return
+  end
+
+  local relpath = git_obj.relpath --[[@as string]]
+  local diff_attr = git_obj.repo:check_attr('diff', { relpath })[relpath]
+  if diff_attr == 'unset' then
+    dprint('File has -diff attribute')
     return
   end
 
@@ -360,15 +389,19 @@ M.attach = throttle_by_id(function(cbuf, ctx, aucmd)
 
   cache[cbuf] = Cache.new(cbuf, file, git_obj)
 
-  if config.watch_gitdir.enable then
-    dprintf('Watching git dir')
+  if git_obj.repo:has_watcher() then
+    dprintf('Watching git dir %s', git_obj.repo.gitdir)
+
     --- Throttle to:
     --- - ensure handler is only triggered once per git operation.
     --- - prevent updates to the same buffer from interleaving as the handler is
     ---   async.
-    local throttled_watcher_handler = throttle_by_id(watcher_handler, true)
-    cache[cbuf].deregister_watcher = git_obj.repo:register_callback(function()
-      async.run(throttled_watcher_handler, cbuf):raise_on_error()
+    local throttled_repo_update_handler = throttle_async({ schedule = true }, function()
+      repo_update_handler(cbuf)
+    end)
+
+    cache[cbuf].deregister_watcher = git_obj.repo:on_update(function()
+      async.run(throttled_repo_update_handler):raise_on_error()
     end)
   end
 
@@ -389,7 +422,7 @@ M.attach = throttle_by_id(function(cbuf, ctx, aucmd)
     group = 'gitsigns',
     buffer = cbuf,
     callback = function()
-      manager.update_debounced(cbuf)
+      manager.update_sync_debounced(cbuf)
     end,
   })
 

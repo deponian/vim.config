@@ -1,3 +1,4 @@
+---@diagnostic disable-next-line: deprecated
 -- This file should only be loaded from the headless instance
 local uv = vim.uv or vim.loop
 assert(#vim.api.nvim_list_uis() == 0)
@@ -32,9 +33,18 @@ end
 
 -- global var indicating a headless instance
 _G._fzf_lua_is_headless = true
-local opts = require("fzf-lua.libuv").deserialize(_G.arg[1])
+---@type fzf-lua.SpawnStdioOpts
+local opts = require("fzf-lua.libuv").deserialize(assert(_G.arg[1]))
 local _, pid = require("fzf-lua.libuv").spawn_stdio(opts)
 -- while vim.uv.run() do end -- os.exit in spawn_stdio
-while uv.os_getpriority(pid) do
-  vim.wait(100, function() return uv.os_getpriority(pid) == nil end)
+if pid then
+  while uv.os_getpriority(pid) do
+    vim.wait(100, function() return uv.os_getpriority(pid) == nil end)
+  end
+else
+  -- No child process was spawned (content was table/function, not a string command).
+  -- `on_finish` has already scheduled `fn_postprocess` + `os.exit` via `vim.schedule`,
+  -- we need to pump the event loop so the scheduled callback fires.
+  -- Use `vim.wait` to process `vim.schedule` callbacks (unlike `uv.run`).
+  vim.wait(10000)
 end

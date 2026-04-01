@@ -1,6 +1,7 @@
 local git_utils = require("nvim-tree.git.utils")
 local icons = require("nvim-tree.renderer.components.devicons")
 local notify = require("nvim-tree.notify")
+local Iterator = require("nvim-tree.iterators.node-iterator")
 
 local Node = require("nvim-tree.node")
 
@@ -36,10 +37,7 @@ function DirectoryNode:new(args)
 end
 
 function DirectoryNode:destroy()
-  if self.watcher then
-    self.watcher:destroy()
-    self.watcher = nil
-  end
+  self:destroy_watcher()
 
   if self.nodes then
     for _, node in pairs(self.nodes) do
@@ -50,14 +48,22 @@ function DirectoryNode:destroy()
   Node.destroy(self)
 end
 
+---Halt and remove the watcher for this node
+function DirectoryNode:destroy_watcher()
+  if self.watcher then
+    self.watcher:destroy()
+    self.watcher = nil
+  end
+end
+
 ---Update the git_status of the directory
 ---@param parent_ignored boolean
----@param project GitProject?
+---@param project nvim_tree.git.Project?
 function DirectoryNode:update_git_status(parent_ignored, project)
   self.git_status = git_utils.git_status_dir(parent_ignored, project, self.absolute_path, nil)
 end
 
----@return GitXY[]?
+---@return nvim_tree.git.XY[]?
 function DirectoryNode:get_git_xy()
   if not self.git_status or not self.explorer.opts.git.show_on_dirs then
     return nil
@@ -167,7 +173,7 @@ function DirectoryNode:expand_or_collapse(toggle_group)
   end
 
   if #self.nodes == 0 then
-    self.explorer:expand(self)
+    self.explorer:expand_dir_node(self)
   end
 
   local head_node = self:get_parent_of_group() or self
@@ -192,7 +198,7 @@ function DirectoryNode:expand_or_collapse(toggle_group)
   self.explorer.renderer:draw()
 end
 
----@return HighlightedString icon
+---@return nvim_tree.api.highlighted_string icon
 function DirectoryNode:highlighted_icon()
   if not self.explorer.opts.renderer.icons.show.folder then
     return self:highlighted_icon_empty()
@@ -237,7 +243,7 @@ function DirectoryNode:highlighted_icon()
   return { str = str, hl = { hl } }
 end
 
----@return HighlightedString icon
+---@return nvim_tree.api.highlighted_string icon
 function DirectoryNode:highlighted_name()
   local str, hl
 
@@ -288,6 +294,112 @@ function DirectoryNode:clone(api_nodes)
   end
 
   return clone
+end
+
+---@private
+---@param should_descend fun(expansion_count: integer, node: Node): boolean
+---@return fun(expansion_count: integer, node: Node): boolean
+function DirectoryNode:limit_folder_discovery(should_descend)
+  local MAX_FOLDER_DISCOVERY = self.explorer.opts.actions.expand_all.max_folder_discovery
+  return function(expansion_count, node)
+    local should_halt = expansion_count >= MAX_FOLDER_DISCOVERY
+    if should_halt then
+      notify.warn("expansion iteration was halted after " .. MAX_FOLDER_DISCOVERY .. " discovered folders")
+      return false
+    end
+
+    return should_descend(expansion_count, node)
+  end
+end
+
+---@param expansion_count integer
+---@param should_descend fun(expansion_count: integer, node: Node): boolean
+---@return boolean
+function DirectoryNode:should_expand(expansion_count, should_descend)
+  if not self.open and should_descend(expansion_count, self) then
+    if #self.nodes == 0 then
+      self.explorer:expand_dir_node(self) -- populate node.group_next
+    end
+
+    if self.group_next then
+      local expand_next = self.group_next:should_expand(expansion_count, should_descend)
+      if expand_next then
+        self.open = true
+      end
+      return expand_next
+    else
+      return true
+    end
+  end
+  return false
+end
+
+---@param list string[]
+---@return table
+local function to_lookup_table(list)
+  local table = {}
+  for _, element in ipairs(list) do
+    table[element] = true
+  end
+
+  return table
+end
+
+---@param _ integer
+---@param node Node
+---@return boolean
+local function descend_until_empty(_, node)
+  local EXCLUDE = to_lookup_table(node.explorer.opts.actions.expand_all.exclude)
+  local should_exclude = EXCLUDE[node.name]
+  return not should_exclude
+end
+
+---@param expand_opts? nvim_tree.api.node.expand.Opts
+function DirectoryNode:expand(expand_opts)
+  local expansion_count = 0
+
+  local should_descend = self:limit_folder_discovery((expand_opts and expand_opts.expand_until) or descend_until_empty)
+
+
+  if self.parent and self.nodes and not self.open then
+    expansion_count = expansion_count + 1
+    self:expand_dir_node()
+  end
+
+  Iterator.builder(self.nodes)
+    :hidden()
+    :applier(function(node)
+      if node:should_expand(expansion_count, should_descend) then
+        expansion_count = expansion_count + 1
+        node:expand_dir_node()
+      end
+    end)
+    :recursor(function(node)
+      if not should_descend(expansion_count, node) then
+        return nil
+      end
+
+      if node.group_next then
+        return { node.group_next }
+      end
+
+      if node.open and node.nodes then
+        return node.nodes
+      end
+
+      return nil
+    end)
+    :iterate()
+
+  self.explorer.renderer:draw()
+end
+
+function DirectoryNode:expand_dir_node()
+  local node = self:last_group_node()
+  node.open = true
+  if #node.nodes == 0 then
+    self.explorer:expand_dir_node(node)
+  end
 end
 
 return DirectoryNode

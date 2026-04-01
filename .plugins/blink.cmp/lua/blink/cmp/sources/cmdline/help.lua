@@ -27,7 +27,7 @@ function help.get_completions(arg_prefix)
 
   return async.task
     .all(vim.tbl_map(read_tags_from_file, help_files))
-    :map(function(tags_arrs) return require('blink.cmp.lib.utils').flatten(tags_arrs) end)
+    :map(function(tags_arrs) return vim.iter(tags_arrs):flatten():totable() end)
     :map(function(tags)
       -- TODO: remove after adding support for fuzzy matching on custom range
       return vim.tbl_filter(function(tag) return vim.startswith(tag, arg_prefix) end, tags)

@@ -1,8 +1,6 @@
-local api = require("nvim-tree.api")
-local view = require("nvim-tree.view")
-
 local M = {}
 
+---@type nvim_tree.api.commands.Command[]
 local CMDS = {
   {
     name = "NvimTreeOpen",
@@ -12,7 +10,7 @@ local CMDS = {
       complete = "dir",
     },
     command = function(c)
-      api.tree.open({ path = c.args })
+      require("nvim-tree.api").tree.open({ path = c.args })
     end,
   },
   {
@@ -22,7 +20,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.tree.close()
+      require("nvim-tree.api").tree.close()
     end,
   },
   {
@@ -33,7 +31,7 @@ local CMDS = {
       complete = "dir",
     },
     command = function(c)
-      api.tree.toggle({
+      require("nvim-tree.api").tree.toggle({
         find_file = false,
         focus = true,
         path = c.args,
@@ -48,7 +46,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.tree.open()
+      require("nvim-tree.api").tree.open()
     end,
   },
   {
@@ -58,7 +56,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.tree.reload()
+      require("nvim-tree.api").tree.reload()
     end,
   },
   {
@@ -68,7 +66,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.fs.print_clipboard()
+      require("nvim-tree.api").fs.print_clipboard()
     end,
   },
   {
@@ -79,7 +77,7 @@ local CMDS = {
       bar = true,
     },
     command = function(c)
-      api.tree.find_file({
+      require("nvim-tree.api").tree.find_file({
         open = true,
         focus = true,
         update_root = c.bang,
@@ -95,7 +93,7 @@ local CMDS = {
       complete = "dir",
     },
     command = function(c)
-      api.tree.toggle({
+      require("nvim-tree.api").tree.toggle({
         find_file = true,
         focus = true,
         path = c.args,
@@ -111,7 +109,12 @@ local CMDS = {
       bar = true,
     },
     command = function(c)
-      view.resize(c.args)
+      local sign = c.args:sub(1, 1)
+      if sign == "+" or sign == "-" then
+        require("nvim-tree.api").tree.resize({ relative = tonumber(c.args) })
+      else
+        require("nvim-tree.api").tree.resize({ absolute = tonumber(c.args) })
+      end
     end,
   },
   {
@@ -121,7 +124,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.tree.collapse_all(false)
+      require("nvim-tree.api").tree.collapse_all({ keep_buffers = false })
     end,
   },
   {
@@ -131,7 +134,7 @@ local CMDS = {
       bar = true,
     },
     command = function()
-      api.tree.collapse_all(true)
+      require("nvim-tree.api").tree.collapse_all({ keep_buffers = true })
     end,
   },
   {
@@ -139,10 +142,13 @@ local CMDS = {
     opts = {
       desc = "nvim-tree: highlight test",
     },
-    command = api.diagnostics.hi_test,
+    command = function()
+      require("nvim-tree.api").appearance.hi_test()
+    end,
   },
 }
 
+---@return nvim_tree.api.commands.Command[]
 function M.get()
   return vim.deepcopy(CMDS)
 end

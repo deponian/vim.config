@@ -4,6 +4,17 @@ local notify = require("nvim-tree.notify")
 local utils = require("nvim-tree.utils")
 local full_name = require("nvim-tree.renderer.components.full-name")
 local view = require("nvim-tree.view")
+local config = require("nvim-tree.config")
+
+local DirectoryNode = require("nvim-tree.node.directory")
+local FileLinkNode = require("nvim-tree.node.file-link")
+local RootNode = require("nvim-tree.node.root")
+
+---@class NodeEditOpts
+---@field quit_on_open boolean|nil default false
+---@field focus boolean|nil default true
+
+---@alias NodeOpenFileMode ""|"change_dir"|"drop"|"edit"|"edit_in_place"|"edit_no_picker"|"preview"|"preview_no_picker"|"split"|"split_no_picker"|"tab_drop"|"tabnew"|"toggle_group_empty"|"vsplit"|"vsplit_no_picker"
 
 local M = {}
 
@@ -26,7 +37,7 @@ local function usable_win_ids()
 
   return vim.tbl_filter(function(id)
     local bufid = vim.api.nvim_win_get_buf(id)
-    for option, v in pairs(M.window_picker.exclude) do
+    for option, v in pairs(config.g.actions.open_file.window_picker.exclude) do
       local ok, option_value
       if vim.fn.has("nvim-0.10") == 1 then
         ok, option_value = pcall(vim.api.nvim_get_option_value, option, { buf = bufid })
@@ -64,8 +75,9 @@ local function pick_win_id()
     return selectable[1]
   end
 
-  if #M.window_picker.chars < #selectable then
-    notify.error(string.format("More windows (%d) than actions.open_file.window_picker.chars (%d).", #selectable, #M.window_picker.chars))
+  if #config.g.actions.open_file.window_picker.chars < #selectable then
+    notify.error(string.format("More windows (%d) than actions.open_file.window_picker.chars (%d).", #selectable,
+      #config.g.actions.open_file.window_picker.chars))
     return nil
   end
 
@@ -116,7 +128,7 @@ local function pick_win_id()
 
   -- Setup UI
   for _, id in ipairs(selectable) do
-    local char = M.window_picker.chars:sub(i, i)
+    local char = config.g.actions.open_file.window_picker.chars:sub(i, i)
 
     local ok_status, statusline, ok_hl, winhl
     if vim.fn.has("nvim-0.10") == 1 then
@@ -142,7 +154,7 @@ local function pick_win_id()
     end
 
     i = i + 1
-    if i > #M.window_picker.chars then
+    if i > #config.g.actions.open_file.window_picker.chars then
       break
     end
   end
@@ -184,7 +196,7 @@ local function pick_win_id()
   vim.o.laststatus = laststatus
   vim.opt.fillchars = fillchars
 
-  if not vim.tbl_contains(vim.split(M.window_picker.chars, ""), resp) then
+  if not vim.tbl_contains(vim.split(config.g.actions.open_file.window_picker.chars, ""), resp) then
     return
   end
 
@@ -192,10 +204,10 @@ local function pick_win_id()
 end
 
 local function open_file_in_tab(filename)
-  if M.quit_on_open then
+  if config.g.actions.open_file.quit_on_open then
     view.close()
   end
-  if M.relative_path then
+  if config.g.actions.open_file.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
   end
   vim.cmd.tabnew()
@@ -210,20 +222,20 @@ local function open_file_in_tab(filename)
 end
 
 local function drop(filename)
-  if M.quit_on_open then
+  if config.g.actions.open_file.quit_on_open then
     view.close()
   end
-  if M.relative_path then
+  if config.g.actions.open_file.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
   end
   vim.cmd("drop " .. vim.fn.fnameescape(filename))
 end
 
 local function tab_drop(filename)
-  if M.quit_on_open then
+  if config.g.actions.open_file.quit_on_open then
     view.close()
   end
-  if M.relative_path then
+  if config.g.actions.open_file.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
   end
   vim.cmd("tab :drop " .. vim.fn.fnameescape(filename))
@@ -247,7 +259,7 @@ end
 
 local function get_target_winid(mode)
   local target_winid
-  if not M.window_picker.enable or string.find(mode, "no_picker") then
+  if not config.g.actions.open_file.window_picker.enable or string.find(mode, "no_picker") then
     target_winid = lib.target_winid
     local usable_wins = usable_win_ids()
     -- first available usable window
@@ -260,8 +272,8 @@ local function get_target_winid(mode)
     end
   else
     -- pick a window
-    if type(M.window_picker.picker) == "function" then
-      target_winid = M.window_picker.picker()
+    if type(config.g.actions.open_file.window_picker.picker) == "function" then
+      target_winid = config.g.actions.open_file.window_picker.picker()
     else
       target_winid = pick_win_id()
     end
@@ -286,6 +298,8 @@ local function set_current_win_no_autocmd(winid, autocmd)
   vim.opt.eventignore = eventignore
 end
 
+---@param filename string
+---@param mode NodeOpenFileMode
 local function open_in_new_window(filename, mode)
   if type(mode) ~= "string" then
     mode = ""
@@ -303,13 +317,13 @@ local function open_in_new_window(filename, mode)
 
   -- non-floating, non-nvim-tree windows
   local win_ids = vim.tbl_filter(function(id)
-    local config = vim.api.nvim_win_get_config(id)
+    local win_config = vim.api.nvim_win_get_config(id)
     local bufnr = vim.api.nvim_win_get_buf(id)
-    return config and config.relative == "" or utils.is_nvim_tree_buf(bufnr)
+    return win_config and win_config.relative == "" or utils.is_nvim_tree_buf(bufnr)
   end, vim.api.nvim_list_wins())
 
   local create_new_window = #win_ids == 1 -- This implies that the nvim-tree window is the only one
-  local new_window_side = (view.View.side == "right") and "aboveleft" or "belowright"
+  local new_window_side = (config.g.view.side == "right") and "aboveleft" or "belowright"
 
   -- Target is invalid: create new window
   if not vim.tbl_contains(win_ids, target_winid) then
@@ -341,7 +355,7 @@ local function open_in_new_window(filename, mode)
     end
   end
 
-  if (mode == "preview" or mode == "preview_no_picker") and view.View.float.enable then
+  if (mode == "preview" or mode == "preview_no_picker") and config.g.view.float.enable then
     -- ignore "WinLeave" autocmd on preview
     -- because the registered "WinLeave"
     -- will kill the floating window immediately
@@ -351,7 +365,7 @@ local function open_in_new_window(filename, mode)
   end
 
   local fname
-  if M.relative_path then
+  if config.g.actions.open_file.relative_path then
     fname = utils.escape_special_chars(vim.fn.fnameescape(utils.path_relative(filename, vim.fn.getcwd())))
   else
     fname = utils.escape_special_chars(vim.fn.fnameescape(filename))
@@ -382,13 +396,13 @@ end
 
 local function edit_in_current_buf(filename)
   require("nvim-tree.view").abandon_current_window()
-  if M.relative_path then
+  if config.g.actions.open_file.relative_path then
     filename = utils.path_relative(filename, vim.fn.getcwd())
   end
   vim.cmd("keepalt keepjumps edit " .. vim.fn.fnameescape(filename))
 end
 
----@param mode string
+---@param mode NodeOpenFileMode
 ---@param filename string
 ---@return nil
 function M.fn(mode, filename)
@@ -426,7 +440,7 @@ function M.fn(mode, filename)
     vim.bo.bufhidden = ""
   end
 
-  if M.resize_window then
+  if config.g.actions.open_file.resize_window then
     view.resize()
   end
 
@@ -434,19 +448,122 @@ function M.fn(mode, filename)
     return on_preview(buf_loaded)
   end
 
-  if M.quit_on_open then
+  if config.g.actions.open_file.quit_on_open then
     view.close()
   end
 end
 
-function M.setup(opts)
-  M.quit_on_open = opts.actions.open_file.quit_on_open
-  M.resize_window = opts.actions.open_file.resize_window
-  M.relative_path = opts.actions.open_file.relative_path
-  if opts.actions.open_file.window_picker.chars then
-    opts.actions.open_file.window_picker.chars = tostring(opts.actions.open_file.window_picker.chars):upper()
+---@param mode string
+---@param node Node
+---@param edit_opts NodeEditOpts?
+local function edit(mode, node, edit_opts)
+  local file_link = node:as(FileLinkNode)
+  local path = file_link and file_link.link_to or node.absolute_path
+  local cur_tabpage = vim.api.nvim_get_current_tabpage()
+
+  M.fn(mode, path)
+
+  edit_opts = edit_opts or {}
+
+  local mode_unsupported_quit_on_open = mode == "drop" or mode == "tab_drop" or mode == "edit_in_place"
+  if not mode_unsupported_quit_on_open and edit_opts.quit_on_open then
+    view.close(cur_tabpage)
   end
-  M.window_picker = opts.actions.open_file.window_picker
+
+  local mode_unsupported_focus = mode == "drop" or mode == "tab_drop" or mode == "edit_in_place"
+  local focus = edit_opts.focus == nil or edit_opts.focus == true
+  if not mode_unsupported_focus and not focus then
+    -- if mode == "tabnew" a new tab will be opened and we need to focus back to the previous tab
+    if mode == "tabnew" then
+      vim.cmd(":tabprev")
+    end
+    view.focus()
+  end
+end
+
+---@param node Node
+---@param mode NodeOpenFileMode
+---@param toggle_group boolean?
+---@param edit_opts NodeEditOpts?
+local function open_or_expand_or_dir_up(node, mode, toggle_group, edit_opts)
+  local root = node:as(RootNode)
+  local dir = node:as(DirectoryNode)
+
+  if root or node.name == ".." then
+    local explorer = require("nvim-tree.core").get_explorer()
+    if explorer then
+      explorer:change_dir("..")
+    end
+  elseif dir then
+    dir:expand_or_collapse(toggle_group)
+  elseif not toggle_group then
+    edit(mode, node, edit_opts)
+  end
+end
+
+---@param node Node
+function M.toggle_group_empty(node)
+  open_or_expand_or_dir_up(node, "toggle_group_empty", true)
+end
+
+---@param node Node
+function M.preview(node)
+  open_or_expand_or_dir_up(node, "preview")
+end
+
+---@param node Node
+function M.preview_no_picker(node)
+  open_or_expand_or_dir_up(node, "preview_no_picker")
+end
+
+---@param node Node
+function M.edit(node)
+  open_or_expand_or_dir_up(node, "edit")
+end
+
+---@param node Node
+function M.drop(node)
+  open_or_expand_or_dir_up(node, "drop")
+end
+
+---@param node Node
+function M.tab_drop(node)
+  open_or_expand_or_dir_up(node, "tab_drop")
+end
+
+---@param node Node
+function M.replace_tree_buffer(node)
+  open_or_expand_or_dir_up(node, "edit_in_place")
+end
+
+---@param node Node
+function M.no_window_picker(node)
+  open_or_expand_or_dir_up(node, "edit_no_picker")
+end
+
+---@param node Node
+function M.vertical(node)
+  open_or_expand_or_dir_up(node, "vsplit")
+end
+
+---@param node Node
+function M.vertical_no_picker(node)
+  open_or_expand_or_dir_up(node, "vsplit_no_picker")
+end
+
+---@param node Node
+function M.horizontal(node)
+  open_or_expand_or_dir_up(node, "split")
+end
+
+---@param node Node
+function M.horizontal_no_picker(node)
+  open_or_expand_or_dir_up(node, "split_no_picker")
+end
+
+---@param node Node
+function M.tab(node)
+  open_or_expand_or_dir_up(node, "tabnew")
 end
 
 return M

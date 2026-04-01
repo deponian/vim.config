@@ -1,5 +1,5 @@
 local M = {
-  { "default-title" }, -- base profile
+  { "default" }, -- base profile
   desc = "UI at the bottom of the screen",
   winopts = {
     row       = 1,
@@ -47,6 +47,8 @@ local M = {
     }
   },
 }
+
+M.builtin = { winopts = { width = 1, height = 1 } }
 
 local swiper = {
   previewer = "swiper",

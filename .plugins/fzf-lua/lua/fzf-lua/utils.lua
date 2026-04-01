@@ -6,6 +6,7 @@ function _G.dump(...)
   print(unpack(objects))
 end
 
+---@diagnostic disable-next-line: deprecated
 local uv = vim.uv or vim.loop
 local memoize = vim.func and vim.func._memoize
 
@@ -14,6 +15,8 @@ local M = {}
 M.__HAS_NVIM_010 = vim.fn.has("nvim-0.10") == 1
 M.__HAS_NVIM_0102 = vim.fn.has("nvim-0.10.2") == 1
 M.__HAS_NVIM_011 = vim.fn.has("nvim-0.11") == 1
+M.__HAS_NVIM_0116 = vim.fn.has("nvim-0.11.6") == 1
+M.__HAS_NVIM_012 = vim.fn.has("nvim-0.12") == 1
 M.__IS_WINDOWS = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 -- `:help shellslash` (for more info see #1055)
 M.__WIN_HAS_SHELLSLASH = M.__IS_WINDOWS and vim.fn.exists("+shellslash") == 1
@@ -68,7 +71,7 @@ if _VERSION and type(_VERSION) == "string" then
   if ver < 5.2 then
     M.nbsp = M.nbsp:gsub("\\x(%x%x)",
       function(x)
-        return string.char(tonumber(x, 16))
+        return string.char(assert(tonumber(x, 16)))
       end)
   end
 end
@@ -138,11 +141,12 @@ M._notify_header = "LineNr"
 
 --- Fancy notification wrapper, idea borrowed from blink.nvim
 --- @param lvl? number
---- @param ... string|number|[string, string?][]
+--- @param ... any
 function M.notify(lvl, ...)
   -- Message can be specified directly as table with highlights, i.e. { "foo", "Error" }
   -- or as a vararg of strings/numbers to be sent to string.format
-  local msg = type(select(1, ...)) == "table" and select(1, ...) or string.format(...)
+  local arg1 = (...)
+  local msg = type(arg1) == "table" and arg1 or string.format(...)
 
   local header_hl, chunks = (function()
     local hl = (function()
@@ -182,7 +186,12 @@ function M.notify(lvl, ...)
       verbose = false,
       err = M.__HAS_NVIM_011 and lvl == vim.log.levels.ERROR and true or nil,
     }
-    vim.api.nvim_echo(chunks, true, echo_opts)
+    if echo_opts.err and _G.fzf_jobstart and #vim.api.nvim_list_uis() == 0 then
+      local output = vim.tbl_map(function(chunk) return chunk[1] end, chunks)
+      error(table.concat(output, ""))
+    else
+      vim.api.nvim_echo(chunks, true, echo_opts)
+    end
   end
   if vim.in_fast_event() then
     vim.schedule(nvim_echo)
@@ -210,7 +219,6 @@ end
 ---@param str string
 ---@return string
 function M.rg_escape(str)
-  if not str then return str end
   -- [(~'"\/$?'`*&&||;[]<>)]
   -- escape "\~$?*|[()^-."
   local ret = str:gsub("[\\~$?*|{\\[()^%-%.%+]", function(x)
@@ -242,17 +250,15 @@ function M.sk_escape(str)
 end
 
 function M.lua_escape(str)
-  if not str then return str end
-  return str:gsub("[%%]", function(x)
-    return "%" .. x
-  end)
+  return (str:gsub("%%", "%%%%"))
 end
 
 ---@see vim.pesc
+---@param str string
+---@return string
 function M.lua_regex_escape(str)
   -- escape all lua special chars
   -- ( ) % . + - * [ ? ^ $
-  if not str then return nil end
   -- gsub returns a tuple, return the string only or unexpected happens (#1257)
   return (str:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1"))
 end
@@ -359,14 +365,18 @@ M.read_file_async = function(filepath, callback)
       end)
       return
     end
+    ---@cast fd -?
     uv.fs_fstat(fd, function(err_fstat, stat)
       assert(not err_fstat and stat, err_fstat)
-      if stat.type ~= "file" then return callback("") end
+      if stat.type ~= "file" then
+        callback("")
+        return
+      end
       uv.fs_read(fd, stat.size, 0, function(err_read, data)
         assert(not err_read, err_read)
         uv.fs_close(fd, function(err_close)
           assert(not err_close, err_close)
-          return callback(data)
+          callback(data)
         end)
       end)
     end)
@@ -376,9 +386,9 @@ end
 -- deepcopy can fail with: "Cannot deepcopy object of type userdata" (#353)
 -- this can happen when copying items/on_choice params of vim.ui.select
 -- run in a pcall and fallback to our poor man's clone
----@generic T: table
----@param t T?
----@return T?
+---@generic T
+---@param t T
+---@return T
 function M.deepcopy(t)
   local ok, res = pcall(vim.deepcopy, t)
   if ok then
@@ -388,19 +398,15 @@ function M.deepcopy(t)
   end
 end
 
----@generic T: table
----@param t T?
----@return T?
+---@generic T
+---@param t T
+---@return T
 function M.tbl_deep_clone(t)
-  if not t then return end
+  if type(t) ~= "table" then return t end
   local clone = {}
 
   for k, v in pairs(t) do
-    if type(v) == "table" then
-      clone[k] = M.tbl_deep_clone(v)
-    else
-      clone[k] = v
-    end
+    clone[k] = M.tbl_deep_clone(v)
   end
 
   return clone
@@ -410,12 +416,13 @@ end
 -- Recursively merge two or more tables by extending
 -- the first table and returning its original pointer
 ---@param behavior "keep"|"force"|"error"
+---@param tbl table<any,any>
 ---@param ... table<any,any>
 ---@return table
-function M.tbl_deep_extend(behavior, ...)
+function M.tbl_deep_extend(behavior, tbl, ...)
   local tbls = { ... }
-  local ret = tbls[1]
-  for i = 2, #tbls do
+  local ret = tbl
+  for i = 1, #tbls do
     local t = tbls[i]
     for k, v in pairs(t) do
       ret[k] = (function()
@@ -489,7 +496,7 @@ end
 
 ---@generic T
 ---@param list T[]
----@return { [T]: boolean }
+---@return table<T, boolean>
 function M.list_to_map(list)
   local map = {}
   for _, v in ipairs(list) do
@@ -533,6 +540,7 @@ function M.map_set(m, k, v)
     if i == #keys then
       map[key] = v
     else
+      if type(map[key]) == "function" then break end
       map[key] = type(map[key]) == "table" and map[key] or {}
       map = map[key]
     end
@@ -540,18 +548,14 @@ function M.map_set(m, k, v)
   return m
 end
 
----@param m table<string, unknown>?
----@param exclude_patterns string|string[]?
----@return table<string, unknown>?
+---@param m table?
+---@param exclude_patterns string[]?
+---@return table?
 function M.map_tolower(m, exclude_patterns)
+  if not m then return end
   -- We use "exclude_patterns" to filter "alt-{a|A}"
   -- as it's a valid and different fzf bind
-  exclude_patterns = type(exclude_patterns) == "table" and exclude_patterns
-      or type(exclude_patterns) == "string" and { exclude_patterns }
-      or {}
-  if not m then
-    return
-  end
+  exclude_patterns = exclude_patterns or {}
   local ret = {}
   for k, v in pairs(m) do
     local lower_k = (function()
@@ -575,9 +579,9 @@ end
 --     ["a.a1"] = ...,
 --     ["a.a2"] = ...,
 --   }
----@param m table<string, unknown>?
----@param prefix string?
----@return table<string, unknown>?
+---@param m table Table to flatten
+---@param prefix string? Optional prefix for keys
+---@return table Flattened table
 function M.map_flatten(m, prefix)
   if M.tbl_isempty(m) then return {} end
   local ret = {}
@@ -595,9 +599,25 @@ function M.map_flatten(m, prefix)
   return ret
 end
 
+--- @param x any
+--- @return integer?
+function M.tointeger(x)
+  local nx = tonumber(x)
+  if nx and nx == math.floor(nx) then
+    --- @cast nx integer
+    return nx
+  end
+end
+
+---@return string
+function M.cwd()
+  return (assert(uv.cwd()))
+end
+
 local function hex2rgb(hexcol)
   local r, g, b = hexcol:match("#(%x%x)(%x%x)(%x%x)")
   if not r or not g or not b then return end
+  ---@diagnostic disable: param-type-mismatch
   r, g, b = tonumber(r, 16), tonumber(g, 16), tonumber(b, 16)
   return r, g, b
 end
@@ -649,7 +669,7 @@ end
   end
 }) ]]
 
-M.ansi_codes = {} ---@type table<string, fun(string: string):string>
+M.ansi_codes = {} ---@type table<string, fun(string: any):string>
 M.ansi_escseq = {
   -- the "\x1b" esc sequence causes issues
   -- with older Lua versions
@@ -673,7 +693,7 @@ M.ansi_escseq = {
 ---@param name string
 ---@param escseq string
 M.cache_ansi_escseq = function(name, escseq)
-  ---@param string string
+  ---@param string any
   ---@return string
   M.ansi_codes[name] = function(string)
     if string == nil or #string == 0 then return "" end
@@ -861,11 +881,12 @@ function M.get_visual_selection()
   if cerow < csrow then csrow, cerow = cerow, csrow end
   if cecol < cscol then cscol, cecol = cecol, cscol end
   local lines = vim.fn.getline(csrow, cerow)
+  ---@cast lines -string
   -- local n = cerow-csrow+1
   local n = #lines
   if n <= 0 then return "" end
-  lines[n] = string.sub(lines[n], 1, cecol)
-  lines[1] = string.sub(lines[1], cscol)
+  lines[n] = string.sub(assert(lines[n]), 1, cecol)
+  lines[1] = string.sub(assert(lines[1]), cscol)
   return table.concat(lines, "\n"), {
     start   = { line = csrow, char = cscol },
     ["end"] = { line = cerow, char = cecol },
@@ -878,9 +899,10 @@ function M.fzf_exit()
   -- in "sync" mode we also need to make sure __CTX is cleared or we'll
   -- have the wrong cursor coordinates (#928)
   M.clear_CTX()
-  require("fzf-lua").win.win_leave()
+  require("fzf-lua").win.close()
 end
 
+---@return fzf-lua.Win?
 function M.fzf_winobj()
   return require("fzf-lua").win.__SELF()
 end
@@ -891,7 +913,7 @@ function M.CTX(opts)
   return require("fzf-lua.ctx").refresh(opts)
 end
 
----@return fzf-lua.Ctx|{}
+---@return fzf-lua.Ctx?
 function M.__CTX()
   return require("fzf-lua.ctx").get()
 end
@@ -926,7 +948,7 @@ end
 
 ---@param fname string
 ---@param name string|nil
----@param silent boolean|integer
+---@param silent? boolean|integer
 ---@return table?
 function M.load_profile_fname(fname, name, silent)
   local profile = name or vim.fn.fnamemodify(fname, ":t:r") or "<unknown>"
@@ -938,6 +960,7 @@ function M.load_profile_fname(fname, name, silent)
     end
     return res
   end
+  ---@cast res -table
   -- If called from `setup` we set `silent=1` so we can alert the user on
   -- errors loading the requested profiles
   if silent ~= true and not ok then
@@ -948,7 +971,7 @@ function M.load_profile_fname(fname, name, silent)
 end
 
 ---@param profiles table|string
----@param silent boolean|integer
+---@param silent? boolean|integer
 ---@return table
 function M.load_profiles(profiles, silent)
   local ret = {}
@@ -997,20 +1020,18 @@ function M.is_term_bufname(bufname)
   return false
 end
 
+---@param bufnr integer
+---@return boolean
 function M.is_term_buffer(bufnr)
-  bufnr = tonumber(bufnr) or 0
-  -- convert bufnr=0 to current buf so we can call 'bufwinid'
-  bufnr = bufnr == 0 and vim.api.nvim_get_current_buf() or bufnr
-  local winid = vim.fn.bufwinid(bufnr)
-  if tonumber(winid) > 0 and vim.api.nvim_win_is_valid(winid) then
-    return M.getwininfo(winid).terminal == 1
-  end
-  local bufname = vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_get_name(bufnr)
-  return M.is_term_bufname(bufname)
+  return vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buftype == "terminal"
 end
 
+---@param bufnr? integer
+---@param warn? boolean
+---@param only_if_last_buffer? boolean
+---@return boolean
 function M.buffer_is_dirty(bufnr, warn, only_if_last_buffer)
-  bufnr = tonumber(bufnr) or vim.api.nvim_get_current_buf()
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
   local info = bufnr and M.getbufinfo(bufnr)
   if info and info.changed ~= 0 then
     if only_if_last_buffer and 1 < #vim.fn.win_findbuf(bufnr) then
@@ -1025,15 +1046,17 @@ function M.buffer_is_dirty(bufnr, warn, only_if_last_buffer)
   return false
 end
 
+---@param bufnr integer
+---@return boolean
 function M.save_dialog(bufnr)
-  bufnr = tonumber(bufnr) or vim.api.nvim_get_current_buf()
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
   local info = bufnr and M.getbufinfo(bufnr)
   if not info.name or #info.name == 0 then
     -- unnamed buffers can't be saved
     M.warn(string.format("buffer %d has unsaved changes", bufnr))
     return false
   end
-  local res = vim.fn.confirm(string.format([[Save changes to "%s"?]], info.name),
+  local res = M.confirm(string.format([[Save changes to "%s"?]], info.name),
     "&Yes\n&No\n&Cancel")
   if res == 0 or res == 3 then
     -- user cancelled
@@ -1051,25 +1074,23 @@ end
 --   1 for qf list
 --   2 for loc list
 ---@param winid integer
----@param wininfo table?
 ---@return 1|2|false
-function M.win_is_qf(winid, wininfo)
-  wininfo = wininfo or (vim.api.nvim_win_is_valid(winid) and M.getwininfo(winid))
-  if wininfo and wininfo.quickfix == 1 then
-    return wininfo.loclist == 1 and 2 or 1
-  end
-  return false
+function M.win_is_qf(winid)
+  local winty = vim.api.nvim_win_is_valid(winid) and vim.fn.win_gettype(winid) or nil
+  return winty == "quickfix" and 1 or winty == "loclist" and 2 or false
 end
 
 ---@param bufnr integer
----@param bufinfo table?
+---@param bufinfo (vim.fn.getbufinfo.ret.item|vim.fn.getbufinfo.ret.item[]|false|table)?
 ---@return 1|2|false
 function M.buf_is_qf(bufnr, bufinfo)
   bufinfo = bufinfo or (vim.api.nvim_buf_is_valid(bufnr) and M.getbufinfo(bufnr))
   if bufinfo and bufinfo.variables and
       bufinfo.variables.current_syntax == "qf" and
       not M.tbl_isempty(bufinfo.windows) then
-    return M.win_is_qf(bufinfo.windows[1])
+    local window = bufinfo.windows --[[@cast -?]][1]
+    ---@cast window integer
+    return M.win_is_qf(window)
   end
   return false
 end
@@ -1113,29 +1134,24 @@ function M.nvim_buf_get_name(bufnr, bufinfo)
   end
   local bufname = vim.api.nvim_buf_get_name(bufnr)
   if #bufname == 0 then
-    local is_qf = M.buf_is_qf(bufnr, bufinfo)
-    if is_qf then
-      bufname = is_qf == 1 and "[Quickfix List]" or "[Location List]"
+    if vim.bo[bufnr].buftype == "nofile" then
+      bufname = "[Scratch]"
     else
-      bufname = "[No Name]"
+      local is_qf = M.buf_is_qf(bufnr, bufinfo)
+      if is_qf then
+        bufname = is_qf == 1 and "[Quickfix List]" or "[Location List]"
+      else
+        bufname = "[No Name]"
+      end
     end
   end
   assert(#bufname > 0)
   return bufname
 end
 
--- correctly handle virtual text, conceal lines
-function M.line_count(win, buf)
-  if vim.api.nvim_win_text_height then
-    return vim.api.nvim_win_text_height(win, {}).all
-  else
-    return vim.api.nvim_buf_line_count(buf)
-  end
-end
-
-function M.zz()
+local function _zz()
   -- skip for terminal buffers
-  if M.is_term_buffer() then return end
+  if M.is_term_buffer(0) then return end
   local lnum1 = vim.api.nvim_win_get_cursor(0)[1]
   local lcount = vim.api.nvim_buf_line_count(0)
   local zb = "keepj norm! %dzb"
@@ -1155,6 +1171,10 @@ function M.zz()
   end
 end
 
+function M.zz()
+  M.eventignore(_zz, "ModeChanged")
+end
+
 ---@param context vim.context.mods
 ---@param func function
 ---@return ... any
@@ -1171,9 +1191,10 @@ end
 function M.eventignore(func, scope)
   local save_ei = vim.o.eventignore
   vim.o.eventignore = scope or "all"
-  local ret = { func() }
+  local ret = { pcall(func) }
   vim.o.eventignore = save_ei
-  return unpack(ret)
+  if not ret[1] then error(ret[2]) end
+  return select(2, unpack(ret))
 end
 
 -- Set buffer for window without an autocmd
@@ -1187,8 +1208,8 @@ function M.nvim_open_win(bufnr, enter, config)
 end
 
 function M.nvim_open_win0(bufnr, enter, config)
-  local winid = M.CTX().winid
-  if not vim.api.nvim_win_is_valid(winid) then
+  local winid = (M.__CTX() or {}).winid
+  if not winid or not vim.api.nvim_win_is_valid(winid) then
     return vim.api.nvim_open_win(bufnr, enter, config)
   end
   return vim.api.nvim_win_call(winid, function()
@@ -1202,6 +1223,9 @@ function M.nvim_win_close(win, opts)
 end
 
 -- Close a buffer without triggering an autocmd
+---@param bufnr integer
+---@param opts vim.api.keyset.buf_delete
+---@return any
 function M.nvim_buf_delete(bufnr, opts)
   return M.eventignore(function()
     if not vim.api.nvim_buf_is_valid(bufnr) then return end
@@ -1211,7 +1235,7 @@ end
 
 ---@param winid integer
 ---@param opts vim.api.keyset.win_config Map defining the window configuration,
-function M.fast_win_set_config(winid, opts)
+function M.win_set_config(winid, opts)
   -- win_set_config can be slow even later with `opts={}`
   -- win->w_config is reused, but style="minimal" always reset win option (slow for bigfile)
   -- https://github.com/neovim/neovim/blob/08c484f2ca4b58e9eda07e194e9d096565db7144/src/nvim/api/win_config.c#L406
@@ -1219,7 +1243,7 @@ function M.fast_win_set_config(winid, opts)
   local old_opts = vim.api.nvim_win_get_config(winid)
   -- nvim_win_get_config don't return style="minimal"
   -- opts.style is mainly for nvim_open_win only (we don't use it here)
-  opts.style = nil
+  opts.style = not M.__HAS_NVIM_010 and "" or nil
   for k, v in pairs(opts) do
     if not vim.deep_equal(old_opts[k], v) then
       vim.api.nvim_win_set_config(winid, opts)
@@ -1240,21 +1264,13 @@ function M.upvfind(func, upval_name)
   return nil
 end
 
+---@param bufnr? integer
+---@return vim.fn.getbufinfo.ret.item
 function M.getbufinfo(bufnr)
   if M.__HAS_AUTOLOAD_FNS then
     return vim.fn["fzf_lua#getbufinfo"](bufnr)
   else
-    local info = vim.fn.getbufinfo(bufnr)
-    return info[1] or info
-  end
-end
-
-function M.getwininfo(winid)
-  if M.__HAS_AUTOLOAD_FNS then
-    return vim.fn["fzf_lua#getwininfo"](winid)
-  else
-    local info = vim.fn.getwininfo(winid)
-    return info[1] or info
+    return vim.fn.getbufinfo(bufnr)[1] or {}
   end
 end
 
@@ -1263,7 +1279,13 @@ end
 ---@return integer exit_code (0: success)
 function M.io_systemlist(cmd)
   if vim.system ~= nil then -- nvim 0.10+
-    local proc = vim.system(cmd):wait()
+    local ok, proc_or_err = pcall(vim.system, cmd)
+    if not ok then
+      -- Command doesn't exist or other error occurred
+      -- Return the error message in the output so callers can display it
+      return { tostring(proc_or_err) }, -1
+    end
+    local proc = proc_or_err:wait()
     local output = (type(proc.stderr) == "string" and proc.stderr or "")
         .. (type(proc.stdout) == "string" and proc.stdout or "")
     return vim.split(output, "\n", { trimempty = true }), proc.code
@@ -1277,10 +1299,15 @@ end
 ---@return integer exit_code (0: success)
 function M.io_system(cmd)
   if vim.system ~= nil then -- nvim 0.10+
-    local proc = vim.system(cmd):wait()
-    local output = (type(proc.stderr) == "string" and proc.stderr or "")
-        .. (type(proc.stdout) == "string" and proc.stdout or "")
-    return output, proc.code
+    local ok, proc_or_err = pcall(function() return vim.system(cmd):wait() end)
+    if not ok then
+      -- Command doesn't exist or other error occurred
+      -- Return the error message so callers can display it
+      return tostring(proc_or_err), -1
+    end
+    local output = (type(proc_or_err.stderr) == "string" and proc_or_err.stderr or "")
+        .. (type(proc_or_err.stdout) == "string" and proc_or_err.stdout or "")
+    return output, proc_or_err.code
   else
     return vim.fn.system(cmd), vim.v.shell_error
   end
@@ -1309,6 +1336,19 @@ function M.input(prompt, default)
     end
   end
   return ok and res or nil
+end
+
+-- wrapper around |confirm()| to allow cancellation with `<C-c>`
+---@param msg string
+---@param choice? string
+---@param default? integer
+---@param ty? string
+---@return integer
+function M.confirm(msg, choice, default, ty)
+  local ok, res = pcall(vim.fn.confirm, msg, choice, default, ty)
+  if ok and type(res) == "number" then return res end
+  if type(res) == "string" and res:match("Keyboard interrupt") then return 0 end -- <C-c>
+  error(res)
 end
 
 function M.fzf_bind_to_neovim(key)
@@ -1343,8 +1383,8 @@ function M.parse_verstr(str)
   if type(str) ~= "string" then return end
   local major, minor, patch = str:match("(%d+).(%d+)%.?(.*)")
   -- Fzf on HEAD edge case
-  major = tonumber(major) or str:match("HEAD") and 100 or nil
-  return major and { major, tonumber(minor) or 0, tonumber(patch) or 0 } or nil
+  local major0 = tonumber(major) or str:match("HEAD") and 100 or nil
+  return major0 and { major0, tonumber(minor) or 0, tonumber(patch) or 0 } or nil
 end
 
 function M.ver2str(v)
@@ -1407,25 +1447,17 @@ function M.git_version()
   return tonumber(out:match("(%d+.%d+)."))
 end
 
-function M.find_version()
-  local out, rc = M.io_systemlist({ "find", "--version" })
-  return rc == 0 and tonumber(out[1]:match("(%d+.%d+)")) or nil
-end
-
----@return string
-function M.windows_pipename()
-  local tmpname = vim.fn.tempname()
-  tmpname = string.gsub(tmpname, "\\", "")
-  return ([[\\.\pipe\%s]]):format(tmpname)
-end
-
 function M.create_user_command_callback(provider, arg, altmap)
+  ---@param o vim.api.keyset.create_user_command.command_args
+  ---@return table
   local function fzflua_opts(o)
     local ret = {}
     -- fzf.vim's bang version of the commands opens fullscreen
     if o.bang then ret.winopts = { fullscreen = true } end
     return ret
   end
+
+  ---@param o vim.api.keyset.create_user_command.command_args
   return function(o)
     local fzf_lua = require("fzf-lua")
     local prov = provider
@@ -1438,6 +1470,7 @@ function M.create_user_command_callback(provider, arg, altmap)
         -- "GFiles?", "History:" and "History/"
         if farg:sub(1, 1) == c then
           prov = p
+          ---@diagnostic disable-next-line: assign-type-mismatch
           -- we still allow using args with alt
           -- providers by removing the "?:/" prefix
           farg = #farg > 1 and vim.trim(farg:sub(2))
@@ -1464,6 +1497,22 @@ function M.setmetatable(t, mt)
     t[prox] = true
   end
   return setmetatable(t, mt)
+end
+
+---always ensure chan is closed on error
+---@param addr string
+---@param method string
+---@param ... any
+---@return boolean, string|any, ...any
+function M.rpcexec(addr, method, ...)
+  ---@type boolean, any
+  local ok, chan = pcall(vim.fn.sockconnect, "pipe", addr, { rpc = true })
+  if not ok or chan == 0 then return false, "Invalid channel" end
+  ---@cast chan integer
+  local ret = { pcall(vim.rpcrequest, chan, method, ...) }
+  vim.fn.chanclose(chan)
+  local tonil = function(v) if v == vim.NIL then return nil else return v end end
+  return unpack(vim.tbl_map(tonil, ret))
 end
 
 --- Checks if treesitter parser for language is installed
@@ -1518,6 +1567,27 @@ function M.termopen(cmd, opts)
   end
 end
 
+--- workaround to a potential 'tempname' bug? (#222)
+--- neovim doesn't guarantee the existence of the
+--- parent temp dir potentially failing `mkfifo`
+--- https://github.com/neovim/neovim/issues/1432
+--- https://github.com/neovim/neovim/pull/11284
+--- @return string
+function M.tempname()
+  local tmpname = vim.fn.tempname()
+  local parent = vim.fn.fnamemodify(tmpname, ":h")
+  -- parent must exist for `mkfifo` to succeed
+  -- if the neovim temp dir was deleted or the
+  -- tempname already exists, we use 'os.tmpname'
+  if not uv.fs_stat(parent) or uv.fs_stat(tmpname) then
+    tmpname = os.tmpname()
+    -- 'os.tmpname' touches the file which
+    -- will also fail `mkfifo`, delete it
+    vim.fn.delete(tmpname)
+  end
+  return tmpname
+end
+
 ---@param cmd string
 ---@param flag string
 ---@param enabled boolean?
@@ -1562,6 +1632,9 @@ function M.lsp_get_clients(opts)
   end, clients)
 end
 
+---@param key string
+---@param opts table
+---@return fzf-lua.PidObject
 function M.pid_object(key, opts)
   local Pid = {}
 
@@ -1581,28 +1654,28 @@ function M.pid_object(key, opts)
 end
 
 -- modified version of vim.wo
--- 1. always setlocal (to avoid potential pollute on win split)
--- 2. nop on non-exist option
--- 3. nop if unchange (set win option can be slow #2018)
-local function new_win_opt_accessor(winid)
+-- 1. no error on non-exist option
+-- 2. nop if unchange (set win option can be slow #2018)
+local function new_win_opt_accessor(winid, bufnr)
   return setmetatable({}, {
     __index = function(_, k)
-      if type(k) == "number" then return new_win_opt_accessor(k) end
+      if bufnr == nil and type(k) == "number" then
+        if winid == nil then return new_win_opt_accessor(k) end
+        return new_win_opt_accessor(winid, k)
+      end
       if vim.fn.exists("+" .. k) == 0 then return end
-      return vim.api.nvim_get_option_value(k, { scope = "local", win = winid or 0 })
+      return vim.api.nvim_get_option_value(k, { scope = bufnr and "local" or nil, win = winid or 0 })
     end,
     __newindex = function(_, k, v)
-      if vim.fn.exists("+" .. k) == 0
-          or vim.api.nvim_get_option_value(k, { scope = "local", win = winid or 0 }) == v then
-        return
-      end
-      vim.wo[winid or 0][k] = v
+      if vim.fn.exists("+" .. k) == 0 then return end
       -- TODO: causes issues with highlights
-      -- vim.api.nvim_set_option_value(k, v, { scope = "local", win = winid or 0 })
+      local scope = bufnr and "local" or nil
+      if vim.api.nvim_get_option_value(k, { scope = scope, win = winid or 0 }) == v then return end
+      vim.api.nvim_set_option_value(k, v, { scope = scope, win = winid or 0 })
     end,
   })
 end
----@type {}|vim.wo
+---@class fzf-lua.wo: vim.wo,{}
 M.wo = new_win_opt_accessor()
 
 

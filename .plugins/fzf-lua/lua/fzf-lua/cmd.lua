@@ -1,22 +1,14 @@
 local builtin = require "fzf-lua"
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
-local defaults = require "fzf-lua.defaults".defaults
+local defaults = require "fzf-lua.defaults".defaults ---@type table
 local serpent = require "fzf-lua.lib.serpent"
 
 local M = {}
 
-function M.run_command(cmd, ...)
+function M.parse_args_to_opts(...)
   local args = { ... }
-  cmd = cmd or "builtin"
-
-  if not builtin[cmd] then
-    utils.error("invalid command '%s'", cmd)
-    return
-  end
-
   local opts = {}
-
   for _, arg in ipairs(args) do
     local key = arg:match("^[^=]+")
     local val = arg:match("=") and arg:match("=(.*)$")
@@ -31,7 +23,18 @@ function M.run_command(cmd, ...)
       end
     end
   end
+  return opts
+end
 
+---@param cmd string
+---@param ...string
+function M.run_command(cmd, ...)
+  cmd = cmd or "builtin"
+  if not builtin[cmd] then
+    utils.error("invalid command '%s'", cmd)
+    return
+  end
+  local opts = M.parse_args_to_opts(...)
   builtin[cmd](opts)
 end
 
@@ -102,7 +105,7 @@ function M._candidates(line, cmp_items)
     local commands = utils.tbl_flatten({ builtin_list })
     table.sort(commands)
 
-    commands = vim.tbl_filter(function(val)
+    commands = vim.tbl_filter(function(val) ---@diagnostic disable-next-line: param-type-mismatch
       return vim.startswith(val, l[2])
     end, commands)
 
@@ -173,7 +176,7 @@ function M._candidates(line, cmp_items)
 
   table.sort(opts)
 
-  opts = vim.tbl_filter(function(val)
+  opts = vim.tbl_filter(function(val) ---@diagnostic disable-next-line: param-type-mismatch
     return vim.startswith(val, l[#l])
   end, opts)
 

@@ -18,7 +18,7 @@ function documentation.render_item_documentation(config, draw_opts, file, match)
   local bufnr = draw_opts.window:get_buf()
   ---@type string[]
   local text = {
-    file.relative_to_cwd,
+    file.path,
     string.rep(
       "─",
       -- TODO account for the width of the scrollbar if it's visible
@@ -31,7 +31,7 @@ function documentation.render_item_documentation(config, draw_opts, file, match)
   local context_preview = documentation.get_match_context(
     config.backend.context_size,
     match.line_number,
-    file.relative_to_cwd
+    file.path
   )
   for _, line in ipairs(context_preview) do
     table.insert(text, line.text)
@@ -40,28 +40,39 @@ function documentation.render_item_documentation(config, draw_opts, file, match)
   -- TODO add extmark highlighting for the divider line like in blink
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, text)
 
-  local filetype = vim.filetype.match({ filename = file.relative_to_cwd })
+  local filetype = vim.filetype.match({ filename = file.path })
   local parser_name = vim.treesitter.language.get_lang(filetype or "")
   local parser_installed = parser_name
     and pcall(function()
-      return vim.treesitter.get_parser(nil, file.language, {})
+      local parser, err = vim.treesitter.get_parser(nil, file.language, {})
+      assert(
+        parser,
+        "failed to get parser for " .. file.language .. ": " .. tostring(err)
+      )
+      return parser
     end)
 
-  if not parser_installed and config.fallback_to_regex_highlighting then
-    -- Can't show highlighted text because no treesitter parser
-    -- has been installed for this language.
-    --
-    -- Fall back to regex based highlighting that is bundled in
-    -- neovim. It might not be perfect but it's much better
-    -- than no colors at all
-    vim.schedule(function()
-      vim.api.nvim_set_option_value("filetype", file.language, { buf = bufnr })
-      vim.api.nvim_buf_call(bufnr, function()
-        vim.cmd("syntax on")
+  if not parser_installed then
+    if config.fallback_to_regex_highlighting then
+      -- Can't show highlighted text because no treesitter parser
+      -- has been installed for this language.
+      --
+      -- Fall back to regex based highlighting that is bundled in
+      -- neovim. It might not be perfect but it's much better
+      -- than no colors at all
+      vim.schedule(function()
+        vim.api.nvim_set_option_value(
+          "filetype",
+          file.language,
+          { buf = bufnr }
+        )
+        vim.api.nvim_buf_call(bufnr, function()
+          vim.cmd("syntax on")
+        end)
       end)
-    end)
+    end
   else
-    assert(parser_name, "missing parser") -- lua-language-server should narrow this but can't
+    assert(parser_name, "missing parser for " .. file.path) -- lua-language-server should narrow this but can't
     require("blink.cmp.lib.window.docs").highlight_with_treesitter(
       bufnr,
       parser_name,

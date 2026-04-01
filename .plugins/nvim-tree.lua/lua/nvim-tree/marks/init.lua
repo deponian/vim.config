@@ -10,8 +10,56 @@ local utils = require("nvim-tree.utils")
 
 local Class = require("nvim-tree.classic")
 local DirectoryNode = require("nvim-tree.node.directory")
+local Node = require("nvim-tree.node")
 
----@class (exact) Marks: Class
+local function get_save_path(opts)
+  if type(opts.bookmarks.persist) == "string" then
+    return opts.bookmarks.persist
+  else
+    return vim.fn.stdpath("data") .. "/nvim-tree-bookmarks.json"
+  end
+end
+
+local function save_bookmarks(marks, opts)
+  if not opts.bookmarks.persist then
+    return
+  end
+
+  local storepath = get_save_path(opts)
+  local file, errmsg = io.open(storepath, "w")
+  if file then
+    local data = {}
+    for path, _ in pairs(marks) do
+      table.insert(data, path)
+    end
+    file:write(vim.json.encode(data))
+    file:close()
+  else
+    notify.warn(string.format("Invalid bookmarks.persist, disabling persistence: %s", errmsg))
+    opts.bookmarks.persist = false
+  end
+end
+
+local function load_bookmarks(opts)
+  local storepath = get_save_path(opts)
+  local file = io.open(storepath, "r")
+  if file then
+    local content = file:read("*all")
+    file:close()
+    if content and content ~= "" then
+      local data = vim.json.decode(content)
+      local marks = {}
+      for _, path in ipairs(data) do
+        -- Store as boolean initially; will be lazily resolved to node on first access
+        marks[path] = true
+      end
+      return marks
+    end
+  end
+  return {}
+end
+
+---@class (exact) Marks: nvim_tree.Class
 ---@field private explorer Explorer
 ---@field private marks table<string, Node> by absolute path
 local Marks = Class:extend()
@@ -26,8 +74,15 @@ local Marks = Class:extend()
 ---@param args MarksArgs
 function Marks:new(args)
   self.explorer = args.explorer
-
   self.marks = {}
+  if self.explorer.opts.bookmarks.persist then
+    local ok, loaded_marks = pcall(load_bookmarks, self.explorer.opts)
+    if ok then
+      self.marks = loaded_marks
+    else
+      notify.warn(string.format("Failed to load bookmarks: %s", loaded_marks))
+    end
+  end
 end
 
 ---Clear all marks and reload if watchers disabled
@@ -46,9 +101,9 @@ function Marks:clear()
   self.explorer.renderer:draw()
 end
 
----@public
+---@private
 ---@param node Node
-function Marks:toggle(node)
+function Marks:toggle_one(node)
   if node.absolute_path == nil then
     return
   end
@@ -58,7 +113,25 @@ function Marks:toggle(node)
   else
     self.marks[node.absolute_path] = node
   end
+end
 
+---@public
+---@param node_or_nodes Node|Node[]
+function Marks:toggle(node_or_nodes)
+  if type(node_or_nodes) == "table" and node_or_nodes.is and node_or_nodes:is(Node) then
+    self:toggle_one(node_or_nodes)
+  else
+    for _, node in ipairs(node_or_nodes) do
+      self:toggle_one(node)
+    end
+  end
+
+  if self.explorer.opts.bookmarks.persist then
+    local ok, err = pcall(save_bookmarks, self.marks, self.explorer.opts)
+    if not ok then
+      notify.warn(string.format("Failed to save bookmarks: %s", err))
+    end
+  end
   self.explorer.renderer:draw()
 end
 
@@ -67,7 +140,21 @@ end
 ---@param node Node
 ---@return Node|nil
 function Marks:get(node)
-  return node and self.marks[node.absolute_path]
+  if not node or not node.absolute_path then
+    return nil
+  end
+  local mark = self.marks[node.absolute_path]
+  if mark == true then
+    -- Lazy resolve: try to find node in explorer tree
+    local resolved_node = self.explorer:get_node_from_path(node.absolute_path)
+    if resolved_node then
+      -- Cache the resolved node
+      self.marks[node.absolute_path] = resolved_node
+      return resolved_node
+    end
+    return nil
+  end
+  return mark
 end
 
 ---List marked nodes
@@ -75,8 +162,23 @@ end
 ---@return Node[]
 function Marks:list()
   local list = {}
-  for _, node in pairs(self.marks) do
-    table.insert(list, node)
+  for path, mark in pairs(self.marks) do
+    local node
+    if mark == true then
+      -- Lazy resolve: try to find node in explorer tree
+      node = self.explorer:get_node_from_path(path)
+      if node then
+        -- Cache the resolved node for future access
+        self.marks[path] = node
+      end
+      -- If node not found (file deleted/moved), skip it silently
+    else
+      -- Already a node object
+      node = mark
+    end
+    if node then
+      table.insert(list, node)
+    end
   end
   return list
 end
@@ -90,7 +192,7 @@ function Marks:bulk_delete()
   end
 
   local function execute()
-    for _, node in pairs(self.marks) do
+    for _, node in ipairs(utils.filter_descendant_nodes(self:list())) do
       remove_file.remove(node)
     end
     self:clear_reload()
@@ -119,7 +221,7 @@ function Marks:bulk_trash()
   end
 
   local function execute()
-    for _, node in pairs(self.marks) do
+    for _, node in ipairs(utils.filter_descendant_nodes(self:list())) do
       trash.remove(node)
     end
     self:clear_reload()
@@ -172,7 +274,7 @@ function Marks:bulk_move()
       return
     end
 
-    for _, node in pairs(self.marks) do
+    for _, node in ipairs(utils.filter_descendant_nodes(self:list())) do
       local head = vim.fn.fnamemodify(node.absolute_path, ":t")
       local to = utils.path_join({ location, head })
       rename_file.rename(node, to)
@@ -259,7 +361,17 @@ function Marks:navigate_select()
     if not choice or choice == "" then
       return
     end
-    local node = self.marks[choice]
+    local mark = self.marks[choice]
+    local node
+    if mark == true then
+      -- Lazy resolve
+      node = self.explorer:get_node_from_path(choice)
+      if node then
+        self.marks[choice] = node
+      end
+    else
+      node = mark
+    end
     if node and not node:is(DirectoryNode) and not utils.get_win_buf_from_path(node.absolute_path) then
       open_file.fn("edit", node.absolute_path)
     elseif node then

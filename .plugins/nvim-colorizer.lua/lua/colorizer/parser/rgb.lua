@@ -1,27 +1,36 @@
---[[-- This module provides a parser for identifying and converting `rgb()` and `rgba()` CSS functions to RGB hexadecimal format.
-It supports decimal and percentage values for RGB channels, as well as an optional alpha (transparency) component.
-The function can interpret a variety of CSS syntax variations, making it useful for syntax highlighting or color parsing.
-]]
--- @module colorizer.parser.rgb
+---@mod colorizer.parser.rgb RGB Parser
+---@brief [[
+---This module provides a parser for identifying and converting `rgb()` and `rgba()` CSS functions to RGB hexadecimal format.
+---It supports decimal and percentage values for RGB channels, as well as an optional alpha (transparency) component.
+---The function can interpret a variety of CSS syntax variations, making it useful for syntax highlighting or color parsing.
+---@brief ]]
 local M = {}
 
+local color = require("colorizer.color")
 local utils = require("colorizer.utils")
+
+local pattern_cache = {}
+local hex_pattern_cache = {}
 
 --- Parses `rgb()` and `rgba()` CSS functions and converts them to RGB hexadecimal format.
 -- This function matches `rgb()` or `rgba()` functions in a line of text, extracting RGB and optional alpha values.
 -- It supports decimal and percentage formats, alpha transparency, and comma or space-separated CSS syntax.
----@param line string: The line of text to parse for the color function
----@param i number: The starting index within the line where parsing should begin
----@param opts table: Parsing options, including:
+---@param line string The line of text to parse for the color function
+---@param i number The starting index within the line where parsing should begin
+---@param opts table Parsing options, including:
 --  - `prefix` (string): "rgb" or "rgba" to specify the CSS function type
----@return number|nil: The end index of the parsed `rgb/rgba` function within the line, or `nil` if parsing failed
----@return string|nil: The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
+---@return number|nil The end index of the parsed `rgb/rgba` function within the line, or `nil` if parsing failed
+---@return string|nil The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
 function M.parser(line, i, opts)
   local min_len = #"rgba(0,0,0)" - 1
   local min_commas, min_spaces, min_percent = 2, 2, 3
-  local pattern = "^"
-    .. opts.prefix
-    .. "%(%s*([.%d]+)([%%]?)(%s?)%s*(,?)%s*([.%d]+)([%%]?)(%s?)%s*(,?)%s*([.%d]+)([%%]?)%s*(/?,?)%s*([.%d]*)([%%]?)%s*%)()"
+  local pattern = pattern_cache[opts.prefix]
+  if not pattern then
+    pattern = "^"
+      .. opts.prefix
+      .. "%(%s*([.%d]+)([%%]?)(%s?)%s*(,?)%s*([.%d]+)([%%]?)(%s?)%s*(,?)%s*([.%d]+)([%%]?)%s*(/?,?)%s*([.%d]*)([%%]?)%s*%)()"
+    pattern_cache[opts.prefix] = pattern
+  end
 
   if opts.prefix == "rgb" then
     min_len = #"rgb(0,0,0)" - 1
@@ -34,6 +43,42 @@ function M.parser(line, i, opts)
   local r, unit1, ssep1, csep1, g, unit2, ssep2, csep2, b, unit3, sep3, a, unit_a, match_end =
     line:sub(i):match(pattern)
   if not match_end then
+    -- Fall through to Hyprlang format below
+  elseif csep1 ~= csep2 then
+    -- Reject mismatched separators caused by pattern backtracking
+    -- e.g. "rgb(255, 200,)" where Lua splits "200" into g=20,b=0
+    match_end = nil
+  end
+  if not match_end then
+    -- Reuse this function to avoid inefficiencies in trie parsing with identical prefixes (rgb/rgba)
+    -- Hyprlang format: rgb(RRGGBB) or rgba(RRGGBBAA)
+    local hex_pattern = hex_pattern_cache[opts.prefix]
+    if hex_pattern == nil then
+      if opts.prefix == "rgb" then
+        hex_pattern = "^rgb%(%s*(%x%x%x%x%x%x)%s*%)()"
+      elseif opts.prefix == "rgba" then
+        hex_pattern = "^rgba%(%s*(%x%x%x%x%x%x%x%x)%s*%)()"
+      else
+        hex_pattern = false
+      end
+      hex_pattern_cache[opts.prefix] = hex_pattern
+    end
+
+    if hex_pattern then ---@cast hex_pattern string
+      local hex_val, hex_end = line:sub(i):match(hex_pattern)
+      if hex_val then
+        if opts.prefix == "rgb" then
+          return hex_end - 1, hex_val:lower()
+        else
+          local r = tonumber(hex_val:sub(1, 2), 16)
+          local g = tonumber(hex_val:sub(3, 4), 16)
+          local b = tonumber(hex_val:sub(5, 6), 16)
+          local a = tonumber(hex_val:sub(7, 8), 16) / 255
+          return hex_end - 1, utils.rgb_to_hex(color.apply_alpha(r, g, b, a))
+        end
+      end
+    end
+
     return
   end
 
@@ -52,19 +97,7 @@ function M.parser(line, i, opts)
 
   local c_seps = ("%s%s%s"):format(csep1, csep2, sep3)
   local s_seps = ("%s%s"):format(ssep1, ssep2)
-  -- Comma separator syntax
-  if c_seps:match(",") then
-    if not (utils.count(c_seps, ",") == min_commas) then
-      return
-    end
-    -- Space separator syntax with decimal or percentage alpha
-  elseif utils.count(s_seps, "%s") >= min_spaces then
-    if a then
-      if not (c_seps == "/") then
-        return
-      end
-    end
-  else
+  if not utils.validate_css_seps(c_seps, s_seps, a ~= nil, min_commas, min_spaces) then
     return
   end
 
@@ -114,5 +147,18 @@ function M.parser(line, i, opts)
   local rgb_hex = utils.rgb_to_hex(r, g, b)
   return match_end - 1, rgb_hex
 end
+
+--- Parser spec for the registry
+M.spec = {
+  name = "rgb",
+  priority = 20,
+  dispatch = { kind = "prefix", prefixes = { "rgb", "rgba" } },
+  config_defaults = { enable = false },
+  parse = function(ctx)
+    return M.parser(ctx.line, ctx.col, { prefix = ctx.prefix })
+  end,
+}
+
+require("colorizer.parser.registry").register(M.spec)
 
 return M

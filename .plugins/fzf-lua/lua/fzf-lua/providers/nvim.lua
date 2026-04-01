@@ -1,3 +1,4 @@
+---@diagnostic disable-next-line: deprecated
 local uv = vim.uv or vim.loop
 local core = require "fzf-lua.core"
 local path = require "fzf-lua.path"
@@ -7,6 +8,8 @@ local devicons = require "fzf-lua.devicons"
 
 local M = {}
 
+---@param opts fzf-lua.config.Commands|{}?
+---@return thread?, string?, table?
 M.commands = function(opts)
   ---@type fzf-lua.config.Commands
   opts = config.normalize_opts(opts, "commands")
@@ -91,6 +94,7 @@ M.commands = function(opts)
   end
 
   for k, _ in pairs(builtin_commands) do
+    ---@diagnostic disable-next-line: undefined-field
     table.insert(entries, utils.ansi_codes[opts.hls.cmd_ex](k))
   end
 
@@ -105,14 +109,14 @@ M.commands = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
----@param opts table
+---@param opts fzf-lua.config.CommandHistory
 ---@param str ":"|"/"
 local history = function(opts, str)
   local histnr          = vim.fn.histnr(str)
   local dr              = opts.reverse_list and 1 or -1
   local bulk            = 500
   local from, to, delta = dr, dr * histnr, dr * bulk
-  local content         = coroutine.wrap(function(cb)
+  local content         = function(cb)
     local co = coroutine.running()
     for i = from, to, delta do
       vim.schedule(function()
@@ -132,10 +136,12 @@ local history = function(opts, str)
       coroutine.yield()
     end
     cb(nil)
-  end)
-  core.fzf_exec(content, opts)
+  end
+  core.fzf_exec(function(cb) coroutine.wrap(content)(cb) end, opts)
 end
 
+---@param opts fzf-lua.config.CommandHistory|{}?
+---@return thread?, string?, table?
 M.command_history = function(opts)
   ---@type fzf-lua.config.CommandHistory
   opts = config.normalize_opts(opts, "command_history")
@@ -143,6 +149,8 @@ M.command_history = function(opts)
   history(opts, ":")
 end
 
+---@param opts fzf-lua.config.SearchHistory|{}?
+---@return thread?, string?, table?
 M.search_history = function(opts)
   ---@type fzf-lua.config.SearchHistory
   opts = config.normalize_opts(opts, "search_history")
@@ -150,6 +158,8 @@ M.search_history = function(opts)
   history(opts, "/")
 end
 
+---@param opts fzf-lua.config.Changes|{}?
+---@return thread?, string?, table?
 M.changes = function(opts)
   ---@type fzf-lua.config.Changes
   opts = config.normalize_opts(opts, "changes")
@@ -157,6 +167,8 @@ M.changes = function(opts)
   return M.changes_or_jumps(opts)
 end
 
+---@param opts fzf-lua.config.Jumps|{}?
+---@return thread?, string?, table?
 M.jumps = function(opts)
   ---@type fzf-lua.config.Jumps
   opts = config.normalize_opts(opts, "jumps")
@@ -169,7 +181,8 @@ M.changes_or_jumps = function(opts)
 
   local entries = {}
   for i = #jumps - 1, 3, -1 do
-    local jump, line, col, text = jumps[i]:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
+    local entry = jumps[i] ---@cast entry -?
+    local jump, line, col, text = entry:match("(%d+)%s+(%d+)%s+(%d+)%s+(.*)")
     table.insert(entries, string.format(" %16s %15s %15s %s",
       utils.ansi_codes.yellow(jump),
       utils.ansi_codes.blue(line),
@@ -190,11 +203,25 @@ M.changes_or_jumps = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+
+---@class fzf-lua.TagStackItem
+---@field bufnr integer
+---@field from [integer, integer, integer] # {line, col, ...}
+---@field matchnr integer
+---@field tagname string
+---@field filename? string
+---@field lnum? integer
+---@field col? integer
+---@field text? string
+
+---@param opts fzf-lua.config.Tagstack|{}?
+---@return thread?, string?, table?
 M.tagstack = function(opts)
   ---@type fzf-lua.config.Tagstack
   opts = config.normalize_opts(opts, "tagstack")
   if not opts then return end
 
+  ---@type fzf-lua.TagStackItem[]
   local tagstack = vim.fn.gettagstack().items
 
   local tags = {}
@@ -218,7 +245,7 @@ M.tagstack = function(opts)
 
   local entries = {}
   for i, tag in ipairs(tags) do
-    local bufname = path.HOME_to_tilde(path.relative_to(tag.filename, uv.cwd()))
+    local bufname = path.HOME_to_tilde(path.relative_to(tag.filename, utils.cwd()))
     local buficon, hl
     if opts.file_icons then
       buficon, hl = devicons.get_devicon(bufname)
@@ -245,6 +272,8 @@ M.tagstack = function(opts)
 end
 
 
+---@param opts fzf-lua.config.Marks|{}?
+---@return thread?, string?, table?
 M.marks = function(opts)
   ---@type fzf-lua.config.Marks
   opts = config.normalize_opts(opts, "marks")
@@ -272,7 +301,7 @@ M.marks = function(opts)
     -- global marks
     for _, m in ipairs(vim.fn.getmarklist()) do
       local mark, bufnr, lnum, col, file = m.mark:sub(2, 2), m.pos[1], m.pos[2], m.pos[3], m.file
-      file = path.relative_to(file, uv.cwd())
+      file = path.relative_to(file, utils.cwd())
       if path.is_absolute(file) then
         file = path.HOME_to_tilde(file)
       end
@@ -312,6 +341,8 @@ M.marks = function(opts)
   return core.fzf_exec(contents, opts)
 end
 
+---@param opts fzf-lua.config.Registers|{}?
+---@return thread?, string?, table?
 M.registers = function(opts)
   ---@type fzf-lua.config.Registers
   opts = config.normalize_opts(opts, "registers")
@@ -358,8 +389,23 @@ M.registers = function(opts)
     local _, contents = pcall(vim.fn.getreg, r)
     contents = register_escape_special(contents, opts.multiline and 2 or 1)
     if (contents and #contents > 0) or not opts.ignore_empty then
-      table.insert(entries, string.format("[%s] %s",
-        utils.ansi_codes.yellow(r), contents))
+      local regtype = vim.fn.getregtype(r)
+      local function convert_regtype(t)
+        local first = string.sub(t, 1, 1)
+        if first == "v" then
+          return "c"
+        elseif first == "V" then
+          return "l"
+        elseif first == "\22" then
+          return "b" .. string.sub(t, 2)
+        else
+          return t
+        end
+      end
+
+      local reg_fmt = require("fzf-lua.utils").ansi_codes.yellow(r)
+      local regtype_fmt = require("fzf-lua.utils").ansi_codes.blue(convert_regtype(regtype))
+      entries[#entries + 1] = string.format("[%s] [%s] %s", reg_fmt, regtype_fmt, contents)
     end
   end
 
@@ -372,6 +418,8 @@ M.registers = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.Keymaps|{}?
+---@return thread?, string?, table?
 M.keymaps = function(opts)
   ---@type fzf-lua.config.Keymaps
   opts = config.normalize_opts(opts, "keymaps")
@@ -461,6 +509,8 @@ M.keymaps = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.NvimOptions|{}?
+---@return thread?, string?, table?
 M.nvim_options = function(opts)
   ---@type fzf-lua.config.NvimOptions
   opts = config.normalize_opts(opts, "nvim_options")
@@ -538,6 +588,8 @@ M.nvim_options = function(opts)
   return core.fzf_exec(contents, opts)
 end
 
+---@param opts fzf-lua.config.SpellSuggest|{}?
+---@return thread?, string?, table?
 M.spell_suggest = function(opts)
   ---@type fzf-lua.config.SpellSuggest
   opts = config.normalize_opts(opts, "spell_suggest")
@@ -546,7 +598,7 @@ M.spell_suggest = function(opts)
   local match = opts.word_pattern or "[^%s\"'%(%)%.%%%+%-%*%?%[%]%^%$:#,]*"
   local line = vim.api.nvim_get_current_line()
   local col = vim.api.nvim_win_get_cursor(0)[2] + 1
-  local before = col > 1 and line:sub(1, col - 1):reverse():match(match):reverse() or ""
+  local before = col > 1 and assert(line:sub(1, col - 1):reverse():match(match)):reverse() or ""
   local after = line:sub(col):match(match) or ""
   -- special case when the cursor is on the left surrounding char
   if #before == 0 and #after == 0 and #line > col then
@@ -572,6 +624,8 @@ M.spell_suggest = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.Filetypes|{}?
+---@return thread?, string?, table?
 M.filetypes = function(opts)
   ---@type fzf-lua.config.Filetypes
   opts = config.normalize_opts(opts, "filetypes")
@@ -592,6 +646,8 @@ M.filetypes = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.Packadd|{}?
+---@return thread?, string?, table?
 M.packadd = function(opts)
   ---@type fzf-lua.config.Packadd
   opts = config.normalize_opts(opts, "packadd")
@@ -603,6 +659,8 @@ M.packadd = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.Menus|{}?
+---@return thread?, string?, table?
 M.menus = function(opts)
   ---@type fzf-lua.config.Menus
   opts = config.normalize_opts(opts, "menus")
@@ -636,6 +694,8 @@ M.menus = function(opts)
   return core.fzf_exec(entries, opts)
 end
 
+---@param opts fzf-lua.config.Autocmds|{}?
+---@return thread?, string?, table?
 M.autocmds = function(opts)
   ---@type fzf-lua.config.Autocmds
   opts = config.normalize_opts(opts, "autocmds")
@@ -716,6 +776,43 @@ M.autocmds = function(opts)
 
   opts.fzf_opts["--header-lines"] = "1"
   return core.fzf_exec(contents, opts)
+end
+
+---@param opts fzf-lua.config.Serverlist|{}?
+---@return thread?, string?, table?
+M.serverlist = function(opts)
+  local function serverlist(listed)
+    local root = vim.fs.normalize(vim.fn.stdpath("run") .. "/..")
+    local socket_paths = vim.fs.find(function(name, _)
+      return name:match("nvim.*")
+    end, { path = root, type = "socket", limit = math.huge })
+    local found = utils.list_to_map(listed or vim.fn.serverlist())
+    local filter = function(socket)
+      if found[socket] or socket:match("fzf%-lua") then return false end
+      found[socket] = true
+      local ok, info = utils.rpcexec(socket, "nvim_get_chan_info", 0)
+      return ok and info.id
+    end
+    return vim.iter(socket_paths):filter(filter)
+  end
+
+  opts = require("fzf-lua.config").normalize_opts(opts or {}, "serverlist")
+
+  local f = function(cb)
+    serverlist():each(function(p) ---@type boolean, string?
+      local ok, cwd = utils.rpcexec(p, "nvim_exec_lua", "return vim.uv.cwd()", {})
+      if not ok or not cwd then return end
+      cwd = FzfLua.path.normalize(cwd)
+      cb(("%s (%s)"):format(cwd, p))
+    end)
+    cb(nil)
+  end
+  if utils.has(opts, "sk", "3.0.0") then
+    opts = vim.tbl_deep_extend("force", opts, { winopts = { preview = { pty = true } } })
+  end
+  core.fzf_exec(function(cb)
+    vim.defer_fn(function() f(cb) end, 50) -- wait for spawn/remote_exec?
+  end, opts)
 end
 
 return M

@@ -11,12 +11,12 @@
 --- @class (exact) blink.cmp.FuzzyFrecencyConfig
 --- @field enabled boolean Whether to enable the frecency feature
 --- @field path string Location of the frecency database
---- @field unsafe_no_lock boolean UNSAFE!! When enabled, disables the lock and fsync when writing to the frecency database. This should only be used on unsupported platforms (i.e. alpine termux).
+--- @field unsafe_no_lock boolean UNSAFE!! When enabled, disables the lock and fsync when writing to the frecency database. This should only be used on unsupported platforms (e.g. alpine, termux).
 
 --- @class (exact) blink.cmp.PrebuiltBinariesConfig
 --- @field download boolean Whenther or not to automatically download a prebuilt binary from github. If this is set to `false`, you will need to manually build the fuzzy binary dependencies by running `cargo build --release`. Disabled by default when `fuzzy.implementation = 'lua'`
 --- @field ignore_version_mismatch boolean Ignores mismatched version between the built binary and the current git sha, when building locally
---- @field force_version? string When downloading a prebuilt binary, force the downloader to resolve this version. If this is unset then the downloader will attempt to infer the version from the checked out git tag (if any). WARN: Beware that `main` may be incompatible with the version you select
+--- @field force_version? string When downloading a prebuilt binary, force the downloader to resolve this version. If this is unset then the downloader will attempt to infer the version from the checked out git tag (if any). You may set this to any pattern that `git describe --tags --match <pattern>` supports. For example, to track the latest release, you may set this to `v*`. WARN: Beware that `main` may be incompatible with the version you select
 --- @field force_system_triple? string When downloading a prebuilt binary, force the downloader to use this system triple. If this is unset then the downloader will attempt to infer the system triple from `jit.os` and `jit.arch`. Check the latest release for all available system triples. WARN: Beware that `main` may be incompatible with the version you select
 --- @field extra_curl_args string[] Extra arguments that will be passed to curl like { 'curl', ..extra_curl_args, ..built_in_args }
 --- @field proxy blink.cmp.PrebuiltBinariesProxyConfig
@@ -88,6 +88,8 @@ function fuzzy.validate(config)
     sorts = {
       config.sorts,
       function(sorts)
+        if type(sorts) == 'function' then return true end
+        if type(sorts) ~= 'table' then return false end
         for _, sort in ipairs(sorts) do
           if
             not vim.tbl_contains({ 'label', 'sort_text', 'kind', 'score', 'exact' }, sort)

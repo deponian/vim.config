@@ -20,6 +20,7 @@ end
 --- @field config table<Gitsigns.SignType,Gitsigns.SignConfig>
 --- @field staged boolean
 --- @field ns integer
+--- @field signs table<integer,table<integer,[string,string?]?>?>
 --- @field private _hl_cache table<Gitsigns.SignType,table<string,string>>
 local M = {}
 
@@ -65,9 +66,17 @@ end
 --- @param start_lnum? integer
 --- @param end_lnum? integer
 function M:remove(bufnr, start_lnum, end_lnum)
+  local buf_signs = self.signs[bufnr]
   if start_lnum then
     api.nvim_buf_clear_namespace(bufnr, self.ns, start_lnum - 1, end_lnum or start_lnum)
+    if not buf_signs then
+      return
+    end
+    for i = start_lnum, end_lnum or start_lnum do
+      buf_signs[i] = nil
+    end
   else
+    self.signs[bufnr] = nil
     api.nvim_buf_clear_namespace(bufnr, self.ns, 0, -1)
   end
 end
@@ -76,10 +85,18 @@ end
 ---@param signs Gitsigns.Sign[]
 --- @param filter? fun(line: integer):boolean
 function M:add(bufnr, signs, filter)
-  if not config.signcolumn and not config.numhl and not config.linehl then
+  if
+    not config.signcolumn
+    and not config.numhl
+    and not config.linehl
+    and not config._statuscolumn
+  then
     -- Don't place signs if it won't show anything
     return
   end
+
+  local buf_signs = self.signs[bufnr] or {}
+  self.signs[bufnr] = buf_signs
 
   for _, sign in ipairs(signs) do
     if (not filter or filter(sign.lnum)) and not self:contains(bufnr, sign.lnum) then
@@ -92,7 +109,8 @@ function M:add(bufnr, signs, filter)
         text = text .. count_char
       end
 
-      local ok, err = pcall(api.nvim_buf_set_extmark, bufnr, self.ns, lnum - 1, 0, {
+      local sign_hl_group = self:hl(ty, 'hl')
+      local ok, id_or_err = pcall(api.nvim_buf_set_extmark, bufnr, self.ns, lnum - 1, 0, {
         id = lnum,
         sign_text = config.signcolumn and text or '',
         priority = config.sign_priority,
@@ -102,11 +120,14 @@ function M:add(bufnr, signs, filter)
         cursorline_hl_group = self:hl(ty, 'culhl'),
       })
 
-      if not ok and config.debug_mode then
+      if ok then
+        --- @cast id_or_err integer
+        buf_signs[id_or_err] = { text, sign_hl_group }
+      elseif config.debug_mode then
         vim.schedule(function()
           error(table.concat({
-            string.format('Error placing extmark on line %d', sign.lnum),
-            err,
+            string.format('Error placing extmark on line %d', lnum),
+            id_or_err,
           }, '\n'))
         end)
       end
@@ -138,7 +159,6 @@ end
 --- @param staged? boolean
 --- @return Gitsigns.Signs
 function M.new(staged)
-  local __FUNC__ = 'signs.init'
   local self = setmetatable({}, { __index = M })
   self.config = staged and config.signs_staged or config.signs
   Config.subscribe(staged and 'signs_staged' or 'signs', function()
@@ -147,6 +167,7 @@ function M.new(staged)
   self.staged = staged == true
   self.group = 'gitsigns_signs_' .. (staged and 'staged' or '')
   self.ns = api.nvim_create_namespace(self.group)
+  self.signs = {}
   return self
 end
 

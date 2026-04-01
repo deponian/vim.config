@@ -6,7 +6,7 @@ local function hl_validate(hl)
 end
 
 return {
-  { "default-title" }, -- base profile
+  { "default" }, -- base profile
   desc       = "match telescope default highlights|keybinds",
   fzf_opts   = {
     ["--layout"] = "default",
@@ -82,7 +82,7 @@ return {
   },
   buffers    = {
     keymap = { builtin = { ["<C-d>"] = false } },
-    actions = { ["ctrl-x"] = false, ["ctrl-d"] = { actions.buf_del, actions.resume } },
+    actions = { ["ctrl-x"] = false, ["ctrl-d"] = { fn = actions.buf_del, reload = true } },
   },
   defaults   = { git_icons = false },
 }

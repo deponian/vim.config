@@ -52,27 +52,6 @@ function utils.schedule_if_needed(fn)
   end
 end
 
---- Flattens an arbitrarily deep table into a  single level table
---- @param t table
---- @return table
-function utils.flatten(t)
-  if t[1] == nil then return t end
-
-  local flattened = {}
-  for _, v in ipairs(t) do
-    if type(v) == 'table' and vim.tbl_isempty(v) then goto continue end
-
-    if v[1] == nil then
-      table.insert(flattened, v)
-    else
-      vim.list_extend(flattened, utils.flatten(v))
-    end
-
-    ::continue::
-  end
-  return flattened
-end
-
 --- Returns the index of the first occurrence of the value in the array
 --- @generic T
 --- @param arr T[]
@@ -165,6 +144,52 @@ function utils.with_no_autocmds(cb)
 
   if not success then error(result_or_err) end
   return result_or_err
+end
+
+--- Disables auto text wrapping by removing formatoptions 't' and 'c'.
+--- Records which options were active in buffer variables so they can be
+--- restored later by restore_auto_wrap(). Should be paired with restore_auto_wrap().
+function utils.disable_auto_wrap()
+  local formatoptions = vim.opt.formatoptions:get()
+  if formatoptions.t then
+    vim.b.blink_cmp_restore_formatoptions_t = true
+    vim.opt.formatoptions:remove('t')
+  end
+  if formatoptions.c then
+    vim.b.blink_cmp_restore_formatoptions_c = true
+    vim.opt.formatoptions:remove('c')
+  end
+  if formatoptions.a then
+    vim.b.blink_cmp_restore_formatoptions_a = true
+    vim.opt.formatoptions:remove('a')
+  end
+end
+
+--- Restores auto text wrapping (formatoptions 't' and 'c') previously disabled
+--- by disable_auto_wrap(). Uses pcall to ensure formatoptions are restored even
+--- if an error occurs. If text exceeded textwidth while wrapping was disabled,
+--- schedules a reformat of the current line.
+function utils.restore_auto_wrap()
+  local restore_t = vim.b.blink_cmp_restore_formatoptions_t
+  local restore_c = vim.b.blink_cmp_restore_formatoptions_c
+  local restore_a = vim.b.blink_cmp_restore_formatoptions_a
+
+  local success, err = pcall(function()
+    if restore_t then
+      vim.opt.formatoptions:append('t')
+      vim.b.blink_cmp_restore_formatoptions_t = nil
+    end
+    if restore_c then
+      vim.opt.formatoptions:append('c')
+      vim.b.blink_cmp_restore_formatoptions_c = nil
+    end
+    if restore_a then
+      vim.opt.formatoptions:append('a')
+      vim.b.blink_cmp_restore_formatoptions_a = nil
+    end
+  end)
+
+  if not success then error(err) end
 end
 
 --- Disable redraw in neovide for the duration of the callback

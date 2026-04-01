@@ -3,7 +3,7 @@
 ---
 --- @field name string
 --- @field module string
---- @field enabled fun(): boolean
+--- @field enabled boolean | fun(): boolean
 --- @field async fun(ctx: blink.cmp.Context): boolean
 --- @field timeout_ms fun(ctx: blink.cmp.Context): number
 --- @field transform_items fun(ctx: blink.cmp.Context, items: blink.cmp.CompletionItem[]): blink.cmp.CompletionItem[]
@@ -14,7 +14,6 @@
 --- @field score_offset fun(ctx: blink.cmp.Context): number
 
 --- @class blink.cmp.SourceProviderConfigWrapper
---- @diagnostic disable-next-line: missing-fields
 local wrapper = {}
 
 function wrapper.new(config)
@@ -29,9 +28,11 @@ function wrapper.new(config)
   end
 
   local self = setmetatable({}, { __index = config })
+  ---@cast self blink.cmp.SourceProviderConfigWrapper
+
   self.name = config.name
   self.module = config.module
-  self.enabled = call_or_get(config.enabled, true)
+  self.enabled = config.enabled
   self.async = call_or_get(config.async, false)
   self.timeout_ms = call_or_get(config.timeout_ms, 2000)
   self.transform_items = config.transform_items or function(_, items) return items end
@@ -40,6 +41,7 @@ function wrapper.new(config)
   self.min_keyword_length = call_or_get(config.min_keyword_length, 0)
   self.fallbacks = call_or_get(config.fallbacks, {})
   self.score_offset = call_or_get(config.score_offset, 0)
+
   return self
 end
 

@@ -17,7 +17,12 @@ function completion.setup()
   local list = require('blink.cmp.completion.list')
 
   -- trigger -> sources: request completion items from the sources on show
-  trigger.show_emitter:on(function(event) sources.request_completions(event.context) end)
+  trigger.show_emitter:on(function(event)
+    -- user made an input, preview is now locked, so clear undo
+    list.preview_undo = nil
+
+    sources.request_completions(event.context)
+  end)
   trigger.hide_emitter:on(function()
     sources.cancel_completions()
     list.hide()
@@ -82,10 +87,15 @@ function completion.setup()
 
   -- setup ghost text
   if config.completion.ghost_text.enabled then
-    list.select_emitter:on(
-      function(event) require('blink.cmp.completion.windows.ghost_text').show_preview(event.items, event.idx) end
-    )
-    list.hide_emitter:on(function() require('blink.cmp.completion.windows.ghost_text').clear_preview() end)
+    local ghost_text = function() return require('blink.cmp.completion.windows.ghost_text') end
+
+    local menu = require('blink.cmp.completion.windows.menu')
+    menu.open_emitter:on(function() ghost_text().show_preview(menu.context, menu.items, menu.selected_item_idx) end)
+
+    list.show_emitter:on(function(event) ghost_text().show_preview(event.context, event.items, 1) end)
+    list.select_emitter:on(function(event) ghost_text().show_preview(event.context, event.items, event.idx) end)
+
+    list.hide_emitter:on(function() ghost_text().clear_preview() end)
   end
 
   -- run 'resolve' on the item ahead of time to avoid delays

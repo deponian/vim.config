@@ -1,8 +1,11 @@
 {
-  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn"],
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "import"],
   "categories": {
-    "correctness": "off"
+    "correctness": "error",
+    "perf": "warn",
+    "suspicious": "warn",
+    "restriction": "warn"
   },
   "env": {
     "builtin": true,
@@ -97,6 +100,7 @@
     "@typescript-eslint/no-array-delete": "error",
     "@typescript-eslint/no-base-to-string": "error",
     "@typescript-eslint/no-confusing-void-expression": "error",
+    "@typescript-eslint/no-deprecated": "error",
     "@typescript-eslint/no-duplicate-type-constituents": "error",
     "@typescript-eslint/no-dynamic-delete": "error",
     "@typescript-eslint/no-extraneous-class": "error",
@@ -151,6 +155,7 @@
     "@typescript-eslint/consistent-type-imports": "error",
     "@typescript-eslint/no-import-type-side-effects": "error",
     "@typescript-eslint/explicit-module-boundary-types": ["warn"],
+    "import/no-relative-parent-imports": "off",
     "no-empty-function": [
       "error",
       {
@@ -215,6 +220,11 @@
       "rules": {
         "no-unused-expressions": "off"
       }
+    },
+    {
+      "files": ["cypress/e2e/blink-ripgrep/*.cy.ts"],
+      // cypress knows how to import its own files
+      "rules": { "import/unambiguous": "allow" }
     }
   ]
 }

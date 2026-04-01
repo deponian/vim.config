@@ -1,10 +1,11 @@
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
 local utils = require('blink-cmp-dictionary.utils')
+
 local word_pattern
 do
     -- Only support utf-8
-    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("_") + vim.lpeg.P("-")
+    local word_character = vim.lpeg.R("az", "AZ", "09", "\128\255") + vim.lpeg.P("-")
 
     local non_word_character = vim.lpeg.P(1) - word_character
 
@@ -28,8 +29,17 @@ local function match_prefix(prefix)
 end
 
 local function default_get_command()
-    return utils.command_found('fzf') and 'fzf' or
-        utils.command_found('rg') and 'rg' or ''
+    -- Check for available search tools
+    if utils.command_found('fzf') then
+        return 'fzf'
+    elseif utils.command_found('rg') then
+        return 'rg'
+    elseif utils.command_found('grep') then
+        return 'grep'
+    end
+    
+    -- Fallback to empty string (will use pure Lua implementation)
+    return ''
 end
 
 local function default_get_command_args(prefix, command)
@@ -39,39 +49,47 @@ local function default_get_command_args(prefix, command)
             '--sync',
             '-i',
         }
-    else
+    elseif command == 'rg' then
         return {
             '--color=never',
             '--no-line-number',
             '--no-messages',
             '--no-filename',
             '--ignore-case',
-            '--max-count=100',
+            '-F', --Fixed strings
             '--',
             prefix,
         }
+    elseif command == 'grep' then
+        return {
+            '--color=never',
+            '--ignore-case',
+            '-F', --Fixed strings
+            '--',
+            prefix,
+        }
+    else
+        return {}
     end
 end
 
 local function default_on_error(return_value, standard_error)
     if utils.truthy(standard_error) then
         vim.schedule(function()
-            log.error('get_completions failed',
+            log.warn('Dictionary file operation failed',
                 '\n',
                 'with error code:', return_value,
                 '\n',
                 'stderr:', standard_error)
         end)
-        return true
     end
-    return false
+    return false  -- Always return false to continue
 end
 
 local function default_separate_output(output)
     local items = {}
     for line in output:gmatch("[^\r\n]+") do
         table.insert(items, line)
-        if #items == 100 then break end
     end
     return items
 end
@@ -119,13 +137,14 @@ end
 
 --- @type blink-cmp-dictionary.Options
 return {
-    async = true,
     -- Return the word before the cursor
     get_prefix = default_get_prefix,
     -- Where is your dictionary files
     dictionary_files = nil,
     -- Where is your dictionary directories, all the .txt files in the directory will be loaded
     dictionary_directories = nil,
+    -- Force using fallback mode instead of external commands (default: vim.fn.executable('fzf') == 0)
+    force_fallback = vim.fn.executable('fzf') == 0,
     -- Whether or not to capitalize the first letter of the word
     capitalize_first = default_capitalize_first,
     -- Whether or not to capitalize the whole word

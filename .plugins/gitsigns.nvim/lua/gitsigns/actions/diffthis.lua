@@ -7,7 +7,7 @@ local Status = require('gitsigns.status')
 
 local cache = require('gitsigns.cache').cache
 local log = require('gitsigns.debug.log')
-local throttle_by_id = require('gitsigns.debounce').throttle_by_id
+local throttle_async = require('gitsigns.debounce').throttle_async
 
 local api = vim.api
 
@@ -213,8 +213,6 @@ end
 --- @param relpath string?
 --- @return boolean did_attach
 function M.show(bufnr, base, relpath)
-  __FUNC__ = 'show'
-
   bufnr = bufnr or api.nvim_get_current_buf()
 
   if not cache[bufnr] then
@@ -271,14 +269,11 @@ local function is_fugitive_diff_window(name)
 end
 
 --- This function needs to be throttled as there is a call to vim.ui.input
---- @async
 --- @param bufnr integer
---- @param _callback? fun()
-M.update = throttle_by_id(function(bufnr, _callback)
+M.update = throttle_async({ hash = 1, schedule = true }, function(bufnr)
   if not vim.wo.diff then
     return
   end
-
   -- Note this will be the bufname for the currently set base
   -- which are the only ones we want to update
   local bufname = assert(cache[bufnr]):get_rev_bufname()
@@ -291,7 +286,7 @@ M.update = throttle_by_id(function(bufnr, _callback)
         if should_reload(b) then
           api.nvim_buf_call(b, function()
             vim.cmd.doautocmd('BufReadCmd')
-            vim.cmd.diffthis()
+            vim.cmd.diffupdate()
           end)
         end
       end

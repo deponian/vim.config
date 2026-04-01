@@ -1,25 +1,30 @@
---[[-- This module provides a parser for identifying and converting `oklch()` CSS functions to RGB hexadecimal format.
-OKLCH is a perceptual color space that provides better uniformity than HSL.
-It supports lightness as both decimal (0-1) and percentage (0-100%),
-chroma values, hue in degrees, and optional alpha transparency.
-This function is useful for syntax highlighting or color recognition in a text editor.
-]]
--- @module colorizer.parser.oklch
+---@mod colorizer.parser.oklch OKLCH Parser
+---@brief [[
+---This module provides a parser for identifying and converting `oklch()` CSS functions to RGB hexadecimal format.
+---OKLCH is a perceptual color space that provides better uniformity than HSL.
+---It supports lightness as both decimal (0-1) and percentage (0-100%),
+---chroma values, hue in degrees, and optional alpha transparency.
+---This function is useful for syntax highlighting or color recognition in a text editor.
+---@brief ]]
 local M = {}
 
-local floor = math.floor
-local oklch_to_rgb = require("colorizer.color").oklch_to_rgb
+local color = require("colorizer.color")
+local oklch_to_rgb = color.oklch_to_rgb
 local utils = require("colorizer.utils")
+
+-- oklch has a single hardcoded pattern, cache it at module level
+local oklch_pattern =
+  "^oklch%(%s*(-?%d*%.?%d+)(%%?)%s+(-?%d*%.?%d+)(%%?)%s+(-?%d*%.?%d+)([%a]?[%a]?[%a]?[%a]?)%s*(/?)%s*(-?%d*%.?%d*)(%%?)%s*%)()"
 
 --- Parses `oklch()` CSS functions and converts them to RGB hexadecimal format.
 -- This function matches `oklch()` functions within a line of text, extracting and converting
 -- the lightness, chroma, and hue to an RGB color. It handles lightness as decimal or percentage,
 -- and an optional alpha (transparency) value.
----@param line string: The line of text to parse
----@param i number: The starting index within the line where parsing should begin
----@param _ table: Parsing options (unused, included for API consistency)
----@return number|nil: The end index of the parsed `oklch` function within the line, or `nil` if no match was found.
----@return string|nil: The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
+---@param line string The line of text to parse
+---@param i number The starting index within the line where parsing should begin
+---@param _ table Parsing options (unused, included for API consistency)
+---@return number|nil The end index of the parsed `oklch` function within the line, or `nil` if no match was found.
+---@return string|nil The RGB hexadecimal color (e.g., "ff0000" for red), or `nil` if parsing failed
 function M.parser(line, i, _)
   local min_len = #"oklch(0 0 0)" - 1
   local min, max = math.min, math.max
@@ -38,9 +43,8 @@ function M.parser(line, i, _)
   -- Numbers (L/C/H): -?%d*%.?%d+ (optional minus, optional digits, optional dot, required digits)
   -- Alpha (optional): -?%d*%.?%d* (all parts optional since alpha itself is optional)
   -- Units: [%a]?[%a]?[%a]?[%a]? (0-4 letters for deg/rad/turn/grad, validated later)
-  local l, l_percent, c, c_percent, h, h_unit, sep, a, a_percent, match_end = line:sub(i):match(
-    "^oklch%(%s*(-?%d*%.?%d+)(%%?)%s+(-?%d*%.?%d+)(%%?)%s+(-?%d*%.?%d+)([%a]?[%a]?[%a]?[%a]?)%s*(/?)%s*(-?%d*%.?%d*)(%%?)%s*%)()"
-  )
+  local l, l_percent, c, c_percent, h, h_unit, sep, a, a_percent, match_end =
+    line:sub(i):match(oklch_pattern)
 
   if not match_end then
     return
@@ -133,13 +137,24 @@ function M.parser(line, i, _)
 
   -- Apply alpha if not fully opaque
   if alpha < 1 then
-    r = floor(r * alpha)
-    g = floor(g * alpha)
-    b = floor(b * alpha)
+    r, g, b = color.apply_alpha(r, g, b, alpha)
   end
 
   local rgb_hex = utils.rgb_to_hex(r, g, b)
   return match_end - 1, rgb_hex
 end
+
+--- Parser spec for the registry
+M.spec = {
+  name = "oklch",
+  priority = 20,
+  dispatch = { kind = "prefix", prefixes = { "oklch" } },
+  config_defaults = { enable = false },
+  parse = function(ctx)
+    return M.parser(ctx.line, ctx.col)
+  end,
+}
+
+require("colorizer.parser.registry").register(M.spec)
 
 return M

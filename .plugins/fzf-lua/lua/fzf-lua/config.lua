@@ -1,3 +1,4 @@
+---@diagnostic disable-next-line: deprecated
 local uv = vim.uv or vim.loop
 local path = require "fzf-lua.path"
 local utils = require "fzf-lua.utils"
@@ -5,6 +6,9 @@ local libuv = require "fzf-lua.libuv"
 local actions = require "fzf-lua.actions"
 local devicons = require "fzf-lua.devicons"
 
+---@class fzf-lua.config
+---@field globals fzf-lua.config.Defaults
+---@field __HLS_STATE { colorscheme: string, bg: string }
 local M = {}
 
 -- set this so that make_entry won't get nil err when setting remotely
@@ -59,7 +63,10 @@ function M.resume_opts(opts)
 end
 
 -- proxy table (with logic) for accessing the global config
+---@type fzf-lua.Config|{}
 M.setup_opts = {}
+
+---@type fzf-lua.config.Defaults
 M.globals = setmetatable({}, {
   __index = function(_, index)
     local function setup_opts()
@@ -83,12 +90,13 @@ M.globals = setmetatable({}, {
       -- normalize all binds as lowercase to prevent duplicate keys (#654)
       local ret = {}
       -- exclude case-sensitive alt-binds from being lowercased
-      local exclude_case_sensitive_alt = "^alt%-%a$"
+      local exclude_case_sensitive_alt = { "^alt%-%a$" }
       for _, k in ipairs(keys) do
         if type(setup_value) == "function" then setup_value = setup_value() end
         ret[k] = setup_value and type(setup_value[k]) == "table"
             and vim.tbl_deep_extend("keep",
-              utils.map_tolower(utils.tbl_deep_clone(setup_value[k]), exclude_case_sensitive_alt),
+              utils.map_tolower(utils.tbl_deep_clone(setup_value[k]), exclude_case_sensitive_alt) or
+              {},
               setup_value[k][1] == true and
               utils.map_tolower(fzflua_default[k], exclude_case_sensitive_alt) or {})
             or utils.map_tolower(utils.tbl_deep_clone(fzflua_default[k]), exclude_case_sensitive_alt)
@@ -127,7 +135,7 @@ M.globals = setmetatable({}, {
     return ret
   end,
   __newindex = function(_, index, _)
-    assert(false, string.format("modifying globals directly isn't allowed [index: %s]", index))
+    error(string.format("modifying globals directly isn't allowed [index: %s]", index))
   end
 })
 
@@ -152,7 +160,7 @@ local normalize_tbl = function(opts)
   -- miss keys due to messing with map ordering
   local to_convert = {}
   for k, _ in pairs(opts) do
-    if k:match("%.") then
+    if type(k) == "string" and k:match("%.") then
       table.insert(to_convert, k)
     end
   end
@@ -162,13 +170,14 @@ local normalize_tbl = function(opts)
   end
 end
 
----@param opts fzf-lua.config.Base|{}|fun():table?
----@param globals string|table?
+---@generic T table
+---@param opts T?|{}|(fun():T?)
+---@param globals string|(fzf-lua.Config|{})?
 ---@param __resume_key string?
----@return fzf-lua.Config?
-function M.normalize_opts(opts, globals, __resume_key)
+---@return T
+function M.normalize_opts(opts, globals, __resume_key) ---@diagnostic disable
   -- opts can also be a function that returns an opts table
-  ---@type fzf-lua.config.Base|{}
+  ---@type fzf-lua.config.Resolved
   opts = eval(opts) or {}
 
   if opts._normalized then
@@ -178,7 +187,7 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- e.g. `:FzfLua files winopts.border=single`
   normalize_tbl(opts)
 
-  local profile = opts.profile or (function()
+  local profile = opts.profile or opts[1] or (function()
     if type(globals) == "string" then
       local picker_opts = M.globals[globals]
       return picker_opts.profile or picker_opts[1]
@@ -206,6 +215,7 @@ function M.normalize_opts(opts, globals, __resume_key)
     globals = M.globals[globals]
     assert(type(globals) == "table")
   else
+    assert(globals)
     -- backward compat: globals sent directly as table
     -- merge with setup options "defaults" table
     globals = vim.tbl_deep_extend("keep", globals, M.setup_opts.defaults or {})
@@ -216,6 +226,58 @@ function M.normalize_opts(opts, globals, __resume_key)
   if opts.resume then
     opts = M.resume_opts(opts)
   end
+
+  local executable = function(binary, fncerr, strerr)
+    if binary and vim.fn.executable(binary) ~= 1 then
+      fncerr(("'%s' is not a valid executable, %s"):format(binary, strerr))
+      return false
+    end
+    return true
+  end
+
+  -- Validate the fzf binary & version dependency
+  opts.fzf_bin = opts.fzf_bin or M.globals.fzf_bin
+  opts.fzf_bin = opts.fzf_bin and libuv.expand(opts.fzf_bin) or nil
+  if not opts.fzf_bin or
+      not executable(opts.fzf_bin, utils.warn, "fallback to 'fzf'.") then
+    -- default|fallback to fzf
+    opts.fzf_bin = "fzf"
+    -- try fzf plugin if fzf is not installed globally
+    if vim.fn.executable(opts.fzf_bin) ~= 1 then
+      local ok, fzf_plug = pcall(vim.api.nvim_call_function, "fzf#exec", {})
+      if ok and fzf_plug then
+        opts.fzf_bin = fzf_plug
+      end
+    end
+    if not executable(opts.fzf_bin, utils.error,
+          "aborting. Please make sure 'fzf' is in installed.") then
+      return nil
+    end
+  end
+
+  -- enforce fzf minimum requirements
+  vim.g.fzf_lua_fzf_version = nil
+  if opts.fzf_bin:match("sk$") then
+    local SK_VERSION, rc, err = utils.sk_version(opts)
+    opts.__SK_VERSION = SK_VERSION
+    if not opts.__SK_VERSION then
+      utils.error("'sk --version' failed with error %s: %s", rc, err)
+      return nil
+    end
+  else
+    local FZF_VERSION, rc, err = utils.fzf_version(opts)
+    opts.__FZF_VERSION = FZF_VERSION
+    vim.g.fzf_lua_fzf_version = FZF_VERSION
+    if not opts.__FZF_VERSION then
+      utils.error("'fzf --version' failed with error %s: %s", rc, err)
+      return nil
+    elseif not utils.has(opts, "fzf", { 0, 36 }) then
+      utils.error("fzf version %s is lower than minimum (0.36), aborting.",
+        utils.ver2str(opts.__FZF_VERSION))
+      return nil
+    end
+  end
+
 
   local function convert_bool_opts()
     -- Enforce conversion of boolean options that are tables with `enabled`
@@ -249,16 +311,16 @@ function M.normalize_opts(opts, globals, __resume_key)
   convert_bool_opts()
 
   -- normalize all binds as lowercase or we can have duplicate keys (#654)
-  ---@param m {fzf: table<string, unknown>, builtin: table<string, unknown>}
-  ---@param exclude_patterns string
-  ---@return {fzf: table<string, unknown>, builtin: table<string, unknown>}?
+  ---@param m fzf-lua.config.Keymap?
+  ---@param exclude_patterns string[]
+  ---@return fzf-lua.config.Keymap?
   local keymap_tolower = function(m, exclude_patterns)
     return m and {
       fzf = utils.map_tolower(m.fzf, exclude_patterns),
       builtin = utils.map_tolower(m.builtin, exclude_patterns),
     } or nil
   end
-  local exclude_case_sensitive_alt = "^alt%-%a$"
+  local exclude_case_sensitive_alt = { "^alt%-%a$" }
   opts.keymap = keymap_tolower(eval(opts.keymap, opts), exclude_case_sensitive_alt)
   opts.actions = utils.map_tolower(eval(opts.actions, opts), exclude_case_sensitive_alt)
   globals.keymap = keymap_tolower(eval(globals.keymap, opts), exclude_case_sensitive_alt)
@@ -266,7 +328,7 @@ function M.normalize_opts(opts, globals, __resume_key)
 
   -- inherit from globals.actions?
   if type(globals._actions) == "function" then
-    globals.actions = vim.tbl_deep_extend("keep", globals.actions or {}, globals._actions())
+    globals.actions = vim.tbl_extend("keep", globals.actions or {}, globals._actions())
   end
 
   -- merge with provider defaults from globals (defaults + setup options)
@@ -462,6 +524,7 @@ function M.normalize_opts(opts, globals, __resume_key)
 
   -- Setup completion options
   if opts.complete then
+    ---@diagnostic disable-next-line: assign-type-mismatch
     opts.actions = opts.actions or {}
     opts.actions.enter = actions.complete
     opts.actions["ctrl-c"] = function() end
@@ -617,7 +680,7 @@ function M.normalize_opts(opts, globals, __resume_key)
   -- other user scenarios which need to use `opts._cwd`, for
   -- exmaple, using the "hide" profile and resuming fzf-lua
   -- from another tab after a `:tcd <dir>` (#1854)
-  opts._cwd = uv.cwd()
+  opts._cwd = utils.cwd()
 
   if opts.cwd and #opts.cwd > 0 then
     -- NOTE: on Windows, `expand` will replace all backslashes with forward slashes
@@ -633,7 +696,7 @@ function M.normalize_opts(opts, globals, __resume_key)
         -- relative paths in cwd are inaccessible when using multiprocess
         -- as the external process have no awareness of our current working
         -- directory so we must convert to full path (#375)
-        opts.cwd = path.join({ uv.cwd(), opts.cwd })
+        opts.cwd = path.join({ utils.cwd(), opts.cwd })
       elseif utils.__IS_WINDOWS and opts.cwd:sub(2) == ":" then
         -- TODO: upstream bug? on Windows: starting jobs with `cwd = C:` (without separator)
         -- ignores the cwd argument and starts the job in the current working directory
@@ -644,59 +707,6 @@ function M.normalize_opts(opts, globals, __resume_key)
 
   -- test for valid git_repo
   opts.git_icons = opts.git_icons and path.is_git_repo(opts, true)
-
-  local executable = function(binary, fncerr, strerr)
-    if binary and vim.fn.executable(binary) ~= 1 then
-      fncerr(("'%s' is not a valid executable, %s"):format(binary, strerr))
-      return false
-    end
-    return true
-  end
-
-  opts.fzf_bin = opts.fzf_bin or M.globals.fzf_bin
-  opts.fzf_bin = opts.fzf_bin and libuv.expand(opts.fzf_bin) or nil
-  if not opts.fzf_bin or
-      not executable(opts.fzf_bin, utils.warn, "fallback to 'fzf'.") then
-    -- default|fallback to fzf
-    opts.fzf_bin = "fzf"
-    -- try fzf plugin if fzf is not installed globally
-    if vim.fn.executable(opts.fzf_bin) ~= 1 then
-      local ok, fzf_plug = pcall(vim.api.nvim_call_function, "fzf#exec", {})
-      if ok and fzf_plug then
-        opts.fzf_bin = fzf_plug
-      end
-    end
-    if not executable(opts.fzf_bin, utils.error,
-          "aborting. Please make sure 'fzf' is in installed.") then
-      return nil
-    end
-  end
-
-  -- are we using skim?
-  opts._is_skim = opts.fzf_bin:match("sk$") ~= nil
-
-  -- enforce fzf minimum requirements
-  vim.g.fzf_lua_fzf_version = nil
-  if not opts._is_skim then
-    local FZF_VERSION, rc, err = utils.fzf_version(opts)
-    opts.__FZF_VERSION = FZF_VERSION
-    vim.g.fzf_lua_fzf_version = FZF_VERSION
-    if not opts.__FZF_VERSION then
-      utils.error("'fzf --version' failed with error %s: %s", rc, err)
-      return nil
-    elseif not utils.has(opts, "fzf", { 0, 36 }) then
-      utils.error("fzf version %s is lower than minimum (0.36), aborting.",
-        utils.ver2str(opts.__FZF_VERSION))
-      return nil
-    end
-  else
-    local SK_VERSION, rc, err = utils.sk_version(opts)
-    opts.__SK_VERSION = SK_VERSION
-    if not opts.__SK_VERSION then
-      utils.error("'sk --version' failed with error %s: %s", rc, err)
-      return nil
-    end
-  end
 
   if utils.has(opts, "fzf", { 0, 53 })
       -- `_multiline` is used to override `multiline` inherited from `defaults = {}`
@@ -734,20 +744,44 @@ function M.normalize_opts(opts, globals, __resume_key)
     local bin, version, changelog = (function()
       if opts.__SK_VERSION then
         return "sk", opts.__SK_VERSION, {
+          -- All fzf flags values not support by skim (https://github.com/skim-rs/skim/issues/628)
+          ["99.9.9"] = {
+            fzf_opts = {
+              ["--border"]           = { "none" },
+              ["--info"]             = { "inline-right" },
+              ["--border-label-pos"] = true,
+              ["--info-command"]     = true,
+            }
+          },
+          ["1.5.3"] = {
+            fzf_opts = {
+              ["--border"] = { "plain", "rounded", "double", "thick", "light-double-dashed",
+                "heavy-double-dashed", "light-triple-dashed", "heavy-triple-dashed",
+                "light-quadruple-dashed", "heavy-quadruple-dashed", "quadrant-inside",
+                "quadrant-outside" },
+              ["--algo"]   = "frizbee"
+            }
+          },
           ["0.15.5"] = { fzf_opts = { ["--tmux"] = true } },
-          ["0.53"] = { fzf_opts = { ["--inline-info"] = true } },
+          ["0.53"] = {
+            fzf_opts = {
+              ["--inline-info"] = true,
+              ["--algo"]        = { "skim_v1", "skim_v2" },
+            }
+          },
           -- All fzf flags not existing in skim
           ["all"] = {
             fzf_opts = {
               ["--scheme"]         = false,
               ["--gap"]            = false,
-              ["--info"]           = false,
-              ["--border"]         = false,
               ["--scrollbar"]      = false,
               ["--no-scrollbar"]   = false,
               ["--wrap"]           = true,
               ["--wrap-sign"]      = true,
               ["--highlight-line"] = false,
+              ["--gutter"]         = false,
+              ["--border-label"]   = false,
+              ["--ellipsis"]       = true,
             }
           },
         }
@@ -800,6 +834,7 @@ function M.normalize_opts(opts, globals, __resume_key)
           -- All skim flags not existing in fzf
           ["all"] = {
             fzf_opts = {
+              ["--algo"] = false,
               ["--inline-info"] = false,
             }
           },
@@ -948,6 +983,12 @@ function M.normalize_opts(opts, globals, __resume_key)
     opts.fn_preprocess = [[return require("fzf-lua.make_entry").preprocess]]
   end
 
+  -- set by git_{commits|diff|hunks} actions
+  if utils.get_info().cmd and opts["__pos_" .. utils.get_info().cmd] then
+    opts.locate = opts.locate == nil and true or opts.locate
+    opts.__locate_pos = opts.__locate_pos or opts["__pos_" .. utils.get_info().cmd]
+  end
+
   if opts.locate and utils.has(opts, "fzf", { 0, 36 }) then
     table.insert(opts._fzf_cli_args, "--bind=" .. libuv.shellescape("load:+transform:"
       .. FzfLua.shell.stringify_data(function(_, _, _)
@@ -998,15 +1039,15 @@ function M.normalize_opts(opts, globals, __resume_key)
   opts._normalized = true
 
   return opts
-end
+end ---@diagnostic enable
 
-M.bytecode = function(s, datatype)
+M.bytecode = function(s, _)
   local keys = utils.strsplit(s, "%.")
   local iter = M
   for i = 1, #keys do
     iter = iter[keys[i]]
     if not iter then break end
-    if i == #keys and type(iter) == datatype then
+    if i == #keys and type(iter) == "function" then
       -- string.dump (function [, strip])
       -- Returns a string containing a binary representation (a binary chunk) of the given
       -- function, so that a later load on this string returns a copy of the function (but
@@ -1050,6 +1091,7 @@ M._action_to_helpstr = {
   -- [actions.buf_switch_or_edit]  = "buffer-switch-or-edit",
   [actions.buf_del]              = "buffer-delete",
   [actions.run_builtin]          = "run-builtin",
+  [actions.undo]                 = "undo-jump",
   [actions.ex_run]               = "edit-cmd",
   [actions.ex_run_cr]            = "exec-cmd",
   [actions.exec_menu]            = "exec-menu",

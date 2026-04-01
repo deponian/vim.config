@@ -33,12 +33,12 @@ end
 
 ---Update the directory git_status of link target and the file status of the link itself
 ---@param parent_ignored boolean
----@param project GitProject?
+---@param project nvim_tree.git.Project?
 function DirectoryLinkNode:update_git_status(parent_ignored, project)
   self.git_status = git_utils.git_status_dir(parent_ignored, project, self.link_to, self.absolute_path)
 end
 
----@return HighlightedString name
+---@return nvim_tree.api.highlighted_string name
 function DirectoryLinkNode:highlighted_icon()
   if not self.explorer.opts.renderer.icons.show.folder then
     return self:highlighted_icon_empty()
@@ -58,15 +58,18 @@ function DirectoryLinkNode:highlighted_icon()
 end
 
 ---Maybe override name with arrow
----@return HighlightedString name
+---@return nvim_tree.api.highlighted_string name
 function DirectoryLinkNode:highlighted_name()
   local name = DirectoryNode.highlighted_name(self)
 
   if self.explorer.opts.renderer.symlink_destination then
     local link_to = utils.path_relative(self.link_to, self.explorer.absolute_path)
+    if self.explorer.opts.renderer.add_trailing then
+      link_to = utils.path_add_trailing(link_to)
+    end
 
-    name.str      = string.format("%s%s%s", name.str, self.explorer.opts.renderer.icons.symlink_arrow, link_to)
-    name.hl       = { "NvimTreeSymlinkFolderName" }
+    name.str = string.format("%s%s%s", name.str, self.explorer.opts.renderer.icons.symlink_arrow, link_to)
+    name.hl  = { "NvimTreeSymlinkFolderName" }
   end
 
   return name

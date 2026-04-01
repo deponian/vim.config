@@ -113,11 +113,13 @@ local function incremental_iter(readline, commits, result)
     elseif key then
       key = key:gsub('%-', '_') --- @type string
       if vim.endswith(key, '_time') then
+        --- @diagnostic disable-next-line: assign-type-mismatch
         commit[key] = asinteger(value)
       else
         commit[key] = value
       end
     else
+      --- @diagnostic disable-next-line: assign-type-mismatch
       commit[line] = true
       if line ~= 'boundary' then
         log.dprintf("Unknown tag: '%s'", line)
@@ -214,7 +216,7 @@ end
 --- @async
 --- @param obj Gitsigns.GitObj
 --- @param contents? string[]
---- @param lnum? integer
+--- @param lnum? integer|[integer, integer]
 --- @param revision? string
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer, Gitsigns.BlameInfo>
@@ -239,6 +241,8 @@ function M.run_blame(obj, contents, lnum, revision, opts)
     return ret, {}
   end
 
+  --- @type Gitsigns.BlameOpts
+  --- EmmyLuaLs/emmylua-analyzer-rust#921
   opts = opts or {}
 
   local ignore_file = obj.repo.toplevel .. '/.git-blame-ignore-revs'
@@ -261,13 +265,13 @@ function M.run_blame(obj, contents, lnum, revision, opts)
       'blame',
       '--incremental',
       contents and { '--contents', '-' },
-      opts.ignore_whitespace and '-w',
-      lnum and { '-L', lnum .. ',+1' },
+      opts.ignore_whitespace and '-w' or nil,
+      lnum and { '-L', type(lnum) == 'table' and (lnum[1] .. ',' .. lnum[2]) or (lnum .. ',+1') },
       opts.extra_opts,
       uv.fs_stat(ignore_file) and { '--ignore-revs-file', ignore_file },
       revision,
       '--',
-      obj.file,
+      obj.relpath,
     }),
     {
       stdin = contents_str,

@@ -4,7 +4,9 @@ local default = require('blink-cmp-dictionary.default')
 local utils = require('blink-cmp-dictionary.utils')
 local log = require('blink-cmp-dictionary.log')
 log.setup({ title = 'blink-cmp-dictionary' })
-local Job = require('plenary.job')
+local fallback = require('blink-cmp-dictionary.fallback')
+
+-- No longer need plenary.job - using native vim.system instead
 
 --- @type blink.cmp.Source
 --- @diagnostic disable-next-line: missing-fields
@@ -13,14 +15,6 @@ local DictionarySource = {}
 local dictionary_source_config
 --- @type blink.cmp.SourceProviderConfig
 local source_provider_config
-local function create_job_from_documentation_command(documentation_command)
-    ---@diagnostic disable-next-line: missing-fields
-    return Job:new({
-        command = utils.get_option(documentation_command.get_command),
-        args = utils.get_option(documentation_command.get_command_args),
-    })
-end
-
 --- @param opts blink-cmp-dictionary.Options
 function DictionarySource.new(opts, config)
     local self = setmetatable({}, { __index = DictionarySource })
@@ -42,12 +36,16 @@ function DictionarySource.new(opts, config)
     return self
 end
 
+--- Assemble completion items from raw command output
+--- Assemble completion items from already-separated words (fallback mode)
 --- @param feature blink-cmp-dictionary.Options
---- @param result string[]
+--- @param words string[] # Already separated words from fallback search
 --- @return blink-cmp-dictionary.DictionaryCompletionItem[]
-local function assemble_completion_items_from_output(feature, result)
+local function assemble_completion_items_from_words(feature, words)
+    -- Words are already scored and limited by fallback.search
+    -- Just assemble completion items
     local items = {}
-    for i, v in ipairs(feature.separate_output(table.concat(result, '\n'))) do
+    for i, v in ipairs(words) do
         items[i] = {
             label = feature.get_label(v),
             kind_name = feature.get_kind_name(v),
@@ -57,6 +55,103 @@ local function assemble_completion_items_from_output(feature, result)
     end
     -- feature.configure_score_offset(items)
     return items
+end
+
+--- @param feature blink-cmp-dictionary.Options
+--- @param result string # Raw output from external command
+--- @param prefix string
+--- @param max_items number
+--- @param cmd string|nil # Command name (e.g., 'fzf') for optimization
+--- @return blink-cmp-dictionary.DictionaryCompletionItem[]
+local function assemble_completion_items_from_output(feature, result, prefix, max_items, cmd)
+    -- First, call separate_output to parse the output
+    local separated_items = feature.separate_output(result)
+    
+    -- Optimization: if we have fewer items than max_items, or fzf output is already sorted,
+    -- we don't need to do fuzzy scoring/selection
+    local top_items
+    if #separated_items <= max_items then
+        -- Not enough items to select, use all
+        top_items = separated_items
+    elseif cmd == 'fzf' then
+        -- fzf output is already sorted, just take first max_items
+        top_items = {}
+        for i = 1, max_items do
+            table.insert(top_items, separated_items[i])
+        end
+    else
+        -- Apply fuzzy scoring and limit to max_items
+        top_items = utils.get_top_matches(separated_items, prefix, max_items)
+    end
+    
+    -- Finally, assemble completion items using the shared function
+    return assemble_completion_items_from_words(feature, top_items)
+end
+
+--- Helper function to get all dictionary files
+--- @return string[]
+local function get_all_dictionary_files()
+    local res = {}
+    local dirs = utils.ensure_list(utils.get_option(dictionary_source_config.dictionary_directories))
+    local files = utils.ensure_list(utils.get_option(dictionary_source_config.dictionary_files))
+    if utils.truthy(dirs) then
+        for _, dir in ipairs(dirs) do
+            for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
+                table.insert(res, file)
+            end
+        end
+    end
+    if utils.truthy(files) then
+        for _, file in ipairs(files) do
+            table.insert(res, file)
+        end
+    end
+    return res
+end
+
+--- Helper function to process completion items with capitalization
+--- @param match blink-cmp-dictionary.DictionaryCompletionItem
+--- @param context blink.cmp.Context
+--- @param items table
+local function process_completion_item(match, context, items)
+    items[match] = {
+        label = match.label,
+        insertText = match.insert_text,
+        kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
+        documentation = match.documentation,
+    }
+    if utils.get_option(
+        dictionary_source_config.capitalize_first,
+        context,
+        match
+    ) then
+        items[match].label = utils.capitalize(match.label, false)
+        items[match].insertText = utils.capitalize(match.insert_text, false)
+    end
+    if utils.get_option(
+        dictionary_source_config.capitalize_whole_word,
+        context,
+        match
+    ) then
+        items[match].label = utils.capitalize(match.label, true)
+        items[match].insertText = utils.capitalize(match.insert_text, true)
+    end
+    if utils.get_option(
+        dictionary_source_config.decapitalize_first,
+        context,
+        match
+    ) then
+        items[match].label = utils.decapitalize(match.label, false)
+        items[match].insertText = utils.decapitalize(match.insert_text, false)
+    end
+    if utils.get_option(
+        dictionary_source_config.decapitalize_whole_word,
+        context,
+        match
+    ) then
+        items[match].label = utils.decapitalize(match.label, true)
+        items[match].insertText = utils.decapitalize(match.insert_text, true)
+    end
 end
 
 function DictionarySource:get_completions(context, callback)
@@ -83,113 +178,150 @@ function DictionarySource:get_completions(context, callback)
         callback()
         return cancel_fun
     end
-    local async = utils.get_option(dictionary_source_config.async)
     local cmd = utils.get_option(dictionary_source_config.get_command)
-    if not utils.truthy(cmd) then
-        transformed_callback()
+    
+    -- Parse max_items once for both fallback and external command modes
+    -- Check type: if it's a function or nil, use default of 100
+    -- We cannot call function types as we don't have the proper context
+    local max_items = 100
+    if type(source_provider_config.max_items) == 'number' then
+        max_items = source_provider_config.max_items
+    end
+    
+    -- Handle fallback mode: either forced or when cmd is not available
+    local force_fallback = dictionary_source_config.force_fallback or false
+    if force_fallback or not utils.truthy(cmd) then
+        local files = get_all_dictionary_files()
+        
+        -- Load/refresh dictionaries asynchronously
+        -- Pass separate_output function to parse dictionary files
+        fallback.load_dictionaries(files, dictionary_source_config.separate_output, function(return_code, standard_error)
+            -- Check for errors and call on_error if needed
+            if return_code ~= 0 then
+                if dictionary_source_config.on_error and dictionary_source_config.on_error(return_code, standard_error) then
+                    -- on_error returned true, stop processing
+                    transformed_callback()
+                    return
+                end
+                -- on_error returned false or not defined, continue with available data
+            end
+            
+            -- Perform search using fallback
+            local results = fallback.search(prefix, max_items)
+            if utils.truthy(results) then
+                -- fallback.search already returns scored and limited words
+                -- No need to call separate_output again
+                local match_list = assemble_completion_items_from_words(
+                    dictionary_source_config,
+                    results)
+                vim.iter(match_list):each(function(match)
+                    process_completion_item(match, context, items)
+                end)
+            end
+            transformed_callback()
+        end)
         return cancel_fun
     end
     local cmd_args = utils.get_option(dictionary_source_config.get_command_args, prefix, cmd)
-    local cat_writer = nil
-    local get_all_dictionary_files = function()
-        local res = {}
-        local dirs = utils.get_option(dictionary_source_config.dictionary_directories)
-        local files = utils.get_option(dictionary_source_config.dictionary_files)
-        if utils.truthy(dirs) then
-            for _, dir in ipairs(dirs) do
-                for _, file in ipairs(vim.fn.globpath(dir, '**/*.txt', true, true)) do
-                    table.insert(res, file)
-                end
-            end
-        end
-        if utils.truthy(files) then
-            for _, file in ipairs(files) do
-                table.insert(res, file)
-            end
-        end
-        return res
-    end
+    
+    local cancel_fun_ref = { fn = nil }
     local files = get_all_dictionary_files()
-    if utils.truthy(files) then
-        ---@diagnostic disable-next-line: missing-fields
-        cat_writer = Job:new({
-            command = 'cat',
-            args = files,
-        })
-    end
-    ---@diagnostic disable-next-line: missing-fields
-    local job = Job:new({
-        command = cmd,
-        args = cmd_args,
-        on_exit = function(j, code, signal)
-            if signal == 9 then
-                -- shutdown mannually
-                -- do not handle the result
+    
+    -- Function to run the search command
+    local function run_search_command(input_data)
+        local obj = { cancelled = false }
+        
+        -- Build command with args
+        local full_cmd = { cmd }
+        for _, arg in ipairs(cmd_args) do
+            table.insert(full_cmd, arg)
+        end
+        
+        vim.system(full_cmd, {
+            text = true,
+            stdin = input_data,
+        }, function(result)
+            if obj.cancelled then
                 return
             end
-            if code ~= 0 or utils.truthy(j:stderr_result()) then
-                if dictionary_source_config.on_error(code, table.concat(j:stderr_result(), '\n')) then
+            
+            vim.schedule(function()
+                if obj.cancelled then
                     return
                 end
+                
+                if result.code ~= 0 and result.stderr and result.stderr ~= '' then
+                    if dictionary_source_config.on_error(result.code, result.stderr) then
+                        return
+                    end
+                end
+                
+                local output = result.stdout or ''
+                if utils.truthy(output) then
+                    local match_list = assemble_completion_items_from_output(
+                        dictionary_source_config,
+                        output,
+                        prefix,
+                        max_items,
+                        cmd)  -- Pass cmd for fzf optimization
+                    vim.iter(match_list):each(function(match)
+                        process_completion_item(match, context, items)
+                    end)
+                end
+                
+                transformed_callback()
+            end)
+        end)
+        
+        cancel_fun_ref.fn = function()
+            obj.cancelled = true
+        end
+        
+        return obj
+    end
+    
+    local read_obj = { cancelled = false }
+    -- Set cancel_fun immediately to handle race conditions
+    cancel_fun = function()
+        read_obj.cancelled = true
+        if cancel_fun_ref.fn then
+            cancel_fun_ref.fn()
+        end
+    end
+    -- If we have files, read them asynchronously
+    if utils.truthy(files) then
+        utils.read_dictionary_files_async(files, function(return_code, standard_error, content)
+            if read_obj.cancelled then
+                return
             end
-            local output = table.concat(j:result(), '\n')
-            if utils.truthy(output) then
-                local match_list = assemble_completion_items_from_output(
-                    dictionary_source_config,
-                    j:result())
-                vim.iter(match_list):each(function(match)
-                    items[match] = {
-                        label = match.label,
-                        insertText = match.insert_text,
-                        kind = require('blink.cmp.types').CompletionItemKind[match.kind_name] or 0,
-                        documentation = match.documentation,
-                    }
-                    if utils.get_option(
-                        dictionary_source_config.capitalize_first,
-                        context,
-                        match
-                    ) then
-                        items[match].label = utils.capitalize(match.label, false)
-                        items[match].insertText = utils.capitalize(match.insert_text, false)
-                    end
-                    if utils.get_option(
-                        dictionary_source_config.capitalize_whole_word,
-                        context,
-                        match
-                    ) then
-                        items[match].label = utils.capitalize(match.label, true)
-                        items[match].insertText = utils.capitalize(match.insert_text, true)
-                    end
-                    if utils.get_option(
-                        dictionary_source_config.decapitalize_first,
-                        context,
-                        match
-                    ) then
-                        items[match].label = utils.decapitalize(match.label, false)
-                        items[match].insertText = utils.decapitalize(match.insert_text, false)
-                    end
-                    if utils.get_option(
-                        dictionary_source_config.decapitalize_whole_word,
-                        context,
-                        match
-                    ) then
-                        items[match].label = utils.decapitalize(match.label, true)
-                        items[match].insertText = utils.decapitalize(match.insert_text, true)
-                    end
+            
+            -- Check for errors and call on_error if needed
+            if return_code ~= 0 then
+                if dictionary_source_config.on_error and dictionary_source_config.on_error(return_code, standard_error) then
+                    -- on_error returned true, stop processing
+                    vim.schedule(function()
+                        transformed_callback()
+                    end)
+                    return
+                end
+                -- on_error returned false or not defined, continue with available content
+            end
+            
+            if not content or content == '' then
+                vim.schedule(function()
+                    transformed_callback()
                 end)
+                return
             end
-        end,
-        writer = cat_writer,
-    })
-    job:after(vim.schedule_wrap(transformed_callback))
-    if async then
-        cancel_fun = function() job:shutdown(0, 9) end
-    end
-    if async then
-        job:start()
+            
+            -- Now run the search command with file content as stdin
+            run_search_command(content)
+        end)
     else
-        job:sync()
+        -- No files, run the command directly, users may set files in command args.
+        run_search_command()
     end
+
     return cancel_fun
 end
 
@@ -207,27 +339,34 @@ function DictionarySource:resolve(item, callback)
         transformed_callback()
         return
     end
-    local job = create_job_from_documentation_command(item.documentation)
-    job:after(function(j, code, _)
-        if code ~= 0 or utils.truthy(j:stderr_result()) then
-            ---@diagnostic disable-next-line: undefined-field
-            if item.documentation.on_error(code, table.concat(j:stderr_result(), '\n')) then
-                return
-            end
-        end
-        if utils.truthy(job:result()) then
-            ---@diagnostic disable-next-line: undefined-field
-            item.documentation = item.documentation.resolve_documentation(table.concat(job:result(), '\n'))
-        else
-            item.documentation = nil
-        end
-        vim.schedule(transformed_callback)
-    end)
-    if utils.get_option(dictionary_source_config.async) then
-        job:start()
-    else
-        job:sync()
+    
+    local cmd = utils.get_option(item.documentation.get_command)
+    local args = utils.get_option(item.documentation.get_command_args)
+    
+    -- Build full command
+    local full_cmd = { cmd }
+    for _, arg in ipairs(args) do
+        table.insert(full_cmd, arg)
     end
+    
+    vim.system(full_cmd, { text = true }, function(result)
+        vim.schedule(function()
+            if result.code ~= 0 and result.stderr and result.stderr ~= '' then
+                ---@diagnostic disable-next-line: undefined-field
+                if item.documentation.on_error(result.code, result.stderr) then
+                    return
+                end
+            end
+            
+            if result.stdout and result.stdout ~= '' then
+                ---@diagnostic disable-next-line: undefined-field
+                item.documentation = item.documentation.resolve_documentation(result.stdout)
+            else
+                item.documentation = nil
+            end
+            transformed_callback()
+        end)
+    end)
 end
 
 return DictionarySource

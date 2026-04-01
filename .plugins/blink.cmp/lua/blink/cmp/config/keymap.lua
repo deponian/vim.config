@@ -7,9 +7,9 @@
 --- | 'hide' Hide the completion window
 --- | 'cancel' Cancel the current completion, undoing the preview from auto_insert
 --- | 'accept' Accept the current completion item
---- | 'accept_and_enter' Accept the current completion item and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
+--- | 'accept_and_enter' Accept the current completion item and feed an enter key to neovim (e.g. to execute the current command in cmdline mode)
 --- | 'select_and_accept' Select the first completion item, if there's no selection, and accept
---- | 'select_accept_and_enter' Select the first completion item, if there's no selection, accept and feed an enter key to neovim (i.e. to execute the current command in cmdline mode)
+--- | 'select_accept_and_enter' Select the first completion item, if there's no selection, accept and feed an enter key to neovim (e.g. to execute the current command in cmdline mode)
 --- | 'select_prev' Select the previous completion item
 --- | 'select_next' Select the next completion item
 --- | 'insert_prev' Insert the previous completion item (`auto_insert`), cycling to the bottom of the list if at the top, if `completion.list.cycle.from_top == true`. This will trigger completions if none are available, unlike `select_prev` which would fallback to the next keymap in this case.
@@ -24,7 +24,7 @@
 --- | 'scroll_signature_down' Scroll the signature window down
 --- | 'snippet_forward' Move the cursor forward to the next snippet placeholder
 --- | 'snippet_backward' Move the cursor backward to the previous snippet placeholder
---- | (fun(cmp: blink.cmp.API): boolean?) Custom function where returning true will prevent the next command from running
+--- | (fun(cmp: blink.cmp.API): boolean | string | nil) Custom function where returning true will prevent the next command from running. Returning a string will insert the literal characters
 
 --- @alias blink.cmp.KeymapPreset
 --- | 'none' No keymaps
@@ -58,11 +58,16 @@
 ---   ['<Tab>'] = { 'show_and_insert_or_accept_single', 'select_next' },
 ---   ['<S-Tab>'] = { 'show_and_insert_or_accept_single', 'select_prev' },
 ---
+---   ['<C-space>'] = { 'show', 'fallback' },
+---
 ---   ['<C-n>'] = { 'select_next' },
 ---   ['<C-p>'] = { 'select_prev' },
+---   ['<Right>'] = { 'select_next', 'fallback' },
+---   ['<Left>'] = { 'select_prev', 'fallback' },
 ---
 ---   ['<C-y>'] = { 'select_and_accept', 'fallback' },
 ---   ['<C-e>'] = { 'cancel', 'fallback' },
+---   ['<End>'] = { 'hide', 'fallback' },
 --- }
 --- ```
 --- | 'cmdline'
@@ -90,6 +95,8 @@
 ---
 ---   ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
 ---   ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
+---
+---   ['<C-k>'] = { 'show_signature', 'hide_signature', 'fallback' },
 --- }
 --- ```
 --- | 'super-tab'
@@ -111,6 +118,8 @@
 ---
 ---   ['<C-b>'] = { 'scroll_documentation_up', 'fallback' },
 ---   ['<C-f>'] = { 'scroll_documentation_down', 'fallback' },
+---
+---   ['<C-k>'] = { 'show_signature', 'hide_signature', 'fallback' },
 --- }
 --- ```
 --- | 'enter'

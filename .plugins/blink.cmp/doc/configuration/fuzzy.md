@@ -15,6 +15,15 @@ Prebuilt binaries are included in the releases and automatically downloaded when
 fuzzy = { implementation = "prefer_rust_with_warning" }
 ```
 
+Prebuilt binaries are available for the following systems:
+- Linux (glibc): x86_64 and aarch64
+- Linux (musl): x86_64 and aarch64
+- Linux (android / Termux): aarch64
+- macOS: x86_64 and aarch64
+- Windows: x86_64
+- FreeBSD: x86_64 and aarch64
+- OpenBSD: x86_64 and aarch64
+
 ### Advantages of Rust implementation
 
 If possible, it's highly recommended to use the Rust implementation of the fuzzy matcher!
@@ -30,7 +39,7 @@ If possible, it's highly recommended to use the Rust implementation of the fuzzy
 
 ### Prebuilt binaries (default on a release tag)
 
-By default, Blink will download a prebuilt binary from the latest release, when you're on a release tag (via `version = '1.*'` on `lazy.nvim` for example). If you're not on a release tag, you may force a specific version via `fuzzy.prebuilt_binaries.force_version`. See [the latest release](https://github.com/saghen/blink.cmp/releases/latest) for supported systems. See `prebuilt_binaries` section of the [reference configuration](./reference.md#fuzzy) for more options.
+By default, Blink will download a prebuilt binary from the latest release, when you're on a release tag (via `version = '1.*'` on `lazy.nvim` for example). If you're not on a release tag (tracking `main` or some branch), you may force a specific version via `fuzzy.prebuilt_binaries.force_version = 'v1.9.1'` or glob `'v*'`. See [the latest release](https://github.com/saghen/blink.cmp/releases/latest) for supported systems. See `prebuilt_binaries` section of the [reference configuration](./reference.md#fuzzy) for more options.
 
 You may instead install the prebuilt binaries manually by downloading the appropriate binary from the [latest release](https://github.com/saghen/blink.cmp/releases/latest) and placing it at `$data/lazy/blink.cmp/target/release/libblink_cmp_fuzzy.$ext`. Get the `$data` path via `:echo stdpath('data')`. Use `.so` for linux, `.dylib` for mac, and `.dll` for windows. If you're unsure whether you want `-musl` or `-gnu` for linux, you very likely want `-gnu`.
 
@@ -50,7 +59,7 @@ You may instead install the prebuilt binaries manually by downloading the approp
 
 ### Build from source (recommended for `main`)
 
-When on `main`, it's highly recommended to build from source via `cargo build --release` (via `build = '...'` on `lazy.nvim` for example). This requires a nightly rust toolchain, which will be automatically downloaded when using `rustup`.
+When on `main`, it's highly recommended to build from source via `cargo build --release` (via `build = '...'` on `lazy.nvim` for example).
 
 You may also build with nix via `nix run .#build-plugin`.
 
@@ -96,6 +105,22 @@ In the example above:
 - Entries are first sorted by score.
 - If two entries have the same score, they are then sorted by sort_text.
 - If still tied, they are sorted by label.
+
+#### Sort list function
+
+Instead of specifying a static list, you may also provide a function that returns a list of sorts.
+
+```lua
+fuzzy = {
+  sorts = function()
+    if vim.bo.filetype == "lua" then
+      return { 'score', 'label' }  -- Prioritize label sorting for Lua files
+    else
+      return { 'score', 'sort_text', 'label' }  -- Default sorting for other filetypes
+    end
+  end,
+}
+```
 
 #### Custom sorting
 

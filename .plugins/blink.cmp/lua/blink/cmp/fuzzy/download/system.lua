@@ -8,12 +8,21 @@ system.triples = {
     x64 = 'x86_64-apple-darwin',
   },
   windows = {
+    arm = 'aarch64-pc-windows-msvc',
     x64 = 'x86_64-pc-windows-msvc',
   },
   linux = {
     android = 'aarch64-linux-android',
     arm = function(libc) return 'aarch64-unknown-linux-' .. libc end,
     x64 = function(libc) return 'x86_64-unknown-linux-' .. libc end,
+  },
+  freebsd = {
+    x64 = 'x86_64-unknown-freebsd',
+    arm = 'aarch64-unknown-freebsd',
+  },
+  openbsd = {
+    x64 = 'x86_64-unknown-openbsd',
+    arm = 'aarch64-unknown-openbsd',
   },
 }
 
@@ -22,12 +31,24 @@ system.triples = {
 function system.get_info()
   local os = jit.os:lower()
   if os == 'osx' then os = 'mac' end
+
+  if os == 'bsd' then
+    local sysname = vim.loop.os_uname().sysname:lower()
+    if sysname == 'freebsd' then
+      os = 'freebsd'
+    elseif sysname == 'openbsd' then
+      os = 'openbsd'
+    elseif sysname == 'netbsd' then
+      os = 'netbsd'
+    end
+  end
+
   local arch = jit.arch:lower():match('arm') and 'arm' or jit.arch:lower():match('x64') and 'x64' or nil
   return os, arch
 end
 
 --- Gets the system target triple from `cc -dumpmachine`
---- I.e. 'gnu' | 'musl'
+--- E.g. 'gnu' | 'musl'
 --- @return blink.cmp.Task
 function system.get_linux_libc()
   return async
@@ -74,7 +95,7 @@ function system.get_linux_libc_sync()
 end
 
 --- Gets the system triple for the current system
---- I.e. `x86_64-unknown-linux-gnu` or `aarch64-apple-darwin`
+--- E.g. `x86_64-unknown-linux-gnu` or `aarch64-apple-darwin`
 --- @return blink.cmp.Task
 function system.get_triple()
   return async.task.new(function(resolve, reject)
@@ -82,7 +103,7 @@ function system.get_triple()
 
     local os, arch = system.get_info()
     local triples = system.triples[os]
-    if triples == nil then return end
+    if triples == nil then return resolve() end
 
     if os == 'linux' then
       if vim.fn.has('android') == 1 then return resolve(triples.android) end

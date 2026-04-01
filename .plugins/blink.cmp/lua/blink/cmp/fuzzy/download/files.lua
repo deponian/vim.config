@@ -35,23 +35,33 @@ function files.get_checksum()
   return files.read_file(files.checksum_path):map(function(checksum) return vim.split(checksum, ' ')[1] end)
 end
 
-function files.get_checksum_for_file(path)
-  return async.task.new(function(resolve, reject)
-    local os = system.get_info()
-    local args
-    if os == 'linux' then
-      args = { 'sha256sum', path }
-    elseif os == 'mac' or os == 'osx' then
-      args = { 'shasum', '-a', '256', path }
-    elseif os == 'windows' then
-      args = { 'certutil', '-hashfile', path, 'SHA256' }
-    end
+--- @param path string
+--- @return string[]?
+function files.get_checksum_command(path)
+  local os = system.get_info()
+  if os == 'linux' or os == 'freebsd' then
+    return { 'sha256sum', path }
+  elseif os == 'openbsd' then
+    return { 'sha256', path }
+  elseif os == 'mac' or os == 'osx' then
+    return { 'shasum', '-a', '256', path }
+  elseif os == 'windows' then
+    return { 'certutil', '-hashfile', path, 'SHA256' }
+  end
+end
 
-    vim.system(args, {}, function(out)
+--- @param cmd string[]
+--- @return blink.cmp.Task
+function files.get_checksum_for_file(cmd)
+  return async.task.new(function(resolve, reject)
+    vim.system(cmd, {}, function(out)
       if out.code ~= 0 then return reject('Failed to calculate checksum of pre-built binary: ' .. out.stderr) end
 
       local stdout = out.stdout or ''
+      local os = system.get_info()
       if os == 'windows' then stdout = vim.split(stdout, '\r\n')[2] end
+      -- Specific format 'SHA256 (<file>) = <SHA256 hash>'
+      if os == 'openbsd' then stdout = stdout:match('= (%x+)') end
       -- We get an output like 'sha256sum filename' on most systems, so we grab just the checksum
       return resolve(vim.split(stdout, ' ')[1])
     end)
@@ -59,7 +69,11 @@ function files.get_checksum_for_file(path)
 end
 
 function files.verify_checksum()
-  return async.task.all({ files.get_checksum(), files.get_checksum_for_file(files.lib_path) }):map(function(checksums)
+  local checksum_cmd = files.get_checksum_command(files.lib_path)
+  -- unsupported system, ignore checksum
+  if not checksum_cmd then return async.task.empty() end
+
+  return async.task.all({ files.get_checksum(), files.get_checksum_for_file(checksum_cmd) }):map(function(checksums)
     assert(#checksums == 2, 'Expected 2 checksums, got ' .. #checksums)
     assert(checksums[1] and checksums[2], 'Expected checksums to be non-nil')
     assert(

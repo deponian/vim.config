@@ -1,8 +1,11 @@
 local async = require('gitsigns.async')
 local git_command = require('gitsigns.git.cmd')
+local config = require('gitsigns.config').config
 local log = require('gitsigns.debug.log')
 local util = require('gitsigns.util')
+local Path = util.Path
 local errors = require('gitsigns.git.errors')
+local Watcher = require('gitsigns.git.repo.watcher')
 
 local check_version = require('gitsigns.git.version').check
 
@@ -19,43 +22,89 @@ local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 --- Username configured for the repo.
 --- Needed for to determine "You" in current line blame.
 --- @field username string
---- @field private _watcher_callbacks table<fun(),true>
---- @field private _watcher uv.uv_fs_event_t
---- Used for the debounced section of the watcher handler
---- @field private _watcher_timer? uv.uv_timer_t
---- @field private _watcher_gc userdata Used for garbage collection
+--- @field private _lock Gitsigns.async.Semaphore
+--- @field private _watcher? Gitsigns.Repo.Watcher
+--- @field head_oid? string
+--- @field head_ref? string
+--- @field commondir string
 local M = {}
 
 --- @param gitdir string
 --- @return boolean
 local function is_rebasing(gitdir)
-  return util.Path.exists(util.Path.join(gitdir, 'rebase-merge'))
-    or util.Path.exists(util.Path.join(gitdir, 'rebase-apply'))
+  return Path.exists(Path.join(gitdir, 'rebase-merge'))
+    or Path.exists(Path.join(gitdir, 'rebase-apply'))
+end
+
+--- @param value string?
+--- @return string?
+local function trim(value)
+  if not value then
+    -- Preserve nil to signal "no value".
+    return
+  end
+  -- Normalize line endings/whitespace from ref files.
+  local trimmed = vim.trim(value)
+  -- Treat whitespace-only lines as absent.
+  return trimmed ~= '' and trimmed or nil
+end
+
+--- @param path string
+--- @return string?
+local function read_first_line(path)
+  local f = io.open(path, 'r')
+  if not f then
+    return
+  end
+  local line = f:read('*l')
+  f:close()
+  return trim(line)
+end
+
+--- @param path string
+local function wait_for_unlock(path)
+  -- Git updates refs by taking `<ref>.lock` and then renaming into place.
+  -- Wait briefly so we don't read transient state when reacting to fs events.
+  --
+  -- TODO(lewis6991): should this be async?
+  vim.wait(1000, function()
+    return not Path.exists(path .. '.lock')
+  end, 10, true)
+end
+
+--- Wait for `<path>.lock` to clear then read the first line of a file.
+--- @param path string
+--- @return string?
+local function read_first_line_wait(path)
+  wait_for_unlock(path)
+  return read_first_line(path)
+end
+
+--- @param gitdir string
+--- @return string?
+local function read_head(gitdir)
+  return read_first_line_wait(Path.join(gitdir, 'HEAD'))
+end
+
+--- @param head string?
+--- @return string?
+local function parse_head_ref(head)
+  return head and head:match('^ref:%s*(.+)$') or nil
 end
 
 --- Return the abbreviated ref for HEAD (or short SHA if detached).
 --- Equivalent to `git rev-parse --abbrev-ref HEAD`
 --- @param gitdir string Must be an absolute path to the .git directory
+--- @param head? string
 --- @return string abbrev_head
-local function abbrev_head(gitdir)
-  local head_path = util.Path.join(gitdir, 'HEAD')
-
-  -- TODO(lewis6991): should this be async?
-  vim.wait(1000, function()
-    return not util.Path.exists(head_path .. '.lock')
-  end, 10, true)
-
-  local f = assert(io.open(head_path, 'r'))
-  local head = f:read('*l')
-  f:close()
-
+local function get_abbrev_head(gitdir, head)
+  head = head or assert(read_head(gitdir))
   -- HEAD content is either:
   --   "ref: refs/heads/<branch>"
   --   "<commitsha>" (detached HEAD)
-  local refpath = head:match('^ref:%s*(.+)$')
+  local refpath = parse_head_ref(head)
   if refpath then
-    -- Extract last path component (branch name)
-    return refpath:match('([^/]+)$') or refpath
+    return refpath:match('^refs/heads/(.+)$') or refpath
   end
 
   assert(head:find('^[%x]+$'), 'Invalid HEAD content: ' .. head)
@@ -69,21 +118,184 @@ local function abbrev_head(gitdir)
   return short_sha
 end
 
---- vim.inspect but on one line
---- @param x any
+--- @param gitdir string
 --- @return string
-local function inspect(x)
-  return vim.inspect(x, { indent = '', newline = ' ' })
+local function get_commondir(gitdir)
+  -- In linked worktrees, `gitdir` points at `.git/worktrees/<name>` while most
+  -- refs live under the main `.git` directory (the "commondir").
+  local commondir = read_first_line(Path.join(gitdir, 'commondir'))
+  if not commondir then
+    return gitdir
+  end
+  local abs = Path.join(gitdir, commondir)
+  return uv.fs_realpath(abs) or abs
 end
 
---- @param cb fun()
---- @return fun() deregister
-function M:register_callback(cb)
-  self._watcher_callbacks[cb] = true
-
-  return function()
-    self._watcher_callbacks[cb] = nil
+--- @param commondir string
+--- @param refname string
+--- @return string?
+local function read_packed_ref(commondir, refname)
+  local packed_refs_path = Path.join(commondir, 'packed-refs')
+  wait_for_unlock(packed_refs_path)
+  -- `packed-refs` is a flat map from refname to OID (with optional peeled
+  -- entries). Read it linearly as this is only used on debounced fs events.
+  local f = io.open(packed_refs_path, 'r')
+  if not f then
+    return
   end
+  for line in f:lines() do
+    --- @cast line string
+    if line:sub(1, 1) ~= '#' and line:sub(1, 1) ~= '^' then
+      local oid, name = line:match('^(%x+)%s+(.+)$')
+      if name == refname then
+        f:close()
+        return oid
+      end
+    end
+  end
+  f:close()
+end
+
+--- @param gitdir string
+--- @param commondir? string
+--- @param refname string
+--- @return string?
+local function resolve_ref(gitdir, commondir, refname)
+  -- Resolve a refname to an OID by following symbolic refs and checking:
+  -- - worktree-local loose refs in `gitdir/`
+  -- - shared loose refs in `commondir/`
+  -- - `commondir/packed-refs`
+  local seen = {} --- @type table<string, true>
+  local current = refname
+
+  while current and current ~= '' do
+    if seen[current] then
+      log.dprintf('cycle detected in symbolic refs: %s', vim.inspect(vim.tbl_keys(seen)))
+      return
+    end
+    seen[current] = true
+
+    local line = read_first_line_wait(Path.join(gitdir, current))
+
+    if not line and commondir and commondir ~= gitdir then
+      line = read_first_line_wait(Path.join(commondir, current))
+    end
+
+    if not line then
+      log.dprintf('Ref %s not found as loose ref; checking packed-refs', current)
+      break
+    elseif line:match('^%x+$') then
+      return line
+    end
+
+    local symref = line:match('^ref:%s*(.+)$')
+    if symref then
+      current = symref
+    else
+      log.dprintf('Ref %s has invalid contents (%s); checking packed-refs', current, line)
+      break
+    end
+  end
+
+  if commondir and current then
+    -- Some refs are only stored in packed-refs.
+    local packed = read_packed_ref(commondir, current)
+    if packed and packed:match('^%x+$') then
+      return packed
+    end
+  end
+end
+
+--- Manual implementation of `git rev-parse HEAD`.
+--- @param gitdir string
+--- @param commondir string
+--- @return string? oid
+--- @return string? err
+local function get_head_oid0(gitdir, commondir)
+  -- `.git/HEAD` can remain unchanged while its target ref moves (e.g. `git pull`
+  -- updating the checked-out branch). Resolve `HEAD` through loose refs and
+  -- packed-refs so we can detect branch moves without spawning `git`.
+  local head = read_head(gitdir)
+  if not head then
+    -- Unable to read HEAD.
+    return nil, 'unable to read HEAD file'
+  end
+
+  if head:match('^%x+$') then
+    -- Detached HEAD contains an OID directly.
+    return head
+  end
+
+  local ref = parse_head_ref(head)
+  if not ref then
+    -- Unrecognized HEAD format.
+    return nil, ('unrecognized HEAD contents: %s'):format(head)
+  end
+
+  local oid = resolve_ref(gitdir, commondir, ref)
+  if oid then
+    -- Resolved via loose refs or packed-refs.
+    return oid
+  end
+
+  -- Reftable stores refs in a different backend (no loose/packed refs).
+  if Path.exists(Path.join(commondir, 'reftable')) then
+    return nil, 'reftable'
+  end
+
+  -- Reftable cannot be parsed via loose refs/packed-refs. Keep a synchronous
+  -- fallback for correctness (rare setup). Some other backends or transient
+  -- states can also cause resolution to fail, so keep this as a general
+  -- fallback.
+  return nil, ('unable to resolve %s via loose refs/packed-refs'):format(ref)
+end
+
+--- Manual implementation of `git rev-parse HEAD` with command fallback.
+--- @param gitdir string
+--- @param commondir string
+--- @return string? oid
+local function get_head_oid(gitdir, commondir)
+  local oid0, err = get_head_oid0(gitdir, commondir)
+  if oid0 then
+    return oid0
+  end
+
+  log.dprintf('Falling back to `git rev-parse HEAD`: %s', err)
+
+  local stdout, stderr, code = async
+    .run(git_command, { '--git-dir', gitdir, 'rev-parse', 'HEAD' }, { ignore_error = true })
+    :wait()
+
+  local oid = stdout[1]
+
+  if code ~= 0 or not oid or not oid:match('^%x+$') then
+    log.dprintf('Fallback `git rev-parse HEAD` failed: code=%s oid=%s stderr=%s', code, oid, stderr)
+    return
+  end
+  return oid
+end
+
+--- Registers a callback to be invoked on update events.
+---
+--- The provided callback function `cb` will be stored and called when an update
+--- occurs. Returns a deregister function that, when called, will remove the
+--- callback from the watcher.
+---
+--- @param callback fun() Callback function to be invoked on update.
+--- @return fun() deregister Function to remove the callback from the watcher.
+function M:on_update(callback)
+  assert(self._watcher, 'Watcher not initialized')
+  return self._watcher:on_update(callback)
+end
+
+--- Run a function while holding the repo lock.
+--- This serializes git operations that mutate repo state such as the index.
+--- @async
+--- @generic R
+--- @param fn async fun(): R...
+--- @return R...
+function M:lock(fn)
+  return self._lock:with(fn)
 end
 
 --- Run git command the with the objects gitdir and toplevel
@@ -112,24 +324,72 @@ end
 
 --- @async
 --- @param base string?
---- @return string[]
-function M:files_changed(base)
+--- @param include_untracked? boolean
+--- @return {path:string, oldpath?:string}[]
+function M:files_changed(base, include_untracked)
+  local ret = {} --- @type {path:string, oldpath?:string}[]
+
   if base and base ~= ':0' then
     local results = self:command({ 'diff', '--name-status', base })
-    for i, result in ipairs(results) do
-      results[i] = vim.split(result:gsub('\t', ' '), ' ', { plain = true })[2]
+    for _, result in ipairs(results) do
+      local parts = vim.split(result, '\t', { plain = true })
+      local status = parts[1]
+      local path = parts[#parts]
+      local renamed = status and (vim.startswith(status, 'R') or vim.startswith(status, 'C'))
+      if path then
+        ret[#ret + 1] = {
+          path = path,
+          oldpath = renamed and parts[2] or nil,
+        }
+      end
     end
-    return results
+    if include_untracked then
+      local untracked = self:command({ 'ls-files', '--others', '--exclude-standard' })
+      for _, path in ipairs(untracked) do
+        ret[#ret + 1] = { path = path }
+      end
+    end
+    return ret
   end
 
   local results = self:command({ 'status', '--porcelain', '--ignore-submodules' })
 
-  local ret = {} --- @type string[]
   for _, line in ipairs(results) do
-    if line:sub(1, 2):match('^.M') then
-      ret[#ret + 1] = line:sub(4, -1)
+    local status = line:sub(1, 2)
+    if status:match('^.M') or (include_untracked and status == '??') then
+      ret[#ret + 1] = { path = line:sub(4, -1) }
     end
   end
+  return ret
+end
+
+--- @async
+--- @param attr string
+--- @param files string[]
+--- @return table<string,'set'|'unset'|'unspecified'|string>
+function M:check_attr(attr, files)
+  local ret = {} --- @type table<string,'set'|'unset'|'unspecified'|string>
+
+  if #files == 0 then
+    return ret
+  end
+
+  for _, f in ipairs(files) do
+    ret[f] = 'unspecified'
+  end
+
+  local output = self:command({ 'check-attr', attr, '--stdin' }, { stdin = files })
+  local sep = ': ' .. attr .. ': '
+
+  for _, line in ipairs(output) do
+    local parts = vim.split(line, sep, { plain = true })
+    local file = parts[1]
+    if file and #parts >= 2 then
+      local value = table.concat(parts, sep, 2)
+      ret[file] = value
+    end
+  end
+
   return ret
 end
 
@@ -160,120 +420,87 @@ function M:get_show_text(object, encoding)
   return stdout, stderr
 end
 
+--- @async
+--- Get version of file at revision. If the path was renamed after `revision`,
+--- resolve the old path before reading the blob.
+--- @param revision string
+--- @param relpath string
+--- @param encoding? string
+--- @return string[] stdout, string? stderr
+function M:get_show_text_at_revision(revision, relpath, encoding)
+  local stdout, stderr = self:get_show_text(revision .. ':' .. relpath, encoding)
+
+  if
+    stderr
+    and (
+      stderr:match(errors.e.path_does_not_exist)
+      or stderr:match(errors.e.path_exist_on_disk_but_not_in)
+    )
+  then
+    log.dprintf('%s not found in %s looking for renames', relpath, revision)
+    local old_path = self:diff_rename_status(revision, true)[relpath]
+      or self:log_rename_status(revision, relpath)
+    if old_path then
+      log.dprintf('found rename %s -> %s', old_path, relpath)
+      stdout, stderr = self:get_show_text(revision .. ':' .. old_path, encoding)
+    end
+  end
+
+  return stdout, stderr
+end
+
 --- @type table<string,Gitsigns.Repo?>
 local repo_cache = setmetatable({}, { __mode = 'v' })
-
---- @param fn fun()
---- @return userdata
-local function gc_proxy(fn)
-  local proxy = newproxy(true)
-  getmetatable(proxy).__gc = fn
-  return proxy
-end
-
---- @param cb fun()
-function M:_start_watcher_timer(cb)
-  -- Debounced section
-  self._watcher_timer = self._watcher_timer or assert(uv.new_timer())
-  self._watcher_timer:start(200, 0, function()
-    self._watcher_timer:stop()
-    self._watcher_timer:close()
-    self._watcher_timer = nil
-    vim.schedule(cb)
-  end)
-end
-
-function M:_start_watcher()
-  self._watcher_callbacks = {}
-  self._watcher = assert(uv.new_fs_event())
-
-  local gitdir = self.gitdir
-
-  -- Keep track of changed files, so the debounced section has information
-  -- about what changed.
-  local changed_files = {} --- @type table<string,true>
-
-  self._watcher:start(gitdir, {}, function(err, filename, events)
-    local __FUNC__ = 'watcher_cb'
-
-    -- Do not use `self` in luv callbacks as it prevents garbage collection.
-    -- Must use a weak reference.
-    local repo = repo_cache[gitdir]
-    if not repo then
-      return -- garbage collected
-    end
-
-    if err then
-      log.dprintf('Git dir update error: %s', err)
-      return
-    end
-
-    -- The luv docs say filename is passed as a string but it has been observed
-    -- to sometimes be nil.
-    --    https://github.com/lewis6991/gitsigns.nvim/issues/848
-    if not filename then
-      log.eprint('No filename')
-      return
-    end
-
-    for _, ex in ipairs({
-      '.watchman-cookie',
-      'index.lock',
-    }) do
-      if vim.startswith(filename, ex) then
-        log.dprintf("Git dir update: '%s' %s (ignoring)", filename, inspect(events))
-        return
-      end
-    end
-
-    log.dprintf("Git dir update: '%s' %s", filename, inspect(events))
-
-    changed_files[filename] = true
-
-    -- Debounced section
-    repo:_start_watcher_timer(function()
-      local __FUNC__ = 'watcher (debounced)'
-
-      -- Do not use `self` in luv callbacks as it prevents garbage collection.
-      -- Must use a weak reference.
-      repo = repo_cache[gitdir]
-      if not repo then
-        return -- garbage collected
-      end
-
-      local head_changed = changed_files.HEAD or false
-
-      changed_files = {}
-
-      if head_changed then
-        repo.abbrev_head = abbrev_head(gitdir)
-        log.dprintf('HEAD changed, updating abbrev_head to %s', repo.abbrev_head)
-      end
-
-      for cb in pairs(repo._watcher_callbacks) do
-        vim.schedule(cb)
-      end
-    end)
-  end)
-
-  self._watcher_gc = gc_proxy(function()
-    self._watcher:stop()
-    self._watcher:close()
-  end)
-end
 
 --- @async
 --- @private
 --- @param info Gitsigns.RepoInfo
 --- @return Gitsigns.Repo
-local function new(info)
+function M._new(info)
+  --- @type Gitsigns.Repo
   local self = setmetatable(info, { __index = M })
-  --- @cast self Gitsigns.Repo
-
+  self._lock = async.semaphore(1)
   self.username = self:command({ 'config', 'user.name' }, { ignore_error = true })[1]
-  self:_start_watcher()
+
+  self.commondir = get_commondir(self.gitdir)
+
+  if config.watch_gitdir.enable then
+    local head = read_head(self.gitdir)
+    self.head_ref = parse_head_ref(head)
+    self.head_oid = get_head_oid(self.gitdir, self.commondir)
+    self._watcher = Watcher.new(self.gitdir, self.commondir)
+    self._watcher:set_head_ref(self.head_ref)
+    self._watcher:on_update(function()
+      -- Recompute on every debounced tick. The checked-out branch can move
+      -- without `HEAD` changing (e.g. `refs/heads/main` update).
+      local head2 = read_head(self.gitdir)
+      if not head2 then
+        return
+      end
+
+      self.head_oid = get_head_oid(self.gitdir, self.commondir)
+      -- Set abbrev_head to empty string if head_oid is unavailable (.e.g repo
+      -- with no commits). This is consistent with `git rev-parse --abrev-ref
+      -- HEAD` which returns "HEAD" in this case.
+      local abbrev_head = self.head_oid and get_abbrev_head(self.gitdir, head2) or ''
+      if self.abbrev_head ~= abbrev_head then
+        self.abbrev_head = abbrev_head
+        log.dprintf('HEAD changed, updating abbrev_head to %s', self.abbrev_head)
+      end
+
+      local head_ref = parse_head_ref(head2)
+      if self.head_ref ~= head_ref then
+        self.head_ref = head_ref
+        self._watcher:set_head_ref(self.head_ref)
+      end
+    end)
+  end
 
   return self
+end
+
+function M:has_watcher()
+  return self._watcher ~= nil
 end
 
 local sem = async.semaphore(1)
@@ -294,9 +521,37 @@ function M.get(cwd, gitdir, toplevel)
       return nil, err
     end
 
-    repo_cache[info.gitdir] = repo_cache[info.gitdir] or new(info)
-    return repo_cache[info.gitdir]
+    local repo = repo_cache[info.gitdir]
+    if repo then
+      -- Keep cached repo metadata in sync with git's current state.
+      -- Without this, branch/rebase transitions can leave abbrev_head stale
+      -- until a watcher callback runs.
+      repo.abbrev_head = info.abbrev_head
+      repo.detached = info.detached
+    else
+      repo = M._new(info)
+      repo_cache[info.gitdir] = repo
+    end
+    return repo
   end)
+end
+
+local has_win_cygpath = vim.fn.has('win32') == 1 and vim.fn.executable('cygpath') == 1
+
+--- Normalize repo discovery paths for comparisons and returned repo metadata.
+--- On Windows with MSYS/Cygwin Git, convert `/c/...` style paths to mixed
+--- Windows form before applying `vim.fs.normalize()`.
+--- @async
+--- @param path? string
+--- @return string?
+local function normalize_path(path)
+  if not path then
+    return
+  end
+  if has_win_cygpath then
+    path = util.cygpath(path, 'mixed')
+  end
+  return vim.fs.normalize(path)
 end
 
 --- @async
@@ -388,19 +643,21 @@ function M.get_info(dir, gitdir, worktree)
   end
   --- @cast stdout [string, string, string]
 
-  local toplevel_r = stdout[1]
-  local gitdir_r = stdout[2]
+  local toplevel_r = assert(normalize_path(stdout[1]))
+  local gitdir_r = assert(normalize_path(stdout[2]))
+  dir = normalize_path(dir)
+  gitdir = normalize_path(gitdir)
 
   -- On windows, git will emit paths with `/` but dir may contain `\` so need to
   -- normalize.
-  if dir and not vim.startswith(vim.fs.normalize(dir), toplevel_r) then
+  if dir and not vim.startswith(dir, toplevel_r) then
     log.dprintf("'%s' is outside worktree '%s'", dir, toplevel_r)
     -- outside of worktree
     return
   end
 
   if not has_abs_gd then
-    gitdir_r = assert(uv.fs_realpath(gitdir_r))
+    gitdir_r = assert(normalize_path(uv.fs_realpath(gitdir_r)))
   end
 
   if gitdir and not worktree and gitdir ~= gitdir_r then
@@ -411,7 +668,7 @@ function M.get_info(dir, gitdir, worktree)
     toplevel = toplevel_r,
     gitdir = gitdir_r,
     abbrev_head = process_abbrev_head(gitdir_r, stdout[3], toplevel_r),
-    detached = toplevel_r and gitdir_r ~= toplevel_r .. '/.git',
+    detached = gitdir_r ~= assert(normalize_path(Path.join(toplevel_r, '.git'))),
   }
 end
 
@@ -428,8 +685,6 @@ end
 --- @return string? err
 function M:ls_tree(path, revision)
   local results, stderr, code = self:command({
-    '-c',
-    'core.quotepath=off',
     'ls-tree',
     revision,
     path,
@@ -487,8 +742,6 @@ function M:ls_files(file)
   -- files.
   local results, stderr, code = self:command(
     util.flatten({
-      '-c',
-      'core.quotepath=off',
       'ls-files',
       '--stage',
       '--others',
@@ -597,6 +850,32 @@ function M:hash_object(path, lines)
   return assert(res)
 end
 
+--- @param line string?
+--- @return string? status
+--- @return string? path
+--- @return string? path2
+local function parse_name_status_line(line)
+  if not line then
+    return
+  end
+
+  local parts = vim.split(line, '\t', { plain = true })
+  if #parts < 2 then
+    return
+  end
+
+  local status = parts[1]
+  if not status then
+    return
+  end
+
+  if vim.startswith(status, 'R') or vim.startswith(status, 'C') then
+    return status, parts[2], parts[3]
+  end
+
+  return status, parts[2]
+end
+
 --- @async
 --- @param revision string
 --- @param path string
@@ -612,11 +891,8 @@ function M:log_rename_status(revision, path)
     '--',
     path,
   })
-  local line = out[#out]
-  if not line then
-    return
-  end
-  return vim.split(line, '%s+')[2]
+  local _, old_path = parse_name_status_line(out[#out])
+  return old_path
 end
 
 --- @async
@@ -634,16 +910,12 @@ function M:diff_rename_status(revision, invert)
   })
   local ret = {} --- @type table<string,string>
   for _, l in ipairs(out) do
-    local parts = vim.split(l, '%s+')
-    if #parts == 3 then
-      --- @cast parts [string, string, string]
-      local stat, orig_file, new_file = parts[1], parts[2], parts[3]
-      if vim.startswith(stat, 'R') then
-        if invert then
-          ret[new_file] = orig_file
-        else
-          ret[orig_file] = new_file
-        end
+    local stat, orig_file, new_file = parse_name_status_line(l)
+    if stat and vim.startswith(stat, 'R') and orig_file and new_file then
+      if invert then
+        ret[new_file] = orig_file
+      else
+        ret[orig_file] = new_file
       end
     end
   end

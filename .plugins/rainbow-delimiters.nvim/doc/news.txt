@@ -8,22 +8,43 @@ https://keepachangelog.com/en/1.1.0/
 https://semver.org/
 
 ==============================================================================
-Unreleased
+Version 0.11.0 (released on 2026-03-25)
 
 ------------------------------------------------------------------------------
 ADDED
 
 New languages:
+    • Nickel
     • QML
 
-Missing pattersn:
+Missing patterns:
+    • Astro:
+        - `element`
+        - `style_element`
     • C++:
         - `decltype`
         - `parenthesized_declarator`
         - `sizeof_expression`
         - `static_assert_declaration`
         - `structured_binding_declarator`
+    • Templ:
+        - `rawgo_block`
+    • Ruby:
+        - `interpolation`
+        - `element_reference`
+        - `argument_list`
+        - `method_parameters`
 
+FIXED
+------------------------------------------------------------------------------
+
+Missing parser error in Neovim version 0.12.0
+
+Fixed patterns:
+    • Gleam
+      - `bit_array` instead of `bit_string`
+      - `bit_array_pattern` instead of `bit_string_pattern`
+      - `bit_array_segment_option` instead of `bit_string_segment_option`
 
 
 ==============================================================================

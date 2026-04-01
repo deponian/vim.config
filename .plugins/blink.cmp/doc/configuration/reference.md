@@ -76,7 +76,7 @@ completion.trigger = {
   show_on_insert = false,
 
   -- LSPs can indicate when to show the completion window via trigger characters
-  -- however, some LSPs (i.e. tsserver) return characters that would essentially
+  -- however, some LSPs (e.g. tsserver) return characters that would essentially
   -- always show the window. We block these by default.
   show_on_blocked_trigger_characters = { ' ', '\n', '\t' },
   -- You can also block per filetype with a function:
@@ -413,8 +413,8 @@ fuzzy = {
     enabled = true,
     -- Location of the frecency database
     path = vim.fn.stdpath('state') .. '/blink/cmp/frecency.dat',
-    -- UNSAFE!! When enabled, disables the lock and fsync when writing to the frecency database. 
-    -- This should only be used on unsupported platforms (i.e. alpine termux)
+    -- UNSAFE!! When enabled, disables the lock and fsync when writing to the frecency database.
+    -- This should only be used on unsupported platforms (e.g. alpine, termux)
     unsafe_no_lock = false,
   },
   use_frecency = true, -- deprecated alias for frecency.enabled, will be removed in v2.0
@@ -426,6 +426,8 @@ fuzzy = {
 
   -- Controls which sorts to use and in which order, falling back to the next sort if the first one returns nil
   -- You may pass a function instead of a string to customize the sorting
+  --
+  -- Optionally, set the table of sorts via a function instead: sorts = function() return { 'exact', 'score', 'sort_text' } end
   sorts = {
     -- (optionally) always prioritize exact matches
     -- 'exact',
@@ -450,6 +452,9 @@ fuzzy = {
 
     -- When downloading a prebuilt binary, force the downloader to resolve this version. If this is unset
     -- then the downloader will attempt to infer the version from the checked out git tag (if any).
+    --
+    -- You may set this to any pattern that `git describe --tags --match <pattern>` supports. For example,
+    -- to track the latest release, you may set this to `v*`.
     --
     -- Beware that if the fuzzy matcher changes while tracking main then this may result in blink breaking.
     force_version = nil,
@@ -524,7 +529,11 @@ sources.providers = {
     transform_items = nil, -- Function to transform the items before they're returned
     should_show_items = true, -- Whether or not to show the items
     max_items = nil, -- Maximum number of items to display in the menu
-    min_keyword_length = 0, -- Minimum number of characters in the keyword to trigger the provider
+    -- Minimum number of characters in the keyword to trigger the provider
+    -- May also be a function(ctx: blink.cmp.Context): number
+    -- To ignore this property when manually showing the menu, set it like:
+    -- min_keyword_length = function(ctx) return ctx.trigger.initial_kind == 'manual' and 0 or 1 end
+    min_keyword_length = 0, 
     -- If this provider returns 0 items, it will fallback to these providers.
     -- If multiple providers fallback to the same provider, all of the providers must return 0 items for it to fallback
     fallbacks = {},
@@ -543,6 +552,8 @@ sources.providers = {
       show_hidden_files_by_default = false,
       -- Treat `/path` as starting from the current working directory (cwd) instead of the root of your filesystem
       ignore_root_slash = false,
+      -- Maximum number of files/directories to return. This limits memory use and responsiveness for very large folders.
+      max_entries = 10000,
     }
   },
 
@@ -556,7 +567,7 @@ sources.providers = {
       search_paths = { vim.fn.stdpath('config') .. '/snippets' },
       global_snippets = { 'all' },
       extended_filetypes = {},
-      ignored_filetypes = {},
+      filter_snippets = function(filetype, file) return true end,
       get_filetype = function(context)
         return vim.bo.filetype
       end,
@@ -614,7 +625,7 @@ sources.providers = {
       retention_order = { 'focused', 'visible', 'recency', 'largest' },
       -- Cache words for each buffer which increases memory usage but drastically reduces cpu usage. Memory usage depends on the size of the buffers from `get_bufnrs`. For 100k items, it will use ~20MBs of memory. Invalidated and refreshed whenever the buffer content is modified.
       use_cache = true,
-      -- Whether to enable buffer source in substitute (:s) and global (:g) commands.
+      -- Whether to enable buffer source in substitute (:s), global (:g) and grep commands (:grep, :vimgrep, etc.).
       -- Note: Enabling this option will temporarily disable Neovim's 'inccommand' feature
       -- while editing Ex commands, due to a known redraw issue (see neovim/neovim#9783).
       -- This means you will lose live substitution previews when using :s, :smagic, or :snomagic

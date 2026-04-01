@@ -98,7 +98,7 @@ function SystemObj:is_closing()
   return handle == nil or handle:is_closing() or false
 end
 
---- @param output? fun(err: string?, data: string?)|false
+--- @param output? fun(err: string?, data: string?)|boolean
 --- @param text? boolean
 --- @return uv.uv_stream_t? pipe
 --- @return fun(err: string?, data: string?)? handler
@@ -294,12 +294,12 @@ end
 --- @param on_exit? fun(out: vim.SystemCompleted)
 --- @return vim.SystemObj
 local function system(cmd, opts, on_exit)
-  ---@diagnostic disable-next-line: param-type-not-match FIXME
+  ---@diagnostic disable-next-line
   vim.validate({
     cmd = { cmd, 'table' },
     opts = { opts, 'table', true },
     on_exit = { on_exit, 'function', true },
-  })
+  }) ---@diagnostic disable-line
 
   opts = opts or {}
 

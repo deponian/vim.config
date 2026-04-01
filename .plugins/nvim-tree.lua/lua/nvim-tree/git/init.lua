@@ -1,5 +1,6 @@
 local log = require("nvim-tree.log")
 local utils = require("nvim-tree.utils")
+local config = require("nvim-tree.config")
 local git_utils = require("nvim-tree.git.utils")
 
 local GitRunner = require("nvim-tree.git.runner")
@@ -7,34 +8,26 @@ local Watcher = require("nvim-tree.watcher").Watcher
 local Iterator = require("nvim-tree.iterators.node-iterator")
 local DirectoryNode = require("nvim-tree.node.directory")
 
----Git short format status xy
----@alias GitXY string
-
 -- Git short-format status
----@alias GitPathXY table<string, GitXY>
+---@alias nvim_tree.git.PathXY table<string, nvim_tree.git.XY>
 
 -- Git short-format statuses
----@alias GitPathXYs table<string, GitXY[]>
-
----Git short-format statuses for a single node
----@class (exact) GitNodeStatus
----@field file GitXY?
----@field dir table<"direct" | "indirect", GitXY[]>?
+---@alias nvim_tree.git.PathXYs table<string, nvim_tree.git.XY[]>
 
 ---Git state for an entire repo
----@class (exact) GitProject
----@field files GitProjectFiles?
----@field dirs GitProjectDirs?
+---@class (exact) nvim_tree.git.Project
+---@field files nvim_tree.git.ProjectFiles?
+---@field dirs nvim_tree.git.ProjectDirs?
 ---@field watcher Watcher?
 
----@alias GitProjectFiles GitPathXY
----@alias GitProjectDirs table<"direct" | "indirect", GitPathXYs>
+---@alias nvim_tree.git.ProjectFiles nvim_tree.git.PathXY
+---@alias nvim_tree.git.ProjectDirs table<"direct" | "indirect", nvim_tree.git.PathXYs>
 
 local M = {
   config = {},
 
   ---all projects keyed by toplevel
-  ---@type table<string, GitProject>
+  ---@type table<string, nvim_tree.git.Project>
   _projects_by_toplevel = {},
 
   ---index of paths inside toplevels, false when not inside a project
@@ -58,8 +51,8 @@ local WATCHED_FILES = {
 
 ---@param toplevel string|nil
 ---@param path string|nil
----@param project GitProject
----@param project_files GitProjectFiles?
+---@param project nvim_tree.git.Project
+---@param project_files nvim_tree.git.ProjectFiles?
 local function reload_git_project(toplevel, path, project, project_files)
   if path then
     for p in pairs(project.files) do
@@ -77,7 +70,7 @@ end
 
 --- Is this path in a known ignored directory?
 ---@param path string
----@param project GitProject
+---@param project nvim_tree.git.Project
 ---@return boolean
 local function path_ignored_in_project(path, project)
   if not path or not project then
@@ -94,9 +87,9 @@ local function path_ignored_in_project(path, project)
   return false
 end
 
----@return GitProject[] maybe empty
+---@return nvim_tree.git.Project[] maybe empty
 function M.reload_all_projects()
-  if not M.config.git.enable then
+  if not config.g.git.enable then
     return {}
   end
 
@@ -112,9 +105,9 @@ end
 ---@param path string? optional path to update only
 ---@param callback function?
 function M.reload_project(toplevel, path, callback)
-  local project = M._projects_by_toplevel[toplevel] --[[@as GitProject]]
+  local project = M._projects_by_toplevel[toplevel] --[[@as nvim_tree.git.Project]]
 
-  if not toplevel or not project or not M.config.git.enable then
+  if not toplevel or not project or not config.g.git.enable then
     if callback then
       callback()
     end
@@ -134,11 +127,11 @@ function M.reload_project(toplevel, path, callback)
     path           = path,
     list_untracked = git_utils.should_show_untracked(toplevel),
     list_ignored   = true,
-    timeout        = M.config.git.timeout,
+    timeout        = config.g.git.timeout,
   }
 
   if callback then
-    ---@param path_xy GitPathXY
+    ---@param path_xy nvim_tree.git.PathXY
     args.callback = function(path_xy)
       reload_git_project(toplevel, path, project, path_xy)
       callback()
@@ -152,7 +145,7 @@ end
 
 --- Retrieve a known project
 ---@param toplevel string?
----@return GitProject? project
+---@return nvim_tree.git.Project? project
 function M.get_project(toplevel)
   return M._projects_by_toplevel[toplevel]
 end
@@ -169,7 +162,7 @@ function M.get_toplevel(path)
     return nil
   end
 
-  if not M.config.git.enable then
+  if not config.g.git.enable then
     return nil
   end
 
@@ -202,15 +195,15 @@ function M.get_toplevel(path)
   local toplevel_norm = vim.fn.fnamemodify(toplevel, ":p")
 
   -- ignore disabled paths
-  if type(M.config.git.disable_for_dirs) == "table" then
-    for _, disabled_for_dir in ipairs(M.config.git.disable_for_dirs) do
+  if type(config.g.git.disable_for_dirs) == "table" then
+    for _, disabled_for_dir in ipairs(config.g.git.disable_for_dirs --[[@as string[] ]]) do
       local disabled_norm = vim.fn.fnamemodify(disabled_for_dir, ":p")
       if toplevel_norm == disabled_norm then
         return nil
       end
     end
-  elseif type(M.config.git.disable_for_dirs) == "function" then
-    if M.config.git.disable_for_dirs(toplevel_norm) then
+  elseif type(config.g.git.disable_for_dirs) == "function" then
+    if config.g.git.disable_for_dirs(toplevel_norm) then
       return nil
     end
   end
@@ -228,7 +221,7 @@ function M.get_toplevel(path)
 end
 
 local function reload_tree_at(toplevel)
-  if not M.config.git.enable or not toplevel then
+  if not config.g.git.enable or not toplevel then
     return nil
   end
 
@@ -265,9 +258,9 @@ end
 --- Load the project status for a path. Does nothing when no toplevel for path.
 --- Only fetches project status when unknown, otherwise returns existing.
 ---@param path string absolute
----@return GitProject maybe empty
+---@return nvim_tree.git.Project maybe empty
 function M.load_project(path)
-  if not M.config.git.enable then
+  if not config.g.git.enable then
     return {}
   end
 
@@ -286,17 +279,17 @@ function M.load_project(path)
     toplevel       = toplevel,
     list_untracked = git_utils.should_show_untracked(toplevel),
     list_ignored   = true,
-    timeout        = M.config.git.timeout,
+    timeout        = config.g.git.timeout,
   })
 
   local watcher = nil
-  if M.config.filesystem_watchers.enable then
+  if config.g.filesystem_watchers.enable then
     log.line("watcher", "git start")
 
     ---@param w Watcher
     local callback = function(w)
       log.line("watcher", "git event scheduled '%s'", w.data.toplevel)
-      utils.debounce("git:watcher:" .. w.data.toplevel, M.config.filesystem_watchers.debounce_delay, function()
+      utils.debounce("git:watcher:" .. w.data.toplevel, config.g.filesystem_watchers.debounce_delay, function()
         if w.destroyed then
           return
         end
@@ -329,7 +322,7 @@ function M.load_project(path)
 end
 
 ---@param dir DirectoryNode
----@param project GitProject?
+---@param project nvim_tree.git.Project?
 ---@param root string?
 function M.update_parent_projects(dir, project, root)
   while project and dir do
@@ -378,7 +371,7 @@ function M.refresh_dir(dir)
 end
 
 ---@param dir DirectoryNode?
----@param projects GitProject[]
+---@param projects nvim_tree.git.Project[]
 function M.reload_node_status(dir, projects)
   dir = dir and dir:as(DirectoryNode)
   if not dir or #dir.nodes == 0 then
@@ -411,12 +404,7 @@ end
 function M.disable_git_integration()
   log.line("git", "disabling git integration")
   M.purge_state()
-  M.config.git.enable = false
-end
-
-function M.setup(opts)
-  M.config.git = opts.git
-  M.config.filesystem_watchers = opts.filesystem_watchers
+  config.g.git.enable = false
 end
 
 return M

@@ -2,7 +2,7 @@
 
 ::: warning
 Blink uses a prebuilt binary for the fuzzy matcher which will be downloaded automatically when on a tag.
-You may build from source with rust nightly or use the lua implementation. See the [fuzzy documentation](./configuration/fuzzy.md) for more information.
+You may build from source with a [rust toolchain](https://rustup.rs) or use the lua implementation. See the [fuzzy documentation](./configuration/fuzzy.md) for more information.
 :::
 
 ## Requirements
@@ -12,7 +12,7 @@ You may build from source with rust nightly or use the lua implementation. See t
   - curl
   - git
 - Building from source:
-  - Rust nightly or [rustup](https://rustup.rs/)
+  - [Rust toolchain](https://rustup.rs/)
 
 Note: By default, Blink will attempt to use the rust implementation of the fuzzy matcher. However, the lua implementation does not require any of these dependencies. See the [fuzzy documentation](./configuration/fuzzy.md) for more information.
 
@@ -26,9 +26,9 @@ Note: By default, Blink will attempt to use the rust implementation of the fuzzy
 
   -- use a release tag to download pre-built binaries
   version = '1.*',
-  -- AND/OR build from source, requires nightly: https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust
+  -- AND/OR build from source
   -- build = 'cargo build --release',
-  -- If you use nix, you can build from source using latest nightly rust with:
+  -- If you use nix, you can build from source with:
   -- build = 'nix run .#build-plugin',
 
   ---@module 'blink.cmp'
@@ -77,7 +77,7 @@ Note: By default, Blink will attempt to use the rust implementation of the fuzzy
 ### LSP Capabilities
 
 ::: warning
-On Neovim 0.11+ with `vim.lsp.config`, you may skip this step. See [nvim-lspconfig docs](https://github.com/neovim/nvim-lspconfig?tab=readme-ov-file#vimlspconfig)
+With Neovim 0.11+ having `vim.lsp.config` built-in, you may skip this step. See [nvim-lspconfig docs](https://github.com/neovim/nvim-lspconfig?tab=readme-ov-file#vimlspconfig)
 :::
 
 LSP servers and clients communicate which features they support through "capabilities". By default, Neovim supports a subset of the LSP specification. With blink.cmp, Neovim has _more_ capabilities which are communicated to the LSP servers.
@@ -161,7 +161,7 @@ MiniDeps.add({
   checkout = "some.version", -- check releases for latest tag
 })
 
--- OR build from source, requires nightly: https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust
+-- OR build from source
 local function build_blink(params)
   vim.notify('Building blink.cmp', vim.log.levels.INFO)
   local obj = vim.system({ 'cargo', 'build', '--release' }, { cwd = params.path }):wait()
@@ -178,5 +178,82 @@ MiniDeps.add({
     post_install = build_blink,
     post_checkout = build_blink,
   },
+})
+```
+
+## vim-plug
+
+This section shows how to perform the equivalent default setup as demonstrated in the [lazy.nvim](#lazy.nvim) section using `vim-plug`.
+To install, add `blink.cmp` and its optional dependencies, then manually call `setup()` for further configuration:
+
+VimScript:
+
+```vim
+call plug#begin()
+" use a release tag to download pre-built binaries.
+" To build from source, use { 'do': 'cargo build --release' } instead
+" If you use nix, use { 'do': 'nix run .#build-plugin' }
+Plug 'saghen/blink.cmp', { 'tag': 'v1.*' }
+
+" optional: provides snippets for the snippet source
+Plug 'rafamadriz/friendly-snippets'
+call plug#end()
+
+lua << EOF
+require('blink.cmp').setup({
+  keymap = { preset = 'default' },
+  appearance = {
+    nerd_font_variant = 'mono'
+  },
+  completion = {
+    documentation = { auto_show = false }
+  },
+  sources = {
+    default = { 'lsp', 'path', 'snippets', 'buffer' },
+  },
+  fuzzy = {
+    implementation = "prefer_rust_with_warning"
+  }
+})
+EOF
+```
+
+Lua:
+
+```lua
+local Plug = vim.fn['plug#']
+
+-- Plugin installation
+vim.call('plug#begin')
+
+-- use a release tag to download pre-built binaries.
+-- To build from source, use { ['do'] = 'cargo build --release' } instead
+-- If you use nix, use { ['do'] = 'nix run .#build-plugin' }
+Plug('saghen/blink.cmp', { ['tag'] = 'v1.*' })
+
+-- optional: provides snippets for the snippet source
+Plug('rafamadriz/friendly-snippets')
+
+vim.call('plug#end')
+
+-- Plugin configuration
+require('blink.cmp').setup({
+  keymap = { preset = 'default' },
+
+  appearance = {
+    nerd_font_variant = 'mono'
+  },
+
+  completion = {
+    documentation = { auto_show = false }
+  },
+
+  sources = {
+    default = { 'lsp', 'path', 'snippets', 'buffer' },
+  },
+
+  fuzzy = {
+    implementation = "prefer_rust_with_warning"
+  }
 })
 ```

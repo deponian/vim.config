@@ -1,9 +1,10 @@
 import { flavors } from "@catppuccin/palette"
-import { rgbify } from "@tui-sandbox/library/dist/src/client/color-utilities"
 import {
+  rgbify,
   textIsVisibleWithBackgroundColor,
   textIsVisibleWithColor,
-} from "@tui-sandbox/library/dist/src/client/cypress-assertions"
+} from "@tui-sandbox/library"
+import { z } from "zod"
 import { assertMatchVisible } from "./utils/assertMatchVisible"
 import { textIsVisibleWithColors } from "./utils/color-utils"
 import { createGitReposToLimitSearchScope } from "./utils/createGitReposToLimitSearchScope"
@@ -23,7 +24,7 @@ describe("the RipgrepBackend", () => {
       //
       // If the plugin works, this text should show up as a suggestion.
       cy.typeIntoTerminal("hip")
-      cy.contains("Hippopotamus" + "234 (rg)") // wait for blink to show up
+      cy.contains(`Hippopotamus234 (rg)`) // wait for blink to show up
       cy.typeIntoTerminal("234")
 
       // should show documentation with more details about the match
@@ -77,12 +78,14 @@ describe("the RipgrepBackend", () => {
           expect(result.value).to.be.an("array")
           expect(result.value).to.have.length(1)
 
-          const invocations = (result.value as string[][])[0]
+          const invocations = z
+            .array(z.array(z.string()))
+            .parse(result.value)[0]
           const invocation = invocations[0]
           expect(invocation).to.eql("ignored")
         })
 
-      cy.contains("Hippopotamus" + "234 (rg)").should("not.exist")
+      cy.contains(`Hippopotamus234 (rg)`).should("not.exist")
     })
   })
 
@@ -279,7 +282,7 @@ describe("in debug mode", () => {
   })
 
   it("highlights the search word when a new search is started", () => {
-    if (Cypress.env("CI")) {
+    if (Cypress.expose("CI")) {
       cy.log("Skipping test in CI")
       return
     } else {
@@ -313,7 +316,7 @@ describe("in debug mode", () => {
         // start a new ripgrep search. They must be used for filtering the
         // results instead.
         // https://cmp.saghen.dev/development/architecture.html#architecture
-        cy.contains("Hippopotamus" + "234 (rg)") // wait for blink to show up
+        cy.contains(`Hippopotamus234 (rg)`) // wait for blink to show up
         cy.typeIntoTerminal("234")
 
         // wait for the highlight to disappear to test that too

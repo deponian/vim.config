@@ -25,7 +25,7 @@ local function setup_commands(no_override, prefix)
     ["Marks"] = utils.create_user_command_callback("marks"),
     ["Jumps"] = utils.create_user_command_callback("jumps"),
     ["Commands"] = utils.create_user_command_callback("commands"),
-    ["History"] = utils.create_user_command_callback("oldfiles", "query", {
+    ["History"] = utils.create_user_command_callback("history", "query", {
       [":"] = "command_history",
       ["/"] = "search_history",
     }),
@@ -46,7 +46,7 @@ local function setup_commands(no_override, prefix)
 end
 
 return {
-  { "default-prompt" }, -- base profile
+  { "default-prompt", "hide" }, -- base profile
   fn_load = setup_commands,
   desc = "fzf.vim defaults",
   winopts = {

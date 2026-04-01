@@ -107,18 +107,42 @@ function registry:get_global_snippets()
 end
 
 --- @param snippet blink.cmp.Snippet
---- @param cache_key number
+--- @param context blink.cmp.Context
 --- @return blink.cmp.CompletionItem
-function registry:snippet_to_completion_item(snippet, cache_key)
-  local body = type(snippet.body) == 'string' and snippet.body or table.concat(snippet.body, '\n')
+function registry:snippet_to_completion_item(snippet, context)
+  local body = type(snippet.body) == 'string' and snippet.body --[[@as string]]
+    or table.concat(snippet.body --[[@as table]], '\n')
+
+  local new_text = self:expand_vars(body, context.id)
+  local cur_line, cur_col = unpack(context.cursor)
+
+  -- Find the position of the (longest partial) prefix just before the cursor
+  local start_col
+  local line = context.get_line():sub(1, cur_col)
+  for i = #snippet.prefix, 1, -1 do
+    local pos = cur_col - i + 1
+    if line:sub(pos, cur_col) == snippet.prefix:sub(1, i) then
+      start_col = pos
+      break
+    end
+  end
+
+  ---@type blink.cmp.CompletionItem
   return {
     kind = require('blink.cmp.types').CompletionItemKind.Snippet,
     label = snippet.prefix,
     insertTextFormat = vim.lsp.protocol.InsertTextFormat.Snippet,
-    insertText = self:expand_vars(body, cache_key),
+    insertText = new_text,
     description = snippet.description,
     labelDetails = snippet.description and self.config.use_label_description and { description = snippet.description }
       or nil,
+    textEdit = {
+      range = {
+        start = { line = cur_line - 1, character = (start_col or context.bounds.start_col) - 1 },
+        ['end'] = { line = cur_line - 1, character = cur_col },
+      },
+      newText = new_text,
+    },
   }
 end
 
@@ -145,13 +169,27 @@ function registry:expand_vars(snippet, cache_key)
     end
 
     if type == vim.lsp._snippet_grammar.NodeType.Variable then
+      local replacement
+
       if eager_vars[data.name] then
-        resolved_snippet = resolved_snippet:gsub('%$[{]?(' .. data.name .. ')[}]?', eager_vars[data.name])
+        replacement = eager_vars[data.name]
       elseif lazy_vars[data.name] then
-        local replacement = lazy_vars[data.name](cache_key, { clipboard_register = self.config.clipboard_register })
-        -- gsub otherwise fails with strings like `%20` in the replacement string
-        local escaped_for_gsub = replacement:gsub('%%', '%%%%')
-        resolved_snippet = resolved_snippet:gsub('%$[{]?(' .. data.name .. ')[}]?', escaped_for_gsub)
+        replacement = lazy_vars[data.name](cache_key, { clipboard_register = self.config.clipboard_register })
+      end
+
+      if replacement then
+        -- Escape special chars according to the snippet grammar EBNF conventions
+        replacement = replacement:gsub('\\', '\\\\') -- Escape backslashes first!
+        replacement = replacement:gsub('%$', '\\$')
+        replacement = replacement:gsub('}', '\\}')
+
+        -- Escape % characters (otherwise fails with strings like `%20`)
+        local escaped = replacement:gsub('%%', '%%%%')
+
+        -- Handle both ${1:${TM_FILENAME}} and ${1:$TM_FILENAME} forms
+        resolved_snippet = resolved_snippet:gsub('%${' .. data.name .. '}', escaped)
+        resolved_snippet = resolved_snippet:gsub('%$' .. data.name .. '([^%w_])', escaped .. '%1')
+        resolved_snippet = resolved_snippet:gsub('%$' .. data.name .. '$', escaped)
       end
     end
   end

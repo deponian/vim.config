@@ -1,5 +1,6 @@
 local appearance = require("nvim-tree.appearance")
 local buffers = require("nvim-tree.buffers")
+local config = require("nvim-tree.config")
 local core = require("nvim-tree.core")
 local git = require("nvim-tree.git")
 local log = require("nvim-tree.log")
@@ -20,15 +21,16 @@ local LiveFilter = require("nvim-tree.explorer.live-filter")
 local Sorter = require("nvim-tree.explorer.sorter")
 local Clipboard = require("nvim-tree.actions.fs.clipboard")
 local Renderer = require("nvim-tree.renderer")
+local FileNode = require("nvim-tree.node.file")
 
 local FILTER_REASON = require("nvim-tree.enum").FILTER_REASON
-
-local config
+local find_file = require("nvim-tree.actions.finders.find-file")
 
 ---@class (exact) Explorer: RootNode
 ---@field uid_explorer number vim.loop.hrtime() at construction time
 ---@field opts table user options
 ---@field augroup_id integer
+---@field current_tab integer
 ---@field renderer Renderer
 ---@field filters Filters
 ---@field live_filter LiveFilter
@@ -56,14 +58,17 @@ function Explorer:new(args)
   self.augroup_id   = vim.api.nvim_create_augroup("NvimTree_Explorer_" .. self.uid_explorer, {})
 
   self.open         = true
-  self.opts         = config
+  self.opts         = config.g
 
-  self.sorters      = Sorter({ explorer = self })
-  self.renderer     = Renderer({ explorer = self })
-  self.filters      = Filters({ explorer = self })
-  self.live_filter  = LiveFilter({ explorer = self })
-  self.marks        = Marks({ explorer = self })
-  self.clipboard    = Clipboard({ explorer = self })
+
+  self.sorters     = Sorter({ explorer = self })
+  self.renderer    = Renderer({ explorer = self })
+  self.filters     = Filters({ explorer = self })
+  self.live_filter = LiveFilter({ explorer = self })
+  self.marks       = Marks({ explorer = self })
+  self.clipboard   = Clipboard({ explorer = self })
+
+  self.current_tab = vim.api.nvim_get_current_tabpage()
 
   self:create_autocmds()
 
@@ -83,7 +88,7 @@ function Explorer:create_autocmds()
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = self.augroup_id,
     callback = function()
-      appearance.setup()
+      appearance.highlight()
       view.reset_winhl()
       self.renderer:draw()
     end,
@@ -146,7 +151,7 @@ function Explorer:create_autocmds()
     pattern = "NvimTree_*",
     callback = function()
       if utils.is_nvim_tree_buf(0) then
-        if vim.fn.getcwd() ~= core.get_cwd() or (self.opts.reload_on_bufenter and not self.opts.filesystem_watchers.enable) then
+        if vim.fn.getcwd() ~= self.absolute_path or (self.opts.reload_on_bufenter and not self.opts.filesystem_watchers.enable) then
           self:reload_explorer()
         end
       end
@@ -181,7 +186,7 @@ function Explorer:create_autocmds()
       callback = function()
         utils.debounce("Buf:modified_" .. self.uid_explorer, self.opts.view.debounce_delay, function()
           buffers.reload_modified()
-          self:reload_explorer()
+          self.renderer:draw()
         end)
       end,
     })
@@ -189,12 +194,12 @@ function Explorer:create_autocmds()
 end
 
 ---@param node DirectoryNode
-function Explorer:expand(node)
+function Explorer:expand_dir_node(node)
   self:_load(node)
 end
 
 ---@param node DirectoryNode
----@param project GitProject?
+---@param project nvim_tree.git.Project?
 ---@return Node[]?
 function Explorer:reload(node, project)
   local cwd = node.link_to or node.absolute_path
@@ -294,7 +299,7 @@ function Explorer:reload(node, project)
   )
 
   local single_child = node:single_child_directory()
-  if config.renderer.group_empty and node.parent and single_child then
+  if self.opts.renderer.group_empty and node.parent and single_child then
     node.group_next = single_child
     local ns = self:reload(single_child, project)
     node.nodes = ns or {}
@@ -352,7 +357,7 @@ end
 ---@private
 ---@param nodes_by_path Node[]
 ---@param node_ignored boolean
----@param project GitProject?
+---@param project nvim_tree.git.Project?
 ---@return fun(node: Node): Node
 function Explorer:update_git_statuses(nodes_by_path, node_ignored, project)
   return function(node)
@@ -367,7 +372,7 @@ end
 ---@param handle uv.uv_fs_t
 ---@param cwd string
 ---@param node DirectoryNode
----@param project GitProject
+---@param project nvim_tree.git.Project
 ---@param parent Explorer
 function Explorer:populate_children(handle, cwd, node, project, parent)
   local node_ignored = node:is_git_ignored()
@@ -426,7 +431,7 @@ end
 
 ---@private
 ---@param node DirectoryNode
----@param project GitProject
+---@param project nvim_tree.git.Project
 ---@param parent Explorer
 ---@return Node[]|nil
 function Explorer:explore(node, project, parent)
@@ -442,7 +447,7 @@ function Explorer:explore(node, project, parent)
 
   local is_root = not node.parent
   local single_child = node:single_child_directory()
-  if config.renderer.group_empty and not is_root and single_child then
+  if self.opts.renderer.group_empty and not is_root and single_child then
     local child_cwd = single_child.link_to or single_child.absolute_path
     local child_project = git.load_project(child_cwd)
     node.group_next = single_child
@@ -461,7 +466,7 @@ function Explorer:explore(node, project, parent)
 end
 
 ---@private
----@param projects GitProject[]
+---@param projects nvim_tree.git.Project[]
 function Explorer:refresh_nodes(projects)
   Iterator.builder({ self })
     :applier(function(n)
@@ -523,7 +528,7 @@ function Explorer:get_node_at_cursor()
     return
   end
 
-  if cursor[1] == 1 and view.is_root_folder_visible(core.get_cwd()) then
+  if cursor[1] == 1 and view.is_root_folder_visible(self.absolute_path) then
     return self
   end
 
@@ -636,6 +641,22 @@ function Explorer:find_node(fn)
   return node, i
 end
 
+---Get all nodes in a line range (inclusive), for visual selection operations.
+---@param start_line integer
+---@param end_line integer
+---@return Node[]
+function Explorer:get_nodes_in_range(start_line, end_line)
+  local nodes_by_line = self:get_nodes_by_line(core.get_nodes_starting_line())
+  local nodes = {}
+  for line = start_line, end_line do
+    local node = nodes_by_line[line]
+    if node and node.absolute_path then
+      table.insert(nodes, node)
+    end
+  end
+  return nodes
+end
+
 --- Return visible nodes indexed by line
 ---@param line_start number
 ---@return table
@@ -659,14 +680,158 @@ function Explorer:get_nodes_by_line(line_start)
   return nodes_by_line
 end
 
+---@param node Node
+function Explorer:dir_up(node)
+  if not node or node.name == ".." then
+    self:change_dir("..")
+  else
+    local cwd = self.absolute_path
+    if cwd == nil then
+      return
+    end
+
+    local newdir = vim.fn.fnamemodify(utils.path_remove_trailing(cwd), ":h")
+    self:change_dir(newdir)
+    find_file.fn(node.absolute_path)
+  end
+end
+
 ---Api.tree.get_nodes
 ---@return nvim_tree.api.Node
 function Explorer:get_nodes()
   return self:clone()
 end
 
-function Explorer:setup(opts)
-  config = opts
+---Expand the directory node or the root
+---@param node Node
+---@param expand_opts? nvim_tree.api.node.expand.Opts
+function Explorer:expand_all(node, expand_opts)
+  if node then
+    node:expand(expand_opts)
+  else
+    self:expand(expand_opts)
+  end
+end
+
+---Expand the directory node or parent node
+---@param node? Node
+---@param expand_opts? nvim_tree.api.node.expand.Opts
+function Explorer:expand_node(node, expand_opts)
+  if not node then
+    return
+  end
+
+  node:expand(expand_opts)
+end
+
+---@private
+---@param new_tabpage integer
+---@return boolean
+function Explorer:is_window_event(new_tabpage)
+  local is_event_scope_window = vim.v.event.scope == "window" or vim.v.event.changed_window or false
+  return is_event_scope_window and new_tabpage == self.current_tab
+end
+
+---@private
+---@param name string
+---@return string|nil
+function Explorer:clean_input_cwd(name)
+  name = vim.fn.fnameescape(name)
+  local cwd = self.absolute_path
+  if cwd == nil then
+    return
+  end
+  local root_parent_cwd = vim.fn.fnamemodify(utils.path_remove_trailing(cwd), ":h")
+  if name == ".." and root_parent_cwd then
+    return vim.fn.expand(root_parent_cwd)
+  else
+    return vim.fn.expand(name)
+  end
+end
+
+---@private
+---@param foldername string
+---@return boolean
+function Explorer:prevent_cwd_change(foldername)
+  local is_same_cwd = foldername == self.absolute_path
+  local is_restricted_above = self.opts.actions.change_dir.restrict_above_cwd and foldername < vim.fn.getcwd(-1, -1)
+  return is_same_cwd or is_restricted_above
+end
+
+---@private
+---@return boolean
+function Explorer:should_change_dir()
+  return self.opts.actions.change_dir.enable and vim.tbl_isempty(vim.v.event)
+end
+
+---@private
+---@param global boolean
+---@param path string
+function Explorer:cd(global, path)
+  vim.cmd((global and "cd " or "lcd ") .. vim.fn.fnameescape(path))
+end
+
+---@private
+---@param foldername string
+---@param should_open_view boolean|nil
+---@param should_init boolean|nil
+function Explorer:force_dirchange(foldername, should_open_view, should_init)
+  local profile = log.profile_start("change dir %s", foldername)
+
+  local valid_dir = vim.fn.isdirectory(foldername) == 1 -- prevent problems on non existing dirs
+  if valid_dir then
+    if self:should_change_dir() then
+      self:cd(self.opts.actions.change_dir.global, foldername)
+    end
+
+    if should_init ~= false then
+      core.init(foldername)
+    end
+  end
+
+  if should_open_view then
+    require("nvim-tree.lib").open()
+  else
+    -- TODO #2255
+    -- The call to core.init destroyed this Explorer instance hence we need to fetch the new instance.
+    -- Problem is described at https://github.com/nvim-tree/nvim-tree.lua/pull/3233#issuecomment-3704402527
+    local explorer = core.get_explorer()
+    if explorer then
+      explorer.renderer:draw()
+    end
+  end
+
+  log.profile_end(profile)
+end
+
+---@param input_cwd string
+---@param with_open boolean|nil
+function Explorer:change_dir(input_cwd, with_open)
+  local new_tabpage = vim.api.nvim_get_current_tabpage()
+  if self:is_window_event(new_tabpage) then
+    return
+  end
+
+  local foldername = self:clean_input_cwd(input_cwd)
+  if foldername == nil or self:prevent_cwd_change(foldername) then
+    return
+  end
+
+  self.current_tab = new_tabpage
+  self:force_dirchange(foldername, with_open)
+end
+
+function Explorer:change_dir_to_node(node)
+  if node.name == ".." or node:is(RootNode) then
+    self:change_dir("..")
+  elseif node:is(FileNode) and node.parent ~= nil then
+    self:change_dir(node.parent:last_group_node().absolute_path)
+  else
+    node = node:as(DirectoryNode)
+    if node then
+      self:change_dir(node:last_group_node().absolute_path)
+    end
+  end
 end
 
 return Explorer

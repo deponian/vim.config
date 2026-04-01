@@ -1,7 +1,7 @@
 --- @class blink.cmp.CompletionDocumentationWindow
 --- @field win blink.cmp.Window
 --- @field last_context_id? number
---- @field auto_show_timer uv_timer_t
+--- @field auto_show_timer uv.uv_timer_t?
 --- @field shown_item? blink.cmp.CompletionItem
 ---
 --- @field auto_show_item fun(context: blink.cmp.Context, item: blink.cmp.CompletionItem)
@@ -70,9 +70,10 @@ function docs.show_item(context, item)
       end
 
       if docs.shown_item ~= item then
+        local docs_buf = docs.win:get_buf()
         --- @type blink.cmp.RenderDetailAndDocumentationOpts
         local default_render_opts = {
-          bufnr = docs.win:get_buf(),
+          bufnr = docs_buf,
           detail = item.detail,
           documentation = item.documentation,
           max_width = docs.win.config.max_width,
@@ -87,12 +88,14 @@ function docs.show_item(context, item)
         -- allow the provider to override the drawing optionally
         -- TODO: should the default_implementation be the configured draw function instead of the built-in?
         local draw = item.documentation and item.documentation.draw or config.draw
+        vim.api.nvim_set_option_value('modifiable', true, { buf = docs_buf })
         draw({
           item = item,
           window = docs.win,
           config = config,
           default_implementation = default_impl,
         })
+        vim.api.nvim_set_option_value('modifiable', false, { buf = docs_buf })
       end
       docs.shown_item = item
 
@@ -135,10 +138,10 @@ function docs.update_position()
 
   local menu_winnr = menu.win:get_win()
   if not menu_winnr then return end
+
   local menu_win_config = vim.api.nvim_win_get_config(menu_winnr)
   local menu_win_height = menu.win:get_height()
   local menu_border_size = menu.win:get_border_size()
-
   local cursor_win_row = vim.fn.winline()
 
   -- decide direction priority based on the menu window's position
@@ -172,52 +175,38 @@ function docs.update_position()
   docs.win:set_width(pos.width)
 
   -- set position based on provided direction
-
   local height = docs.win:get_height()
   local width = docs.win:get_width()
 
-  local function set_config(opts)
-    docs.win:set_win_config({ relative = 'win', win = menu_winnr, row = opts.row, col = opts.col })
+  local function clamped_to_menu()
+    local overflow_menu = menu_win_is_up and height > menu_win_height
+    if overflow_menu then return menu_win_height - menu_border_size.top - height end
+
+    return -menu_border_size.top
   end
-  if pos.direction == 'n' then
-    if menu_win_is_up then
-      set_config({ row = -height - menu_border_size.top, col = -menu_border_size.left })
-    else
-      set_config({ row = -1 - height - menu_border_size.top, col = -menu_border_size.left })
-    end
-  elseif pos.direction == 's' then
-    if menu_win_is_up then
-      set_config({
-        row = 1 + menu_win_height - menu_border_size.top,
-        col = -menu_border_size.left,
-      })
-    else
-      set_config({
-        row = menu_win_height - menu_border_size.top,
-        col = -menu_border_size.left,
-      })
-    end
-  elseif pos.direction == 'e' then
-    if menu_win_is_up and menu_win_height < height then
-      set_config({
-        row = menu_win_height - menu_border_size.top - height,
-        col = menu_win_config.width + menu_border_size.right,
-      })
-    else
-      set_config({
-        row = -menu_border_size.top,
-        col = menu_win_config.width + menu_border_size.right,
-      })
-    end
-  elseif pos.direction == 'w' then
-    if menu_win_is_up and menu_win_height < height then
-      set_config({
-        row = menu_win_height - menu_border_size.top - height,
-        col = -width - menu_border_size.left,
-      })
-    else
-      set_config({ row = -menu_border_size.top, col = -width - menu_border_size.left })
-    end
+
+  local positions = {
+    n = {
+      col = -menu_border_size.left,
+      row = menu_win_is_up and (-height - menu_border_size.top) or (-1 - height - menu_border_size.top),
+    },
+    s = {
+      col = -menu_border_size.left,
+      row = menu_win_is_up and (1 + menu_win_height - menu_border_size.top) or (menu_win_height - menu_border_size.top),
+    },
+    e = {
+      col = menu_win_config.width + menu_border_size.right,
+      row = clamped_to_menu(),
+    },
+    w = {
+      col = -width - menu_border_size.left,
+      row = clamped_to_menu(),
+    },
+  }
+
+  local position = positions[pos.direction]
+  if position then
+    docs.win:set_win_config({ relative = 'win', win = menu_winnr, row = position.row, col = position.col })
   end
 end
 

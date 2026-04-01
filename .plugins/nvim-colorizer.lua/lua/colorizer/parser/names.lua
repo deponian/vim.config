@@ -1,21 +1,21 @@
---[[-- This module provides a parser that identifies named colors from a given line of text.
-It uses a Trie structure for efficient prefix-based matching of color names to #rrggbb values.
-The module supports multiple namespaces, enabling flexible configuration and handling of
-different types of color names (e.g., lowercase, uppercase, camelcase, custom names, Tailwind names).
-
-Namespaces:
-<pre>
-- lowercase: Contains color names converted to lowercase (e.g., "red" -> "#ff0000").
-- uppercase: Contains color names converted to uppercase (e.g., "RED" -> "#ff0000").
-- camelcase: Contains color names in camel case (e.g., "LightBlue" -> "#add8e6").
-- tailwind_names: Contains color names based on TailwindCSS conventions, including prefixes.
-- names_custom: Contains user-defined color names, either as a table or a function returning a table.</pre>
-
-The parser dynamically populates the Trie and namespaces based on the provided options.
-Unused namespaces are left empty, avoiding unnecessary memory usage. Color name matching respects
-the configured namespaces and user-defined preferences, such as whether to strip digits.
-]]
--- @module colorizer.parser.names
+---@mod colorizer.parser.names Names Parser
+---@brief [[
+---This module provides a parser that identifies named colors from a given line of text.
+---It uses a Trie structure for efficient prefix-based matching of color names to #rrggbb values.
+---The module supports multiple namespaces, enabling flexible configuration and handling of
+---different types of color names (e.g., lowercase, uppercase, camelcase, custom names, Tailwind names).
+---
+---Namespaces:
+---- lowercase: Contains color names converted to lowercase (e.g., "red" -> "#ff0000").
+---- uppercase: Contains color names converted to uppercase (e.g., "RED" -> "#ff0000").
+---- camelcase: Contains color names in camel case (e.g., "LightBlue" -> "#add8e6").
+---- tailwind_names: Contains color names based on TailwindCSS conventions, including prefixes.
+---- names_custom: Contains user-defined color names, either as a table or a function returning a table.
+---
+---The parser dynamically populates the Trie and namespaces based on the provided options.
+---Unused namespaces are left empty, avoiding unnecessary memory usage. Color name matching respects
+---the configured namespaces and user-defined preferences, such as whether to strip digits.
+---@brief ]]
 local M = {}
 
 local Trie = require("colorizer.trie")
@@ -51,6 +51,7 @@ function M.reset_cache()
     name_maxlen = nil,
   }
   namespace_state = 0
+  utils.reset_byte_category()
 end
 do
   M.reset_cache()
@@ -64,9 +65,9 @@ local function is_namespace_set(namespace)
 end
 
 --- Updates the color value for a given color name.
----@param name string: The color name.
----@param hex string: The color value in hex format.
----@param namespace string: The color map namespace.
+---@param name string The color name.
+---@param hex string The color value in hex format.
+---@param namespace string The color map namespace.
 function M.update_color(name, hex, namespace)
   if not name or not hex then
     return
@@ -78,10 +79,10 @@ function M.update_color(name, hex, namespace)
 end
 
 --- Internal function to add a color to the Trie and map.
----@param name string: The color name.
----@param val string: The color value in hex format.
----@param namespace string: The color map namespace.
----@param hash? string: Use namespace hash key
+---@param name string The color name.
+---@param val string The color value in hex format.
+---@param namespace string The color map namespace.
+---@param hash? string Use namespace hash key
 local function add_color(name, val, namespace, hash)
   local nc = names_cache
   nc.name_minlen = nc.name_minlen and math.min(#name, nc.name_minlen) or #name
@@ -164,8 +165,11 @@ local function populate_colors(m_opts)
   if not names_cache.trie then
     names_cache.trie = Trie()
   end
-  names_cache.name_minlen = names_cache.name_minlen or nil
-  names_cache.name_maxlen = names_cache.name_maxlen or nil
+  -- Register extra word chars as valid color characters so they act as
+  -- word boundaries (prevents matching "red" inside "text-red-500")
+  if m_opts.extra_word_chars and m_opts.extra_word_chars ~= "" then
+    utils.add_additional_color_chars(m_opts.extra_word_chars)
+  end
   -- Add Vim's color map
   if m_opts.color_names then
     populate_names(m_opts.color_names_opts)
@@ -264,11 +268,25 @@ local function needs_population(m_opts)
   return false
 end
 
+--- Look up a color name and return its hex (for use by other parsers e.g. xcolor).
+---@param name string Color name to look up
+---@param m_opts table Same matcher_opts as names parser (color_names, color_names_opts, names_custom, tailwind_names)
+---@return string|nil Hex rgb without leading "#", or nil
+function M.lookup_name(name, m_opts)
+  if not m_opts then
+    return nil
+  end
+  if not names_cache.trie or needs_population(m_opts) then
+    populate_colors(m_opts)
+  end
+  return resolve_color_entry(name, m_opts)
+end
+
 --- Parses a line to identify color names.
----@param line string: The text line to parse.
----@param i number: The index to start parsing from.
----@param m_opts table: Matcher opts
----@return number|nil, string|nil: Length of match and hex value if found.
+---@param line string The text line to parse.
+---@param i number The index to start parsing from.
+---@param m_opts table Matcher opts
+---@return number|nil, string|nil Length of match and hex value if found.
 function M.parser(line, i, m_opts)
   if not names_cache.trie or needs_population(m_opts) then
     populate_colors(m_opts)
@@ -296,5 +314,27 @@ function M.parser(line, i, m_opts)
     end
   end
 end
+
+--- Parser spec for the registry
+M.spec = {
+  name = "names",
+  priority = 25,
+  dispatch = { kind = "fallback" },
+  config_defaults = {
+    enable = false,
+    lowercase = true,
+    camelcase = true,
+    uppercase = false,
+    strip_digits = false,
+    custom = false,
+    extra_word_chars = "-",
+  },
+  parse = function(ctx)
+    return M.parser(ctx.line, ctx.col, ctx.matcher_opts)
+  end,
+  reset_cache = M.reset_cache,
+}
+
+require("colorizer.parser.registry").register(M.spec)
 
 return M

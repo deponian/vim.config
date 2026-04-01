@@ -16,7 +16,7 @@ local dedup = require('blink.cmp.lib.utils').deduplicate
 --- @field max_total_buffer_size integer Maximum text size across all buffers (default: 500KB)
 --- @field retention_order string[] Order in which buffers are retained for completion, up to the max total size limit
 --- @field use_cache boolean Cache words for each buffer which increases memory usage but drastically reduces cpu usage. Memory usage depends on the size of the buffers from `get_bufnrs`. For 100k items, it will use ~20MBs of memory. Invalidated and refreshed whenever the buffer content is modified.
---- @field enable_in_ex_commands boolean Whether to enable buffer source in substitute (:s) and global (:g) commands. Note: Enabling this option will temporarily disable Neovim's 'inccommand' feature while editing Ex commands, due to a known redraw issue (see neovim/neovim#9783). This means you will lose live substitution previews when using :s, :smagic, or :snomagic while buffer completions are active.
+--- @field enable_in_ex_commands boolean Whether to enable buffer source in substitute (:s), global (:g) and grep commands (:grep, :vimgrep, etc.). Note: Enabling this option will temporarily disable Neovim's 'inccommand' feature while editing Ex commands, due to a known redraw issue (see neovim/neovim#9783). This means you will lose live substitution previews when using :s, :smagic, or :snomagic while buffer completions are active.
 
 --- @param words string[]
 --- @return blink.cmp.CompletionItem[]
@@ -120,7 +120,7 @@ function buffer:is_search_context()
   -- In search mode
   if utils.is_command_line({ '/', '?' }) then return true end
   -- In specific ex commands, if user opts in
-  if self.opts.enable_in_ex_commands and utils.in_ex_context({ 'substitute', 'global', 'vglobal' }) then return true end
+  if self.opts.enable_in_ex_commands and utils.in_ex_search_commands() then return true end
 
   return false
 end
@@ -159,44 +159,42 @@ end
 function buffer:enabled() return not utils.is_command_line() or self:is_search_context() end
 
 function buffer:get_completions(_, callback)
-  vim.schedule(function()
-    local is_search = self:is_search_context()
-    local get_bufnrs = is_search and self.opts.get_search_bufnrs or self.opts.get_bufnrs
-    local bufnrs = dedup(get_bufnrs())
+  local is_search = self:is_search_context()
+  local get_bufnrs = is_search and self.opts.get_search_bufnrs or self.opts.get_bufnrs
+  local bufnrs = dedup(get_bufnrs())
 
-    if #bufnrs == 0 then
-      callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
-      return
-    end
+  if #bufnrs == 0 then
+    callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = {} })
+    return
+  end
 
-    local selected_bufnrs = buf_utils.retain_buffers(
-      bufnrs,
-      self.opts.max_total_buffer_size,
-      self.opts.max_async_buffer_size,
-      self.opts.retention_order
-    )
+  local selected_bufnrs = buf_utils.retain_buffers(
+    bufnrs,
+    self.opts.max_total_buffer_size,
+    self.opts.max_async_buffer_size,
+    self.opts.retention_order
+  )
 
-    local tasks = vim.tbl_map(function(buf) return self:get_buf_items(buf, not is_search) end, selected_bufnrs)
-    async.task.all(tasks):map(function(words_per_buf)
-      --- @cast words_per_buf string[][]
+  local tasks = vim.tbl_map(function(buf) return self:get_buf_items(buf, not is_search) end, selected_bufnrs)
+  async.task.all(tasks):map(function(words_per_buf)
+    --- @cast words_per_buf string[][]
 
-      local unique = {}
-      local words = {}
-      for _, buf_words in ipairs(words_per_buf) do
-        for _, word in ipairs(buf_words) do
-          if not unique[word] then
-            unique[word] = true
-            table.insert(words, word)
-          end
+    local unique = {}
+    local words = {}
+    for _, buf_words in ipairs(words_per_buf) do
+      for _, word in ipairs(buf_words) do
+        if not unique[word] then
+          unique[word] = true
+          table.insert(words, word)
         end
       end
-      local items = words_to_items(words)
+    end
+    local items = words_to_items(words)
 
-      if self.opts.use_cache then self.cache:cleanup(selected_bufnrs) end
+    if self.opts.use_cache then self.cache:cleanup(selected_bufnrs) end
 
-      ---@diagnostic disable-next-line: missing-return
-      callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = items })
-    end)
+    ---@diagnostic disable-next-line: missing-return
+    callback({ is_incomplete_forward = false, is_incomplete_backward = false, items = items })
   end)
 end
 

@@ -89,7 +89,7 @@ end
 
 --- @param cursor number[]
 --- Whether to include the start boundary as inside of the query
---- I.e. start_col = 1 (one indexed), cursor[2] = 0 (zero indexed) would be considered within the query bounds with this flag enabled.
+--- E.g. start_col = 1 (one indexed), cursor[2] = 0 (zero indexed) would be considered within the query bounds with this flag enabled.
 --- @param include_start_bound? boolean
 --- @return boolean
 function context:within_query_bounds(cursor, include_start_bound)
@@ -149,7 +149,7 @@ function context.get_bounds(range)
   local line = context.get_line()
   local cursor = context.get_cursor()
   local start_col, end_col = require('blink.cmp.fuzzy').get_keyword_range(line, cursor[2], range)
-  return { line_number = cursor[1], start_col = start_col + 1, length = end_col - start_col }
+  return { line = line, line_number = cursor[1], start_col = start_col + 1, length = end_col - start_col }
 end
 
 --- Get the terminal command in the current line without the shell prompt.
@@ -172,7 +172,7 @@ function context.get_term_command()
 
   local extmarks = vim.api.nvim_buf_get_extmarks(
     0,
-    vim.api.nvim_create_namespace('blink-term-command-start'),
+    vim.api.nvim_create_namespace('blink_cmp_term_command_start'),
     { cursor_row - 1, cursor_col - 1 },
     { cursor_row - 1, 0 },
     { limit = 1 }

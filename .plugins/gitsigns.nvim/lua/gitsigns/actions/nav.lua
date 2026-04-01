@@ -6,12 +6,25 @@ local Popup = require('gitsigns.popup')
 local api = vim.api
 
 --- @class Gitsigns.NavOpts
+--- Whether to loop around file or not. Defaults
+--- to the value 'wrapscan'
 --- @field wrap boolean
+--- Expand folds when navigating to a hunk which is
+--- inside a fold. Defaults to `true` if 'foldopen'
+--- contains `search`.
 --- @field foldopen boolean
+--- Whether to show navigation messages or not.
+--- Looks at 'shortmess' for default behaviour.
 --- @field navigation_message boolean
+--- Only navigate between non-contiguous hunks. Only useful if
+--- 'diff_opts' contains `linematch`. Defaults to `true`.
 --- @field greedy boolean
+--- Automatically open preview_hunk() upon navigating
+--- to a hunk.
 --- @field preview? boolean
+--- Number of times to advance. Defaults to |v:count1|.
 --- @field count integer
+--- Which kinds of hunks to target. Defaults to `'unstaged'`.
 --- @field target 'unstaged'|'staged'|'all'
 
 --- @class gitsigns.nav
@@ -24,7 +37,7 @@ local function findword(x, word)
   return string.find(x, '%f[%w_]' .. word .. '%f[^%w_]') ~= nil
 end
 
---- @param opts? Gitsigns.NavOpts
+--- @param opts? Partial<Gitsigns.NavOpts>
 --- @return Gitsigns.NavOpts
 local function process_nav_opts(opts)
   opts = opts or {}
@@ -55,7 +68,7 @@ local function process_nav_opts(opts)
     opts.target = 'unstaged'
   end
 
-  return opts
+  return opts --[[@as Gitsigns.NavOpts]]
 end
 
 --- @async

@@ -195,10 +195,12 @@ function source:execute(ctx, item)
   }
 
   local line = ctx.get_line()
-  local line_to_cursor = line:sub(1, range['end'].character)
-  local range_text = line:sub(range.start.character + 1, range['end'].character)
+  local line_to_cursor = line:sub(1, cursor[2])
+  local range_text = line:sub(range.start.character + 1, cursor[2])
 
-  local expand_params = snip:matches(line_to_cursor, { fallback_match = range_text })
+  local expand_params = snip:matches(line_to_cursor, {
+    fallback_match = range_text ~= line_to_cursor and range_text,
+  })
 
   if expand_params ~= nil then
     if expand_params.clear_region ~= nil then

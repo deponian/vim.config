@@ -1,9 +1,10 @@
 -- context/info
+local utils = require("fzf-lua.utils")
 
 local M = {}
 
----@type fzf-lua.Ctx|{}
-local ctx = {}
+---@type fzf-lua.Ctx?
+local ctx
 
 ---@class fzf-lua.Ctx
 ---@field mode string
@@ -13,7 +14,7 @@ local ctx = {}
 ---@field alt_bufnr integer
 ---@field tabnr integer
 ---@field tabh integer
----@field cursor integer[]
+---@field cursor [integer, integer]
 ---@field line string
 ---@field curtab_wins { [string]: boolean }
 ---@field winopts { winhl: string, cursorline: boolean }
@@ -21,10 +22,10 @@ local ctx = {}
 ---@field buflist? integer[]
 
 -- IMPORTANT: use the `__CTX` version that doesn't trigger a new context
----@return fzf-lua.Ctx|{}
+---@return fzf-lua.Ctx?
 M.get = function() return ctx end
 
-M.reset = function() ctx = {} end
+M.reset = function() ctx = nil end
 
 ---conditionally update the context if fzf-lua
 ---interface isn't open
@@ -82,7 +83,7 @@ M.refresh = function(opts)
     end
   end
   -- custom bufnr from caller? (#1757)
-  local bufnr = tonumber(opts.buf) or tonumber(opts.bufnr)
+  local bufnr = utils.tointeger(opts.buf or opts.bufnr)
   if bufnr then
     ctx.bufnr = bufnr
     ctx.bname = vim.api.nvim_buf_get_name(bufnr)
@@ -95,8 +96,9 @@ end
 ---@field mod string?
 ---@field fnc string?
 ---@field selected string?
+---@field query string? last typed query (even no result selected/shown)
 ---@field winobj fzf-lua.Win?
----@field last_query string?
+---@field last_query string? last query used to select entry (read only)
 
 ---@type fzf-lua.Info
 local info = {}

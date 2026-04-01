@@ -93,18 +93,18 @@
   "}" @delimiter @sentinel) @container
 
 ; let foo = << >>
-(bit_string
+(bit_array
   "<<" @delimiter
   ">>" @delimiter @sentinel) @container
 
 ; case foo {
 ;   <<>> -> "here"
 ; }
-(bit_string_pattern
+(bit_array_pattern
   "<<" @delimiter
   ">>" @delimiter @sentinel) @container
 
 ; <<bar:bits-size(12)>>
-(bit_string_segment_option
+(bit_array_segment_option
   "(" @delimiter
   ")" @delimiter @sentinel) @container
