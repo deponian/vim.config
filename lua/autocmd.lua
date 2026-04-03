@@ -4,16 +4,6 @@ local function augroup(name, fnc)
   fnc(vim.api.nvim_create_augroup(name, { clear = true }))
 end
 
--- Restore your cursor shape after exiting neovim
--- if you don't use standard block shape cursor
-augroup("CursorShape", function(group)
-  autocmd("VimLeave", {
-    group = group,
-    pattern = "*",
-    command = [[set guicursor=a:ver25-blinkon1000-blinkoff1000]]
-  })
-end)
-
 -- Go to last loc when opening a buffer
 augroup("LastLocation", function(group)
   autocmd("BufReadPost", {

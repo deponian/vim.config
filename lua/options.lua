@@ -93,6 +93,3 @@ vim.opt.shiftwidth = 2
 vim.opt.expandtab = true
 vim.opt.smartindent = true
 vim.opt.shiftround = true
-
--- Change shape of cursor in insert and replace mode
-vim.opt.guicursor = 'n-v-sm:block,i-c-ci-ve:ver25,r-cr-o:hor20'
