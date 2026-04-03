@@ -11,15 +11,15 @@ local function on_attach(bufnr)
   end
 
   -- Apply default mappings
-  api.config.mappings.default_on_attach(bufnr)
+  api.map.on_attach.default(bufnr)
 
   -- Custom mappings
   vim.keymap.del('n', '<Tab>', { buffer = bufnr })
   vim.keymap.set('n', 'v', api.node.open.vertical, opts('Open: Vertical Split'))
   vim.keymap.set('n', 's', api.node.open.horizontal, opts('Open: Horizontal Split'))
   vim.keymap.set('n', 't', api.node.open.tab, opts('Open: New Tab'))
-  vim.keymap.set('n', 'I', api.tree.toggle_hidden_filter, opts('Toggle Dotfiles'))
-  vim.keymap.set('n', 'H', api.tree.toggle_gitignore_filter, opts('Toggle Git Ignore'))
+  vim.keymap.set('n', 'I', api.filter.dotfiles.toggle, opts('Toggle Dotfiles'))
+  vim.keymap.set('n', 'H', api.filter.git.ignored.toggle, opts('Toggle Git Ignore'))
   vim.keymap.set('n', 'gs', api.tree.search_node, opts('Search'))
   vim.keymap.set('n', 'u', api.tree.change_root_to_parent, opts('Up'))
   vim.keymap.set('n', 'U', api.tree.change_root_to_node, opts('CD'))
