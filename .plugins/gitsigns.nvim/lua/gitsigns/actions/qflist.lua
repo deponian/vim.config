@@ -54,7 +54,9 @@ local function buildqflist(target)
     hunks_to_qflist(bufnr, bcache.hunks, qflist)
   elseif target == 'attached' then
     for bufnr, bcache in pairs(cache) do
-      hunks_to_qflist(bufnr, assert(bcache.hunks), qflist)
+      if bcache.hunks then
+        hunks_to_qflist(bufnr, bcache.hunks, qflist)
+      end
     end
   elseif target == 'all' then
     local repos = {} --- @type table<string,Gitsigns.Repo>
@@ -65,9 +67,9 @@ local function buildqflist(target)
       end
     end
 
-    local repo = git.Repo.get((assert(uv.cwd())))
-    if repo and not repos[repo.gitdir] then
-      repos[repo.gitdir] = repo
+    local cwd_repo = git.Repo.get((assert(uv.cwd())))
+    if cwd_repo and not repos[cwd_repo.gitdir] then
+      repos[cwd_repo.gitdir] = cwd_repo
     end
 
     for _, r in pairs(repos) do
@@ -85,18 +87,26 @@ local function buildqflist(target)
           local stat = uv.fs_stat(f_abs)
           --- @type string
           local obj
-          if stat and stat.type == 'file' then
-            if config.base and config.base ~= ':0' then
-              obj = config.base .. ':' .. (changed_file.oldpath or f)
-            else
-              obj = ':0:' .. f
+          if config.base and config.base ~= ':0' then
+            obj = config.base .. ':' .. (changed_file.oldpath or f)
+          else
+            obj = ':0:' .. f
+          end
+          if changed_file.deleted or (stat and stat.type == 'file') then
+            local a, stderr = r:get_show_text(obj)
+            if stderr and changed_file.deleted and (not config.base or config.base == ':0') then
+              a = r:get_show_text('HEAD:' .. (changed_file.oldpath or f))
             end
-            local a = r:get_show_text(obj)
-            local hunks = run_diff(a, util.file_lines(f_abs))
+            local b = changed_file.deleted and {} or util.file_lines(f_abs)
+            local hunks = run_diff(a, b)
             hunks_to_qflist(f_abs, hunks, qflist)
           end
         end
       end
+    end
+
+    if cwd_repo then
+      cwd_repo:unref()
     end
   end
   return qflist

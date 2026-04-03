@@ -217,7 +217,7 @@ function M.enable()
 
   autocmd('DiagnosticChanged', vim.schedule_wrap(au_update))
 
-  autocmd('BufReadPost', function(args)
+  autocmd({ 'BufReadPost', 'FileType' }, function(args)
     attached[args.buf] = should_attach(args.buf)
   end)
 

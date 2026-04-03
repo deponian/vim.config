@@ -134,8 +134,8 @@ function M.apply_to_text(text, hunk, reverse)
   local added = reverse and hunk.removed or hunk.added
 
   local start = removed.start
-  if start == 0 then
-    start = 1
+  if removed.count == 0 then
+    start = start + 1
   end
 
   local new = {} --- @type string[]
@@ -372,7 +372,6 @@ function M.create_patch(relpath, hunks, mode_bits, invert)
       results[#results + 1] = '\\ No newline at end of file'
     end
 
-    process_hunk.removed.start = start + offset
     offset = offset + (now_count - pre_count)
   end
 
