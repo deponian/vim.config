@@ -1,5 +1,6 @@
 local actions = require('gitsigns.actions')
 local argparse = require('gitsigns.cli.argparse')
+local cmdline = require('gitsigns.cli.context')
 local async = require('gitsigns.async')
 local attach = require('gitsigns.attach')
 local Debug = require('gitsigns.debug')
@@ -16,10 +17,12 @@ local sources = { actions, attach, Debug }
 ---    'nil'         -> nil
 ---    '100'         -> 100
 ---    'HEAD~300' -> 'HEAD~300'
---- @param a string|boolean
---- @return boolean|number|string?
+--- @param a any
+--- @return any
 local function parse_to_lua(a)
-  if tonumber(a) then
+  if type(a) == 'table' then
+    return vim.tbl_map(parse_to_lua, a)
+  elseif tonumber(a) then
     return tonumber(a)
   elseif a == 'false' or a == 'true' then
     return a == 'true'
@@ -32,11 +35,10 @@ end
 local M = {}
 
 function M.complete(arglead, line)
-  local words = vim.split(line, '%s+')
-  local n = #words
+  local ctx = cmdline.parse(line)
 
   local matches = {}
-  if n == 2 then
+  if ctx.completing_subcmd then
     for _, m in ipairs(sources) do
       for func, _ in pairs(m) do
         if not func:match('^[a-z]') then
@@ -46,11 +48,11 @@ function M.complete(arglead, line)
         end
       end
     end
-  elseif n > 2 then
+  elseif ctx.subcmd ~= nil then
     -- Subcommand completion
-    local cmp_func = actions._get_cmp_func(assert(words[2]))
+    local cmp_func = actions._get_cmp_func(ctx.subcmd)
     if cmp_func then
-      return cmp_func(arglead)
+      return cmp_func(arglead, line)
     end
   end
   return matches

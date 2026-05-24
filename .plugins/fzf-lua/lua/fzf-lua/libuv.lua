@@ -376,7 +376,7 @@ M.async_spawn = coroutinify(M.spawn)
 ---@param b64? boolean
 ---@return string, boolean -- boolean used for ./scripts/headless_fd.sh
 M.serialize = function(obj, b64)
-  local str = serpent.line(obj, { comment = false, sortkeys = false })
+  local str = serpent.line(obj, { name = "_", comment = false, sortkeys = false })
   str = b64 ~= false and base64.encode(str) or str
   return "return [==[" .. str .. "]==]", (b64 ~= false and true or false)
 end
@@ -502,7 +502,7 @@ M.spawn_stdio = function(opts)
 
   local function exit(exit_code, msg)
     if msg then stderr_write(msg) end
-    os.exit(exit_code)
+    vim.cmd.cquit({ count = exit_code })
   end
 
   local function pipe_open(pipename)
@@ -547,9 +547,9 @@ M.spawn_stdio = function(opts)
   local on_finish = function(code)
     pipe_close(stdout)
     pipe_close(stderr)
-    if vim.in_fast_event() and fn_postprocess then
+    if vim.in_fast_event() then
       vim.schedule(function()
-        fn_postprocess(opts)
+        if fn_postprocess then fn_postprocess(opts) end
         exit(code)
       end)
     else

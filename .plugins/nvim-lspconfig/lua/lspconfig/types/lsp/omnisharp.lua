@@ -177,6 +177,8 @@
 ---%generateOptionsSchema.suppressJITOptimizations.markdownDescription%
 ---@field suppressJITOptimizations? boolean
 ---@field symbolOptions? _.lspconfig.settings.omnisharp.Csharp.Debug.SymbolOptions
+---%generateOptionsSchema.terminateChildProcesses.description%
+---@field terminateChildProcesses? boolean
 
 ---@class _.lspconfig.settings.omnisharp.Csharp.Format
 ---%configuration.omnisharp.csharp.format.enable%
@@ -212,6 +214,17 @@
 ---```
 ---@field enabled? boolean
 
+---@class _.lspconfig.settings.omnisharp.Csharp.Wasm.Debug
+---%generateOptionsSchema.useVSDbg.description%
+---
+---```lua
+---default = true
+---```
+---@field useVSDbg? boolean
+
+---@class _.lspconfig.settings.omnisharp.Csharp.Wasm
+---@field debug? _.lspconfig.settings.omnisharp.Csharp.Wasm.Debug
+
 ---@class _.lspconfig.settings.omnisharp.Csharp
 ---@field debug? _.lspconfig.settings.omnisharp.Csharp.Debug
 ---@field format? _.lspconfig.settings.omnisharp.Csharp.Format
@@ -244,6 +257,7 @@
 ---@field suppressHiddenDiagnostics? boolean
 ---%configuration.omnisharp.csharp.suppressProjectJsonWarning%
 ---@field suppressProjectJsonWarning? boolean
+---@field wasm? _.lspconfig.settings.omnisharp.Csharp.Wasm
 
 ---@class _.lspconfig.settings.omnisharp.Dotnet.AutoInsert
 ---%configuration.dotnet.autoInsert.enableAutoInsert%
@@ -314,6 +328,14 @@
 ---default = true
 ---```
 ---@field reportInformationAsHint? boolean
+
+---@class _.lspconfig.settings.omnisharp.Dotnet.FileBasedApps
+---%configuration.dotnet.fileBasedApps.enableAutomaticDiscovery%
+---
+---```lua
+---default = true
+---```
+---@field enableAutomaticDiscovery? boolean
 
 ---@class _.lspconfig.settings.omnisharp.Dotnet.Formatting
 ---%configuration.dotnet.formatting.organizeImportsOnFormat%
@@ -401,8 +423,6 @@
 ---default = {}
 ---```
 ---@class _.lspconfig.settings.omnisharp.Dotnet.Server.ComponentPaths
----%configuration.dotnet.server.componentPaths.razorExtension%
----@field razorExtension? string
 ---%configuration.dotnet.server.componentPaths.roslynCopilot%
 ---@field roslynCopilot? string
 ---%configuration.dotnet.server.componentPaths.roslynDevKit%
@@ -707,6 +727,7 @@
 ---default = true
 ---```
 ---@field enableXamlTools? boolean
+---@field fileBasedApps? _.lspconfig.settings.omnisharp.Dotnet.FileBasedApps
 ---@field formatting? _.lspconfig.settings.omnisharp.Dotnet.Formatting
 ---@field highlighting? _.lspconfig.settings.omnisharp.Dotnet.Highlighting
 ---@field inlayHints? _.lspconfig.settings.omnisharp.Dotnet.InlayHints

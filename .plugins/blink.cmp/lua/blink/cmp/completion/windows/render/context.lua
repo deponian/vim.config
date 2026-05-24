@@ -15,6 +15,7 @@
 --- @field source_name string
 
 local draw_context = {}
+local utils = require('blink.cmp.lib.utils')
 
 --- @param context blink.cmp.Context
 --- @param draw blink.cmp.Draw
@@ -57,10 +58,12 @@ function draw_context.new(draw, item_idx, item, matched_indices)
   local label = item.label:gsub('\n', newline_char) .. (kind == 'Snippet' and draw.snippet_indicator or '')
   if label:find('…') then label = label:gsub('…', '… ') end
 
-  local label_detail = (item.labelDetails and item.labelDetails.detail or ''):gsub('\n', newline_char)
+  local d = type(item.labelDetails) == 'table' and item.labelDetails or {}
+
+  local label_detail = utils.to_string_or_empty(d.detail):gsub('\n', newline_char)
   if label_detail:find('…') then label_detail = label_detail:gsub('…', '… ') end
 
-  local label_description = (item.labelDetails and item.labelDetails.description or ''):gsub('\n', newline_char)
+  local label_description = utils.to_string_or_empty(d.description):gsub('\n', newline_char)
   if label_description:find('…') then label_description = label_description:gsub('…', '… ') end
 
   local source_id = item.source_id
@@ -78,7 +81,9 @@ function draw_context.new(draw, item_idx, item, matched_indices)
     kind_icon = kind_icon,
     kind_hl = kind_hl,
     icon_gap = config.nerd_font_variant == 'mono' and '' or ' ',
-    deprecated = item.deprecated or (item.tags and vim.tbl_contains(item.tags, 1)) or false,
+    deprecated = (utils.is_not_nil(item.deprecated) and item.deprecated)
+      or (utils.is_not_nil(item.tags) and vim.tbl_contains(item.tags, 1))
+      or false,
     source_id = source_id,
     source_name = source_name,
   }

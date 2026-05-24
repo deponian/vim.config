@@ -64,7 +64,10 @@ function docs.show_item(context, item)
     .resolve(context, item)
     ---@param item blink.cmp.CompletionItem
     :map(function(item)
-      if item.documentation == nil and item.detail == nil then
+      local valid_documentation = type(item.documentation) == 'table' or type(item.documentation) == 'string'
+      local valid_detail = type(item.detail) == 'string'
+
+      if not valid_documentation and not valid_detail then
         docs.close()
         return
       end
@@ -87,7 +90,7 @@ function docs.show_item(context, item)
 
         -- allow the provider to override the drawing optionally
         -- TODO: should the default_implementation be the configured draw function instead of the built-in?
-        local draw = item.documentation and item.documentation.draw or config.draw
+        local draw = type(item.documentation) == 'table' and item.documentation.draw or config.draw
         vim.api.nvim_set_option_value('modifiable', true, { buf = docs_buf })
         draw({
           item = item,

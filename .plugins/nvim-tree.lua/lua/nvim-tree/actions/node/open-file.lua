@@ -10,10 +10,6 @@ local DirectoryNode = require("nvim-tree.node.directory")
 local FileLinkNode = require("nvim-tree.node.file-link")
 local RootNode = require("nvim-tree.node.root")
 
----@class NodeEditOpts
----@field quit_on_open boolean|nil default false
----@field focus boolean|nil default true
-
 ---@alias NodeOpenFileMode ""|"change_dir"|"drop"|"edit"|"edit_in_place"|"edit_no_picker"|"preview"|"preview_no_picker"|"split"|"split_no_picker"|"tab_drop"|"tabnew"|"toggle_group_empty"|"vsplit"|"vsplit_no_picker"
 
 local M = {}
@@ -38,12 +34,7 @@ local function usable_win_ids()
   return vim.tbl_filter(function(id)
     local bufid = vim.api.nvim_win_get_buf(id)
     for option, v in pairs(config.g.actions.open_file.window_picker.exclude) do
-      local ok, option_value
-      if vim.fn.has("nvim-0.10") == 1 then
-        ok, option_value = pcall(vim.api.nvim_get_option_value, option, { buf = bufid })
-      else
-        ok, option_value = pcall(vim.api.nvim_buf_get_option, bufid, option) ---@diagnostic disable-line: deprecated
-      end
+      local ok, option_value = pcall(vim.api.nvim_get_option_value, option, { buf = bufid })
 
       if ok and vim.tbl_contains(v, option_value) then
         return false
@@ -105,24 +96,14 @@ local function pick_win_id()
 
   if laststatus == 3 then
     for _, win_id in ipairs(not_selectable) do
-      local ok_status, statusline
-
-      if vim.fn.has("nvim-0.10") == 1 then
-        ok_status, statusline = pcall(vim.api.nvim_get_option_value, "statusline", { win = win_id })
-      else
-        ok_status, statusline = pcall(vim.api.nvim_win_get_option, win_id, "statusline") ---@diagnostic disable-line: deprecated
-      end
+      local ok_status, statusline = pcall(vim.api.nvim_get_option_value, "statusline", { win = win_id })
 
       win_opts_unselectable[win_id] = {
         statusline = ok_status and statusline or "",
       }
 
       -- Clear statusline for windows not selectable
-      if vim.fn.has("nvim-0.10") == 1 then
-        vim.api.nvim_set_option_value("statusline", " ", { win = win_id })
-      else
-        vim.api.nvim_win_set_option(win_id, "statusline", " ") ---@diagnostic disable-line: deprecated
-      end
+      vim.api.nvim_set_option_value("statusline", " ", { win = win_id })
     end
   end
 
@@ -130,14 +111,8 @@ local function pick_win_id()
   for _, id in ipairs(selectable) do
     local char = config.g.actions.open_file.window_picker.chars:sub(i, i)
 
-    local ok_status, statusline, ok_hl, winhl
-    if vim.fn.has("nvim-0.10") == 1 then
-      ok_status, statusline = pcall(vim.api.nvim_get_option_value, "statusline", { win = id })
-      ok_hl, winhl = pcall(vim.api.nvim_get_option_value, "winhl", { win = id })
-    else
-      ok_status, statusline = pcall(vim.api.nvim_win_get_option, id, "statusline") ---@diagnostic disable-line: deprecated
-      ok_hl, winhl = pcall(vim.api.nvim_win_get_option, id, "winhl") ---@diagnostic disable-line: deprecated
-    end
+    local ok_status, statusline = pcall(vim.api.nvim_get_option_value, "statusline", { win = id })
+    local ok_hl, winhl = pcall(vim.api.nvim_get_option_value, "winhl", { win = id })
 
     win_opts_selectable[id] = {
       statusline = ok_status and statusline or "",
@@ -145,13 +120,8 @@ local function pick_win_id()
     }
     win_map[char] = id
 
-    if vim.fn.has("nvim-0.10") == 1 then
-      vim.api.nvim_set_option_value("statusline", "%=" .. char .. "%=",                                                { win = id })
-      vim.api.nvim_set_option_value("winhl",      "StatusLine:NvimTreeWindowPicker,StatusLineNC:NvimTreeWindowPicker", { win = id })
-    else
-      vim.api.nvim_win_set_option(id, "statusline", "%=" .. char .. "%=") ---@diagnostic disable-line: deprecated
-      vim.api.nvim_win_set_option(id, "winhl",      "StatusLine:NvimTreeWindowPicker,StatusLineNC:NvimTreeWindowPicker") ---@diagnostic disable-line: deprecated
-    end
+    vim.api.nvim_set_option_value("statusline", "%=" .. char .. "%=",                                                { win = id })
+    vim.api.nvim_set_option_value("winhl",      "StatusLine:NvimTreeWindowPicker,StatusLineNC:NvimTreeWindowPicker", { win = id })
 
     i = i + 1
     if i > #config.g.actions.open_file.window_picker.chars then
@@ -170,11 +140,7 @@ local function pick_win_id()
   -- Restore window options
   for _, id in ipairs(selectable) do
     for opt, value in pairs(win_opts_selectable[id]) do
-      if vim.fn.has("nvim-0.10") == 1 then
-        vim.api.nvim_set_option_value(opt, value, { win = id })
-      else
-        vim.api.nvim_win_set_option(id, opt, value) ---@diagnostic disable-line: deprecated
-      end
+      vim.api.nvim_set_option_value(opt, value, { win = id })
     end
   end
 
@@ -183,11 +149,7 @@ local function pick_win_id()
       -- Ensure window still exists at this point
       if vim.api.nvim_win_is_valid(id) then
         for opt, value in pairs(win_opts_unselectable[id]) do
-          if vim.fn.has("nvim-0.10") == 1 then
-            vim.api.nvim_set_option_value(opt, value, { win = id })
-          else
-            vim.api.nvim_win_set_option(id, opt, value) ---@diagnostic disable-line: deprecated
-          end
+          vim.api.nvim_set_option_value(opt, value, { win = id })
         end
       end
     end
@@ -341,12 +303,7 @@ local function open_in_new_window(filename, mode)
     -- modified, and create new split if it is.
     local target_bufid = vim.api.nvim_win_get_buf(target_winid)
 
-    local modified
-    if vim.fn.has("nvim-0.10") == 1 then
-      modified = vim.api.nvim_get_option_value("modified", { buf = target_bufid })
-    else
-      modified = vim.api.nvim_buf_get_option(target_bufid, "modified") ---@diagnostic disable-line: deprecated
-    end
+    local modified = vim.api.nvim_get_option_value("modified", { buf = target_bufid })
 
     if modified then
       if not mode:match("split$") then
@@ -455,7 +412,7 @@ end
 
 ---@param mode string
 ---@param node Node
----@param edit_opts NodeEditOpts?
+---@param edit_opts nvim_tree.api.node.open.Opts?
 local function edit(mode, node, edit_opts)
   local file_link = node:as(FileLinkNode)
   local path = file_link and file_link.link_to or node.absolute_path
@@ -471,7 +428,7 @@ local function edit(mode, node, edit_opts)
   end
 
   local mode_unsupported_focus = mode == "drop" or mode == "tab_drop" or mode == "edit_in_place"
-  local focus = edit_opts.focus == nil or edit_opts.focus == true
+  local focus = edit_opts.focus == nil or edit_opts.focus == false
   if not mode_unsupported_focus and not focus then
     -- if mode == "tabnew" a new tab will be opened and we need to focus back to the previous tab
     if mode == "tabnew" then
@@ -484,7 +441,7 @@ end
 ---@param node Node
 ---@param mode NodeOpenFileMode
 ---@param toggle_group boolean?
----@param edit_opts NodeEditOpts?
+---@param edit_opts nvim_tree.api.node.open.Opts?
 local function open_or_expand_or_dir_up(node, mode, toggle_group, edit_opts)
   local root = node:as(RootNode)
   local dir = node:as(DirectoryNode)
@@ -507,18 +464,21 @@ function M.toggle_group_empty(node)
 end
 
 ---@param node Node
-function M.preview(node)
-  open_or_expand_or_dir_up(node, "preview")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.preview(node, opts)
+  open_or_expand_or_dir_up(node, "preview", false, opts)
 end
 
 ---@param node Node
-function M.preview_no_picker(node)
-  open_or_expand_or_dir_up(node, "preview_no_picker")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.preview_no_picker(node, opts)
+  open_or_expand_or_dir_up(node, "preview_no_picker", false, opts)
 end
 
 ---@param node Node
-function M.edit(node)
-  open_or_expand_or_dir_up(node, "edit")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.edit(node, opts)
+  open_or_expand_or_dir_up(node, "edit", false, opts)
 end
 
 ---@param node Node
@@ -537,33 +497,39 @@ function M.replace_tree_buffer(node)
 end
 
 ---@param node Node
-function M.no_window_picker(node)
-  open_or_expand_or_dir_up(node, "edit_no_picker")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.no_window_picker(node, opts)
+  open_or_expand_or_dir_up(node, "edit_no_picker", false, opts)
 end
 
 ---@param node Node
-function M.vertical(node)
-  open_or_expand_or_dir_up(node, "vsplit")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.vertical(node, opts)
+  open_or_expand_or_dir_up(node, "vsplit", false, opts)
 end
 
 ---@param node Node
-function M.vertical_no_picker(node)
-  open_or_expand_or_dir_up(node, "vsplit_no_picker")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.vertical_no_picker(node, opts)
+  open_or_expand_or_dir_up(node, "vsplit_no_picker", false, opts)
 end
 
 ---@param node Node
-function M.horizontal(node)
-  open_or_expand_or_dir_up(node, "split")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.horizontal(node, opts)
+  open_or_expand_or_dir_up(node, "split", false, opts)
 end
 
 ---@param node Node
-function M.horizontal_no_picker(node)
-  open_or_expand_or_dir_up(node, "split_no_picker")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.horizontal_no_picker(node, opts)
+  open_or_expand_or_dir_up(node, "split_no_picker", false, opts)
 end
 
 ---@param node Node
-function M.tab(node)
-  open_or_expand_or_dir_up(node, "tabnew")
+---@param opts nvim_tree.api.node.open.Opts?
+function M.tab(node, opts)
+  open_or_expand_or_dir_up(node, "tabnew", false, opts)
 end
 
 return M

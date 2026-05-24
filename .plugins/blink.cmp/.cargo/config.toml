@@ -25,3 +25,7 @@ rustflags = [
   "-C",
   "default-linker-libraries",
 ]
+
+[profile.release]
+lto = true
+codegen-units = 1

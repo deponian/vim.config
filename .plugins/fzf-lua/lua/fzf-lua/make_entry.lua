@@ -241,8 +241,8 @@ local glob_filter = function(paths, globs)
   -- globpath() is very slow
   local matchers
   if not globs or not vim.regex then return paths end
-  local pats = vim.tbl_map(vim.F.nil_wrap(vim.fn.glob2regpat), globs)
-  matchers = vim.tbl_map(vim.F.nil_wrap(vim.regex), pats)
+  local pats = vim.tbl_map(utils.nil_wrap(vim.fn.glob2regpat), globs)
+  matchers = vim.tbl_map(utils.nil_wrap(vim.regex), pats)
   -- matchers = vim.tbl_map(vim.F.nil_wrap(vim.glob.to_lpeg), globs)
   if #matchers == 0 then return paths end
   return vim.tbl_filter(function(p)
@@ -703,32 +703,19 @@ M.file = function(x, opts)
 end
 
 M.tag = function(x, opts)
-  local name, file, text = x:match("([^\t]+)\t([^\t]+)\t(.*)")
-  if not file or not name or not text then return x end
-  text = text:match([[(.*);"]]) or text -- remove ctag comments
-  -- unescape ctags special chars
-  -- '\/' -> '/'
-  -- '\\' -> '\'
-  for _, s in ipairs({ "/", "\\" }) do
-    text = text:gsub([[\]] .. s, s)
-  end
+  local name, file, excmd = x:match("([^\t]+)\t([^\t]+)\t(.*)")
+  if not file or not name or not excmd then return x end
+  local line, tag = path.parse_ctag_excmd(excmd, true)
   -- different alignment fmt if string contains ansi coloring
   -- from rg/grep output when using `tags_grep_xxx`
-  local align = utils.has_ansi_coloring(name) and 47 or 30
-  local line, tag = text:match("(%d-);?(/.*/)")
-  if not tag then
-    -- lines with a tag located solely by line number contain nothing but the
-    -- number at this point (e.g. using "ctags -R --excmd=number")
-    line = text:match("%d+")
-  end
-  line = line and #line > 0 and tonumber(line)
-  return string.format("%-" .. tostring(align) .. "s%s%s%s: %s",
+  local align = 24
+  if utils.has_ansi_coloring(name) then align = align + 17 end
+  return string.format("%-" .. tostring(align) .. "s\t%s\t%s%s",
     name,
-    utils.nbsp,
     M.file(file, opts),
-    not line and "" or ":" .. utils.ansi_codes.green(tostring(line)),
-    utils.ansi_codes.blue(tag)
-  ), line
+    line and utils.ansi_codes.green(tostring(line)) .. ";" or "",
+    tag or ""
+  )
 end
 
 M.git_status = function(x, opts)

@@ -579,19 +579,13 @@ local function gen_lsp_contents(opts)
                   utils.warn("%s[%s]: %s", tostring(client.name), lsp_handler.method, err)
                 end
               end
-              coroutine.resume(co, done, err, result, context, lspcfg)
+              coroutine.resume(co --[[@as thread]], done, err, result, context, lspcfg)
             end)
         end
 
         -- When called from another coroutine callback (when using 'finder') will err:
         -- E5560: nvim_exec_autocmds must not be called in a lua loop callback nil
-        if vim.in_fast_event() then
-          vim.schedule(function()
-            async_buf_request()
-          end)
-        else
-          async_buf_request()
-        end
+        vim.schedule(function() async_buf_request() end)
 
         -- process results from all LSP client
         local err, result, context, lspcfg, done
@@ -605,7 +599,7 @@ local function gen_lsp_contents(opts)
               -- Only populate jump1 with the first entry
               if jump1 then jump1 = false end
               if x and jump1 == nil then jump1 = { result = x.result, encoding = x.encoding } end
-              fzf_cb(e, function() coroutine.resume(co) end)
+              fzf_cb(e, function() coroutine.resume(co --[[@as thread]]) end)
               coroutine.yield()
             end
             lsp_handler.handler(opts, cb, lsp_handler.method, result, context, lspcfg)
@@ -793,8 +787,10 @@ M.finder = function(opts)
         -- make sure we add only valid contents
         -- sync returns empty table when no results are found
         if type(c) == "function" then
-          table.insert(contents,
-            { prefix = (p.prefix or "") .. (opts.separator or ""), contents = c })
+          table.insert(contents, {
+            prefix = (p.prefix or "") .. (opts.separator or ""),
+            contents = vim.schedule_wrap(c)
+          })
         end
       end
     end

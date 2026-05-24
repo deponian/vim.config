@@ -12,6 +12,7 @@ lspconfig-new	lspconfig.txt	/*lspconfig-new*
 lspconfig-nvim-0.11	lspconfig.txt	/*lspconfig-nvim-0.11*
 lspconfig-quickstart	lspconfig.txt	/*lspconfig-quickstart*
 lspconfig-resolved	lspconfig.txt	/*lspconfig-resolved*
+lspconfig-settings-types	lspconfig.txt	/*lspconfig-settings-types*
 lspconfig-usage	lspconfig.txt	/*lspconfig-usage*
 lspconfig-vs-vim.lsp.config	lspconfig.txt	/*lspconfig-vs-vim.lsp.config*
 lspconfig.txt	lspconfig.txt	/*lspconfig.txt*

@@ -1,15 +1,16 @@
 import { flavors } from "@catppuccin/palette"
 import type { NeovimContext } from "../../support/tui-sandbox.js"
-import { assertMatchVisible } from "./utils/assertMatchVisible"
-import { createGitReposToLimitSearchScope } from "./utils/createGitReposToLimitSearchScope"
+import { assertMatchVisible } from "./utils/assertMatchVisible.js"
+import { createGitReposToLimitSearchScope } from "./utils/createGitReposToLimitSearchScope.js"
 
 import {
   rgbify,
   textIsVisibleWithBackgroundColor,
   textIsVisibleWithColor,
 } from "@tui-sandbox/library"
-import { textIsVisibleWithColors } from "./utils/color-utils"
-import { verifyCorrectBackendWasUsedInTest } from "./utils/verifyGitGrepBackendWasUsedInTest"
+import { textIsVisibleWithColors } from "./utils/color-utils.js"
+import { startNeovim } from "./utils/startNeovim.js"
+import { verifyCorrectBackendWasUsedInTest } from "./utils/verifyGitGrepBackendWasUsedInTest.js"
 
 export type CatppuccinRgb = (typeof flavors.macchiato.colors)["surface0"]["rgb"]
 
@@ -26,7 +27,7 @@ function startNeovimWithGitBackend(
   }
 
   assert(options.startupScriptModifications.includes(backend))
-  return cy.startNeovim(options)
+  return startNeovim(options)
 }
 
 describe("the GitGrepBackend", () => {

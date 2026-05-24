@@ -1489,7 +1489,7 @@ Ripgrep options passed to the `rg` command.
 
 ##### grep.grep_opts
 
-Type: `string`, Default: `"--binary-files=without-match --line-number --recursive -...`
+Type: `string`, Default: `"--perl-regexp --binary-files=without-match --line-number...`
 
 GNU grep options passed to the `grep` command.
 
@@ -1633,7 +1633,7 @@ Callback to execute after applying a code action.
 
 ##### lsp_code_actions.context
 
-Type: `lsp.CodeActionContext`, Default: `nil`
+Type: `vim.lsp.buf.code_action.context`, Default: `nil`
 
 Code action context passed to the LSP server.
 
@@ -1756,6 +1756,12 @@ Colorize option values.
 #### oldfiles
 
 File history (output of `:oldfiles`).
+
+##### oldfiles.shada_file
+
+Type: `string`, Default: `nil`
+
+Optional shada file to read, see `:help shada`
 
 ##### oldfiles.stat_file
 

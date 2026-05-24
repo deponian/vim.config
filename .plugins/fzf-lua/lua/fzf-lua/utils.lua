@@ -17,6 +17,7 @@ M.__HAS_NVIM_0102 = vim.fn.has("nvim-0.10.2") == 1
 M.__HAS_NVIM_011 = vim.fn.has("nvim-0.11") == 1
 M.__HAS_NVIM_0116 = vim.fn.has("nvim-0.11.6") == 1
 M.__HAS_NVIM_012 = vim.fn.has("nvim-0.12") == 1
+M.__HAS_NVIM_013 = vim.fn.has("nvim-0.13") == 1
 M.__IS_WINDOWS = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 -- `:help shellslash` (for more info see #1055)
 M.__WIN_HAS_SHELLSLASH = M.__IS_WINDOWS and vim.fn.exists("+shellslash") == 1
@@ -216,6 +217,20 @@ function M.is_darwin()
   return uv.os_uname().sysname == "Darwin"
 end
 
+---@param re string
+---@param opts table
+---@return vim.regex?
+function M.vim_regex(re, opts)
+  local ok, regex = pcall(vim.regex, re)
+  if ok then return regex --[[@as vim.regex]] end
+  if not ok and (not opts or opts.silent ~= true) then
+    M.warn(
+      [[Unable to init vim.regex with "%s", %s. . Add 'silent=true' to hide this message.]],
+      re, regex)
+    return nil
+  end
+end
+
 ---@param str string
 ---@return string
 function M.rg_escape(str)
@@ -230,16 +245,91 @@ function M.rg_escape(str)
   return ret
 end
 
+---@param str string
+---@return string
 function M.regex_to_magic(str)
   -- Convert regex to "very magic" pattern, basically a regex
   -- with special meaning for "%=&<>~", `:help /magic`
-  return [[\v]] .. str:gsub("[%%=&@<>~]", function(x)
-    return "\\" .. x
-  end)
+  return [[\v\C]] .. str:gsub("([%%=&<>])", [[\%1]])
+      -- searching for @ in very magic needs [@]
+      :gsub("([@])", "[%1]")
 end
 
+---Remove ^ $ regex anchors if they appear at start/end respectively
+-- used with ctags to convert the tag to a valid code block
+---@param s string?
+---@return string?, integer, integer
+function M.regex_strip_anchors(s)
+  local had_caret, had_dollar = 0, 0
+  if not s then return nil, had_caret, had_dollar end
+  ---@format disable
+  if string.byte(s, 1) == 94 then s = s:sub(2); had_caret = 1 end -- remove starting ^
+  -- remove ending $ only if not escaped (none/even number of backslashes)
+  if string.byte(s, #s) == 36 then
+    local bs_count, i = 0, #s - 1
+    while i > 0 and string.byte(s, i) == 92 do
+      bs_count = bs_count + 1
+      i = i - 1
+    end
+    if bs_count % 2 == 0 then
+      s = s:sub(1, #s - 1)
+      had_dollar = 1
+    end
+  end
+  return s, had_caret, had_dollar
+end
+
+---@param str string
+---@return integer?, integer?
+function M.ctag_match(str)
+  ---@param s string
+  ---@param i integer?
+  ---@return integer?
+  local rfind_slash = function(s, i)
+    -- assert(string.byte("/", 1) == 47)
+    -- assert(string.byte([[\]], 1) == 92)
+    local SLASH, BSLASH = 47, 92
+    local len = #s
+    i = i or len
+    while i > 0 do
+      if string.byte(s, i) == SLASH then
+        local bs_count, j = 0, i - 1
+        while j > 0 and string.byte(s, j) == BSLASH do
+          bs_count = bs_count + 1
+          j = j - 1
+        end
+        if bs_count % 2 == 0 then
+          return i
+        end
+      end
+      i = i - 1
+    end
+  end
+  local start_col, end_col = nil, rfind_slash(str)
+  if end_col then
+    start_col = rfind_slash(str, end_col - 1)
+  end
+  if start_col then return start_col, end_col end
+end
+
+---@param str string
+---@return string
+function M.ctag_escape(str)
+  -- unescape already escaped ctags slashes
+  -- '\\' -> '\'
+  -- '\/' -> '/'
+  str = str:gsub([[\\]], [[\]])
+  str = str:gsub([[\/]], [[/]])
+  -- regex escape
+  return (M.rg_escape(str)
+    -- unescape ^$ if were positioned in start/end respectively
+    :gsub([[^\^]], "^"):gsub([[\$$]], "$"))
+end
+
+---@param str string
+---@return string
 function M.ctag_to_magic(str)
-  return [[\v]] .. str:gsub("[=&@<>{%(%)%.%[]", function(x) return [[\]] .. x end)
+  return M.regex_to_magic(M.ctag_escape(str))
 end
 
 function M.sk_escape(str)
@@ -979,10 +1069,6 @@ function M.load_profiles(profiles, silent)
   profiles = type(profiles) == "table" and profiles
       or type(profiles) == "string" and { profiles }
       or {}
-  -- If the use specified only the "hide" profile, inherit the defaults
-  if #profiles == 1 and profiles[1] == "hide" then
-    table.insert(profiles, 1, "default")
-  end
   for _, profile in ipairs(profiles) do
     -- backward compat, renamed "borderless_full" > "borderless-full"
     if profile == "borderless_full" then profile = "borderless-full" end
@@ -1031,7 +1117,7 @@ end
 ---@param only_if_last_buffer? boolean
 ---@return boolean
 function M.buffer_is_dirty(bufnr, warn, only_if_last_buffer)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  bufnr = (bufnr == nil or bufnr == 0) and vim.api.nvim_get_current_buf() or bufnr
   local info = bufnr and M.getbufinfo(bufnr)
   if info and info.changed ~= 0 then
     if only_if_last_buffer and 1 < #vim.fn.win_findbuf(bufnr) then
@@ -1208,6 +1294,8 @@ function M.nvim_open_win(bufnr, enter, config)
 end
 
 function M.nvim_open_win0(bufnr, enter, config)
+  -- TODO: why is nvim_win_call returning nil on nightly (#2732)?
+  if M.__HAS_NVIM_013 then return vim.api.nvim_open_win(bufnr, enter, config) end
   local winid = (M.__CTX() or {}).winid
   if not winid or not vim.api.nvim_win_is_valid(winid) then
     return vim.api.nvim_open_win(bufnr, enter, config)
@@ -1270,7 +1358,7 @@ function M.getbufinfo(bufnr)
   if M.__HAS_AUTOLOAD_FNS then
     return vim.fn["fzf_lua#getbufinfo"](bufnr)
   else
-    return vim.fn.getbufinfo(bufnr)[1] or {}
+    return vim.fn.getbufinfo(bufnr)[1] or {} ---@as vim.fn.getbufinfo.ret.item
   end
 end
 
@@ -1540,8 +1628,10 @@ end
 ---@return boolean
 function M.jump_to_location(location, offset_encoding, reuse_win)
   if M.__HAS_NVIM_011 then
-    return vim.lsp.util.show_document(location, offset_encoding,
-      { reuse_win = reuse_win, focus = true })
+    return M.with({ o = { verbose = 0 } }, function()
+      return vim.lsp.util.show_document(location, offset_encoding,
+        { reuse_win = reuse_win, focus = true })
+    end)
   else
     ---@diagnostic disable-next-line: deprecated
     return vim.lsp.util.jump_to_location(location, offset_encoding, reuse_win)
@@ -1678,5 +1768,15 @@ end
 ---@class fzf-lua.wo: vim.wo,{}
 M.wo = new_win_opt_accessor()
 
+---@diagnostic disable-next-line: deprecated
+M.nonnil = vim.nonnil or vim.F.if_nil
+
+---@diagnostic disable-next-line: deprecated
+M.npcall = vim.npcall or vim.F.npcall
+
+---@diagnostic disable-next-line: deprecated
+M.nil_wrap = not vim.nonnil and vim.F.nil_wrap or function(fn)
+  return function(...) return M.npcall(fn, ...) end
+end
 
 return M

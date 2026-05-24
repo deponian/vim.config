@@ -52,6 +52,7 @@
 ---@field css          (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field cuda         (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field cue          (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
+---@field d            (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field dart         (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field elixir       (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field elm          (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
@@ -61,6 +62,7 @@
 ---@field go           (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field groovy       (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field haskell      (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
+---@field heex         (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field hcl          (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field html         (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
 ---@field janet_simple (string | rainbow_delimiters.strategy | fun(bufnr: integer): string | rainbow_delimiters.strategy?)?
@@ -129,6 +131,7 @@
 ---@field css          (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field cuda         (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field cue          (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
+---@field d            (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field dart         (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field elixir       (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field elm          (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
@@ -138,6 +141,7 @@
 ---@field go           (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field groovy       (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field haskell      (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
+---@field heex         (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field hcl          (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field html         (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
 ---@field janet_simple (('rainbow-delimiters' | string) | fun(bufnr: integer): ('rainbow-delimiters' | string))?
@@ -206,6 +210,7 @@
 ---@field css          (integer | fun(bufnr: integer): integer)?
 ---@field cuda         (integer | fun(bufnr: integer): integer)?
 ---@field cue          (integer | fun(bufnr: integer): integer)?
+---@field d            (integer | fun(bufnr: integer): integer)?
 ---@field dart         (integer | fun(bufnr: integer): integer)?
 ---@field elixir       (integer | fun(bufnr: integer): integer)?
 ---@field elm          (integer | fun(bufnr: integer): integer)?
@@ -215,6 +220,7 @@
 ---@field go           (integer | fun(bufnr: integer): integer)?
 ---@field groovy       (integer | fun(bufnr: integer): integer)?
 ---@field haskell      (integer | fun(bufnr: integer): integer)?
+---@field heex         (integer | fun(bufnr: integer): integer)?
 ---@field hcl          (integer | fun(bufnr: integer): integer)?
 ---@field html         (integer | fun(bufnr: integer): integer)?
 ---@field janet_simple (integer | fun(bufnr: integer): integer)?
@@ -282,6 +288,7 @@
 ---| 'css'
 ---| 'cuda'
 ---| 'cue'
+---| 'd'
 ---| 'dart'
 ---| 'elixir'
 ---| 'elm'
@@ -290,6 +297,7 @@
 ---| 'go'
 ---| 'groovy'
 ---| 'haskell'
+---| 'heex'
 ---| 'hcl'
 ---| 'html'
 ---| 'janet_simple'

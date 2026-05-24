@@ -31,6 +31,12 @@
 ---default = true
 ---```
 ---@field addWhitespaceAroundPipe? boolean
+---Align member value assignments in an Enum Type Definition.
+---
+---```lua
+---default = true
+---```
+---@field alignEnumMemberValues? boolean
 ---Align assignment statements in a hashtable or a DSC Configuration.
 ---
 ---```lua
@@ -103,12 +109,6 @@
 ---default = true
 ---```
 ---@field whitespaceAroundOperator? boolean
----**Deprecated:** Please use the `#powershell.codeFormatting.addWhitespaceAroundPipe#` setting instead. If you've used this setting before, we have moved it for you automatically.
----
----```lua
----default = true
----```
----@field whitespaceAroundPipe? boolean
 ---Adds a space between a keyword and its associated script-block expression.
 ---
 ---```lua
@@ -201,6 +201,8 @@
 ---@field startLocation? "Editor" | "Panel"
 ---Do not show the startup banner in the PowerShell Extension Terminal.
 ---@field suppressStartupBanner? boolean
+---Do not show a notification when the PowerShell Extension Terminal has stopped.
+---@field suppressTerminalStoppedNotification? boolean
 ---This will disable the use of PSReadLine in the PowerShell Extension Terminal and use a legacy implementation. **This setting is not recommended and likely to be deprecated!**
 ---@field useLegacyReadLine? boolean
 
@@ -229,6 +231,16 @@
 ---default = true
 ---```
 ---@field useLegacyCodeLens? boolean
+
+---@class _.lspconfig.settings.powershell_es.Powershell.Rename
+---Auto-accepts the [disclaimer for the PowerShell Rename Symbol feature](https://aka.ms/powershell-rename-disclaimer) which has support limitations and risks.
+---@field acceptDisclaimer? boolean
+---Creates an alias attribute for a parameter when renaming a parameter definition.
+---
+---```lua
+---default = true
+---```
+---@field createParameterAlias? boolean
 
 ---@class _.lspconfig.settings.powershell_es.Powershell.ScriptAnalysis
 ---Enables real-time script analysis using [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) that populates the [Problems view](command:workbench.panel.markers.view.focus).
@@ -332,6 +344,7 @@
 ---default = true
 ---```
 ---@field promptToUpdatePowerShell? boolean
+---@field rename? _.lspconfig.settings.powershell_es.Powershell.Rename
 ---@field scriptAnalysis? _.lspconfig.settings.powershell_es.Powershell.ScriptAnalysis
 ---@field sideBar? _.lspconfig.settings.powershell_es.Powershell.SideBar
 ---@field startAsLoginShell? _.lspconfig.settings.powershell_es.Powershell.StartAsLoginShell

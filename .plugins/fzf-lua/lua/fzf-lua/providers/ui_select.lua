@@ -78,10 +78,13 @@ M.ui_select = function(items, ui_opts, on_choice)
   local entries = {}
   local num_width = math.ceil(math.log10(#items))
   local num_format_str = "%" .. num_width .. "d"
+  local reverse_lookup = {}
   for i, e in ipairs(items) do
-    table.insert(entries,
-      ("%s. %s"):format(utils.ansi_codes.magenta(num_format_str:format(i)),
-        ui_opts.format_item and ui_opts.format_item(e) or tostring(e)))
+    local entry = ("%s. %s"):format(utils.ansi_codes.magenta(num_format_str:format(i)),
+      ui_opts.format_item and ui_opts.format_item(e) or tostring(e))
+    entries[#entries + 1] = entry
+    -- fzf will to strip all ansi (even in item str), so we store stripped key
+    reverse_lookup[utils.strip_ansi_coloring(entry)] = i
   end
 
   local opts = _OPTS or {}
@@ -114,7 +117,8 @@ M.ui_select = function(items, ui_opts, on_choice)
     ["enter"] = { fn = M.accept_item, desc = "accept-item" }
   })
 
-  opts.fn_selected = function(selected, o)
+  -- schedule to avoid our coroutine break external async logic #2719
+  opts.fn_selected = vim.schedule_wrap(function(selected, o)
     local function exec_choice()
       if not selected then
         -- with `actions.dummy_abort` this doesn't get called anymore
@@ -149,7 +153,7 @@ M.ui_select = function(items, ui_opts, on_choice)
     else
       exec_choice()
     end
-  end
+  end)
 
 
   -- ui.select is code actions
@@ -180,7 +184,18 @@ M.ui_select = function(items, ui_opts, on_choice)
       _ctor = function()
         local previewer = require("fzf-lua.previewer.builtin").buffer_or_file:extend()
         ---@diagnostic disable-next-line: unused
-        function previewer:parse_entry(entry_str, cb) return ui_opts.preview_item(entry_str, cb) end
+        function previewer:parse_entry(entry_str, cb)
+          local str = utils.strip_ansi_coloring(entry_str)
+          local res = assert(ui_opts.preview_item(items[reverse_lookup[str]], cb))
+          local pos_start, pos_end = res.pos, res.pos_end
+          return {
+            _scratch_buf = res.buf,
+            line = pos_start and pos_start[1] or 1,
+            col = pos_start and pos_start[2] or 1,
+            end_line = pos_end and pos_end[1] or 1,
+            end_col = pos_end and pos_end[2] or 1,
+          }
+        end
 
         return previewer
       end

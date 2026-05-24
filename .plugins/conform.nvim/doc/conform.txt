@@ -463,6 +463,8 @@ FORMATTERS                                                    *conform-formatter
 `ocp-indent` - Automatic indentation of OCaml source files.
 `odinfmt` - Auto-formatter for the Odin programming language.
 `opa_fmt` - Format Rego files using `opa fmt` command.
+`openapi_format` - Format an OpenAPI document by ordering, formatting and
+                 filtering fields.
 `ormolu` - A formatter for Haskell source code.
 `oxfmt` - A Prettier-compatible code formatter.
 `oxlint` - An oxidized replacement for ESLint that fixes lint errors.
@@ -470,6 +472,10 @@ FORMATTERS                                                    *conform-formatter
              configuration files to a canonical format and style.
 `palantir-java-format` - A modern, lambda-friendly, 120 character Java
                        formatter.
+`panache` - A formatter, linter, and language server for Markdown, Quarto, and R
+          Markdown.
+`panache-fix` - Linter for Markdown, Quarto, and R Markdown. Applies auto-
+              fixable rule violations.
 `pangu` - Insert whitespace between CJK and half-width characters.
 `pasfmt` - Delphi code formatter.
 `perlimports` - Make implicit Perl imports explicit.

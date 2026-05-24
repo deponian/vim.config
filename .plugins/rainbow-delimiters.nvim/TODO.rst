@@ -5,6 +5,13 @@
 #######################
 
 
+Break legacy compatibility
+##########################
+
+Here are plans for dropping support for certain Neovim versions in a controlled
+manner.
+
+
 Built-in queries
 ################
 

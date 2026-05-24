@@ -377,21 +377,45 @@ function M.lengthen(path)
       or string.format("<glob expand failed for '%s'>", glob_expr)
 end
 
-function M.entry_to_ctag(entry, noesc)
-  local ctag = entry:match("%:.-[/\\]^?\t?(.*)[/\\]")
-  -- if tag name contains a slash we could
-  -- have the wrong match, most tags start
-  -- with ^ so try to match based on that
-  ctag = ctag and ctag:match("[/\\]^(.*)") or ctag
-  if ctag and not noesc then
-    -- required escapes for vim.fn.search()
-    -- \ ] ~ *
-    ctag = ctag:gsub("[\\%]~*]",
-      function(x)
-        return "\\" .. x
-      end)
-  end
-  return ctag
+---@param excmd string
+---@param do_not_strip_slashes boolean?
+---@return number?, string?
+function M.parse_ctag_excmd(excmd, do_not_strip_slashes)
+  -- remove anything after excmd ;" postfix
+  excmd = excmd:gsub([[;".-$]], ";")
+  -- test for "--excmd={number|combine}"
+  local line = excmd:match("^(%d+);")
+  -- adjust for line, position cursor after ;
+  if line then excmd = excmd:sub(#line + 2) end
+  -- extract ctag
+  local tag = do_not_strip_slashes
+      and excmd:match("/.*/")
+      or excmd:match("/(.*)/")
+  return tonumber(line), tag
+end
+
+---@param raw string
+---@param opts table
+---@return fzf-lua.path.Entry
+function M.entry_to_ctag(raw, opts)
+  assert(opts._ctag)
+  local _, file, excmd = raw:match("([^\t]+)\t([^\t]+)\t(.*)")
+  if not file or not excmd then return {} end
+  file = file:match(".*" .. utils.nbsp .. "(.+)$") or file
+  local cwd = opts.cwd or opts._cwd
+  if cwd and not M.is_absolute(file) then file = M.join({ cwd, file }) end
+  if opts.path_shorten then file = M.lengthen(file) end
+  local line, tag = M.parse_ctag_excmd(excmd)
+  return {
+    path = file,
+    ctag = tag,
+    line = line or 0,
+    col = 0,
+    stripped = string.format("%s:%s %s", file, line and line .. ":" or "",
+      -- remove ctag ^$ prefix/postfix so qflist can have ts highlights
+      utils.regex_strip_anchors(tag) or ""),
+    debug = opts.debug and raw:match("^%[DEBUG]") and raw or nil,
+  } ---@as fzf-lua.path.Entry
 end
 
 ---@param entry string
@@ -430,6 +454,12 @@ function M.is_uri(str)
   return str:match("^[%a%-]+://") ~= nil
 end
 
+-- path seps behavior https://github.com/neovim/neovim/pull/37729
+-- luv use `\`, `nvim_buf_get_name` use `/` (on windows, by default)
+local buf_get_name = utils.__IS_WINDOWS and
+    function(buf) return (vim.api.nvim_buf_get_name(buf):gsub([[/]], [[\]])) end
+    or vim.api.nvim_buf_get_name
+
 ---@param entry string
 ---@param opts fzf-lua.Config|{}?
 ---@param force_uri boolean?
@@ -437,6 +467,7 @@ end
 function M.entry_to_file(entry, opts, force_uri)
   -- NOTE: see note in meta.lua:global regarding alt options
   opts = opts and opts.__alt_opts or opts or {}
+  assert(opts)
   if opts._fmt then
     if type(opts._fmt._from) == "function" then
       entry = opts._fmt._from(entry, opts)
@@ -449,6 +480,10 @@ function M.entry_to_file(entry, opts, force_uri)
   entry = utils.strip_ansi_coloring(entry)
   if opts.render_crlf then
     entry = entry:gsub("␊", "\n"):gsub("␍", "\r")
+  end
+  -- ctag processing is done separately
+  if opts._ctag then
+    return M.entry_to_ctag(entry, opts)
   end
   local stripped, idx = (function()
     -- Returns the first viable path:line?:col? + rest of line
@@ -520,7 +555,7 @@ function M.entry_to_file(entry, opts, force_uri)
   if #s > 1 then
     local newfile = file
     for i = 2, #s do
-      newfile = ("%s:%s"):format(newfile, s[i])
+      newfile = ("%s:%s"):format(tostring(newfile), s[i])
       if uv.fs_stat(newfile) then
         file = newfile
         line = s[i + 1]
@@ -537,7 +572,7 @@ function M.entry_to_file(entry, opts, force_uri)
     end
   elseif file and #file > 0 then -- get bufnr from give path
     local buf = vim.fn.bufnr(file)
-    if buf ~= -1 and vim.api.nvim_buf_get_name(buf) == (uv.fs_realpath(file) or file) then
+    if buf ~= -1 and buf_get_name(buf) == (uv.fs_realpath(file) or file) then
       bufnr = buf
       bufname = file
     end
@@ -556,7 +591,6 @@ function M.entry_to_file(entry, opts, force_uri)
     line     = utils.tointeger(type(opts.line_query) == "function" and
       (opts.line_query(FzfLua.get_info().query)) or line) or 0,
     col      = utils.tointeger(col) or 0,
-    ctag     = opts._ctag and M.entry_to_ctag(stripped) or nil,
     debug    = opts.debug and entry:match("^%[DEBUG]") and entry or nil,
   }
 end
@@ -640,9 +674,8 @@ function M.jj_root(opts, noerr)
 end
 
 ---@param str string
----@param opts fzf-lua.config.Resolved
----@return fzf-lua.path.Entry|fzf-lua.keymap.Entry
-function M.keymap_to_entry(str, opts)
+---@return fzf-lua.keymap.Entry
+function M.keymap_to_entry(str)
   local valid_modes = {
     n = true,
     i = true,
@@ -654,21 +687,24 @@ function M.keymap_to_entry(str, opts)
   if not mode or not keymap then return {} end
   mode, keymap = vim.trim(mode), vim.trim(keymap)
   mode = valid_modes[mode] and mode or "" -- only valid modes
-  local out ---@type string[]
-  local vmap, cmd = nil, string.format("verbose %smap %s", mode, keymap)
-  -- Run in the context of the originating buffer or keympas might return
-  -- "No mapping found"
-  pcall(vim.api.nvim_buf_call, opts.__CTX.bufnr, function()
-    out = utils.strsplit(vim.fn.execute(cmd), "\n")
-    _, vmap = next(vim.tbl_map(function(x) return #x > 0 and x or nil end, out))
-  end)
-  local entry
-  for i = #out, 1, -1 do
-    if out[i]:match(utils.lua_regex_escape(keymap)) then
-      entry = out[i]:match("<.-:%s+(.*)>")
+  local vmap = vim.fn.maparg(keymap, mode, false, true)
+  if vmap.callback then
+    local info = debug.getinfo(vmap.callback, "Sl")
+    if info and info.source and info.linedefined and info.linedefined > 0 then
+      local source = info.source:gsub("^@", "")
+      -- https://github.com/neovim/neovim/blob/64d55b74d83d566975e269bed0810d9008119ddf/src/nvim/lua/executor.c#L671-L680
+      if source:match("vim/") and package.preload[source:gsub("%.lua$", ""):gsub("/", ".")] then
+        source = vim.env.VIMRUNTIME .. "/lua/" .. source .. ".lua"
+      end
+      return { path = source, line = info.linedefined }
     end
   end
-  return entry and M.entry_to_file(entry, opts) or { mode = mode, key = keymap, vmap = vmap } or {}
+  local cmd = ("verb %smap %s"):format(mode, keymap)
+  local output = vim.split(vim.api.nvim_exec2(cmd, { output = true }).output, "\n")
+  local file, lnum = (output[#output] or ""):match("Last set from (.-) line (%d+)")
+  if file and lnum then return { path = vim.fs.normalize(file), line = utils.tointeger(lnum) or 1 } end
+  -- if entry then return M.entry_to_file(entry, opts) end
+  return { mode = mode, key = keymap, vmap = vim.inspect(vmap) }
 end
 
 -- Minimal functionality so we can hijack during `vim.filetype.match`

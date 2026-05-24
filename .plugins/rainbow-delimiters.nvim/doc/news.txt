@@ -8,6 +8,60 @@ https://keepachangelog.com/en/1.1.0/
 https://semver.org/
 
 ==============================================================================
+Unreleased
+
+------------------------------------------------------------------------------
+ADDED
+
+New languages:
+    • D
+    • Heex (Elixir templates)
+
+Missing patterns:
+    • C++:
+        - `fold_expression`
+    • A bunch of standard Elixir blocks
+
+------------------------------------------------------------------------------
+FIXED
+
+Outdated patterns:
+    • OCaml:
+        - `let_expression`
+        - `coercion_expression`
+
+
+==============================================================================
+Version 0.12.0 (released on 2026-04-06)
+
+This is the last version with support for Neovim 0.10 or older.  It contains
+fixes for Neovim 0.12 and various cleanups in preparation for dropping Neovim
+version 0.10 support.
+
+------------------------------------------------------------------------------
+ADDED
+
+New queries:
+    • Elixir:
+        - `rainbow-blocks`
+
+------------------------------------------------------------------------------
+CHANGED
+
+The `jsonc` language is now parsed as `json`; this is because nvim-treesitter
+no longer supports `jsonc` as its own language.
+
+------------------------------------------------------------------------------
+FIXED
+
+Error in local strategy when running Neovim 0.12
+
+Impossible patterns:
+    • Zig:
+        - `call_expression`
+
+
+==============================================================================
 Version 0.11.0 (released on 2026-03-25)
 
 ------------------------------------------------------------------------------

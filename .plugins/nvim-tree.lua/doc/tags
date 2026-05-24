@@ -44,7 +44,6 @@ nvim-tree-config-modified	nvim-tree-lua.txt	/*nvim-tree-config-modified*
 nvim-tree-config-notify	nvim-tree-lua.txt	/*nvim-tree-config-notify*
 nvim-tree-config-renderer	nvim-tree-lua.txt	/*nvim-tree-config-renderer*
 nvim-tree-config-sort	nvim-tree-lua.txt	/*nvim-tree-config-sort*
-nvim-tree-config-system-open	nvim-tree-lua.txt	/*nvim-tree-config-system-open*
 nvim-tree-config-tab	nvim-tree-lua.txt	/*nvim-tree-config-tab*
 nvim-tree-config-trash	nvim-tree-lua.txt	/*nvim-tree-config-trash*
 nvim-tree-config-ui	nvim-tree-lua.txt	/*nvim-tree-config-ui*
@@ -155,6 +154,7 @@ nvim_tree.api.node.navigate.sibling.first()	nvim-tree-lua.txt	/*nvim_tree.api.no
 nvim_tree.api.node.navigate.sibling.last()	nvim-tree-lua.txt	/*nvim_tree.api.node.navigate.sibling.last()*
 nvim_tree.api.node.navigate.sibling.next()	nvim-tree-lua.txt	/*nvim_tree.api.node.navigate.sibling.next()*
 nvim_tree.api.node.navigate.sibling.prev()	nvim-tree-lua.txt	/*nvim_tree.api.node.navigate.sibling.prev()*
+nvim_tree.api.node.open.drop()	nvim-tree-lua.txt	/*nvim_tree.api.node.open.drop()*
 nvim_tree.api.node.open.edit()	nvim-tree-lua.txt	/*nvim_tree.api.node.open.edit()*
 nvim_tree.api.node.open.horizontal()	nvim-tree-lua.txt	/*nvim_tree.api.node.open.horizontal()*
 nvim_tree.api.node.open.horizontal_no_picker()	nvim-tree-lua.txt	/*nvim_tree.api.node.open.horizontal_no_picker()*
@@ -236,7 +236,6 @@ nvim_tree.config.renderer.indent_markers.icons	nvim-tree-lua.txt	/*nvim_tree.con
 nvim_tree.config.renderer.root_folder_label	nvim-tree-lua.txt	/*nvim_tree.config.renderer.root_folder_label*
 nvim_tree.config.sort	nvim-tree-lua.txt	/*nvim_tree.config.sort*
 nvim_tree.config.sort.Sorter	nvim-tree-lua.txt	/*nvim_tree.config.sort.Sorter*
-nvim_tree.config.system_open	nvim-tree-lua.txt	/*nvim_tree.config.system_open*
 nvim_tree.config.tab	nvim-tree-lua.txt	/*nvim_tree.config.tab*
 nvim_tree.config.tab.sync	nvim-tree-lua.txt	/*nvim_tree.config.tab.sync*
 nvim_tree.config.trash	nvim-tree-lua.txt	/*nvim_tree.config.trash*

@@ -23,15 +23,18 @@ function text_edits.apply(text_edit, additional_text_edits)
     local all_edits = utils.shallow_copy(additional_text_edits)
     table.insert(all_edits, text_edit)
 
-    -- preserve 'buflisted' state because vim.lsp.util.apply_text_edits forces it to true
     local cur_bufnr = vim.api.nvim_get_current_buf()
-    local prev_buflisted = vim.bo[cur_bufnr].buflisted
+    local buf = vim.bo[cur_bufnr]
+    local prev_buflisted = buf.buflisted
     vim.lsp.util.apply_text_edits(all_edits, cur_bufnr, 'utf-8')
 
-    -- FIXME: restoring buflisted=false on regular file buffers, e.g. gitcommit,
-    -- causes neovim closing the window. Leave them listed to avoid this issue.
-    -- Non-file buffers can be safely restored.
-    if not prev_buflisted and vim.bo[cur_bufnr].buftype ~= '' then vim.bo[cur_bufnr].buflisted = false end
+    -- FIXME: vim.lsp.util.apply_text_edits unconditionally forces buflisted=true.
+    -- We try to restore the original state for unlisted ones, but this can cause side effects (window close/resize).
+    -- Current workaround: Skip restoring for known problematic filetypes.
+    -- Side effect: Those buffers may appear in the bufferline unexpectedly.
+    -- TODO: Remove once https://github.com/neovim/neovim/issues/37832 fixed
+    local skip_fts = { gitcommit = true, ['dap-repl'] = true }
+    if not prev_buflisted and not skip_fts[buf.filetype] then buf.buflisted = false end
   end
 
   if mode == 'cmdline' then
@@ -200,7 +203,9 @@ end
 --- @param item blink.cmp.CompletionItem
 --- TODO: doesnt work when the item contains characters not included in the context regex
 function text_edits.guess(item)
-  local word = item.insertText or item.label
+  local word = (utils.is_not_nil(item.insertText) and item.insertText)
+    or (utils.is_not_nil(item.label) and item.label)
+    or nil
 
   local start_col, end_col = require('blink.cmp.fuzzy').guess_edit_range(
     item,

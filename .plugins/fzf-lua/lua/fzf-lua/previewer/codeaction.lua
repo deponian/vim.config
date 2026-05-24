@@ -31,7 +31,8 @@ local function diff_text_edits(text_edits, bufnr, offset_encoding, diff_opts)
   local orig_lines = get_lines(bufnr)
   local tmpbuf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(tmpbuf, 0, -1, false, orig_lines)
-  vim.lsp.util.apply_text_edits(text_edits, tmpbuf, offset_encoding)
+  -- deepcopy is necessary due to the apply_text_edits's logic to change the passed edits.
+  vim.lsp.util.apply_text_edits(utils.deepcopy(text_edits), tmpbuf, offset_encoding)
   local new_lines = get_lines(tmpbuf)
   vim.api.nvim_buf_delete(tmpbuf, { force = true })
   ---@diagnostic disable-next-line: deprecated

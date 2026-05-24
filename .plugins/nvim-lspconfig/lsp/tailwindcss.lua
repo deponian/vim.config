@@ -4,43 +4,24 @@
 --- Tailwind CSS Language Server can be installed via npm:
 ---
 --- npm install -g @tailwindcss/language-server
-local util = require 'lspconfig.util'
+---
+--- To manually set the config file or CSS entry-point, see:
+--- https://github.com/tailwindlabs/tailwindcss-intellisense#tailwindcssexperimentalconfigfile
 
-local function find_tailwind_global_css()
-  local target = [[%@import ['"]tailwindcss['"]%;]]
-  -- Find project root using `.git`
-  local buf = vim.api.nvim_get_current_buf()
-  local root = vim.fs.root(buf, function(name)
-    return name == '.git'
-  end)
-
-  if not root then
-    return nil -- no project root found
-  end
-
-  -- Find stylesheet files in the project root (recursively)
-  local files = vim.fs.find(function(name)
-    return name:match('%.css$') or name:match('%.scss$') or name:match('%.pcss$')
-  end, {
-    path = root,
-    type = 'file',
-    limit = math.huge, -- search full tree
-  })
-
-  for _, path in ipairs(files) do
-    local content = vim.fn.readblob(path)
-
-    if content:find(target, 1, true) then
-      return path -- return first match
-    end
-  end
-
-  return nil
-end
+local util = require('lspconfig.util')
 
 ---@type vim.lsp.Config
 return {
-  cmd = { 'tailwindcss-language-server', '--stdio' },
+  cmd = function(dispatchers, config)
+    local cmd = 'tailwindcss-language-server'
+    if (config or {}).root_dir then
+      local local_cmd = vim.fs.joinpath(config.root_dir, 'node_modules/.bin', cmd)
+      if vim.fn.executable(local_cmd) == 1 then
+        cmd = local_cmd
+      end
+    end
+    return vim.lsp.rpc.start({ cmd, '--stdio' }, dispatchers)
+  end,
   -- filetypes copied and adjusted from tailwindcss-intellisense
   filetypes = {
     -- html
@@ -136,19 +117,9 @@ return {
     },
   },
   before_init = function(_, config)
-    if not config.settings then
-      config.settings = {}
-    end
-    if not config.settings.editor then
-      config.settings.editor = {}
-    end
-    if not config.settings.editor.tabSize then
-      config.settings.editor.tabSize = vim.lsp.util.get_effective_tabstop()
-    end
-    config.settings.tailwindCSS = config.settings.tailwindCSS or {}
-    config.settings.tailwindCSS.experimental = config.settings.tailwindCSS.experimental or {}
-    config.settings.tailwindCSS.experimental.configFile = config.settings.tailwindCSS.experimental.configFile
-      or find_tailwind_global_css()
+    config.settings = vim.tbl_deep_extend('keep', config.settings, {
+      editor = { tabSize = vim.lsp.util.get_effective_tabstop() },
+    })
   end,
   workspace_required = true,
   root_dir = function(bufnr, on_dir)

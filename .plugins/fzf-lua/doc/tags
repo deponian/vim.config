@@ -294,6 +294,7 @@ fzf-lua-opts-nvim_options.color_values	fzf-lua-opts.txt	/*fzf-lua-opts-nvim_opti
 fzf-lua-opts-nvim_options.separator	fzf-lua-opts.txt	/*fzf-lua-opts-nvim_options.separator*
 fzf-lua-opts-oldfiles	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles*
 fzf-lua-opts-oldfiles.ignore_current_buffer	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.ignore_current_buffer*
+fzf-lua-opts-oldfiles.shada_file	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.shada_file*
 fzf-lua-opts-oldfiles.stat_file	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.stat_file*
 fzf-lua-opts-packadd	fzf-lua-opts.txt	/*fzf-lua-opts-packadd*
 fzf-lua-opts-pickers	fzf-lua-opts.txt	/*fzf-lua-opts-pickers*

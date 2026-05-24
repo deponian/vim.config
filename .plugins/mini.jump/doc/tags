@@ -1,5 +1,6 @@
 MiniJump	mini-jump.txt	/*MiniJump*
 MiniJump-events	mini-jump.txt	/*MiniJump-events*
+MiniJump-hl-groups	mini-jump.txt	/*MiniJump-hl-groups*
 MiniJump.config	mini-jump.txt	/*MiniJump.config*
 MiniJump.jump()	mini-jump.txt	/*MiniJump.jump()*
 MiniJump.setup()	mini-jump.txt	/*MiniJump.setup()*

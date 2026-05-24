@@ -1,5 +1,6 @@
-import { createGitReposToLimitSearchScope } from "./utils/createGitReposToLimitSearchScope"
-import { verifyCorrectBackendWasUsedInTest } from "./utils/verifyGitGrepBackendWasUsedInTest"
+import { createGitReposToLimitSearchScope } from "./utils/createGitReposToLimitSearchScope.js"
+import { startNeovim } from "./utils/startNeovim.js"
+import { verifyCorrectBackendWasUsedInTest } from "./utils/verifyGitGrepBackendWasUsedInTest.js"
 
 describe("debug mode", () => {
   it("can clean up (kill) a previous rg search", () => {
@@ -8,7 +9,7 @@ describe("debug mode", () => {
     // https://github.com/mikavilpas/blink-ripgrep.nvim/issues/102
 
     cy.visit("/")
-    cy.startNeovim({}).then((nvim) => {
+    startNeovim({}).then((nvim) => {
       // wait until text on the start screen is visible
       cy.contains("If you see this text, Neovim is ready!")
       createGitReposToLimitSearchScope()
@@ -41,7 +42,7 @@ describe("debug mode", () => {
     // https://github.com/mikavilpas/blink-ripgrep.nvim/issues/102
 
     cy.visit("/")
-    cy.startNeovim({
+    startNeovim({
       startupScriptModifications: ["use_gitgrep_backend.lua"],
     }).then((nvim) => {
       // wait until text on the start screen is visible

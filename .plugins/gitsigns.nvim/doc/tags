@@ -13,6 +13,7 @@ gitsigns-config	gitsigns.txt	/*gitsigns-config*
 gitsigns-config-attach_to_untracked	gitsigns.txt	/*gitsigns-config-attach_to_untracked*
 gitsigns-config-auto_attach	gitsigns.txt	/*gitsigns-config-auto_attach*
 gitsigns-config-base	gitsigns.txt	/*gitsigns-config-base*
+gitsigns-config-blame_formatter	gitsigns.txt	/*gitsigns-config-blame_formatter*
 gitsigns-config-count_chars	gitsigns.txt	/*gitsigns-config-count_chars*
 gitsigns-config-culhl	gitsigns.txt	/*gitsigns-config-culhl*
 gitsigns-config-current_line_blame	gitsigns.txt	/*gitsigns-config-current_line_blame*
@@ -48,6 +49,8 @@ gitsigns-object	gitsigns.txt	/*gitsigns-object*
 gitsigns-revision	gitsigns.txt	/*gitsigns-revision*
 gitsigns-statusline	gitsigns.txt	/*gitsigns-statusline*
 gitsigns-textobject	gitsigns.txt	/*gitsigns-textobject*
+gitsigns-type-gitcontext	gitsigns.txt	/*gitsigns-type-gitcontext*
+gitsigns-types	gitsigns.txt	/*gitsigns-types*
 gitsigns-usage	gitsigns.txt	/*gitsigns-usage*
 gitsigns.attach()	gitsigns.txt	/*gitsigns.attach()*
 gitsigns.blame()	gitsigns.txt	/*gitsigns.blame()*

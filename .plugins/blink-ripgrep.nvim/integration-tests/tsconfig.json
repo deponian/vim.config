@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "target": "ESNext",
+    "rootDir": ".",
     "isolatedModules": true,
     "esModuleInterop": true,
     "noEmit": true,
@@ -24,6 +25,7 @@
     "./client",
     "./server",
     "./cypress",
-    "./eslint.config.mjs"
+    "./eslint.config.mjs",
+    "./tui-sandbox.config.ts"
   ]
 }

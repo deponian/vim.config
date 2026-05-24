@@ -12,7 +12,7 @@ M.buffers = function(opts)
   opts = config.normalize_opts(opts, "tmux.buffers")
   opts.fn_transform = function(x)
     local buf, data = x:match([[^(.-):%s+%d+%s+bytes: "(.*)"$]])
-    return string.format("[%s] %s", utils.ansi_codes.yellow(buf), data)
+    return string.format("[%s] %s", FzfLua.utils.ansi_codes.yellow(buf), data)
   end
 
   opts.fzf_opts["--preview"] = shell.stringify_cmd(function(items)

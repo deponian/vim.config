@@ -43,7 +43,7 @@ return {
           -- We hide the window first which happens instantly
           -- and then send <Esc> directly to the term channel
           fzf.hide()
-          vim.api.nvim_chan_send(vim.bo[e.bufnr].channel, "\x1b")
+          vim.api.nvim_chan_send(vim.bo[e.bufnr].channel, "\027")
         end, { buffer = e.bufnr, nowait = true })
         -- Call the users' on_create?
         if type(_on_create) == "function" then
@@ -73,7 +73,7 @@ return {
         then
           local fn = act.fn
           act.exec_silent = true
-          act.desc = act.desc or fzf.config.get_action_helpstr(fn)
+          act.desc = act.desc or fzf.config.get_action_helpstr(act)
           act.fn = function(...)
             fzf.hide()
             if fn then fn(...) end
