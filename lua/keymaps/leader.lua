@@ -56,3 +56,7 @@ vim.keymap.set("n", "<Leader>c", [[:setlocal foldmethod=expr foldexpr=getline(v:
 -- <Leader>n -- Remove search highlighting
 -- (mnemonic: nohlsearch)
 vim.keymap.set("n", "<Leader>n", "<cmd>nohlsearch<CR>")
+
+-- <Leader>u -- Toggle undotree window
+-- (mnemonic: undo)
+vim.keymap.set("n", "<leader>u", require("undotree").open)
