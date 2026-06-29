@@ -46,6 +46,7 @@ require("diff")
 -- initialization of plugins
 require("lazy").setup({
   require("configs.blink"),
+  require("configs.codediff"),
   require("configs.conform"),
   require("configs.fzf"),
   require("configs.gitsigns"),

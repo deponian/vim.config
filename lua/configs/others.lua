@@ -74,26 +74,6 @@ return {
   },
 
   {
-    "sindrets/diffview.nvim",
-    opts = {
-      keymaps = {
-        view = {
-          { "n", "<tab>", false },
-          { "n", "<s-tab>", false },
-        },
-        file_panel = {
-          { "n", "<tab>", false },
-          { "n", "<s-tab>", false },
-        },
-        file_history_panel = {
-          { "n", "<tab>", false },
-          { "n", "<s-tab>", false },
-        }
-      }
-    }
-  },
-
-  {
     "nvim-treesitter/nvim-treesitter-context",
     enabled = not vim.o.diff,
   },

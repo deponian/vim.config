@@ -15,18 +15,19 @@ Many thanks to Greg Hurrell for his amazing [repository](https://github.com/winc
 
 And, of course, many thanks to the authors of the plugins that make Vim and Neovim so convenient and powerful:
 
+- https://github.com/HiPhish/rainbow-delimiters.nvim
+- https://github.com/Kaiser-Yang/blink-cmp-dictionary
 - https://github.com/catgoose/nvim-colorizer.lua
 - https://github.com/ch-danreif/haproxy.vim
 - https://github.com/deponian/mini.map
 - https://github.com/deponian/nvim-base64
 - https://github.com/deponian/nvim-lualine-whitespace
 - https://github.com/deponian/nvim-scalpelua
+- https://github.com/esmuellert/codediff.nvim
 - https://github.com/folke/lazy.nvim
 - https://github.com/folke/tokyonight.nvim
 - https://github.com/folke/trouble.nvim
-- https://github.com/HiPhish/rainbow-delimiters.nvim
 - https://github.com/ibhagwan/fzf-lua
-- https://github.com/Kaiser-Yang/blink-cmp-dictionary
 - https://github.com/lambdalisue/suda.vim
 - https://github.com/lewis6991/gitsigns.nvim
 - https://github.com/lukas-reineke/indent-blankline.nvim
@@ -43,12 +44,11 @@ And, of course, many thanks to the authors of the plugins that make Vim and Neov
 - https://github.com/nvim-mini/mini.surround
 - https://github.com/nvim-tree/nvim-tree.lua
 - https://github.com/nvim-tree/nvim-web-devicons
-- https://github.com/nvim-treesitter/nvim-treesitter-context
 - https://github.com/nvim-treesitter/nvim-treesitter
+- https://github.com/nvim-treesitter/nvim-treesitter-context
 - https://github.com/rafamadriz/friendly-snippets
 - https://github.com/rrethy/vim-illuminate
 - https://github.com/saghen/blink.cmp
-- https://github.com/sindrets/diffview.nvim
 - https://github.com/stevearc/conform.nvim
 - https://github.com/towolf/vim-helm
 - https://github.com/tpope/vim-fugitive

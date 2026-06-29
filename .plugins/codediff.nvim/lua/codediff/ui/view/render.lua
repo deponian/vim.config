@@ -1,0 +1,241 @@
+-- Diff computation and rendering for diff view
+local M = {}
+
+local core = require("codediff.ui.core")
+local semantic = require("codediff.ui.semantic_tokens")
+local config = require("codediff.config")
+local diff_module = require("codediff.core.diff")
+
+--- Establish scrollbind between two windows using the anchor technique.
+--- Anchors at the first unchanged line (past any fillers at the start of file)
+--- so that syncbind establishes the correct baseline, then scrolls back to the
+--- desired cursor positions.
+--- @param orig_win number
+--- @param mod_win number
+--- @param orig_buf number
+--- @param mod_buf number
+--- @param lines_diff table: diff result with .changes
+--- @param orig_cursor table|nil: {line, col} to restore on original side
+--- @param mod_cursor table|nil: {line, col} to restore on modified side
+function M.establish_scrollbind(orig_win, mod_win, orig_buf, mod_buf, lines_diff, orig_cursor, mod_cursor)
+  -- When first change is a pure insertion/deletion at line 1, filler virt_lines
+  -- sit above line 1 on one side. Scrollbind at line 1 won't align because
+  -- one side has extra visual lines above. Fix: start scrollbind at the first
+  -- corresponding unchanged line after the initial change.
+  if lines_diff and lines_diff.changes and #lines_diff.changes > 0 then
+    local first = lines_diff.changes[1]
+    local orig_empty = first.original.start_line >= first.original.end_line
+    local mod_empty = first.modified.start_line >= first.modified.end_line
+    if (first.original.start_line == 1 or first.modified.start_line == 1) and (orig_empty or mod_empty) then
+      local anchor_orig = math.max(first.original.end_line, 1)
+      local anchor_mod = math.max(first.modified.end_line, 1)
+      anchor_orig = math.min(anchor_orig, vim.api.nvim_buf_line_count(orig_buf))
+      anchor_mod = math.min(anchor_mod, vim.api.nvim_buf_line_count(mod_buf))
+      vim.api.nvim_win_set_cursor(orig_win, { anchor_orig, 0 })
+      vim.api.nvim_win_set_cursor(mod_win, { anchor_mod, 0 })
+      vim.wo[orig_win].scrollbind = true
+      vim.wo[mod_win].scrollbind = true
+      vim.cmd("syncbind")
+      return
+    end
+  end
+
+  -- Normal path: both at line 1, enable scrollbind, move to target
+  vim.api.nvim_win_set_cursor(orig_win, { 1, 0 })
+  vim.api.nvim_win_set_cursor(mod_win, { 1, 0 })
+  vim.wo[orig_win].scrollbind = true
+  vim.wo[mod_win].scrollbind = true
+
+  if orig_cursor then
+    pcall(vim.api.nvim_win_set_cursor, orig_win, orig_cursor)
+  end
+  if mod_cursor then
+    pcall(vim.api.nvim_win_set_cursor, mod_win, mod_cursor)
+  end
+end
+
+-- Common logic: Compute diff and render highlights
+-- @param auto_scroll_to_first_hunk boolean: Whether to auto-scroll to first change (default true)
+-- @param line_range table?: Optional {start_line, end_line} to scroll to instead of first hunk
+function M.compute_and_render(
+  original_buf,
+  modified_buf,
+  original_lines,
+  modified_lines,
+  original_is_virtual,
+  modified_is_virtual,
+  original_win,
+  modified_win,
+  auto_scroll_to_first_hunk,
+  line_range
+)
+  -- Compute diff
+  local diff_options = {
+    max_computation_time_ms = config.options.diff.max_computation_time_ms,
+    ignore_trim_whitespace = config.options.diff.ignore_trim_whitespace,
+    compute_moves = config.options.diff.compute_moves,
+  }
+  local lines_diff = diff_module.compute_diff(original_lines, modified_lines, diff_options)
+  if not lines_diff then
+    vim.notify("Failed to compute diff", vim.log.levels.ERROR)
+    return nil
+  end
+
+  -- Render diff highlights
+  core.render_diff(original_buf, modified_buf, original_lines, modified_lines, lines_diff)
+
+  -- Apply semantic tokens for virtual buffers
+  if original_is_virtual then
+    semantic.apply_semantic_tokens(original_buf, modified_buf)
+  end
+  if modified_is_virtual then
+    semantic.apply_semantic_tokens(modified_buf, original_buf)
+  end
+
+  -- Setup scrollbind synchronization (only if windows provided)
+  if original_win and modified_win and vim.api.nvim_win_is_valid(original_win) and vim.api.nvim_win_is_valid(modified_win) then
+    -- Save cursor position if we need to preserve it (on update)
+    local saved_cursor = nil
+    if not auto_scroll_to_first_hunk then
+      saved_cursor = vim.api.nvim_win_get_cursor(modified_win)
+    end
+
+    -- Step 1: Disable scrollbind while repositioning cursors
+    vim.wo[original_win].scrollbind = false
+    vim.wo[modified_win].scrollbind = false
+    vim.wo[original_win].wrap = false
+    vim.wo[modified_win].wrap = false
+
+    -- Step 2: Determine target cursor positions
+    local orig_cursor, mod_cursor
+    if auto_scroll_to_first_hunk and #lines_diff.changes > 0 then
+      local target_line
+      if line_range then
+        -- Find the first hunk overlapping with or nearest to the line range
+        local range_start, range_end = line_range[1], line_range[2]
+        for _, change in ipairs(lines_diff.changes) do
+          local hunk_start = change.original.start_line
+          local hunk_end = change.original.end_line
+          if hunk_end >= range_start and hunk_start <= range_end then
+            target_line = hunk_start
+            break
+          end
+        end
+        if not target_line then
+          target_line = range_start
+        end
+      else
+        target_line = lines_diff.changes[1].original.start_line
+      end
+      orig_cursor = { target_line, 0 }
+      mod_cursor = { target_line, 0 }
+    elseif saved_cursor then
+      orig_cursor = { saved_cursor[1], 0 }
+      mod_cursor = saved_cursor
+    else
+      orig_cursor = { 1, 0 }
+      mod_cursor = { 1, 0 }
+    end
+
+    -- Step 3: Establish scrollbind with anchor technique, then restore cursors
+    M.establish_scrollbind(original_win, modified_win, original_buf, modified_buf, lines_diff, orig_cursor, mod_cursor)
+
+    -- Step 4: Center view on first hunk for initial open
+    if auto_scroll_to_first_hunk and #lines_diff.changes > 0 then
+      if vim.api.nvim_win_is_valid(modified_win) then
+        vim.api.nvim_set_current_win(modified_win)
+        vim.cmd("normal! zz")
+      end
+    end
+  end
+
+  return lines_diff
+end
+
+-- Conflict mode rendering: Both buffers show diff against base with alignment
+-- Left buffer (:3: theirs/incoming) and Right buffer (:2: ours/current)
+-- Both show green highlights indicating changes from base (:1:)
+-- Filler lines are inserted to align corresponding changes
+-- @param original_buf number: Left buffer (incoming :3:)
+-- @param modified_buf number: Right buffer (current :2:)
+-- @param base_lines table: Base content (:1:)
+-- @param original_lines table: Incoming content (:3:)
+-- @param modified_lines table: Current content (:2:)
+-- @param original_win number: Left window
+-- @param modified_win number: Right window
+-- @param auto_scroll_to_first_hunk boolean: Whether to scroll to first change
+-- @return table: { base_to_original_diff, base_to_modified_diff }
+function M.compute_and_render_conflict(original_buf, modified_buf, base_lines, original_lines, modified_lines, original_win, modified_win, auto_scroll_to_first_hunk)
+  local diff_options = {
+    max_computation_time_ms = config.options.diff.max_computation_time_ms,
+    ignore_trim_whitespace = config.options.diff.ignore_trim_whitespace,
+    compute_moves = config.options.diff.compute_moves,
+  }
+
+  -- Compute base -> original (incoming) diff
+  local base_to_original_diff = diff_module.compute_diff(base_lines, original_lines, diff_options)
+  if not base_to_original_diff then
+    vim.notify("Failed to compute base->incoming diff", vim.log.levels.ERROR)
+    return nil
+  end
+
+  -- Compute base -> modified (current) diff
+  local base_to_modified_diff = diff_module.compute_diff(base_lines, modified_lines, diff_options)
+  if not base_to_modified_diff then
+    vim.notify("Failed to compute base->current diff", vim.log.levels.ERROR)
+    return nil
+  end
+
+  -- Render merge view with alignment and filler lines
+  local render_result = core.render_merge_view(original_buf, modified_buf, base_to_original_diff, base_to_modified_diff, base_lines, original_lines, modified_lines)
+
+  -- Apply semantic tokens (both are virtual buffers in conflict mode)
+  semantic.apply_semantic_tokens(original_buf, modified_buf)
+  semantic.apply_semantic_tokens(modified_buf, original_buf)
+
+  -- Setup window options with scrollbind (filler lines enable proper alignment)
+  if original_win and modified_win and vim.api.nvim_win_is_valid(original_win) and vim.api.nvim_win_is_valid(modified_win) then
+    vim.wo[original_win].wrap = false
+    vim.wo[modified_win].wrap = false
+
+    -- Reset scroll position and enable scrollbind
+    vim.api.nvim_win_set_cursor(original_win, { 1, 0 })
+    vim.api.nvim_win_set_cursor(modified_win, { 1, 0 })
+    vim.wo[original_win].scrollbind = true
+    vim.wo[modified_win].scrollbind = true
+
+    -- Scroll to first change in either buffer
+    if auto_scroll_to_first_hunk then
+      local first_line = nil
+      if #base_to_original_diff.changes > 0 then
+        first_line = base_to_original_diff.changes[1].modified.start_line
+      elseif #base_to_modified_diff.changes > 0 then
+        first_line = base_to_modified_diff.changes[1].modified.start_line
+      end
+
+      if first_line then
+        pcall(vim.api.nvim_win_set_cursor, original_win, { first_line, 0 })
+        pcall(vim.api.nvim_win_set_cursor, modified_win, { first_line, 0 })
+        if vim.api.nvim_win_is_valid(modified_win) then
+          vim.api.nvim_set_current_win(modified_win)
+          vim.cmd("normal! zz")
+        end
+      end
+    end
+  end
+
+  return {
+    base_to_original_diff = base_to_original_diff,
+    base_to_modified_diff = base_to_modified_diff,
+    conflict_blocks = render_result and render_result.conflict_blocks or {},
+  }
+end
+
+-- Common logic: Setup auto-refresh for all diff buffers (real and virtual)
+function M.setup_auto_refresh(original_buf, modified_buf, original_is_virtual, modified_is_virtual)
+  local auto_refresh = require("codediff.ui.auto_refresh")
+  auto_refresh.enable(original_buf)
+  auto_refresh.enable(modified_buf)
+end
+
+return M
