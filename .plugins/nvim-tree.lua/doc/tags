@@ -108,6 +108,7 @@ nvim_tree.api.fs.copy.node()	nvim-tree-lua.txt	/*nvim_tree.api.fs.copy.node()*
 nvim_tree.api.fs.copy.relative_path()	nvim-tree-lua.txt	/*nvim_tree.api.fs.copy.relative_path()*
 nvim_tree.api.fs.create()	nvim-tree-lua.txt	/*nvim_tree.api.fs.create()*
 nvim_tree.api.fs.cut()	nvim-tree-lua.txt	/*nvim_tree.api.fs.cut()*
+nvim_tree.api.fs.move()	nvim-tree-lua.txt	/*nvim_tree.api.fs.move()*
 nvim_tree.api.fs.paste()	nvim-tree-lua.txt	/*nvim_tree.api.fs.paste()*
 nvim_tree.api.fs.print_clipboard()	nvim-tree-lua.txt	/*nvim_tree.api.fs.print_clipboard()*
 nvim_tree.api.fs.remove()	nvim-tree-lua.txt	/*nvim_tree.api.fs.remove()*

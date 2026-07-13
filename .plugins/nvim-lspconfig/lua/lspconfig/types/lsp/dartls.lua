@@ -300,6 +300,12 @@
 ---@field flutterCreateOrganization? string
 ---The platforms to enable for new projects created using the 'Flutter: New Project' command. If unset, all platforms will be enabled.
 ---@field flutterCreatePlatforms? string[]
+---Whether to prompt for platforms when running 'Flutter: New Project'.
+---
+---```lua
+---default = true
+---```
+---@field flutterCreatePromptForPlatforms? boolean
 ---Custom emulators to show in the emulator list for easier launching. If IDs match existing emulators returned by Flutter, the custom emulators will override them.
 ---
 ---```lua
@@ -326,12 +332,6 @@
 ---default = "manual"
 ---```
 ---@field flutterHotReloadOnSave? "never" | "manual" | "manualIfDirty" | "all" | "allIfDirty"
----Whether to show the Flutter Outline tree in the sidebar.
----
----```lua
----default = true
----```
----@field flutterOutline? boolean
 ---Whether to remember which device was last (explicitly) selected for each project. When the remembered device is selected, it will prevent newly-connected mobile devices from being automatically selected (regardless of the `#dart.flutterSelectDeviceWhenConnected#` setting).
 ---
 ---```lua
@@ -438,6 +438,12 @@
 ---default = true
 ---```
 ---@field insertArgumentPlaceholders? boolean
+---Whether to enable the Interactive Forms feature used for accepting user input during refactors.
+---
+---```lua
+---default = true
+---```
+---@field interactiveForms? boolean
 ---**LEGACY SETTING: Use `formatter.page_width` in `analysis_options.yaml` instead.**
 ---
 ---The maximum length of a line of code. This is used by the document formatter. If you change this value, you may wish to update `editor.rulers` (which draws vertical lines in the editor) in the `["dart"]` section of your settings to match.

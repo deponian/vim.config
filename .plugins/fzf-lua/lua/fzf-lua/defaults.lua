@@ -120,7 +120,7 @@ local GREP_PERL_REGEXP = utils.is_darwin() and "--extended-regexp" or "--perl-re
 ---@field scrolloff? integer
 ---Debounce time (milliseconds) for displaying the preview buffer in the builtin previewer.
 ---@field delay? integer
----@field winopts fzf-lua.config.PreviewerWinopts Window options for the builtin previewer.
+---@field winopts? fzf-lua.config.PreviewerWinopts Window options for the builtin previewer.
 ---(skim only option), allow preview process run in pty
 ---@field pty? boolean
 
@@ -553,9 +553,11 @@ M.defaults.global = vim.tbl_deep_extend("force", M.defaults.files, {
   line_query        = true,
   pickers           = function()
     local clients = utils.lsp_get_clients({ bufnr = utils.CTX().bufnr })
+    ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
     local doc_sym_supported = vim.iter(clients):any(function(client)
       return client:supports_method("textDocument/documentSymbol")
     end)
+    ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
     local wks_sym_supported = vim.iter(clients):any(function(client)
       return client:supports_method("workspace/symbol")
     end)
@@ -567,7 +569,7 @@ M.defaults.global = vim.tbl_deep_extend("force", M.defaults.files, {
         "lsp_document_symbols",
         desc = "Symbols (buf)",
         prefix = "@",
-        opts = { no_autoclose = true }
+        opts = { no_autoclose = true, fzf_opts = { ["--with-nth"] = false } }
       } or {
         "btags",
         desc = "Tags (buf)",
@@ -676,10 +678,10 @@ M.defaults.git = {
   ---Git reference used as the base for the comparison.
   ---@field ref1? string
   diff = {
-    cmd               = "git --no-pager diff --name-only {ref1} {ref}",
+    cmd               = "git --no-pager diff --color=always --name-only {ref1} {ref}",
     ref               = nil,
     ref1              = nil,
-    preview           = "git diff {ref1} {ref} {file}",
+    preview           = "git diff --color=always {ref1} {ref} {file}",
     preview_pager     = M._preview_pager_fn,
     multiprocess      = 1, ---@type integer|boolean
     _type             = "file",
@@ -780,9 +782,13 @@ M.defaults.git = {
   },
   ---Git commits (buffer).
   ---@class fzf-lua.config.GitBcommits: fzf-lua.config.GitBase
+  ---Follow the buffer's history across renames.
+  ---@field follow? boolean
   bcommits = {
     cmd           = [[git log --color --pretty=format:"%C(yellow)%h%Creset ]]
         .. [[%Cgreen(%><(12)%cr%><|(12))%Creset %s %C(blue)<%an>%Creset" -- {file}]],
+    -- When true, follow the buffer's history across renames.
+    follow        = false,
     preview       = "git show --color {1} -- {file}",
     preview_pager = M._preview_pager_fn,
     actions       = {
@@ -1737,14 +1743,17 @@ M.defaults.lsp.finder = {
 ---@field _ui_select? { kind: string }
 ---@field _items any[]
 M.defaults.lsp.code_actions = {
-  async_or_timeout = 5000,
-  previewer        = "codeaction",
   -- previewer        = "codeaction_native",
-  fzf_opts         = { ["--no-multi"] = true },
-  -- NOTE: we don't need an action as code actions are executed by the ui.select
-  -- callback but we setup an empty table to indicate to `globals.__index` that
-  -- we need to inherit from the global defaults (#1232)
-  actions          = {},
+  previewer = "codeaction",
+  fzf_opts  = { ["--no-multi"] = true },
+  actions   = {
+    ["enter"] = {
+      fn = function(...)
+        return require("fzf-lua.providers.ui_select").accept_item(...)
+      end,
+      desc = "accept-item"
+    }
+  }
 }
 
 ---Workspace/document diagnostics.
@@ -2203,6 +2212,22 @@ M.defaults.zoxide = {
 M.defaults.complete_line = vim.tbl_deep_extend("force", M.defaults.blines, {
   complete = true,
 })
+
+
+---@class fzf-lua.config.UISelect: fzf-lua.config.Base
+M.defaults.ui_select = {
+  fzf_opts = { ["--no-multi"] = true },
+  ui_select = { preview_type = "native" },
+  actions = {
+    ["enter"] = {
+      fn = function(...)
+        return require("fzf-lua.providers.ui_select").accept_item(...)
+      end,
+      desc = "accept-item"
+    }
+  }
+}
+
 
 M.defaults.file_icon_padding = ""
 

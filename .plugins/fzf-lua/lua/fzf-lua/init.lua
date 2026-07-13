@@ -29,6 +29,7 @@ do
   source_vimL({ vim.g.fzf_lua_root, "autoload", "fzf_lua.vim" })
   -- Set var post source as the top of the file `require` will return 0
   -- due to it potentially being loaded before "autoload/fzf_lua.vim"
+  ---@diagnostic disable-next-line: inject-field
   utils.__HAS_AUTOLOAD_FNS = vim.fn.exists("*fzf_lua#getbufinfo") == 1
 
   -- Create a new RPC server (tmp socket) to listen to messages (actions/headless)
@@ -185,15 +186,17 @@ function M.setup(opts, do_not_reset_defaults)
   opts[1] = opts[1] == nil and "default" or opts[1]
   if opts[1] then
     -- Did the user supply profile(s) to load?
-    opts = vim.tbl_deep_extend("keep", opts,
-      utils.load_profiles(opts[1], opts[2] == nil and 1 or opts[2]))
+    ---@diagnostic disable-next-line: param-type-mismatch
+    opts = vim.tbl_deep_extend("keep", opts, utils.load_profiles(opts[1], opts[2] == nil and 1 or opts[2]))
   end
   if do_not_reset_defaults then
     -- no defaults reset requested, merge with previous setup options
+    ---@diagnostic disable-next-line: generic-constraint-mismatch
     opts = vim.tbl_deep_extend("keep", opts, config.setup_opts or {})
   end
   -- backward compat `global_{git|gile|color}_icons`
   -- converts `global_file_icons` to `defaults.file_icons`, etc
+  ---@cast opts table
   for _, o in ipairs({ "file_icons", "git_icons", "color_icons" }) do
     local gopt = "global_" .. o
     if opts[gopt] ~= nil then
@@ -219,10 +222,15 @@ function M.setup(opts, do_not_reset_defaults)
   -- setup highlights
   M.setup_highlights()
   -- opt-in register ui.select via setup
-  if opts.ui_select then
-    M.register_ui_select((type(opts.ui_select) == "table" or type(opts.ui_select) == "function")
-      and opts.ui_select or nil,
-      true) -- silent
+  local ui_opts = opts.ui_select
+  opts.ui_select = nil -- function back compat #2770
+  if ui_opts then
+    if type(ui_opts) == "boolean" then -- boolean back compat #2768
+      ui_opts = ui_opts and {} or nil
+      vim.deprecate("ui_select = true", "ui_select = {}", "Jan 2027", "FzfLua")
+    end
+    M.register_ui_select((type(ui_opts) == "table" or type(ui_opts) == "function")
+      and ui_opts or nil, true) -- silent
   end
 end
 

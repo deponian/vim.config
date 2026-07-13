@@ -68,10 +68,13 @@ M.commands = function(opts)
   end
 
   local add_subcommand = function(k, ansi_color)
+    ---@diagnostic disable-next-line: call-non-callable
     local flattened = vim.is_callable(opts.flatten[k]) and opts.flatten[k](opts)
         or opts.flatten[k] and vim.fn.getcompletion(k .. " ", "cmdline")
         or {}
+    ---@cast flattened table
     vim.list_extend(entries,
+      ---@diagnostic disable-next-line: param-type-mismatch
       vim.tbl_map(function(cmd) return ansi_color(k .. " " .. cmd) end,
         flattened))
   end
@@ -119,6 +122,7 @@ local history = function(opts, str)
   local from, to, delta = dr, dr * histnr, dr * bulk
   local content         = function(cb)
     local co = coroutine.running()
+    ---@cast co thread
     for i = from, to, delta do
       vim.schedule(function()
         local count = bulk
@@ -301,7 +305,9 @@ M.marks = function(opts)
 
     -- global marks
     for _, m in ipairs(vim.fn.getmarklist()) do
-      local mark, bufnr, lnum, col, file = m.mark:sub(2, 2), m.pos[1], m.pos[2], m.pos[3], m.file
+      local mark, bufnr, lnum, col, file = m.mark:sub(2, 2), m.pos[1], m.pos[2], m.pos[3],
+          m.file --[[@as string]]
+      ---@diagnostic disable-next-line: assign-type-mismatch
       file = make_entry.file(file, opts)
       if bufnr == utils.CTX().bufnr then
         local text = vim.api.nvim_buf_get_lines(bufnr, lnum - 1, lnum, false)[1]
@@ -567,6 +573,7 @@ M.nvim_options = function(opts)
     vim.api.nvim_win_call(opts.__CTX.winid, function()
       coroutine.wrap(function()
         local co = coroutine.running()
+        ---@cast co thread
         local entries = format_option_entries()
         for _, entry in pairs(entries) do
           vim.schedule(function()
@@ -737,6 +744,7 @@ M.autocmds = function(opts)
   local contents = function(cb)
     coroutine.wrap(function()
       local co = coroutine.running()
+      ---@cast co thread
       cb(string.format("%s:%d:%s%s", "<none>", 0, separator, format({
         event = "event",
         pattern = "pattern",
@@ -791,26 +799,91 @@ M.serverlist = function(opts)
       local ok, info = utils.rpcexec(socket, "nvim_get_chan_info", 0)
       return ok and info.id
     end
+    ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
     return vim.iter(socket_paths):filter(filter)
+  end
+
+  -- libuv normalizes `ru_maxrss` to kilobytes on all platforms
+  local function fmt_mem(rusage)
+    if not rusage or not rusage.maxrss then return "?" end
+    local kb = rusage.maxrss
+    if kb < 1024 then return string.format("%dK", kb) end
+    if kb < 1024 * 1024 then return string.format("%.1fM", kb / 1024) end
+    return string.format("%.2fG", kb / (1024 * 1024))
+  end
+
+  local function cpu_time_us(rusage)
+    if not rusage or not rusage.utime or not rusage.stime then return nil end
+    return (rusage.utime.sec * 1e6 + rusage.utime.usec)
+        + (rusage.stime.sec * 1e6 + rusage.stime.usec)
+  end
+
+  local function fmt_cpu(pct)
+    if not pct then return "  ?" end
+    if pct < 10 then return string.format("%.1f%%", pct) end
+    if pct < 100 then return string.format("%3.0f%%", pct) end
+    return string.format("%4.0f%%", pct)
   end
 
   opts = require("fzf-lua.config").normalize_opts(opts or {}, "serverlist")
 
+  local SAMPLE_INTERVAL_MS = 50
+
   local f = function(cb)
-    serverlist():each(function(p) ---@type boolean, string?
-      local ok, cwd = utils.rpcexec(p, "nvim_exec_lua", "return vim.uv.cwd()", {})
-      if not ok or not cwd then return end
-      cwd = FzfLua.path.normalize(cwd)
-      cb(("%s (%s)"):format(cwd, p))
+    local entries = {}
+    serverlist():each(function(p)
+      local ok, ret = utils.rpcexec(p, "nvim_exec_lua",
+        "return { vim.uv.cwd(), vim.uv.getrusage(), vim.uv.hrtime() }", {})
+      if not ok or type(ret) ~= "table" then return end
+      local cwd, rusage, wall_start = ret[1], ret[2], ret[3]
+      if not cwd then return end
+      entries[#entries + 1] = {
+        cwd = FzfLua.path.normalize(cwd),
+        rusage = rusage,
+        wall_start = wall_start,
+        socket = p,
+      }
     end)
-    cb(nil)
+    vim.defer_fn(function()
+      for _, e in ipairs(entries) do
+        local ok, ret = utils.rpcexec(e.socket, "nvim_exec_lua",
+          "return { vim.uv.getrusage(), vim.uv.hrtime() }", {})
+        if ok and type(ret) == "table" then
+          local rusage2, wall_end = ret[1], ret[2]
+          if rusage2 and wall_end and e.wall_start then
+            local cpu1, cpu2 = cpu_time_us(e.rusage), cpu_time_us(rusage2)
+            if cpu1 and cpu2 and wall_end > e.wall_start then
+              e.cpu_pct = (cpu2 - cpu1) / ((wall_end - e.wall_start) / 1000) * 100
+            end
+          end
+        end
+      end
+      local max_cwd = 0
+      for _, e in ipairs(entries) do
+        if #e.cwd > max_cwd then max_cwd = #e.cwd end
+      end
+      for _, e in ipairs(entries) do
+        cb(("%-" .. max_cwd .. "s %s %s%s%s"):format(
+          e.cwd,
+          utils.ansi_codes.cyan(string.format("%7s", fmt_mem(e.rusage))),
+          utils.ansi_codes.yellow(string.format("%5s", fmt_cpu(e.cpu_pct))),
+          utils.nbsp,
+          utils.ansi_codes.grey(e.socket)))
+      end
+      cb(nil)
+    end, SAMPLE_INTERVAL_MS)
   end
+  ---@cast opts table
   if utils.has(opts, "sk", "3.0.0") then
     opts = vim.tbl_deep_extend("force", opts, { winopts = { preview = { pty = true } } })
   end
-  core.fzf_exec(function(cb)
-    vim.defer_fn(function() f(cb) end, 50) -- wait for spawn/remote_exec?
-  end, opts)
+  ---@diagnostic disable-next-line: need-check-nil
+  if utils.has(opts, "fzf", "0.73.0") then
+    ---@cast opts table
+    opts.actions             = opts.actions or {}
+    opts.actions["every(2)"] = { fn = function() end, reload = true }
+  end
+  core.fzf_exec(f, opts)
 end
 
 return M

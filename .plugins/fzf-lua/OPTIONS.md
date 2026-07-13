@@ -923,6 +923,7 @@ Type: `string`, Default: `"FzfLuaTitleFlags"`
 
 Main fzf (terminal) window title flags highlight group (hidden, etc).
 
+
 ---
 
 ## Pickers
@@ -1330,6 +1331,12 @@ Filetypes.
 #### git_bcommits
 
 Git commits (buffer).
+
+##### git_bcommits.follow
+
+Type: `boolean`, Default: `false`
+
+Follow the buffer's history across renames.
 
 #### git_blame
 

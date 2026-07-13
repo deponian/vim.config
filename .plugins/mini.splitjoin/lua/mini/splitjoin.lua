@@ -68,7 +68,7 @@
 ---       module intntionally deals with more generic text-related functionality.
 --- - [Wansmer/treesj](https://github.com/Wansmer/treesj):
 ---     - Operates based on tree-sitter nodes. This is more accurate in
----       some edge cases, but **requires** tree-sitter parser.
+---       some edge cases, but REQUIRES tree-sitter parser.
 ---     - Doesn't work inside comments or strings.
 ---
 --- # Disabling ~
@@ -126,15 +126,6 @@ local H = {}
 ---   require('mini.splitjoin').setup({}) -- replace {} with your config table
 --- <
 MiniSplitjoin.setup = function(config)
-  -- TODO: Remove after Neovim=0.9 support is dropped
-  if vim.fn.has('nvim-0.10') == 0 then
-    vim.notify(
-      '(mini.splitjoin) Neovim<0.10 is soft deprecated (module works but is not supported).'
-        .. " It will be deprecated after the next 'mini.nvim' release (module might not work)."
-        .. ' Please update your Neovim version.'
-    )
-  end
-
   -- Export module
   _G.MiniSplitjoin = MiniSplitjoin
 
@@ -202,7 +193,7 @@ end
 --- and quotes.
 ---
 --- Default: `nil`; inferred as `{ '%b()', '%b[]', '%b{}', '%b""', "%b''" }`.
---- So a separator **can not** be inside a balanced `()`, `[]`, `{}` (representing
+--- So a separator CAN NOT be inside a balanced `()`, `[]`, `{}` (representing
 --- nested argument regions) or `""`, `''` (representing strings).
 ---
 --- Example: `exclude_regions = {}` will not exclude any regions. So in case of
@@ -305,7 +296,7 @@ end
 --- - Find separator positions using `separator` and `exclude_regions` from `opts`.
 ---   Both brackets are treated as separators.
 ---   See |MiniSplitjoin.config.detect| for more details.
----   Note: stop if no separator positions are found.
+---   Stop if no separator positions are found.
 ---
 --- - Modify separator positions to represent split positions. Last split position
 ---   (which is inferred from right bracket) is moved one column to left so that
@@ -316,6 +307,7 @@ end
 ---   Output of last one is used as split positions in next step.
 ---
 --- - Split and update split positions with |MiniSplitjoin.split_at()|.
+---   Stop if updated positions are empty (like if hooks decided to not split).
 ---
 --- - Apply all hooks from `opts.split.hooks_post`. Each is applied on the output of
 ---   previous one. Input of first hook is split positions from previous step plus
@@ -323,7 +315,7 @@ end
 ---   Output of last one is used as function return value.
 ---
 --- Note:
---- - By design, it doesn't detect if argument **should** be split, so application
+--- - By design, it doesn't detect if argument SHOULD be split, so application
 ---   on arguments spanning multiple lines can lead to undesirable result.
 ---
 ---@param opts __splitjoin_options
@@ -348,6 +340,7 @@ MiniSplitjoin.split = function(opts)
 
   -- Split at positions
   local split_positions = MiniSplitjoin.split_at(positions)
+  if #split_positions == 0 then return nil end
 
   -- Call post-hooks to tweak splits. Add right bracket for easier hook code.
   local last = split_positions[#split_positions]
@@ -370,13 +363,14 @@ end
 ---   See |MiniSplitjoin.config.detect| for more details.
 ---
 --- - Compute join positions to be line ends of all but last region lines.
----   Note: stop if no join positions are found.
+---   Stop if no join positions are found.
 ---
 --- - Apply all hooks from `opts.join.hooks_pre`. Each is applied on the output
 ---   of previous one. Input of first hook is join positions from previous step.
 ---   Output of last one is used as join positions in next step.
 ---
 --- - Join and update join positions with |MiniSplitjoin.join_at()|.
+---   Stop if updated positions are empty (like if hooks decided to not join).
 ---
 --- - Apply all hooks from `opts.join.hooks_post`. Each is applied on the output
 ---   of previous one. Input of first hook is join positions from previous step
@@ -405,6 +399,7 @@ MiniSplitjoin.join = function(opts)
 
   -- Join at positions
   local join_positions = MiniSplitjoin.join_at(positions)
+  if #join_positions == 0 then return nil end
 
   -- Call post-hooks to tweak joins. Add right bracket for easier hook code.
   local last = join_positions[#join_positions]
@@ -424,7 +419,7 @@ end
 --- All generated post-hooks return updated versions of their input reflecting
 --- changes done inside hook.
 ---
---- Example for `lua` filetype (place it in 'lua.lua' filetype plugin, |ftplugin|): >lua
+--- Example for `lua` filetype (place it in `lua.lua` filetype plugin, |ftplugin|): >lua
 ---
 ---   local gen_hook = MiniSplitjoin.gen_hook
 ---   local curly = { brackets = { '%b{}' } }

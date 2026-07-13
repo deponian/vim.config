@@ -99,6 +99,7 @@ fzf-lua-opts-filetypes	fzf-lua-opts.txt	/*fzf-lua-opts-filetypes*
 fzf-lua-opts-fzf-lua-commands-and-options	fzf-lua-opts.txt	/*fzf-lua-opts-fzf-lua-commands-and-options*
 fzf-lua-opts-general-usage	fzf-lua-opts.txt	/*fzf-lua-opts-general-usage*
 fzf-lua-opts-git_bcommits	fzf-lua-opts.txt	/*fzf-lua-opts-git_bcommits*
+fzf-lua-opts-git_bcommits.follow	fzf-lua-opts.txt	/*fzf-lua-opts-git_bcommits.follow*
 fzf-lua-opts-git_blame	fzf-lua-opts.txt	/*fzf-lua-opts-git_blame*
 fzf-lua-opts-git_branches	fzf-lua-opts.txt	/*fzf-lua-opts-git_branches*
 fzf-lua-opts-git_branches.cmd_add	fzf-lua-opts.txt	/*fzf-lua-opts-git_branches.cmd_add*

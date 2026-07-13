@@ -49,7 +49,7 @@ end
 
 
 ---@param locations lsp.Location[]|lsp.LocationLink[]
----@param enc? 'utf-8'|'utf-16'|'utf-32'
+---@param enc 'utf-8'|'utf-16'|'utf-32'
 ---@return string[]
 local function locations_to_entries(locations, enc)
   local items = vim.lsp.util.locations_to_items(locations, enc)
@@ -166,11 +166,13 @@ local function call_hierarchy_handler(opts, cb, _, result, ctx, _)
   for _, call_hierarchy_call in pairs(result) do
     --- "from" for incoming calls and "to" for outgoing calls
     local call_hierarchy_item = call_hierarchy_call.from or call_hierarchy_call.to
+    local is_outgoing = call_hierarchy_call.to ~= nil
     for _, range in pairs(call_hierarchy_call.fromRanges) do
       local location = {
-        uri = call_hierarchy_item.uri,
+        uri = is_outgoing and vim.uri_from_bufnr(utils.CTX().bufnr) or call_hierarchy_item.uri,
         range = range,
-        filename = vim.uri_to_fname(call_hierarchy_item.uri),
+        filename = is_outgoing and vim.api.nvim_buf_get_name(utils.CTX().bufnr)
+            or vim.uri_to_fname(call_hierarchy_item.uri),
         text = call_hierarchy_item.name,
         lnum = range.start.line + 1,
         col = range.start.character + 1,
@@ -512,6 +514,7 @@ local function gen_lsp_contents(opts)
         opts.__contents = function(fzf_cb)
           coroutine.wrap(function()
             local co = coroutine.running()
+            ---@cast co thread
             for _, e in ipairs(results) do
               fzf_cb(e, function() coroutine.resume(co) end)
               coroutine.yield()
@@ -539,6 +542,7 @@ local function gen_lsp_contents(opts)
     opts.__contents = function(fzf_cb)
       coroutine.wrap(function()
         local co = coroutine.running()
+        ---@cast co thread
 
         -- Save no. of attached clients **supporting the capability**
         -- so we can determine if all callbacks were completed (#468)
@@ -961,8 +965,6 @@ M.code_actions = function(opts)
       " to hide this message or register globally using ':FzfLua register_ui_select'.")
   end
 
-  opts.actions = opts.actions or {}
-  opts.actions.enter = nil
   -- only dereg if we aren't registered
   if not registered then
     opts.post_action_cb = function()

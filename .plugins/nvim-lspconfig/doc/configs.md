@@ -59,6 +59,7 @@ Nvim by running `:help lspconfig-all`.
 - [contextive](#contextive)
 - [copilot](#copilot)
 - [coq_lsp](#coq_lsp)
+- [cqlls](#cqlls)
 - [crystalline](#crystalline)
 - [csharp_ls](#csharp_ls)
 - [cspell_ls](#cspell_ls)
@@ -107,6 +108,7 @@ Nvim by running `:help lspconfig-all`.
 - [eslint](#eslint)
 - [expert](#expert)
 - [facility_language_server](#facility_language_server)
+- [fallow](#fallow)
 - [fennel_language_server](#fennel_language_server)
 - [fennel_ls](#fennel_ls)
 - [fish_lsp](#fish_lsp)
@@ -164,6 +166,7 @@ Nvim by running `:help lspconfig-all`.
 - [jdtls](#jdtls)
 - [jedi_language_server](#jedi_language_server)
 - [jinja_lsp](#jinja_lsp)
+- [jls](#jls)
 - [jqls](#jqls)
 - [jsonls](#jsonls)
 - [jsonnet_ls](#jsonnet_ls)
@@ -171,6 +174,7 @@ Nvim by running `:help lspconfig-all`.
 - [just](#just)
 - [kakehashi](#kakehashi)
 - [kcl](#kcl)
+- [kdl_lsp](#kdl_lsp)
 - [koka](#koka)
 - [kotlin_language_server](#kotlin_language_server)
 - [kotlin_lsp](#kotlin_lsp)
@@ -194,6 +198,7 @@ Nvim by running `:help lspconfig-all`.
 - [mdx_analyzer](#mdx_analyzer)
 - [mesonlsp](#mesonlsp)
 - [metals](#metals)
+- [microcad_lsp](#microcad_lsp)
 - [millet](#millet)
 - [mint](#mint)
 - [mlir_lsp_server](#mlir_lsp_server)
@@ -262,6 +267,7 @@ Nvim by running `:help lspconfig-all`.
 - [pyre](#pyre)
 - [pyrefly](#pyrefly)
 - [pyright](#pyright)
+- [pytest_language_server](#pytest_language_server)
 - [qmlls](#qmlls)
 - [quick_lint_js](#quick_lint_js)
 - [r_language_server](#r_language_server)
@@ -295,6 +301,7 @@ Nvim by running `:help lspconfig-all`.
 - [shopify_theme_ls](#shopify_theme_ls)
 - [shuck](#shuck)
 - [sixtyfps](#sixtyfps)
+- [slang_server](#slang_server)
 - [slangd](#slangd)
 - [slint_lsp](#slint_lsp)
 - [smarty_ls](#smarty_ls)
@@ -344,6 +351,7 @@ Nvim by running `:help lspconfig-all`.
 - [termux_language_server](#termux_language_server)
 - [terraform_lsp](#terraform_lsp)
 - [terraformls](#terraformls)
+- [terragrunt_ls](#terragrunt_ls)
 - [texlab](#texlab)
 - [textlsp](#textlsp)
 - [tflint](#tflint)
@@ -393,6 +401,7 @@ Nvim by running `:help lspconfig-all`.
 - [wasm_language_tools](#wasm_language_tools)
 - [wc_language_server](#wc_language_server)
 - [wgsl_analyzer](#wgsl_analyzer)
+- [wolfram_lsp](#wolfram_lsp)
 - [yamlls](#yamlls)
 - [yang_lsp](#yang_lsp)
 - [yls](#yls)
@@ -611,7 +620,7 @@ Default config:
 
 ## angularls
 
-https://github.com/angular/vscode-ng-language-service
+https://github.com/angular/angular/tree/main/vscode-ng-language-service
 `angular-language-server` can be installed via npm `npm install -g @angular/language-server`.
 
 ```lua
@@ -2234,7 +2243,7 @@ Default config:
   ```
 - `filetypes` :
   ```lua
-  { "c", "cpp", "objc", "objcpp", "cuda" }
+  { "c", "c.doxygen", "cpp", "cpp.doxygen", "objc", "objcpp", "cuda" }
   ```
 - `get_language_id`: [../lsp/clangd.lua:65](../lsp/clangd.lua#L65)
 - `on_attach`: [../lsp/clangd.lua:65](../lsp/clangd.lua#L65)
@@ -2552,6 +2561,40 @@ Default config:
 - `root_markers` :
   ```lua
   { "_CoqProject", ".git" }
+  ```
+
+---
+
+## cqlls
+
+https://github.com/Akzestia/cqlls
+
+Install via cargo:
+```sh
+cargo install cqlls
+```
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('cqlls')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "cqlls" }
+  ```
+- `filetypes` :
+  ```lua
+  { "cql", "cqlang" }
+  ```
+- `root_markers` :
+  ```lua
+  { ".cqlls", ".git" }
+  ```
+- `settings` :
+  ```lua
+  {}
   ```
 
 ---
@@ -4163,11 +4206,13 @@ Default config:
 - `settings` :
   ```lua
   {
-    codeLens = {
-      enable = true
-    },
-    hint = {
-      enable = true
+    emmylua = {
+      codeLens = {
+        enable = true
+      },
+      hint = {
+        enable = true
+      }
     }
   }
   ```
@@ -4446,6 +4491,34 @@ Default config:
 - `root_markers` :
   ```lua
   { ".git" }
+  ```
+
+---
+
+## fallow
+
+https://github.com/fallow-rs/fallow
+
+Codebase intelligence for TypeScript and JavaScript.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('fallow')
+```
+
+Default config:
+- `cmd`: [../lsp/fallow.lua:8](../lsp/fallow.lua#L8)
+- `filetypes` :
+  ```lua
+  { "javascript", "typescript", "javascriptreact", "typescriptreact" }
+  ```
+- `init_options` :
+  ```lua
+  {}
+  ```
+- `root_markers` :
+  ```lua
+  { ".fallowrc.json", ".git" }
   ```
 
 ---
@@ -5177,7 +5250,7 @@ vim.lsp.enable('gitlab_duo')
 Default config:
 - `cmd` :
   ```lua
-  { "npx", "--registry=https://gitlab.com/api/v4/packages/npm/", "@gitlab-org/gitlab-lsp", "--stdio" }
+  { "npx", "--@gitlab-org:registry=https://gitlab.com/api/v4/packages/npm/", "@gitlab-org/gitlab-lsp", "--stdio" }
   ```
 - `filetypes` :
   ```lua
@@ -5543,6 +5616,22 @@ https://github.com/golang/tools/tree/master/gopls
 
 Google's lsp server for golang.
 
+[Settings documentation](https://go.dev/gopls/settings)
+
+NOTE: since v0.22.0 gopls no longer advertises semantic tokens to clients
+by default. To maintain previous behavior, semantic tokens are enabled on client side.
+To disable this feature, set `semanticTokens` option to `false`.
+
+```lua
+  vim.lsp.config('gopls', {
+    settings = {
+      gopls = {
+        semanticTokens = false
+      }
+    }
+  })
+```
+
 Snippet to enable the language server:
 ```lua
 vim.lsp.enable('gopls')
@@ -5557,7 +5646,15 @@ Default config:
   ```lua
   { "go", "gomod", "gowork", "gotmpl" }
   ```
-- `root_dir`: [../lsp/gopls.lua:89](../lsp/gopls.lua#L89)
+- `root_dir`: [../lsp/gopls.lua:105](../lsp/gopls.lua#L105)
+- `settings` :
+  ```lua
+  {
+    gopls = {
+      semanticTokens = true
+    }
+  }
+  ```
 
 ---
 
@@ -5944,10 +6041,7 @@ vim.lsp.enable('hhvm')
 ```
 
 Default config:
-- `cmd` :
-  ```lua
-  { "hh_client", "lsp" }
-  ```
+- `cmd`: [../lsp/hhvm.lua:10](../lsp/hhvm.lua#L10)
 - `filetypes` :
   ```lua
   { "php", "hack" }
@@ -6597,6 +6691,45 @@ Default config:
 
 ---
 
+## jls
+
+https://github.com/idelice/jls
+
+A Java language server built on the Java compiler API, optimized for Neovim.
+Supports diagnostics, completion, go-to-definition, hover, find references,
+document highlights, inlay hints, code actions, rename, and Lombok.
+
+Install via mason.nvim (recommended):
+  :MasonInstall jls
+
+Or using the nvim-jls plugin which provides a managed installer:
+  https://github.com/idelice/nvim-jls
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('jls')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "jls" }
+  ```
+- `filetypes` :
+  ```lua
+  { "java" }
+  ```
+- `root_markers` :
+  ```lua
+  { "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "WORKSPACE", "WORKSPACE.bazel", ".java-version" }
+  ```
+- `settings` :
+  ```lua
+  {}
+  ```
+
+---
+
 ## jqls
 
 https://github.com/wader/jq-lsp
@@ -6866,6 +6999,33 @@ Default config:
 - `filetypes` :
   ```lua
   { "kcl" }
+  ```
+- `root_markers` :
+  ```lua
+  { ".git" }
+  ```
+
+---
+
+## kdl_lsp
+
+https://github.com/kdl-org/kdl-rs/tree/main/tools/kdl-lsp
+
+Language server for the KDL document language.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('kdl_lsp')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "kdl-lsp" }
+  ```
+- `filetypes` :
+  ```lua
+  { "kdl" }
   ```
 - `root_markers` :
   ```lua
@@ -7776,6 +7936,51 @@ Default config:
 - `root_markers` :
   ```lua
   { "build.sbt", "build.sc", { "build.gradle", "build.gradle.kts" }, "pom.xml" }
+  ```
+
+---
+
+## microcad_lsp
+
+https://codeberg.org/microcad/microcad/src/branch/main/crates/lsp
+
+An LSP for the µcad model description language
+
+Install with
+```sh
+cargo install microcad-lsp
+```
+Neovim does not detect µcad filetype automatically, so you will need to add the following to your
+
+```lua
+vim.filetype.add {
+  extension = {
+    µcad = 'microcad',
+  },
+}
+```
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('microcad_lsp')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "microcad-lsp", "--stdio" }
+  ```
+- `filetypes` :
+  ```lua
+  { "microcad" }
+  ```
+- `name` :
+  ```lua
+  "microcad_lsp"
+  ```
+- `root_markers` :
+  ```lua
+  { ".git" }
   ```
 
 ---
@@ -8774,7 +8979,7 @@ Default config:
 
 https://github.com/Galarius/opencl-language-server
 
-Build instructions can be found [here](https://github.com/Galarius/opencl-language-server/blob/main/_dev/build.md).
+Build instructions can be found [here](https://github.com/Galarius/opencl-language-server/blob/main/DEV.md).
 
 Prebuilt binaries are available for Linux, macOS and Windows [here](https://github.com/Galarius/opencl-language-server/releases).
 
@@ -10122,6 +10327,44 @@ Default config:
 
 ---
 
+## pytest_language_server
+
+https://github.com/bellini666/pytest-language-server
+
+ `pytest-language-server`, a Language Server Protocol implementation for pytest.
+
+ Features:
+ - Go to definition for fixtures (local, conftest.py, and third-party plugins)
+ - Find references for fixtures across the test suite
+ - Hover documentation with fixture signatures, return types, and docstrings
+ - Code completion for available fixtures with hierarchy-aware suggestions
+ - Diagnostics for undeclared fixtures used in test bodies
+ - Code actions (quick fixes) to add missing fixture parameters
+ - Supports fixture overriding and pytest's fixture priority rules
+ - Character-position aware for self-referencing fixtures
+@type vim.lsp.Config
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('pytest_language_server')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "pytest-language-server" }
+  ```
+- `filetypes` :
+  ```lua
+  { "python" }
+  ```
+- `root_markers` :
+  ```lua
+  { "pytest.ini", "pyproject.toml", "setup.py", "setup.cfg", ".git" }
+  ```
+
+---
+
 ## qmlls
 
 https://doc.qt.io/qt-6/qtqml-tooling-qmlls.html
@@ -10129,6 +10372,11 @@ https://doc.qt.io/qt-6/qtqml-tooling-qmlls.html
 > QML Language Server is a tool shipped with Qt that helps you write code in your favorite (LSP-supporting) editor.
 
 Source in the [QtDeclarative repository](https://code.qt.io/cgit/qt/qtdeclarative.git/)
+
+Note: On some distros, the cmd of qmlls is `qmlls6`. You can override `cmd`:
+```lua
+vim.lsp.config('qmlls', { cmd = { 'qmlls6' } })
+```
 
 Snippet to enable the language server:
 ```lua
@@ -10485,7 +10733,7 @@ Default config:
       codeLens = true,
       incrementalTypechecking = {
         acrossFiles = true,
-        enabled = true
+        enable = true
       },
       inlayHints = {
         enable = true
@@ -10779,12 +11027,12 @@ Default config:
   ```lua
   "roslyn_ls"
   ```
-- `on_attach`: [../lsp/roslyn_ls.lua:149](../lsp/roslyn_ls.lua#L149)
+- `on_attach`: [../lsp/roslyn_ls.lua:156](../lsp/roslyn_ls.lua#L156)
 - `on_init` :
   ```lua
   { <function 1> }
   ```
-- `root_dir`: [../lsp/roslyn_ls.lua:149](../lsp/roslyn_ls.lua#L149)
+- `root_dir`: [../lsp/roslyn_ls.lua:156](../lsp/roslyn_ls.lua#L156)
 - `settings` :
   ```lua
   {
@@ -10935,7 +11183,7 @@ pip install ruff
 
 **Available in Ruff `v0.4.5` in beta and stabilized in Ruff `v0.5.3`.**
 
-This is the new built-in language server written in Rust. It supports the same feature set as `ruff-lsp`, but with superior performance and no installation required. Note that the `ruff-lsp` server will continue to be maintained until further notice.
+This is the new built-in language server written in Rust. It supports the same feature set as `ruff-lsp`, but with superior performance and no separate installation required.
 
 Server settings can be provided via:
 
@@ -10980,6 +11228,8 @@ Default config:
 
 https://github.com/astral-sh/ruff-lsp
 
+WARNING: `ruff-lsp` is now deprecated, LSP functionality is now built into `ruff` itself, consider setting up `ruff` instead.
+
 A Language Server Protocol implementation for Ruff, an extremely fast Python linter and code transformation tool, written in Rust. It can be installed via pip.
 
 ```sh
@@ -11013,6 +11263,7 @@ Default config:
   ```lua
   { "python" }
   ```
+- `on_init`: [../lsp/ruff_lsp.lua:27](../lsp/ruff_lsp.lua#L27)
 - `root_markers` :
   ```lua
   { "pyproject.toml", "ruff.toml", ".git" }
@@ -11409,6 +11660,38 @@ Default config:
 - `filetypes` :
   ```lua
   { "sixtyfps" }
+  ```
+
+---
+
+## slang_server
+
+https://github.com/hudson-trading/slang-server
+
+A SystemVerilog language server based on the Slang library.
+
+Release binaries can be downloaded from [here](https://github.com/hudson-trading/slang-server/releases)
+and placed in a directory on PATH.
+
+See [the docs](https://hudson-trading.github.io/slang-server/start/config/) for options.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('slang_server')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "slang-server" }
+  ```
+- `filetypes` :
+  ```lua
+  { "systemverilog", "verilog" }
+  ```
+- `root_markers` :
+  ```lua
+  { ".git", ".slang" }
   ```
 
 ---
@@ -12637,7 +12920,7 @@ Note: assuming that [ts_ls](#ts_ls) is setup, full JavaScript/TypeScript support
 
 `svelte-language-server` can be installed via `npm`:
 ```sh
-npm install -g svelte-language-server
+npm install [-g] svelte-language-server
 ```
 
 Snippet to enable the language server:
@@ -12646,10 +12929,7 @@ vim.lsp.enable('svelte')
 ```
 
 Default config:
-- `cmd` :
-  ```lua
-  { "svelteserver", "--stdio" }
-  ```
+- `cmd`: [../lsp/svelte.lua:13](../lsp/svelte.lua#L13)
 - `filetypes` :
   ```lua
   { "svelte" }
@@ -13250,6 +13530,14 @@ vim.lsp.enable('terraformls')
 ```
 
 Default config:
+- `capabilities` :
+  ```lua
+  {
+    experimental = {
+      showReferencesCommandId = "client.showReferences"
+    }
+  }
+  ```
 - `cmd` :
   ```lua
   { "terraform-ls", "serve" }
@@ -13258,9 +13546,37 @@ Default config:
   ```lua
   { "terraform", "terraform-vars" }
   ```
+- `on_attach`: [../lsp/terraformls.lua:36](../lsp/terraformls.lua#L36)
 - `root_markers` :
   ```lua
   { ".terraform", ".git" }
+  ```
+
+---
+
+## terragrunt_ls
+
+https://github.com/gruntwork-io/terragrunt-ls
+
+`terragrunt-ls`, a language server for Terragrunt configuration files.
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('terragrunt_ls')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "terragrunt-ls" }
+  ```
+- `filetypes` :
+  ```lua
+  { "hcl" }
+  ```
+- `root_markers` :
+  ```lua
+  { "terragrunt.hcl", ".git" }
   ```
 
 ---
@@ -15179,6 +15495,52 @@ Default config:
 - `settings` :
   ```lua
   {}
+  ```
+
+---
+
+## wolfram_lsp
+
+https://github.com/WolframResearch/LSPServer
+
+LSPServer is an official lsp server for Mathematica.
+
+Installation:
+The LSPServer paclet and its dependencies are included in Mathematica or
+Wolfram Engine installation in recent versions (13.0 and later).
+
+If your Mathematica or Wolfram Engine installation is old and LSPServer is
+not included, you can install it manually in a Mathematica environment:
+```mma
+PacletInstall["CodeParser"]
+PacletInstall["CodeInspector"]
+PacletInstall["CodeFormatter"]
+PacletInstall["LSPServer"]
+```
+
+Snippet to enable the language server:
+```lua
+vim.lsp.enable('wolfram_lsp')
+```
+
+Default config:
+- `cmd` :
+  ```lua
+  { "WolframKernel", "-noinit", "-noprompt", "-nopaclet", "-noicon", "-nostartuppaclets", "-run", 'Needs["LSPServer`"];LSPServer`StartServer[]' }
+  ```
+- `filetypes` :
+  ```lua
+  { "mma" }
+  ```
+- `init_options` :
+  ```lua
+  {
+    semanticTokens = true
+  }
+  ```
+- `root_markers` :
+  ```lua
+  { ".git" }
   ```
 
 ---

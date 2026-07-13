@@ -336,6 +336,7 @@ function Previewer.git_diff:new(o, opts)
   self.cmd_untracked = path.git_cwd(o.cmd_untracked, opts)
   local pager = opts.preview_pager == nil and o.pager or opts.preview_pager
   if type(pager) == "function" then pager = pager() end
+  ---@cast pager string
   local cmd = pager and pager:match("[^%s]+") or nil
   if cmd and vim.fn.executable(cmd) == 1 then
     -- style 2: as we are unable to use %var% within a "cmd /c" without !var! expansion
@@ -344,6 +345,7 @@ function Previewer.git_diff:new(o, opts)
   end
   do
     -- populate the icon mappings
+    ---@diagnostic disable-next-line: assign-type-mismatch
     local icons_overrides = o._fn_git_icons and o._fn_git_icons()
     self.git_icons = {}
     for _, i in ipairs({ "D", "M", "R", "A", "C", "T", "?" }) do
@@ -509,8 +511,10 @@ local function make_screenshot(screenshot, addr, lines, columns)
   if not ok then -- instance seems died, signal to reload the list
     local winobj = FzfLua.utils.fzf_winobj()
     if winobj then winobj:SIGWINCH({ "win.unhide" }) end
+    ---@diagnostic disable-next-line: missing-return-value
     return
   end
+  ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
   local has_tui = vim.iter(uis):find(function(info) return info.stdout_tty end)
   if has_tui then
     if vim.env.NVIM == addr then -- parent instance
@@ -539,11 +543,14 @@ local function make_screenshot(screenshot, addr, lines, columns)
       vim.defer_fn(function() vim.fn.jobstop(chan0) end, 20)
     end,
   })
+  ---@diagnostic disable-next-line: missing-return-value
   return vim.fn.jobpid(chan)
 end
 
 function Previewer.nvim_server:cmdline(_)
-  local function parse_entry(e) return e and e:match("%((.-)%)") or nil end
+  local parse_entry = function(e)
+    return e and utils.strip_ansi_coloring(e):match(utils.nbsp .. "(.-)$") or nil
+  end
   local act = function(items, lines, columns)
     FzfLua.get_info().query = items[2] or ""
     local addr = parse_entry(items[1])

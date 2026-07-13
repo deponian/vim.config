@@ -54,7 +54,7 @@ M.config = function ()
   vim.lsp.enable('jsonls')
   vim.lsp.enable('pyright')
   vim.lsp.enable('terraformls')
-  vim.lsp.enable('ts_ls')
+  -- vim.lsp.enable('ts_ls')
   vim.lsp.enable('typos_lsp')
 
   vim.lsp.config('lua_ls', {

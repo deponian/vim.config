@@ -122,6 +122,10 @@
 ---default = { "debug_assertions", "miri" }
 ---```
 ---@field cfgs? string[]
+---Path to a `.cargo/config.toml` style file to pass to cargo via `--config`
+---for every cargo invocation (metadata, build scripts, config discovery).
+---Useful to give rust-analyzer a consistent view of the project configuration.
+---@field configPath? string
 ---Extra arguments that are passed to every cargo invocation.
 ---
 ---```lua
@@ -328,6 +332,12 @@
 ---verbose form `{ "path": "path::to::item", type: "always" }`.
 ---
 ---For traits the type "methods" can be used to only exclude the methods but not the trait
+---itself.
+---
+---For modules the type "sub_items" can be used to only exclude the all items in it but not the module
+---itself. This does not include items defined in nested modules.
+---
+---For enums the type "variants" can be used to only exclude the all variants in it but not the enum
 ---itself.
 ---
 ---This setting also inherits `#rust-analyzer.completion.excludeTraits#`.
@@ -1235,7 +1245,7 @@
 ---runs in parallel to handle macro expansion.
 ---
 ---```lua
----default = 1
+---default = 2
 ---```
 ---@field processes? number|"physical"
 ---Internal config, path to proc-macro server executable.
@@ -1247,6 +1257,14 @@
 ---**Note:** Memory profiling is not enabled by default in rust-analyzer builds, you need to build
 ---from source for it.
 ---@field memoryProfile? string
+
+---@class _.lspconfig.settings.rust_analyzer.RustAnalyzer.ProjectCreation
+---Control what happens after `rust-analyzer: Create New Project...` finishes creating a Cargo project.
+---
+---```lua
+---default = "ask"
+---```
+---@field openAfterCreate? "ask" | "open" | "openNewWindow" | "addToWorkspace"
 
 ---@class _.lspconfig.settings.rust_analyzer.RustAnalyzer.References
 ---Exclude imports from find-all-references.
@@ -1794,6 +1812,7 @@
 ---@field numThreads? any|number|"physical" | "logical"
 ---@field procMacro? _.lspconfig.settings.rust_analyzer.RustAnalyzer.ProcMacro
 ---@field profiling? _.lspconfig.settings.rust_analyzer.RustAnalyzer.Profiling
+---@field projectCreation? _.lspconfig.settings.rust_analyzer.RustAnalyzer.ProjectCreation
 ---@field references? _.lspconfig.settings.rust_analyzer.RustAnalyzer.References
 ---@field rename? _.lspconfig.settings.rust_analyzer.RustAnalyzer.Rename
 ---Restart the server automatically when settings that require a restart are changed.

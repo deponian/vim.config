@@ -9,7 +9,9 @@ if package.preload.ffi then
   ffi = package.preload.ffi()
 end
 
+---@diagnostic disable-next-line: call-non-callable, need-check-nil
 pcall(function()
+  ---@diagnostic disable-next-line: call-non-callable, need-check-nil
   ffi.cdef [[
     struct winsize {
       unsigned short ws_row;
@@ -87,6 +89,7 @@ local enable_stdio_inheritance = function()
     local EINTR = 4
     local res
     repeat
+      ---@diagnostic disable-next-line: need-check-nil
       res = ffi.C.fcntl(fd, F_SETFD, 1)
     until not (res == -1 and ffi.errno() == EINTR)
     return res ~= -1
@@ -168,8 +171,8 @@ return {
     previewer = { _ctor = require("fzf-lua.previewer").fzf.nvim_server },
     actions = {
       ["enter"] = function(s)
-        assert(s[1])
-        local remote = s[1]:match("%((.-)%)")
+        local remote = FzfLua.utils.strip_ansi_coloring(assert(s[1])):match(FzfLua.utils.nbsp ..
+          "(.-)$")
         for _, chan in ipairs(api.nvim_list_chans()) do
           if chan.stream ~= "stderr" then
             fn.chanclose(chan.id)

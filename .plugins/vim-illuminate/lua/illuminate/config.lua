@@ -3,7 +3,6 @@ local M = {}
 local config = {
     providers = {
         'lsp',
-        'treesitter',
         'regex',
     },
     delay = 100,
