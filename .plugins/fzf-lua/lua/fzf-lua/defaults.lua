@@ -830,7 +830,7 @@ M.defaults.git = {
   ---@field cmd_del? string[]
   branches = {
     cmd        = [[git branch --all --color -vv ]]
-        .. [[--sort=-'committerdate' --sort='refname:rstrip=-2' --sort=-'HEAD']],
+        .. [[--sort=-committerdate --sort=refname:rstrip=-2 --sort=-HEAD]],
     preview    = "git log --graph --pretty=oneline --abbrev-commit --color {1}",
     remotes    = "local",
     actions    = {
@@ -1389,7 +1389,7 @@ M.defaults.tags = {
   -- field_index_expr = "{}", -- For `_fmt.from` to work with `bat_native`
   _actions      = function() return M.globals.actions.files end,
   actions       = { ["ctrl-g"] = { actions.grep_lgrep } },
-  _treesitter   = function(line) return ctag_line_parser(line, true) end,
+  _treesitter   = function(line, _) return ctag_line_parser(line, true) end,
 }
 
 ---Search current buffer ctags.

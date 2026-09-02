@@ -947,7 +947,7 @@ function M.strip_ansi_coloring(str)
   -- NOTE: didn't work with grep's "^[[K"
   -- return str:gsub("%[[%d;]-m", "")
   -- https://stackoverflow.com/a/49209650/368691
-  return str:gsub("[\27\155][][()#;?%d]*[A-PRZcf-ntqry=><~]", "")
+  return str:gsub("[\27\155][%[%]][()#;?%d]*[A-PRZcf-ntqry=><~]", "")
 end
 
 function M.ansi_escseq_len(str)
@@ -1568,6 +1568,15 @@ end
 function M.git_version()
   local out = M.io_system({ "git", "--version" })
   return tonumber(out:match("(%d+.%d+)."))
+end
+
+  ---@param binary string?
+  ---@return boolean? is universal ctags
+  ---@return number? version
+function M.ctags_is_universal(binary)
+  local out, rc = M.io_system({ binary or "ctags", "--version" })
+  if rc ~= 0 then return end
+  return out:match("Universal") ~= nil, tonumber(out:match("(%d+.%d+).")) 
 end
 
 function M.create_user_command_callback(provider, arg, altmap)

@@ -109,7 +109,8 @@ local FOLD_KEYS = {
 ---   3. apply the same fold action in that pane
 ---
 --- @param session table
-local function setup_fold_sync(session)
+--- @param tabpage number
+local function setup_fold_sync(session, tabpage)
   if session.layout == "inline" then
     return -- single pane, nothing to sync
   end
@@ -122,11 +123,13 @@ local function setup_fold_sync(session)
     { win = session.modified_win, buf = session.modified_bufnr, side = "modified" },
   }
 
+  lifecycle.begin_keymap_scope(tabpage, "compact")
+
   for _, pane in ipairs(panes) do
     if pane.win and vim.api.nvim_win_is_valid(pane.win)
         and pane.buf and vim.api.nvim_buf_is_valid(pane.buf) then
       for _, key in ipairs(FOLD_KEYS) do
-        vim.keymap.set("n", key, function()
+        lifecycle.set_buf_keymap(tabpage, pane.buf, "n", key, function()
           local count = vim.v.count > 0 and tostring(vim.v.count) or ""
           -- 1. Apply the fold action locally.
           vim.cmd("normal! " .. count .. key)
@@ -168,25 +171,60 @@ local function setup_fold_sync(session)
           if not ok then
             vim.notify("[codediff] synced-fold error: " .. tostring(err), vim.log.levels.DEBUG)
           end
-        end, { buffer = pane.buf, silent = true, desc = "codediff: synced fold " .. key })
+        end, { buffer = pane.buf, silent = true, desc = "codediff: synced fold " .. key }, { help = false })
       end
     end
   end
+
+  lifecycle.end_keymap_scope(tabpage, "compact")
 end
 
 --- Remove the synced-fold keymap wraps from a session's panes.
 --- Buffer-local keymaps usually die with the buffer, but for the conflict /
---- explorer paths where buffers persist we need to delete explicitly.
+--- explorer paths where buffers persist we need to release them explicitly.
 --- @param session table
-local function teardown_fold_sync(session)
-  local panes = { session.original_bufnr, session.modified_bufnr }
-  for _, buf in ipairs(panes) do
-    if buf and vim.api.nvim_buf_is_valid(buf) then
-      for _, key in ipairs(FOLD_KEYS) do
-        pcall(vim.keymap.del, "n", key, { buffer = buf })
-      end
+--- @param tabpage number
+local function teardown_fold_sync(_, tabpage)
+  lifecycle.release_keymap_scope(tabpage, "compact")
+end
+
+--- The fold-target panes for a session (inline folds only the modified pane).
+--- @param session table
+--- @return table[] entries each { win, buf, side }
+local function pane_entries(session)
+  if session.layout == "inline" then
+    return { { win = session.modified_win, buf = session.modified_bufnr, side = "modified" } }
+  end
+  return {
+    { win = session.original_win, buf = session.original_bufnr, side = "original" },
+    { win = session.modified_win, buf = session.modified_bufnr, side = "modified" },
+  }
+end
+
+--- Compute + apply the compact fold settings for the current diff and
+--- (re)install the synced-fold keymaps. Idempotent and content-driven: shared
+--- by enable() and by every re-fold on a diff/file change. Does NOT touch
+--- session.compact_mode or the saved fold state — that is enable/disable's job.
+--- @param session table
+--- @param tabpage number
+local function apply_folds(session, tabpage)
+  local changes = session.stored_diff_result and session.stored_diff_result.changes
+  if not changes or #changes == 0 then
+    return
+  end
+  local context = config.options.diff.compact_context_lines
+  for _, entry in ipairs(pane_entries(session)) do
+    if entry.win and vim.api.nvim_win_is_valid(entry.win) then
+      local line_count = vim.api.nvim_buf_line_count(entry.buf)
+      visible_lines_by_win[entry.win] = M.compute_visible_lines(changes, entry.side, line_count, context)
+      vim.wo[entry.win].foldmethod = "expr"
+      vim.wo[entry.win].foldexpr = "v:lua.require'codediff.ui.view.compact'.foldexpr_eval()"
+      vim.wo[entry.win].foldenable = true
+      vim.wo[entry.win].foldlevel = 0
+      vim.wo[entry.win].foldminlines = 1
     end
   end
+  setup_fold_sync(session, tabpage)
 end
 
 --- Enable compact mode for a tabpage
@@ -211,22 +249,10 @@ function M.enable(tabpage)
     return false
   end
 
-  local context = config.options.diff.compact_context_lines
-
-  -- Determine which windows to fold
-  local entries = {}
-  if session.layout == "inline" then
-    table.insert(entries, { win = session.modified_win, buf = session.modified_bufnr, side = "modified" })
-  else
-    table.insert(entries, { win = session.original_win, buf = session.original_bufnr, side = "original" })
-    table.insert(entries, { win = session.modified_win, buf = session.modified_bufnr, side = "modified" })
-  end
-
+  -- Save the current fold state so disable can restore it exactly.
   session.compact_saved_fold_state = {}
-
-  for _, entry in ipairs(entries) do
+  for _, entry in ipairs(pane_entries(session)) do
     if entry.win and vim.api.nvim_win_is_valid(entry.win) then
-      -- Save current fold state
       session.compact_saved_fold_state[entry.win] = {
         foldmethod = vim.wo[entry.win].foldmethod,
         foldexpr = vim.wo[entry.win].foldexpr,
@@ -235,22 +261,11 @@ function M.enable(tabpage)
         foldenable = vim.wo[entry.win].foldenable,
         foldtext = vim.wo[entry.win].foldtext,
       }
-
-      -- Compute visible lines
-      local line_count = vim.api.nvim_buf_line_count(entry.buf)
-      visible_lines_by_win[entry.win] = M.compute_visible_lines(changes, entry.side, line_count, context)
-
-      -- Apply fold settings
-      vim.wo[entry.win].foldmethod = "expr"
-      vim.wo[entry.win].foldexpr = "v:lua.require'codediff.ui.view.compact'.foldexpr_eval()"
-      vim.wo[entry.win].foldenable = true
-      vim.wo[entry.win].foldlevel = 0
-      vim.wo[entry.win].foldminlines = 1
     end
   end
 
   session.compact_mode = true
-  setup_fold_sync(session)
+  apply_folds(session, tabpage)
   return true
 end
 
@@ -276,7 +291,7 @@ function M.disable(tabpage)
     visible_lines_by_win[win] = nil
   end
 
-  teardown_fold_sync(session)
+  teardown_fold_sync(session, tabpage)
 
   session.compact_saved_fold_state = nil
   session.compact_mode = false
@@ -300,58 +315,39 @@ function M.toggle(tabpage)
   end
 end
 
---- Re-apply compact mode fold settings to current windows.
---- Called after file switches or re-renders where window buffers change
---- but session.compact_mode should persist.
---- @param tabpage number
-function M.reapply(tabpage)
-  local session = lifecycle.get_session(tabpage)
-  if not session or not session.compact_mode then
-    return
-  end
-  if not session.stored_diff_result then
-    return
-  end
-
-  local changes = session.stored_diff_result.changes
-  if not changes or #changes == 0 then
-    return
-  end
-
-  local context = config.options.diff.compact_context_lines
-
-  local entries = {}
-  if session.layout == "inline" then
-    table.insert(entries, { win = session.modified_win, buf = session.modified_bufnr, side = "modified" })
-  else
-    table.insert(entries, { win = session.original_win, buf = session.original_bufnr, side = "original" })
-    table.insert(entries, { win = session.modified_win, buf = session.modified_bufnr, side = "modified" })
-  end
-
-  for _, entry in ipairs(entries) do
-    if entry.win and vim.api.nvim_win_is_valid(entry.win) then
-      local line_count = vim.api.nvim_buf_line_count(entry.buf)
-      visible_lines_by_win[entry.win] = M.compute_visible_lines(changes, entry.side, line_count, context)
-
-      vim.wo[entry.win].foldmethod = "expr"
-      vim.wo[entry.win].foldexpr = "v:lua.require'codediff.ui.view.compact'.foldexpr_eval()"
-      vim.wo[entry.win].foldenable = true
-      vim.wo[entry.win].foldlevel = 0
-      vim.wo[entry.win].foldminlines = 1
-    end
-  end
-
-  -- Buffers may have changed (file switch in explorer mode). Re-install
-  -- the sync keymaps on the current bufnrs.
-  setup_fold_sync(session)
-end
-
---- Refresh compact mode after diff recomputation.
---- Re-applies fold settings and forces fold re-evaluation.
+--- Keep compact mode in sync after the diff is (re)computed or a file is
+--- switched. This is the single hook the view lifecycle calls:
+---   * applies the configured "open in compact mode" default once, when the
+---     first real diff is ready;
+---   * re-folds the current diff while compact is active;
+---   * exits compact if the diff no longer has any changes.
+--- gc uses toggle()/enable()/disable() directly.
 --- @param tabpage number
 function M.refresh(tabpage)
   local session = lifecycle.get_session(tabpage)
-  if not session or not session.compact_mode then
+  if not session then
+    return
+  end
+
+  -- Open in compact mode by default (config) once, when the first real diff is
+  -- ready. Afterwards compact follows the user's gc toggle for the session.
+  --
+  -- The `.changes` check is what encodes "real diff is ready" — an explorer/
+  -- history session starts life with `stored_diff_result = {}` as a placeholder,
+  -- and `setup_all_keymaps` calls `M.refresh` before any file has been picked
+  -- (#496). Without the extra clause, the truthy `{}` would burn the one-shot
+  -- latch there and no later file selection could ever apply the default.
+  if not session.compact_default_applied and session.stored_diff_result and session.stored_diff_result.changes then
+    session.compact_default_applied = true
+    local changes = session.stored_diff_result.changes
+    local is_conflict = session.merge == true
+    if config.options.diff.compact and not is_conflict and changes and #changes > 0 then
+      M.enable(tabpage)
+    end
+    return
+  end
+
+  if not session.compact_mode then
     return
   end
 
@@ -361,7 +357,7 @@ function M.refresh(tabpage)
     return
   end
 
-  M.reapply(tabpage)
+  apply_folds(session, tabpage)
 end
 
 return M

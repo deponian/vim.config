@@ -337,6 +337,7 @@ FORMATTERS                                                    *conform-formatter
            JavaScript/JSON and markdown.
 `dfmt` - Formatter for D source code.
 `dioxus` - Format `rsx!` snippets in Rust files.
+`djangofmt` - A fast, HTML aware, Django template formatter, written in Rust.
 `djlint` - ✨ HTML Template Linter and Formatter. Django - Jinja - Nunjucks -
          Handlebars - GoLang.
 `docformatter` - docformatter automatically formats docstrings to follow a
@@ -425,6 +426,7 @@ FORMATTERS                                                    *conform-formatter
 `liquidsoap-prettier` - A binary to format Liquidsoap scripts
 `llf` - A LaTeX reformatter / beautifier.
 `lua-format` - Code formatter for Lua.
+`luafmt` - The Lua and EmmyLua formatter from EmmyLua Analyzer Rust.
 `mago_format` - Mago is a toolchain for PHP that aims to provide a set of tools
               to help developers write better code.
 `mago_lint` - Mago is a toolchain for PHP that aims to provide a set of tools to

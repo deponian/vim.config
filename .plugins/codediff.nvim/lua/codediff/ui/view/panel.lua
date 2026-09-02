@@ -17,26 +17,29 @@ local layout = require("codediff.ui.layout")
 ---@param original_win number
 ---@param modified_win number
 function M.setup_explorer(tabpage, session_config, original_win, modified_win)
-  if not (session_config.mode == "explorer" and session_config.explorer_data) then
+  local panel = session_config.panel
+  if not (panel and panel.name == "explorer" and panel.data) then
     return
   end
 
   local explorer_config = config.options.explorer or {}
-  local status_result = session_config.explorer_data.status_result
+  local status_result = panel.data.status_result
 
   local explorer_opts = {}
   if not session_config.git_root then
-    explorer_opts.dir1 = session_config.original_path
-    explorer_opts.dir2 = session_config.modified_path
+    explorer_opts.dir1 = session_config.original.absolute
+    explorer_opts.dir2 = session_config.modified.absolute
   end
-  if session_config.explorer_data.focus_file then
-    explorer_opts.focus_file = session_config.explorer_data.focus_file
+  if panel.data.focus_file then
+    explorer_opts.focus_file = panel.data.focus_file
   end
+  -- Scope (#74): carry the pathspec so auto-refresh re-applies it (see refresh.lua).
+  explorer_opts.pathspec = panel.data.pathspec
 
   local explorer_obj =
     explorer_module.create(status_result, session_config.git_root, tabpage, nil, session_config.original_revision, session_config.modified_revision, explorer_opts)
 
-  lifecycle.set_explorer(tabpage, explorer_obj)
+  lifecycle.set_panel_view(tabpage, explorer_obj)
 
   local initial_focus = explorer_config.initial_focus or "explorer"
   if initial_focus == "explorer" and explorer_obj and explorer_obj.winid and vim.api.nvim_win_is_valid(explorer_obj.winid) then
@@ -55,25 +58,23 @@ end
 ---@param session_config SessionConfig
 ---@param original_win number
 ---@param modified_win number
----@param original_bufnr number
----@param modified_bufnr number
----@param setup_keymaps_fn function
-function M.setup_history(tabpage, session_config, original_win, modified_win, original_bufnr, modified_bufnr, setup_keymaps_fn)
-  if not (session_config.mode == "history" and session_config.history_data) then
+function M.setup_history(tabpage, session_config, original_win, modified_win)
+  local panel = session_config.panel
+  if not (panel and panel.name == "history" and panel.data) then
     return
   end
 
   local history_config = config.options.history or {}
-  local commits = session_config.history_data.commits
+  local commits = panel.data.commits
 
   local history_obj = history_module.create(commits, session_config.git_root, tabpage, nil, {
-    range = session_config.history_data.range,
-    file_path = session_config.history_data.file_path,
-    base_revision = session_config.history_data.base_revision,
-    line_range = session_config.history_data.line_range,
+    range = panel.data.range,
+    file_path = panel.data.file_path,
+    base_revision = panel.data.base_revision,
+    line_range = panel.data.line_range,
   })
 
-  lifecycle.set_explorer(tabpage, history_obj)
+  lifecycle.set_panel_view(tabpage, history_obj)
 
   local initial_focus = history_config.initial_focus or "history"
   if initial_focus == "history" and history_obj and history_obj.winid and vim.api.nvim_win_is_valid(history_obj.winid) then
@@ -85,9 +86,6 @@ function M.setup_history(tabpage, session_config, original_win, modified_win, or
   end
 
   layout.arrange(tabpage)
-
-  -- History mode needs keymaps set after session is created
-  setup_keymaps_fn(tabpage, original_bufnr, modified_bufnr)
 end
 
 return M

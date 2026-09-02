@@ -47,7 +47,6 @@ M.config = function()
       'strace',
       'tcl',
       'terraform',
-      'tmux',
       'toml',
       'typescript',
       'vim',

@@ -5,20 +5,26 @@ local M = {}
 local config = require("codediff.config")
 local virtual_file = require("codediff.core.virtual_file")
 local accessors = require("codediff.ui.lifecycle.accessors")
+local keymaps = require("codediff.ui.lifecycle.keymaps")
 local welcome_window = require("codediff.ui.view.welcome_window")
+-- Eagerly loaded: sessions are created from scheduled callbacks that may run
+-- after the CWD changed, and a first-time require would fail there.
+local keymap = require("codediff.keymap")
 
 -- Track active diff sessions
 -- Structure: {
 --   tabpage_id = {
 --     original_bufnr, modified_bufnr, original_win, modified_win,
---     mode = "standalone" | "explorer",
+--     panel = { name = "explorer"|"history", view = table? }?, -- nil for a bare diff
+--     merge = boolean?, -- 3-way merge view; result_bufnr only says if the pane exists
 --     git_root = string?,
---     original_path = string,
---     modified_path = string,
+--     original = Path,
+--     modified = Path,
 --     original_revision = string?, -- nil | "WORKING" | "STAGED" | commit_hash
 --     modified_revision = string?,
 --     original_state, modified_state,
 --     suspended = bool,
+--     single_side = "original" | "modified" | nil,
 --     stored_diff_result = table,
 --     changedtick = { original = number, modified = number },
 --     mtime = { original = number?, modified = number? },
@@ -51,48 +57,54 @@ end
 -- Expose compute_virtual_uri for other modules
 M.compute_virtual_uri = compute_virtual_uri
 
-function M.create_session(
-  tabpage,
-  mode,
-  git_root,
-  original_path,
-  modified_path,
-  original_revision,
-  modified_revision,
-  original_bufnr,
-  modified_bufnr,
-  original_win,
-  modified_win,
-  lines_diff,
-  reapply_keymaps
-)
+--- What a layout produces once it has opened its panes and computed a diff.
+--- Everything else is copied from the SessionConfig it was asked to open.
+--- @class SessionPanes
+--- @field original_bufnr number
+--- @field modified_bufnr number
+--- @field original_win number
+--- @field modified_win number
+--- @field lines_diff table? Initial diff result
+--- @field reapply_keymaps function? Called when the session's shape changes
+
+--- @param tabpage number
+--- @param session_config SessionConfig What was asked for
+--- @param panes SessionPanes What the layout built for it
+function M.create_session(tabpage, session_config, panes)
   local state = require("codediff.ui.lifecycle.state")
+  local original_bufnr, modified_bufnr = panes.original_bufnr, panes.modified_bufnr
   -- Save buffer states
   local original_state = state.save_buffer_state(original_bufnr)
   local modified_state = state.save_buffer_state(modified_bufnr)
 
   -- Create complete session in one step
   active_diffs[tabpage] = {
-    -- Mode & Git Context (immutable)
-    mode = mode,
-    git_root = git_root,
-    original_path = original_path,
-    modified_path = modified_path,
-    original_revision = original_revision,
-    modified_revision = modified_revision,
+    -- Panel & Git Context (immutable)
+    -- `panel.data` is construction material: panel.lua consumes it to build the
+    -- panel, which copies forward whatever it still needs (pathspec,
+    -- status_result). Keeping it on the session would be a second, stale copy.
+    panel = session_config.panel and { name = session_config.panel.name } or nil,
+    merge = session_config.conflict or nil,
+    git_root = session_config.git_root,
+    original = session_config.original,
+    modified = session_config.modified,
+    original_revision = session_config.original_revision,
+    modified_revision = session_config.modified_revision,
 
     -- Buffers & Windows
     original_bufnr = original_bufnr,
     modified_bufnr = modified_bufnr,
-    original_win = original_win,
-    modified_win = modified_win,
+    original_win = panes.original_win,
+    modified_win = panes.modified_win,
     original_state = original_state,
     modified_state = modified_state,
 
     -- Lifecycle state
     layout = "side-by-side",
+    exit_on_close = session_config.exit_on_close == true,
     suspended = false,
-    stored_diff_result = lines_diff,
+    single_side = nil,
+    stored_diff_result = panes.lines_diff,
     changedtick = {
       original = vim.api.nvim_buf_get_changedtick(original_bufnr),
       modified = vim.api.nvim_buf_get_changedtick(modified_bufnr),
@@ -102,21 +114,21 @@ function M.create_session(
       modified = state.get_file_mtime(modified_bufnr),
     },
 
-    -- Explorer reference (only for explorer mode)
-    explorer = nil,
-
     -- Conflict mode result buffer (3-way merge)
     result_bufnr = nil,
     result_win = nil,
     conflict_files = {}, -- Tracks files opened in conflict mode for unsaved warning
-    reapply_keymaps = reapply_keymaps,
+    reapply_keymaps = panes.reapply_keymaps,
+    -- Owns every mapping this session installs, so teardown can hand each key
+    -- back to whatever owned it before codediff.
+    keymaps = keymap.new("codediff-session:" .. tostring(tabpage)),
   }
 
   welcome_window.capture_session_profiles(active_diffs[tabpage])
 
   -- Mark windows with restore flag
-  vim.w[original_win].codediff_restore = 1
-  vim.w[modified_win].codediff_restore = 1
+  vim.w[panes.original_win].codediff_restore = 1
+  vim.w[panes.modified_win].codediff_restore = 1
 
   -- Continuously enforce inlay hint settings via LspAttach (handles LazyVim re-enabling)
   if config.options.diff.disable_inlay_hints and vim.lsp.inlay_hint then
@@ -181,7 +193,7 @@ function M.create_session(
     callback = function()
       local current_tab = vim.api.nvim_get_current_tabpage()
       if current_tab == tabpage then
-        accessors.clear_tab_keymaps(tabpage)
+        keymaps.clear_tab_keymaps(tabpage)
         state.suspend_diff(tabpage)
       end
     end,
@@ -194,6 +206,15 @@ function M.create_session(
         local current_tab = vim.api.nvim_get_current_tabpage()
         if current_tab == tabpage and active_diffs[tabpage] then
           local sess = active_diffs[tabpage]
+          -- resume_diff tears the session down when a pane was wiped while we
+          -- were away; let it run first so we never reinstall mappings onto a
+          -- session that is about to disappear.
+          local panes_valid = vim.api.nvim_buf_is_valid(sess.original_bufnr) and vim.api.nvim_buf_is_valid(sess.modified_bufnr)
+          if not panes_valid then
+            state.resume_diff(tabpage)
+            return
+          end
+          keymaps.restore_tab_keymaps(tabpage)
           if sess.reapply_keymaps then
             pcall(sess.reapply_keymaps)
           end

@@ -133,7 +133,6 @@ hl-GitSignsStagedDeleteCul	gitsigns.txt	/*hl-GitSignsStagedDeleteCul*
 hl-GitSignsStagedDeleteNr	gitsigns.txt	/*hl-GitSignsStagedDeleteNr*
 hl-GitSignsStagedTopdelete	gitsigns.txt	/*hl-GitSignsStagedTopdelete*
 hl-GitSignsStagedTopdeleteCul	gitsigns.txt	/*hl-GitSignsStagedTopdeleteCul*
-hl-GitSignsStagedTopdeleteLn	gitsigns.txt	/*hl-GitSignsStagedTopdeleteLn*
 hl-GitSignsStagedTopdeleteNr	gitsigns.txt	/*hl-GitSignsStagedTopdeleteNr*
 hl-GitSignsStagedUntracked	gitsigns.txt	/*hl-GitSignsStagedUntracked*
 hl-GitSignsStagedUntrackedCul	gitsigns.txt	/*hl-GitSignsStagedUntrackedCul*
@@ -141,7 +140,6 @@ hl-GitSignsStagedUntrackedLn	gitsigns.txt	/*hl-GitSignsStagedUntrackedLn*
 hl-GitSignsStagedUntrackedNr	gitsigns.txt	/*hl-GitSignsStagedUntrackedNr*
 hl-GitSignsTopdelete	gitsigns.txt	/*hl-GitSignsTopdelete*
 hl-GitSignsTopdeleteCul	gitsigns.txt	/*hl-GitSignsTopdeleteCul*
-hl-GitSignsTopdeleteLn	gitsigns.txt	/*hl-GitSignsTopdeleteLn*
 hl-GitSignsTopdeleteNr	gitsigns.txt	/*hl-GitSignsTopdeleteNr*
 hl-GitSignsUntracked	gitsigns.txt	/*hl-GitSignsUntracked*
 hl-GitSignsUntrackedCul	gitsigns.txt	/*hl-GitSignsUntrackedCul*

@@ -3,4 +3,10 @@ local M = {
   cmd = "CodeDiff",
 }
 
+M.opts = {
+  diff = {
+    compact = true
+  }
+}
+
 return M

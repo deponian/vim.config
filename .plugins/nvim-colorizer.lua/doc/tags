@@ -83,6 +83,8 @@ colorizer.parser.lab	colorizer.txt	/*colorizer.parser.lab*
 colorizer.parser.lab.parser	colorizer.txt	/*colorizer.parser.lab.parser*
 colorizer.parser.lch	colorizer.txt	/*colorizer.parser.lch*
 colorizer.parser.lch.parser	colorizer.txt	/*colorizer.parser.lch.parser*
+colorizer.parser.ls_colors	colorizer.txt	/*colorizer.parser.ls_colors*
+colorizer.parser.ls_colors.parser	colorizer.txt	/*colorizer.parser.ls_colors.parser*
 colorizer.parser.names	colorizer.txt	/*colorizer.parser.names*
 colorizer.parser.names.lookup_name	colorizer.txt	/*colorizer.parser.names.lookup_name*
 colorizer.parser.names.parser	colorizer.txt	/*colorizer.parser.names.parser*
@@ -101,6 +103,8 @@ colorizer.parser.rgb.parser	colorizer.txt	/*colorizer.parser.rgb.parser*
 colorizer.parser.rgba_hex	colorizer.txt	/*colorizer.parser.rgba_hex*
 colorizer.parser.rgba_hex.parser	colorizer.txt	/*colorizer.parser.rgba_hex.parser*
 colorizer.parser.xterm	colorizer.txt	/*colorizer.parser.xterm*
+colorizer.parser.xterm.get_palette	colorizer.txt	/*colorizer.parser.xterm.get_palette*
+colorizer.parser.xterm.lookup_256	colorizer.txt	/*colorizer.parser.xterm.lookup_256*
 colorizer.parser.xterm.parser	colorizer.txt	/*colorizer.parser.xterm.parser*
 colorizer.rehighlight	colorizer.txt	/*colorizer.rehighlight*
 colorizer.reload_all_buffers	colorizer.txt	/*colorizer.reload_all_buffers*
