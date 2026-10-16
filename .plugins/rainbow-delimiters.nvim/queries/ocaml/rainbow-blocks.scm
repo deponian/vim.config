@@ -66,10 +66,6 @@
   "(" @delimiter
   ")" @delimiter) @container
 
-(local_open_expression ; Line 27
-  "(" @delimiter
-  ")" @delimiter) @container
-
 (module_parameter ; Line 38
   "(" @delimiter
   ")" @delimiter) @container
@@ -115,6 +111,10 @@
   "]" @delimiter) @container
 
 (list_pattern ; Line 63
+  "[" @delimiter
+  "]" @delimiter) @container
+
+(empty_list ; Line 63
   "[" @delimiter
   "]" @delimiter) @container
 

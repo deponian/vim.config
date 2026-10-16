@@ -14,12 +14,16 @@ Unreleased
 ADDED
 
 New languages:
+    • Angular
     • D
     • Heex (Elixir templates)
+    • htmljinja (from https://github.com/geigerzaehler/tree-sitter-jinja2)
 
 Missing patterns:
     • C++:
         - `fold_expression`
+    • OCaml
+        - `empty_list`
     • A bunch of standard Elixir blocks
 
 ------------------------------------------------------------------------------
@@ -29,6 +33,13 @@ Outdated patterns:
     • OCaml:
         - `let_expression`
         - `coercion_expression`
+
+------------------------------------------------------------------------------
+REMOVED
+
+Deprecated patterns:
+    • OCaml:
+        - `local_open_expression`
 
 
 ==============================================================================

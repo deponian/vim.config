@@ -2,37 +2,80 @@
 local M = {}
 
 local core = require("codediff.ui.core")
-local semantic = require("codediff.ui.semantic_tokens")
 local config = require("codediff.config")
 local diff_module = require("codediff.core.diff")
+local cursor_util = require("codediff.ui.view.cursor")
 
---- Establish scroll synchronization between the two diff windows.
---- Positions each pane's cursor on its own hunk line, then binds them with the
---- structural virtual-row scroll-sync (see codediff.scrollsync) and aligns the
---- original pane to the modified (primary) pane. Replaces native scrollbind so
---- a full-screen filler block no longer causes scroll flicker.
+--- Establish native scrollbind between two windows using the anchor technique.
+--- Anchors at the first unchanged line for insertions/deletions at the start of
+--- a file, so `syncbind` establishes the correct baseline before the view is
+--- positioned on the requested hunk.
 --- @param orig_win number
 --- @param mod_win number
---- @param orig_buf number  (unused; kept for call-site compatibility)
---- @param mod_buf number   (unused; kept for call-site compatibility)
---- @param lines_diff table (unused; alignment is derived from placed fillers)
---- @param orig_cursor table|nil: {line, col} on original side
---- @param mod_cursor table|nil: {line, col} on modified side
+--- @param orig_buf number
+--- @param mod_buf number
+--- @param lines_diff table: diff result with .changes
+--- @param orig_cursor table|nil: {line, col} to restore on original side
+--- @param mod_cursor table|nil: {line, col} to restore on modified side
 function M.establish_scrollbind(orig_win, mod_win, orig_buf, mod_buf, lines_diff, orig_cursor, mod_cursor)
-  local scroll = require("codediff.ui.scroll")
-  local tabpage = vim.api.nvim_win_get_tabpage(mod_win)
-
-  -- Place cursors on their respective hunk lines (per-pane coordinates).
-  if orig_cursor then
-    pcall(vim.api.nvim_win_set_cursor, orig_win, orig_cursor)
-  end
-  if mod_cursor then
-    pcall(vim.api.nvim_win_set_cursor, mod_win, mod_cursor)
+  local function set_cursor(win, cursor)
+    if cursor then
+      pcall(vim.api.nvim_win_set_cursor, win, cursor_util.clamp_cursor(win, cursor))
+    end
   end
 
-  -- Bind the two panes and align the original pane to the modified pane.
-  scroll.bind(tabpage, { orig_win, mod_win })
-  scroll.resync(tabpage, mod_win)
+  -- When the first change is a pure insertion/deletion at line 1, filler
+  -- virt_lines sit above line 1 on one side. Start at the first corresponding
+  -- unchanged line so syncbind establishes the correct baseline.
+  if lines_diff and lines_diff.changes and #lines_diff.changes > 0 then
+    local first = lines_diff.changes[1]
+    local orig_empty = first.original.start_line >= first.original.end_line
+    local mod_empty = first.modified.start_line >= first.modified.end_line
+    if (first.original.start_line == 1 or first.modified.start_line == 1) and (orig_empty or mod_empty) then
+      local anchor_orig = math.max(first.original.end_line, 1)
+      local anchor_mod = math.max(first.modified.end_line, 1)
+      anchor_orig = math.min(anchor_orig, vim.api.nvim_buf_line_count(orig_buf))
+      anchor_mod = math.min(anchor_mod, vim.api.nvim_buf_line_count(mod_buf))
+      set_cursor(orig_win, { anchor_orig, 0 })
+      set_cursor(mod_win, { anchor_mod, 0 })
+      vim.wo[orig_win].scrollbind = true
+      vim.wo[mod_win].scrollbind = true
+      vim.cmd("syncbind")
+      return
+    end
+  end
+
+  -- Normal path: establish the native baseline at line 1, then restore the
+  -- requested per-pane cursor positions.
+  set_cursor(orig_win, { 1, 0 })
+  set_cursor(mod_win, { 1, 0 })
+  vim.wo[orig_win].scrollbind = true
+  vim.wo[mod_win].scrollbind = true
+  set_cursor(orig_win, orig_cursor)
+  set_cursor(mod_win, mod_cursor)
+end
+
+function M.diff_options()
+  return {
+    max_computation_time_ms = config.options.diff.max_computation_time_ms,
+    ignore_trim_whitespace = config.options.diff.ignore_trim_whitespace,
+    compute_moves = config.options.diff.compute_moves,
+  }
+end
+
+-- Initial opens and data updates share computation and decoration rendering.
+function M.render_diff(original_buf, modified_buf, original_lines, modified_lines, layout)
+  local result = diff_module.compute_diff(original_lines, modified_lines, M.diff_options())
+  if not result then
+    vim.notify("Failed to compute diff", vim.log.levels.ERROR)
+    return
+  end
+  if layout == "inline" then
+    require("codediff.ui.inline").render_inline_diff(modified_buf, result, original_lines, modified_lines)
+  else
+    core.render_diff(original_buf, modified_buf, original_lines, modified_lines, result)
+  end
+  return result
 end
 
 -- Common logic: Compute diff and render highlights
@@ -50,27 +93,9 @@ function M.compute_and_render(
   auto_scroll_to_first_hunk,
   line_range
 )
-  -- Compute diff
-  local diff_options = {
-    max_computation_time_ms = config.options.diff.max_computation_time_ms,
-    ignore_trim_whitespace = config.options.diff.ignore_trim_whitespace,
-    compute_moves = config.options.diff.compute_moves,
-  }
-  local lines_diff = diff_module.compute_diff(original_lines, modified_lines, diff_options)
+  local lines_diff = M.render_diff(original_buf, modified_buf, original_lines, modified_lines)
   if not lines_diff then
-    vim.notify("Failed to compute diff", vim.log.levels.ERROR)
-    return nil
-  end
-
-  -- Render diff highlights
-  core.render_diff(original_buf, modified_buf, original_lines, modified_lines, lines_diff)
-
-  -- Apply semantic tokens for virtual buffers
-  if original_is_virtual then
-    semantic.apply_semantic_tokens(original_buf, modified_buf)
-  end
-  if modified_is_virtual then
-    semantic.apply_semantic_tokens(modified_buf, original_buf)
+    return
   end
 
   -- Setup scroll synchronization (only if windows provided)
@@ -81,7 +106,7 @@ function M.compute_and_render(
       saved_cursor = vim.api.nvim_win_get_cursor(modified_win)
     end
 
-    -- Step 1: Ensure native scrollbind is off (replaced by structural sync) and disable wrap
+    -- Step 1: Disable native scrollbind while repositioning cursors and disable wrap
     vim.wo[original_win].scrollbind = false
     vim.wo[modified_win].scrollbind = false
     vim.wo[original_win].wrap = false
@@ -141,7 +166,7 @@ function M.compute_and_render(
       mod_cursor = { 1, 0 }
     end
 
-    -- Step 3: Position cursors and bind the structural scroll-sync
+    -- Step 3: Position cursors and establish native scrollbind
     M.establish_scrollbind(original_win, modified_win, original_buf, modified_buf, lines_diff, orig_cursor, mod_cursor)
 
     -- Step 4: Center view on first hunk for initial open
@@ -156,97 +181,76 @@ function M.compute_and_render(
   return lines_diff
 end
 
--- Conflict mode rendering: Both buffers show diff against base with alignment
--- Left buffer (:3: theirs/incoming) and Right buffer (:2: ours/current)
--- Both show green highlights indicating changes from base (:1:)
--- Filler lines are inserted to align corresponding changes
--- @param original_buf number: Left buffer (incoming :3:)
--- @param modified_buf number: Right buffer (current :2:)
--- @param base_lines table: Base content (:1:)
--- @param original_lines table: Incoming content (:3:)
--- @param modified_lines table: Current content (:2:)
--- @param original_win number: Left window
--- @param modified_win number: Right window
--- @param auto_scroll_to_first_hunk boolean: Whether to scroll to first change
--- @return table: { base_to_original_diff, base_to_modified_diff }
-function M.compute_and_render_conflict(original_buf, modified_buf, base_lines, original_lines, modified_lines, original_win, modified_win, auto_scroll_to_first_hunk)
-  local diff_options = {
-    max_computation_time_ms = config.options.diff.max_computation_time_ms,
-    ignore_trim_whitespace = config.options.diff.ignore_trim_whitespace,
-    compute_moves = config.options.diff.compute_moves,
-  }
-
-  -- Compute base -> original (incoming) diff
-  local base_to_original_diff = diff_module.compute_diff(base_lines, original_lines, diff_options)
-  if not base_to_original_diff then
-    vim.notify("Failed to compute base->incoming diff", vim.log.levels.ERROR)
-    return nil
+-- Consume a session data change without re-running file selection or window setup.
+function M.update(session, data, changes)
+  local api = vim.api
+  local result_view = require("codediff.ui.conflict.view.result")
+  if not changes.inputs and not changes.redraw then
+    if changes.result then
+      result_view.render(session)
+    end
+    return
   end
 
-  -- Compute base -> modified (current) diff
-  local base_to_modified_diff = diff_module.compute_diff(base_lines, modified_lines, diff_options)
-  if not base_to_modified_diff then
-    vim.notify("Failed to compute base->current diff", vim.log.levels.ERROR)
-    return nil
-  end
-
-  -- Render merge view with alignment and filler lines
-  local render_result = core.render_merge_view(original_buf, modified_buf, base_to_original_diff, base_to_modified_diff, base_lines, original_lines, modified_lines)
-
-  -- Apply semantic tokens (both are virtual buffers in conflict mode)
-  semantic.apply_semantic_tokens(original_buf, modified_buf)
-  semantic.apply_semantic_tokens(modified_buf, original_buf)
-
-  -- Setup window options with structural scroll-sync (filler lines enable proper alignment)
-  if original_win and modified_win and vim.api.nvim_win_is_valid(original_win) and vim.api.nvim_win_is_valid(modified_win) then
-    vim.wo[original_win].wrap = false
-    vim.wo[modified_win].wrap = false
-
-    -- Reset scroll position and bind the two panes (the result pane, if any,
-    -- is added to the group later by conflict_window once it exists).
-    vim.api.nvim_win_set_cursor(original_win, { 1, 0 })
-    vim.api.nvim_win_set_cursor(modified_win, { 1, 0 })
-    local scroll = require("codediff.ui.scroll")
-    local tabpage = vim.api.nvim_win_get_tabpage(modified_win)
-    scroll.bind(tabpage, { original_win, modified_win })
-    scroll.resync(tabpage, modified_win)
-
-    -- Scroll to first change in either buffer
-    if auto_scroll_to_first_hunk then
-      local first_line = nil
-      if #base_to_original_diff.changes > 0 then
-        first_line = base_to_original_diff.changes[1].modified.start_line
-      elseif #base_to_modified_diff.changes > 0 then
-        first_line = base_to_modified_diff.changes[1].modified.start_line
-      end
-
-      if first_line then
-        pcall(vim.api.nvim_win_set_cursor, original_win, { first_line, 0 })
-        pcall(vim.api.nvim_win_set_cursor, modified_win, { first_line, 0 })
-        if vim.api.nvim_win_is_valid(modified_win) then
-          vim.api.nvim_set_current_win(modified_win)
-          vim.cmd("normal! zz")
-        end
-      end
+  local helpers = require("codediff.ui.view.helpers")
+  local views = {}
+  for _, side in ipairs({ "original", "modified", "result" }) do
+    local win = session[side .. "_win"]
+    if win and api.nvim_win_is_valid(win) and not views[win] then
+      views[win] = { view = api.nvim_win_call(win, vim.fn.winsaveview), scrollbind = vim.wo[win].scrollbind }
+      vim.wo[win].scrollbind = false
     end
   end
-
-  return {
-    base_to_original_diff = base_to_original_diff,
-    base_to_modified_diff = base_to_modified_diff,
-    conflict_blocks = render_result and render_result.conflict_blocks or {},
-    -- Pass through the per-side content so callers (e.g. conflict_window's
-    -- auto-merge seed) can compute Result without re-fetching buffers.
-    original_lines = original_lines,
-    modified_lines = modified_lines,
-  }
-end
-
--- Common logic: Setup auto-refresh for all diff buffers (real and virtual)
-function M.setup_auto_refresh(original_buf, modified_buf, original_is_virtual, modified_is_virtual)
-  local auto_refresh = require("codediff.ui.auto_refresh")
-  auto_refresh.enable(original_buf)
-  auto_refresh.enable(modified_buf)
+  local focused = api.nvim_get_current_win()
+  local old_original, old_modified = session.original_bufnr, session.modified_bufnr
+  local ok, err = xpcall(function()
+    if changes.inputs then
+      local original = helpers.update_content(session, "original", data.sources.original, data.original)
+      local modified = helpers.update_content(session, "modified", data.sources.modified, data.modified)
+      if original ~= old_original or modified ~= old_modified then
+        require("codediff.ui.lifecycle").update_buffers(session.tabpage, original, modified)
+      end
+    end
+    if session.result_bufnr then
+      local diffs =
+        assert(require("codediff.ui.conflict.view.inputs").compute_and_render_conflict(session.original_bufnr, session.modified_bufnr, data.base, data.original, data.modified))
+      if changes.inputs then
+        result_view.set_inputs(session, data.base, diffs)
+      end
+      session.stored_diff_result = diffs.base_to_modified_diff
+      require("codediff.ui.conflict").attach_gutter(session.original_win, session.modified_win)
+      result_view.render(session)
+    elseif session.single_side then
+      core.render_whole_file(session[session.single_side .. "_bufnr"], session.single_side)
+      session.stored_diff_result = { changes = {}, moves = {} }
+    else
+      session.stored_diff_result = assert(M.render_diff(session.original_bufnr, session.modified_bufnr, data.original, data.modified, session.layout))
+    end
+    session.changedtick.original = api.nvim_buf_get_changedtick(session.original_bufnr)
+    session.changedtick.modified = api.nvim_buf_get_changedtick(session.modified_bufnr)
+    if old_original ~= session.original_bufnr or old_modified ~= session.modified_bufnr then
+      if session.reapply_keymaps then
+        session.reapply_keymaps()
+      end
+    end
+    require("codediff.ui.view.compact").refresh(session.tabpage)
+  end, debug.traceback)
+  for win, saved in pairs(views) do
+    if api.nvim_win_is_valid(win) then
+      api.nvim_win_call(win, function()
+        local cursor = cursor_util.clamp_cursor(win, { saved.view.lnum, saved.view.col })
+        saved.view.lnum, saved.view.col = cursor[1], cursor[2]
+        vim.fn.winrestview(saved.view)
+      end)
+      vim.wo[win].scrollbind = saved.scrollbind
+    end
+  end
+  if api.nvim_win_is_valid(focused) and api.nvim_get_current_win() ~= focused then
+    api.nvim_set_current_win(focused)
+  end
+  if not ok then
+    error(err)
+  end
 end
 
 return M

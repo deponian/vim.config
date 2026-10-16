@@ -174,39 +174,114 @@ setqflist({target}, {opts}, {callback})                 *gitsigns.setqflist()*
                      Open the quickfix/location list viewer. Defaults to `true`.
         {callback} (`(fun(err: string?))?`)
 
-show_commit({revision}, {open}, {callback})              *gitsigns.show_commit()*
-    Show revision {base} commit in split or tab
+diff({revision}, {paths}, {opts}, {callback})                     *gitsigns.diff()*
+    Show changes with a file tree and diff windows. Reuse an empty startup
+    window; otherwise open a new tab.
+
+    >text
+      :Gitsigns diff           Compare HEAD with the working tree.
+      :Gitsigns diff <commit>  Compare <commit> with the working tree.
+      :Gitsigns diff A..B      Compare A with B.
+      :Gitsigns diff A...B     Compare the merge base of A and B with B.
+<
+
+    Use `--commit [revision]` to compare a commit (default: `HEAD`) with its
+    first parent, or the empty tree for a root commit. Its SHA and summary
+    appear above the file tree. Press `<CR>` on either to show the full message
+    beside the panel, and `q` to close the message.
+
+    Limit files with Git pathspecs. Use `--` when omitting the revision:
+    >text
+      :Gitsigns diff -- lua/ doc/
+      :Gitsigns diff HEAD lua/gitsigns.lua
+      :Gitsigns diff main..HEAD *.lua
+<
+    Paths are relative to the current directory within the repository;
+    otherwise they are relative to the repository root. Escape spaces with
+    backslashes (see |<f-args>|).
+
+    Use `--diff=none` to show the selected buffer beside the file tree
+    without opening a diff. `--diff=split` is the default:
+    >text
+      :Gitsigns diff --diff=none
+      :Gitsigns diff --diff=none main..HEAD -- lua/
+<
+    With `--diff=none`, buffers keep their existing Gitsigns signs and
+    comparison base.
+
+    Use |gitsigns.show()| to view the full commit as text.
+
+    Press `g?` in the panel for keys. Directories sort before files at each
+    level and use standard fold commands. Closed directories show their changed
+    file count and total diffstat, including nested files.
+    Click or press `<CR>` on an entry to open it or toggle its directory fold.
+    Newly loaded files open at their first change. Already loaded
+    buffers keep their cursor position using Neovim's normal buffer behaviour.
+    Reviewed buffers stay loaded until the panel closes. Cleanup preserves
+    buffers that were already loaded, modified, or open in other windows.
+    From the panel or a file window, `]f` / `[f` open the next / previous file
+    while keeping focus in the current window. A count skips files; navigation
+    stops at either end.
+
+    Working-tree comparisons list each file once. The two status columns show
+    index changes (relative to HEAD) and working-tree changes (relative to the
+    index). A blank means unchanged and `?` means untracked. For example,
+    `M ` is staged, ` M` is unstaged, and `MM` has both kinds of changes.
+    Fully staged filenames use |hl-GitSignsDiffStaged|.
+    Press `s` to stage a file, `u` to unstage it, or `<Space>` to toggle
+    staging. This stages remaining working-tree changes; otherwise it
+    unstages the file. On a directory, these keys act on all listed files
+    beneath it, including nested directories.
+    These actions operate on saved files and leave unsaved buffer edits intact.
+    Staging or unstaging from the panel or a file buffer refreshes the tree
+    and keeps the displayed file.
+    The file list, status columns and diffstats reflect saved files and
+    refresh on write. Unsaved edits appear in the file pane.
+
+    Regular working-tree files are editable; revision buffers are read-only.
+    See |diff-mode| for diff navigation.
+
+    Press `gu` in the file panel to toggle a unified view, showing
+    deleted lines inline. Start in this layout with `:Gitsigns diff
+    --diff=unified`
+    or `require('gitsigns').diff(nil, nil, { diff = 'unified' })`.
+    `--unified` and `{ unified = true }` are aliases for this layout.
+    Layout options can appear before or after the revision. Use `--` before
+    paths that could be mistaken for options.
+    Staging and reset actions retain their normal comparison base.
+
+    Parameters: ~
+        {revision} (`string?`): (default: working tree)
+        {paths}    (`string[]?`): Git pathspecs.
+        {opts}     (`Gitsigns.DiffPanelOpts?`): Additional options.
+                   • {diff}: (`("none"|"split"|"unified")?`)
+                     How to display files. Defaults to `'split'`.
+                   • {unified}: (`boolean?`)
+                     Alias for `diff = 'unified'` when `diff` is omitted.
+                   • {commit}: (`boolean?`)
+                     Compare a commit (default: `HEAD`) with its first parent.
+        {callback} (`(fun(err: string?))?`)
+
+show({revision}, {opts}, {callback})                         *gitsigns.show()*
+    Show a commit, including its message and patch, in a buffer.
+    Use `<revision>:<path>` to show a file at that revision. Paths are relative
+    to the repository root; `%` means the current buffer's file.
+    Use `:%` for the editable index version of the current file.
+
+    >text
+      :Gitsigns show HEAD
+      :Gitsigns show HEAD --open=tabnew
+      :Gitsigns show HEAD~1:%
+      :Gitsigns show :%
+<
+
+    Use |gitsigns.diff()| with `--commit` to review a commit in the diff panel.
 
     Parameters: ~
         {revision} (`string?`): (default: 'HEAD')
-        {open}     (`("vsplit"|"tabnew")?`)
-        {callback} (`(fun(err: string?))?`)
-
-show({revision}, {callback})                                 *gitsigns.show()*
-    Show revision {base} of the current file, if it is given, or
-    with the currently set base (index by default).
-
-    If {base} is the index, then the opened buffer is editable and
-    any written changes will update the index accordingly.
-
-    Examples: >lua
-      -- View the index version of the file
-      require('gitsigns').show()
-      -- :Gitsigns show
-
-      -- View revision of file in the last commit
-      require('gitsigns').show('~1')
-      -- :Gitsigns show ~1
-<
-
-    For a more complete list of ways to specify bases, see
-    |gitsigns-revision|.
-
-    Attributes: ~
-        {async}
-
-    Parameters: ~
-        {revision} (`(string|"FILE")?`)
+        {opts}     (`Gitsigns.ShowOpts?`): Display options.
+                   • {open}: (`("edit"|"split"|"vsplit"|"tabnew")?`)
+                     How to open the buffer. Defaults to `'edit'`.
         {callback} (`(fun(err: string?))?`)
 
 diffthis({base}, {opts}, {callback})                     *gitsigns.diffthis()*
@@ -216,6 +291,12 @@ diffthis({base}, {opts}, {callback})                     *gitsigns.diffthis()*
     If {base} is the index, then the opened buffer is editable and
     any written changes will update the index accordingly.
 
+    With `unified = true`, show deleted lines inline in the current window.
+    Repeat the command to close the view. Use |gitsigns.nav_hunk()| to navigate
+    its changes. Staging and reset actions retain their normal comparison base.
+    Unmerged files continue to use the three-way split view unless a base is
+    given.
+
     Examples: >lua
       -- Diff against the index
       require('gitsigns').diffthis()
@@ -224,6 +305,10 @@ diffthis({base}, {opts}, {callback})                     *gitsigns.diffthis()*
       -- Diff against the last commit
       require('gitsigns').diffthis('~1')
       -- :Gitsigns diffthis ~1
+
+      -- Show deleted lines inline in the current window. Repeat to close.
+      require('gitsigns').diffthis(nil, { unified = true })
+      -- :Gitsigns diffthis unified=true
 <
 
     For a more complete list of ways to specify bases, see
@@ -242,6 +327,8 @@ diffthis({base}, {opts}, {callback})                     *gitsigns.diffthis()*
                      then shi is taken from the command modifiers.
                    • {split}:
                    (`("aboveleft"|"belowright"|"topleft"|"botright")?`)
+                   • {unified}: (`boolean?`)
+                     Show deleted lines inline instead of opening a diff split.
         {callback} (`(fun(err: string?))?`)
 
 reset_base({global})                                   *gitsigns.reset_base()*
@@ -306,6 +393,7 @@ blame({opts}, {callback})                                   *gitsigns.blame()*
       s   [Show commit] in a vertical split.
       S   [Show commit] in a new tab.
       r   [Reblame at commit]
+      D   [Diff commit] in a file panel.
 
     Attributes: ~
         {async}
@@ -872,6 +960,7 @@ diffthis                                            *gitsigns-config-diffthis*
     }`
 <
     Options for the `:Gitsigns diffthis` command.
+    Set `unified = true` to use the inline layout by default.
 
 base                                                    *gitsigns-config-base*
     Type: `string`, Default: index
@@ -1366,6 +1455,11 @@ GitSignsStagedUntrackedCul
     Used for the text (when the cursor is on the same line as the sign) of 'untracked' staged signs.
 
     Fallbacks: `GitSignsUntrackedCul` (fg=50%)
+                                                        *hl-GitSignsDiffStaged*
+GitSignsDiffStaged
+    Used for fully staged filenames in the diff panel.
+
+    Fallbacks: `Normal` (fg=15%)
                                                         *hl-GitSignsAddPreview*
 GitSignsAddPreview
     Used for added lines in previews.

@@ -3,7 +3,7 @@
 local M = {}
 
 -- Subcommands available for :CodeDiff
-M.SUBCOMMANDS = { "merge", "file", "dir", "history", "install" }
+M.SUBCOMMANDS = { "merge", "file", "dir", "history", "pr", "install" }
 
 local git = require("codediff.core.git")
 local ap = require("codediff.core.argparse")
@@ -15,6 +15,7 @@ local handlers = {
   file_diff = require("codediff.commands.handlers.file_diff"),
   dir_diff = require("codediff.commands.handlers.dir_diff"),
   history = require("codediff.commands.handlers.history"),
+  pull_request = require("codediff.commands.handlers.pull_request"),
   explorer = require("codediff.commands.handlers.explorer"),
   explorer_staged = require("codediff.commands.handlers.explorer_staged"),
   merge = require("codediff.commands.handlers.merge"),
@@ -78,7 +79,7 @@ local function build_app()
   local app = ap
     .Command
     .new("CodeDiff")
-    :about("VSCode-style diff view")
+    :about("Live code review workspace for Neovim")
     :arg(Arg.flag("inline"):long("--inline"):global(true))
     :arg(Arg.flag("side_by_side"):long("--side-by-side"):global(true))
     :arg(Arg.flag("exit_on_close"):long("--exit-on-close"):global(true))
@@ -138,6 +139,46 @@ local function build_app()
         handlers.explorer.run(a, nil, go, pathspec)
       end
     end)
+
+  local pr_command = ap.Command
+    .new("pr")
+    :about("Review a pull request without checking it out")
+    :arg(Arg.new("number"))
+    :arg(Arg.new("remote"):long("--remote"):global(true))
+    :arg(Arg.new("base"):long("--base"):completor(complete_revisions))
+    :trailing(Arg.new("pathspec"):completor(complete_files))
+    :handler(function(m)
+      local raw_number = m:get_one("number")
+      if not raw_number or not raw_number:match("^[1-9]%d*$") then
+        vim.notify("Usage: :CodeDiff pr <number> [--remote <name>] [--base <branch>]", vim.log.levels.ERROR)
+        return
+      end
+      local number = tonumber(raw_number)
+      local trailing = m:trailing()
+      handlers.pull_request.run(number, {
+        remote = m:get_one("remote") or "origin",
+        base = m:get_one("base"),
+      }, parse.to_global_opts(m), #trailing > 0 and trailing or nil)
+    end)
+
+  pr_command:subcommand(
+    ap.Command.new("clean"):about("Delete cached pull request refs"):arg(Arg.new("number")):arg(Arg.flag("all"):long("--all"):conflicts_with("number")):handler(function(m)
+      local raw_number = m:get_one("number")
+      if m:get_flag("all") then
+        handlers.pull_request.clean_all({ remote = m:get_one("remote") }, parse.to_global_opts(m))
+        return
+      end
+      if not raw_number or not raw_number:match("^[1-9]%d*$") then
+        vim.notify("Usage: :CodeDiff pr clean <number> [--remote <name>] | :CodeDiff pr clean --all", vim.log.levels.ERROR)
+        return
+      end
+      handlers.pull_request.clean(tonumber(raw_number), {
+        remote = m:get_one("remote") or "origin",
+      }, parse.to_global_opts(m))
+    end)
+  )
+
+  app:subcommand(pr_command)
 
   app:subcommand(ap.Command.new("file"):arg(Arg.new("a"):completor(complete_revisions)):arg(Arg.new("b"):completor(complete_files)):handler(function(m)
     local go = parse.to_global_opts(m)
@@ -217,7 +258,7 @@ local function build_app()
 
   app:subcommand(ap.Command.new("install"):handler(function(m)
     local force = m:bang()
-    local installer = require("codediff.core.installer")
+    local installer = require("codediff.core.installer.libvscode_diff")
     if force then
       vim.notify("Reinstalling libvscode-diff...", vim.log.levels.INFO)
     end
@@ -259,15 +300,16 @@ function M.complete(arg_lead, cmd_line)
 end
 
 function M.vscode_diff(opts)
-  -- Toggle: close the diff view if the current tab already is one.
+  -- Toggle only when called without a subcommand. Commands such as
+  -- `:CodeDiff history` must remain dispatchable from an active diff tab.
+  local fargs, bang = opts.fargs or {}, opts.bang
   local current_tab = vim.api.nvim_get_current_tabpage()
-  if lifecycle.get_session(current_tab) then
+  if #fargs == 0 and lifecycle.get_session(current_tab) then
     lifecycle.close(current_tab)
     return
   end
 
   -- Normalize the `install!` alias into the `install` subcommand + bang.
-  local fargs, bang = opts.fargs, opts.bang
   if fargs[1] == "install!" then
     fargs = vim.list_slice(fargs, 1, #fargs)
     fargs[1] = "install"

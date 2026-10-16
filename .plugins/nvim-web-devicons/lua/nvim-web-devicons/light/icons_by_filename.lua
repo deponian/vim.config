@@ -142,7 +142,7 @@ return { -- this file is generated from lua/nvim-web-devicons/default/icons_by_f
   ["lxde-rc.xml"]                = { icon = "", color = "#606060", cterm_color = "59",  name = "LXDEConfigFile"           },
   ["lxqt.conf"]                  = { icon = "", color = "#016E9E", cterm_color = "24",  name = "LXQtConfigFile"           },
   ["makefile"]                   = { icon = "", color = "#526064", cterm_color = "59",  name = "Makefile"                 },
-  ["mix.lock"]                   = { icon = "", color = "#6B4D83", cterm_color = "96",  name = "MixLock"                  },
+  ["mix.lock"]                   = { icon = "", color = "#5C466C", cterm_color = "60",  name = "MixLock"                  },
   ["mpv.conf"]                   = { icon = "", color = "#3B1342", cterm_color = "53",  name = "Mpv"                      },
   ["next.config.cjs"]            = { icon = "", color = "#333333", cterm_color = "236", name = "NextConfigCjs"            },
   ["next.config.js"]             = { icon = "", color = "#333333", cterm_color = "236", name = "NextConfigJs"             },

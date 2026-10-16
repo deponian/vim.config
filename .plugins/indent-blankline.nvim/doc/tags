@@ -9,6 +9,7 @@ hl-IblScope	indent_blankline.txt	/*hl-IblScope*
 hl-IblWhitespace	indent_blankline.txt	/*hl-IblWhitespace*
 hooks.builtin.scope_highlight_from_extmark	indent_blankline.txt	/*hooks.builtin.scope_highlight_from_extmark*
 ibl	indent_blankline.txt	/*ibl*
+ibl.clear_buffer_state()	indent_blankline.txt	/*ibl.clear_buffer_state()*
 ibl.commands	indent_blankline.txt	/*ibl.commands*
 ibl.config	indent_blankline.txt	/*ibl.config*
 ibl.config.debounce	indent_blankline.txt	/*ibl.config.debounce*

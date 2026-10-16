@@ -142,7 +142,7 @@ return {
   ["lxde-rc.xml"]                = { icon = "", color = "#909090", cterm_color = "246", name = "LXDEConfigFile"           },
   ["lxqt.conf"]                  = { icon = "", color = "#0192D3", cterm_color = "32",  name = "LXQtConfigFile"           },
   ["makefile"]                   = { icon = "", color = "#6D8086", cterm_color = "66",  name = "Makefile"                 },
-  ["mix.lock"]                   = { icon = "", color = "#A074C4", cterm_color = "140", name = "MixLock"                  },
+  ["mix.lock"]                   = { icon = "", color = "#B88CD9", cterm_color = "140", name = "MixLock"                  },
   ["mpv.conf"]                   = { icon = "", color = "#3B1342", cterm_color = "53",  name = "Mpv"                      },
   ["next.config.cjs"]            = { icon = "", color = "#FFFFFF", cterm_color = "231", name = "NextConfigCjs"            },
   ["next.config.js"]             = { icon = "", color = "#FFFFFF", cterm_color = "231", name = "NextConfigJs"             },

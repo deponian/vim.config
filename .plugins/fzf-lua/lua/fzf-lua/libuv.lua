@@ -504,7 +504,11 @@ M.spawn_stdio = function(opts)
     end
   end
 
-  local function exit(exit_code, msg)
+  -- Exit the fzf-lua spawn process; `vim.cmd.cquit` is typed `never` in
+  -- emmylua's stubs which makes `exit` itself uncallable from a `local
+  -- function` declaration, so wrap it as an annotated module-level alias.
+  ---@type fun(exit_code?: integer, msg?: string)
+  local exit = function(exit_code, msg)
     if msg then stderr_write(msg) end
     vim.cmd.cquit({ count = exit_code })
   end
@@ -555,6 +559,7 @@ M.spawn_stdio = function(opts)
       vim.schedule(function()
         ---@diagnostic disable-next-line: call-non-callable
         if fn_postprocess then fn_postprocess(opts) end
+        ---@diagnostic disable-next-line: call-non-callable
         exit(code)
       end)
     else
@@ -610,9 +615,10 @@ M.spawn_stdio = function(opts)
     ---@diagnostic disable-next-line: call-non-callable, missing-parameter, param-type-mismatch
     local wn = function(s) if s then return io.stdout:write(f(s)) else on_finish(0) end end
     if opts.is_live then ---@cast content fzf-lua.shell.data2
-      ---@diagnostic disable-next-line: param-type-mismatch
+      ---@diagnostic disable-next-line: param-type-mismatch, assign-type-mismatch
       local res = content(args(), opts)
-      if not res then return on_finish(0), nil end ---@cast res-?
+      if not res then return on_finish(0), nil end
+      ---@cast res fzf-lua.shell.data2
       content = res
     end
     if type(content) == "function" then content(w, wn) end
@@ -804,6 +810,60 @@ M.shellescape = function(s, win_style)
     vim.o.shell = shell
     return ret
   end
+end
+
+-- PowerShell escaping for the fzf launcher on Windows when the command line
+-- exceeds cmd.exe's 8191-char limit (see `fzf.raw_fzf`). A single-quoted
+-- PowerShell string treats every character literally except a single quote,
+-- which is escaped by doubling it (''), no caret/backslash/metachar handling
+-- needed (our internal `nvim -l` payloads are already base64-encoded).
+---@param s string
+---@return string
+M.ps_escape = function(s) return "'" .. s:gsub("'", "''") .. "'" end
+
+---@class fzf-lua.CliSegment
+---@field text string    -- raw (unescaped) text
+---@field escape boolean -- true = escape this text for the target shell
+
+-- One argv element is a list of segments (usually 1; 2 for a fused "flag=value"
+-- or "--bind=<value>" string where the flag prefix is literal and the value is
+-- escaped). This lets a single final pass escape only the value segments,
+-- per target shell, without double-escaping literal flag text.
+---@alias fzf-lua.CliElement fzf-lua.CliSegment[]
+
+-- Escape a list of CLI elements for the given shell, re-fusing each element's
+-- segments into a single string. "posix"/"cmd" reuse `shellescape` (cmd uses
+-- the caret/win_style variant), "powershell" uses `ps_escape`. Literal segments
+-- (`escape=false`) are emitted verbatim in all shells.
+---@param elements fzf-lua.CliElement[]
+---@param shell "posix"|"cmd"|"powershell"
+---@param win_style integer|string? forwarded to shellescape for "cmd"
+---@return string[]
+M.escape_cli = function(elements, shell, win_style)
+  local escapefn = shell == "powershell" and M.ps_escape
+    or function(s) return M.shellescape(s, shell == "cmd" and win_style or nil) end
+  local argv = {}
+  for _, elem in ipairs(elements) do
+    local buf = {}
+    for _, seg in ipairs(elem) do
+      table.insert(buf, seg.escape and escapefn(seg.text) or seg.text)
+    end
+    table.insert(argv, table.concat(buf))
+  end
+  return argv
+end
+
+-- Marker for `_fzf_cli_args` entries that carry a raw (unescaped) value
+-- alongside the escaped string form. `build_fzf_cli` consumes these to emit
+-- BOTH the legacy escaped string (for cmd/posix, byte-identical) and a raw
+-- CliElement segment list (used to rebuild the command for the PowerShell
+-- fallback when the cmd line exceeds 8191 chars). `prefix` is the literal,
+-- never-escaped flag text (e.g. "--bind=" or "--interactive --cmd ").
+---@param prefix string literal flag prefix (e.g. "--bind=")
+---@param value string raw (unescaped) value
+---@return table marker
+M.cli_raw_arg = function(prefix, value)
+  return { __raw_cli = true, prefix = prefix, value = value }
 end
 
 -- Windows fzf oddities, fzf's {q} will send escaped blackslahes,

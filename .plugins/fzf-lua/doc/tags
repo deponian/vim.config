@@ -214,6 +214,8 @@ fzf-lua-opts-globals.winopts.col	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts
 fzf-lua-opts-globals.winopts.cursorline	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.cursorline*
 fzf-lua-opts-globals.winopts.fullscreen	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.fullscreen*
 fzf-lua-opts-globals.winopts.height	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.height*
+fzf-lua-opts-globals.winopts.on_close	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.on_close*
+fzf-lua-opts-globals.winopts.on_create	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.on_create*
 fzf-lua-opts-globals.winopts.path_shorten	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.path_shorten*
 fzf-lua-opts-globals.winopts.preview.border	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.preview.border*
 fzf-lua-opts-globals.winopts.preview.default	fzf-lua-opts.txt	/*fzf-lua-opts-globals.winopts.preview.default*
@@ -242,6 +244,7 @@ fzf-lua-opts-grep.no_esc	fzf-lua-opts.txt	/*fzf-lua-opts-grep.no_esc*
 fzf-lua-opts-grep.raw_cmd	fzf-lua-opts.txt	/*fzf-lua-opts-grep.raw_cmd*
 fzf-lua-opts-grep.regex	fzf-lua-opts.txt	/*fzf-lua-opts-grep.regex*
 fzf-lua-opts-grep.rg_glob	fzf-lua-opts.txt	/*fzf-lua-opts-grep.rg_glob*
+fzf-lua-opts-grep.rg_glob_fn	fzf-lua-opts.txt	/*fzf-lua-opts-grep.rg_glob_fn*
 fzf-lua-opts-grep.rg_opts	fzf-lua-opts.txt	/*fzf-lua-opts-grep.rg_opts*
 fzf-lua-opts-grep.search	fzf-lua-opts.txt	/*fzf-lua-opts-grep.search*
 fzf-lua-opts-grep.search_paths	fzf-lua-opts.txt	/*fzf-lua-opts-grep.search_paths*
@@ -270,6 +273,7 @@ fzf-lua-opts-lsp	fzf-lua-opts.txt	/*fzf-lua-opts-lsp*
 fzf-lua-opts-lsp.async_or_timeout	fzf-lua-opts.txt	/*fzf-lua-opts-lsp.async_or_timeout*
 fzf-lua-opts-lsp_code_actions	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_code_actions*
 fzf-lua-opts-lsp_code_actions.context	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_code_actions.context*
+fzf-lua-opts-lsp_code_actions.filter	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_code_actions.filter*
 fzf-lua-opts-lsp_code_actions.post_action_cb	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_code_actions.post_action_cb*
 fzf-lua-opts-lsp_document_symbols	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_document_symbols*
 fzf-lua-opts-lsp_finder	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_finder*
@@ -282,6 +286,8 @@ fzf-lua-opts-lsp_symbols.child_prefix	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbol
 fzf-lua-opts-lsp_symbols.locate	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.locate*
 fzf-lua-opts-lsp_symbols.lsp_query	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.lsp_query*
 fzf-lua-opts-lsp_symbols.parent_postfix	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.parent_postfix*
+fzf-lua-opts-lsp_symbols.symbol_fmt	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.symbol_fmt*
+fzf-lua-opts-lsp_symbols.symbol_hl	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.symbol_hl*
 fzf-lua-opts-lsp_symbols.symbol_icons	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.symbol_icons*
 fzf-lua-opts-lsp_symbols.symbol_style	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_symbols.symbol_style*
 fzf-lua-opts-lsp_workspace_symbols	fzf-lua-opts.txt	/*fzf-lua-opts-lsp_workspace_symbols*
@@ -297,6 +303,7 @@ fzf-lua-opts-oldfiles	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles*
 fzf-lua-opts-oldfiles.ignore_current_buffer	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.ignore_current_buffer*
 fzf-lua-opts-oldfiles.shada_file	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.shada_file*
 fzf-lua-opts-oldfiles.stat_file	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.stat_file*
+fzf-lua-opts-oldfiles.stat_timeout	fzf-lua-opts.txt	/*fzf-lua-opts-oldfiles.stat_timeout*
 fzf-lua-opts-packadd	fzf-lua-opts.txt	/*fzf-lua-opts-packadd*
 fzf-lua-opts-pickers	fzf-lua-opts.txt	/*fzf-lua-opts-pickers*
 fzf-lua-opts-profiles	fzf-lua-opts.txt	/*fzf-lua-opts-profiles*
@@ -336,6 +343,7 @@ fzf-lua-opts-treesitter	fzf-lua-opts.txt	/*fzf-lua-opts-treesitter*
 fzf-lua-opts-treesitter.bufnr	fzf-lua-opts.txt	/*fzf-lua-opts-treesitter.bufnr*
 fzf-lua-opts-undotree	fzf-lua-opts.txt	/*fzf-lua-opts-undotree*
 fzf-lua-opts-undotree.locate	fzf-lua-opts.txt	/*fzf-lua-opts-undotree.locate*
+fzf-lua-opts-undotree.tree_style	fzf-lua-opts.txt	/*fzf-lua-opts-undotree.tree_style*
 fzf-lua-opts-zoxide	fzf-lua-opts.txt	/*fzf-lua-opts-zoxide*
 fzf-lua-opts-zoxide.git_root	fzf-lua-opts.txt	/*fzf-lua-opts-zoxide.git_root*
 fzf-lua-opts-zoxide.scope	fzf-lua-opts.txt	/*fzf-lua-opts-zoxide.scope*

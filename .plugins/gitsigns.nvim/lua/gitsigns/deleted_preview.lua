@@ -4,18 +4,14 @@ local HunkPreview = require('gitsigns.hunk_preview')
 local Virt = require('gitsigns.render.virt')
 local Inspect = require('gitsigns.inspect')
 local manager = require('gitsigns.manager')
-local util = require('gitsigns.util')
 
 local api = vim.api
 
 local M = {}
-local window_ns_supported = api.nvim__ns_set ~= nil
-local ns_removed = api.nvim_create_namespace('gitsigns_removed')
 
 local VIRT_LINE_LEN = 300
 local REMOVED_VIRT_LINE_HL = 'GitSignsDeleteVirtLn'
 local REMOVED_INLINE_HL = 'GitSignsDeleteVirtLnInLine'
-local VIRT_LINES_OVERFLOW = vim.fn.has('nvim-0.11') == 1 and 'scroll' or nil
 local win_ns = {} --- @type table<integer, {ns: integer, bufnr?: integer}>
 local states = {} --- @type table<integer, {hunks: Gitsigns.Hunk.Hunk[], lines: table<Gitsigns.Hunk.Hunk, Gitsigns.CapturedLine[]>, source_bufs: table<string, Gitsigns.HunkPreview.SourceBuf>, pending?: table<Gitsigns.Hunk.Hunk, true>, scheduled?: boolean}>
 
@@ -54,15 +50,16 @@ end
 --- @param win integer
 --- @param lnum integer
 --- @param width integer
+--- @param absolute? boolean
 --- @return Gitsigns.VirtTextChunk[]
-local function fallback_lno_chunks(win, lnum, width)
+local function fallback_lno_chunks(win, lnum, width, absolute)
   if width <= 0 then
     return {}
   end
 
   local cursor_lnum = assert(api.nvim_win_get_cursor(win)[1])
   local number = vim.wo[win].number
-  local relativenumber = vim.wo[win].relativenumber
+  local relativenumber = not absolute and vim.wo[win].relativenumber
 
   local display_lnum = lnum
   if relativenumber and (not number or lnum ~= cursor_lnum) then
@@ -130,7 +127,7 @@ end
 --- Build virtual-text chunks matching the window's statuscolumn/number columns.
 --- @param win integer
 --- @param lnum integer
---- @param opts? {extra_hl?: Gitsigns.HlName|Gitsigns.HlStack}
+--- @param opts? {extra_hl?: Gitsigns.HlName|Gitsigns.HlStack, absolute_lnum?:boolean}
 --- @return Gitsigns.VirtTextChunk[]
 local function build_prefix(win, lnum, opts)
   opts = opts or {}
@@ -141,7 +138,9 @@ local function build_prefix(win, lnum, opts)
   end)
 
   local chunks = {} --- @type Gitsigns.VirtTextChunk[]
-  if has_col and statuscol and statuscol ~= '' then
+  -- A custom statuscolumn can derive numbers and signs from the current buffer.
+  -- Base-revision line numbers must stay independent of that buffer's cursor.
+  if not opts.absolute_lnum and has_col and statuscol and statuscol ~= '' then
     --- @cast statuscol string
     chunks = eval_statusline_chunks(statuscol, win, lnum) or fallback_lno_chunks(win, lnum, width)
   else
@@ -151,7 +150,7 @@ local function build_prefix(win, lnum, opts)
       chunks = { { string.rep(' ', prefix_width), 'Normal' } }
     end
 
-    local body_chunks = fallback_lno_chunks(win, lnum, number_col_width)
+    local body_chunks = fallback_lno_chunks(win, lnum, number_col_width, opts.absolute_lnum)
     vim.list_extend(chunks, body_chunks)
   end
 
@@ -181,19 +180,12 @@ local function show_deleted_placement(hunk)
   return row, above
 end
 
---- @param bufnr integer
-local function clear_global_preview(bufnr)
-  api.nvim_buf_clear_namespace(bufnr, ns_removed, 0, -1)
-end
-
 --- @param entry {ns: integer, bufnr?: integer}
 local function clear_win_entry(entry)
   if entry.bufnr and api.nvim_buf_is_valid(entry.bufnr) then
     api.nvim_buf_clear_namespace(entry.bufnr, entry.ns, 0, -1)
   end
-  if window_ns_supported then
-    api.nvim__ns_set(entry.ns, { wins = {} })
-  end
+  api.nvim__ns_set(entry.ns, { wins = {} })
   entry.bufnr = nil
 end
 
@@ -228,7 +220,7 @@ end
 
 --- @param lines Gitsigns.CapturedLine[]
 --- @param start_lnum integer
---- @param opts? {win?:integer, lno_hl?:boolean}
+--- @param opts? {win?:integer, lno_hl?:boolean, absolute_lnum?:boolean}
 --- @return Gitsigns.VirtTextChunk[][]
 local function render_virt_lines(lines, start_lnum, opts)
   opts = opts or {}
@@ -239,6 +231,7 @@ local function render_virt_lines(lines, start_lnum, opts)
     prefix = function(line_index)
       return build_prefix(win, start_lnum + line_index - 1, {
         extra_hl = 'GitSignsVirtLnum',
+        absolute_lnum = opts.absolute_lnum,
       })
     end
   end
@@ -253,7 +246,7 @@ end
 --- @param bufnr integer
 --- @param hunk Gitsigns.Hunk.Hunk
 --- @param staged boolean?
---- @param opts? {win?:integer, lno_hl?:boolean, word_diff?:boolean}
+--- @param opts? {win?:integer, lno_hl?:boolean, word_diff?:boolean, absolute_lnum?:boolean}
 --- @return Gitsigns.VirtTextChunk[][]
 local function build_virt_lines(bufnr, hunk, staged, opts)
   opts = opts or {}
@@ -265,23 +258,6 @@ local function build_virt_lines(bufnr, hunk, staged, opts)
     source_cache = source_cache,
   })[1])
   return render_virt_lines(lines, hunk.removed.start, opts)
-end
-
---- @param bufnr integer
---- @param hunks Gitsigns.Hunk.Hunk[]
---- @param captured Gitsigns.CapturedLine[][]
-local function render_global_previews(bufnr, hunks, captured)
-  clear_global_preview(bufnr)
-
-  for i, hunk in ipairs(hunks) do
-    local row, above = show_deleted_placement(hunk)
-    api.nvim_buf_set_extmark(bufnr, ns_removed, row, -1, {
-      priority = 1000,
-      virt_lines = render_virt_lines(assert(captured[i]), hunk.removed.start),
-      virt_lines_above = above,
-      virt_lines_overflow = VIRT_LINES_OVERFLOW,
-    })
-  end
 end
 
 --- @param source_bufs table<string, Gitsigns.HunkPreview.SourceBuf>?
@@ -336,7 +312,7 @@ local function flush_pending_entries(bufnr, state)
   end
 
   if api.nvim_buf_is_valid(bufnr) then
-    util.redraw({ buf = bufnr, range = { 0, api.nvim_buf_line_count(bufnr) } })
+    api.nvim__redraw({ buf = bufnr, range = { 0, api.nvim_buf_line_count(bufnr) } })
   end
 end
 
@@ -346,7 +322,7 @@ end
 --- @param ns integer
 --- @param hunk Gitsigns.Hunk.Hunk
 --- @param staged boolean?
---- @param opts? {win?:integer, lno_hl?:boolean, leftcol?:boolean, word_diff?:boolean}
+--- @param opts? {win?:integer, lno_hl?:boolean, leftcol?:boolean, word_diff?:boolean, lines?:Gitsigns.CapturedLine[], id?:integer, absolute_lnum?:boolean}
 --- @return integer markid
 function M.place_inline_preview_lines(bufnr, ns, hunk, staged, opts)
   opts = opts or {}
@@ -354,10 +330,12 @@ function M.place_inline_preview_lines(bufnr, ns, hunk, staged, opts)
   local row = topdelete and 0 or hunk.added.start - 1
   local above = hunk.type ~= 'delete' or topdelete
   return api.nvim_buf_set_extmark(bufnr, ns, row, -1, {
-    virt_lines = build_virt_lines(bufnr, hunk, staged, opts),
+    id = opts.id,
+    virt_lines = opts.lines and render_virt_lines(opts.lines, hunk.removed.start, opts)
+      or build_virt_lines(bufnr, hunk, staged, opts),
     virt_lines_above = above,
     virt_lines_leftcol = opts.leftcol == true,
-    virt_lines_overflow = VIRT_LINES_OVERFLOW,
+    virt_lines_overflow = 'scroll',
   })
 end
 
@@ -366,7 +344,6 @@ function M.detach(bufnr)
   local state = states[bufnr]
   states[bufnr] = nil
 
-  clear_global_preview(bufnr)
   clear_buf_entries(bufnr)
 
   clear_source_bufs(state and state.source_bufs)
@@ -378,7 +355,6 @@ function M.prepare(bufnr)
 
   if not config.show_deleted then
     states[bufnr] = nil
-    clear_global_preview(bufnr)
     clear_buf_entries(bufnr)
     clear_source_bufs(prev and prev.source_bufs)
     return
@@ -387,33 +363,16 @@ function M.prepare(bufnr)
   local bcache = cache[bufnr]
   if not bcache or not bcache.hunks or #bcache.hunks == 0 then
     states[bufnr] = nil
-    clear_global_preview(bufnr)
     clear_buf_entries(bufnr)
     clear_source_bufs(prev and prev.source_bufs)
     return
   end
 
-  local state = {
+  states[bufnr] = {
     hunks = bcache.hunks,
     lines = {},
     source_bufs = prev and prev.source_bufs or {},
   }
-  states[bufnr] = state
-
-  if not window_ns_supported then
-    local captured = HunkPreview.prepare_removed_hunks(bufnr, bcache.hunks, false, {
-      line_hl = REMOVED_VIRT_LINE_HL,
-      word_diff = config.word_diff,
-      word_diff_hl = REMOVED_INLINE_HL,
-      source_cache = state.source_bufs,
-    })
-
-    for i, hunk in ipairs(bcache.hunks) do
-      state.lines[hunk] = captured[i]
-    end
-
-    render_global_previews(bufnr, bcache.hunks, captured)
-  end
 end
 
 --- @param winid integer
@@ -433,7 +392,8 @@ end
 --- @param botline integer
 --- @return boolean
 function M.on_win(winid, bufnr, topline, botline)
-  if not window_ns_supported then
+  if require('gitsigns.unified').get_view(winid) then
+    clear_win(winid)
     return false
   end
 
@@ -493,7 +453,7 @@ function M.on_win(winid, bufnr, topline, botline)
       }),
       virt_lines_above = entry.above,
       virt_lines_leftcol = true,
-      virt_lines_overflow = VIRT_LINES_OVERFLOW,
+      virt_lines_overflow = 'scroll',
     })
   end
 

@@ -1,4 +1,5 @@
 local api = vim.api
+local uv = vim.uv or vim.loop
 
 local config = require('treesitter-context.config')
 
@@ -40,7 +41,7 @@ local function throttle_by_id(f)
       vim.schedule(function()
         -- Start a timer to check if the function needs to run again
         -- after the throttling period.
-        timers[id] = timers[id] or assert(vim.loop.new_timer())
+        timers[id] = timers[id] or assert(uv.new_timer())
         timers[id]:start(150, 0, function()
           scheduled[id] = nil
           if waiting[id] then
@@ -88,9 +89,13 @@ local function cannot_open(winid)
     or api.nvim_win_get_height(winid) < config.min_window_height
 end
 
+local pending_hl_updates = {} --- @type table<integer,true>
+
 --- @param winid integer
---- @param force_hl_update? boolean
-local update_win = throttle_by_id(function(winid, force_hl_update)
+local update_win = throttle_by_id(function(winid)
+  local force_hl_update = pending_hl_updates[winid]
+  pending_hl_updates[winid] = nil
+
   -- Remove leaked contexts firstly.
   -- Contexts may sometimes leak due to reasons like the use of 'noautocmd'.
   -- In these cases, affected windows might remain visible, and even ToggleContext
@@ -138,7 +143,11 @@ local function update(event)
     or { api.nvim_get_current_win() }
 
   for _, win in ipairs(wins) do
-    update_win(win, force_hl_events[event])
+    -- Keep highlight refreshes until the throttled update runs.
+    if force_hl_events[event] then
+      pending_hl_updates[win] = true
+    end
+    update_win(win)
   end
 end
 
@@ -189,6 +198,31 @@ local function is_semantic_tokens_request(req)
       or req.method == ms.textDocument_semanticTokens_full_delta
       or req.method == ms.textDocument_semanticTokens_range
     )
+end
+
+local mouse_ns = api.nvim_create_namespace('nvim-treesitter-context-mouse')
+local left_mouse = api.nvim_replace_termcodes('<LeftMouse>', true, false, true)
+
+--- @param key string
+--- @return string?
+local function on_key(key)
+  if key ~= left_mouse or api.nvim_get_mode().mode ~= 'n' then
+    return
+  end
+  local mouse = vim.o.mouse
+  if not mouse:find('[an]') and not (mouse:find('h') and vim.bo.buftype == 'help') then
+    return
+  end
+  local pos = vim.fn.getmousepos()
+  local line = Render.get_source_line(pos.winid, pos.screenrow, pos.screencol)
+  if not line then
+    return
+  end
+
+  api.nvim_set_current_win(pos.winid)
+  vim.cmd([[ normal! m' ]])
+  api.nvim_win_set_cursor(pos.winid, { line, 0 })
+  return ''
 end
 
 function M.enable()
@@ -242,6 +276,10 @@ function M.enable()
     end
   end)
 
+  -- Earlier versions cannot discard the click that would move the source cursor.
+  if vim.fn.has('nvim-0.11') == 1 then
+    vim.on_key(on_key, mouse_ns)
+  end
   update()
 
   enabled = true
@@ -249,6 +287,7 @@ end
 
 function M.disable()
   augroup('treesitter_context_update', {})
+  vim.on_key(nil, mouse_ns)
   -- We can't close only certain windows based on the config because it might have changed.
   for _, winid in pairs(api.nvim_list_wins()) do
     Render.close(winid)

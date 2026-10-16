@@ -26,6 +26,7 @@ local keymap = require("codediff.keymap")
 --     suspended = bool,
 --     single_side = "original" | "modified" | nil,
 --     stored_diff_result = table,
+--     compact_mode = boolean, -- session preference; folds may be inactive with no hunks
 --     changedtick = { original = number, modified = number },
 --     mtime = { original = number?, modified = number? },
 --     -- Conflict mode result buffer (3-way merge)
@@ -71,6 +72,9 @@ M.compute_virtual_uri = compute_virtual_uri
 --- @param session_config SessionConfig What was asked for
 --- @param panes SessionPanes What the layout built for it
 function M.create_session(tabpage, session_config, panes)
+  if active_diffs[tabpage] and active_diffs[tabpage].refresh then
+    active_diffs[tabpage].refresh:dispose()
+  end
   local state = require("codediff.ui.lifecycle.state")
   local original_bufnr, modified_bufnr = panes.original_bufnr, panes.modified_bufnr
   -- Save buffer states
@@ -79,17 +83,16 @@ function M.create_session(tabpage, session_config, panes)
 
   -- Create complete session in one step
   active_diffs[tabpage] = {
-    -- Panel & Git Context (immutable)
-    -- `panel.data` is construction material: panel.lua consumes it to build the
-    -- panel, which copies forward whatever it still needs (pathspec,
-    -- status_result). Keeping it on the session would be a second, stale copy.
-    panel = session_config.panel and { name = session_config.panel.name } or nil,
+    tabpage = tabpage,
+    -- Panel data belongs to the session; the sidebar only renders it.
+    panel = session_config.panel and { name = session_config.panel.name, data = require("codediff.ui.refresh.panel").new(session_config) } or nil,
     merge = session_config.conflict or nil,
     git_root = session_config.git_root,
     original = session_config.original,
     modified = session_config.modified,
     original_revision = session_config.original_revision,
     modified_revision = session_config.modified_revision,
+    source_revisions = session_config.source_revisions,
 
     -- Buffers & Windows
     original_bufnr = original_bufnr,
@@ -105,6 +108,7 @@ function M.create_session(tabpage, session_config, panes)
     suspended = false,
     single_side = nil,
     stored_diff_result = panes.lines_diff,
+    compact_mode = config.options.diff.compact,
     changedtick = {
       original = vim.api.nvim_buf_get_changedtick(original_bufnr),
       modified = vim.api.nvim_buf_get_changedtick(modified_bufnr),
@@ -125,6 +129,12 @@ function M.create_session(tabpage, session_config, panes)
   }
 
   welcome_window.capture_session_profiles(active_diffs[tabpage])
+  local created = active_diffs[tabpage]
+  vim.schedule(function()
+    if active_diffs[tabpage] == created then
+      require("codediff.ui.refresh").attach(tabpage)
+    end
+  end)
 
   -- Mark windows with restore flag
   vim.w[panes.original_win].codediff_restore = 1
@@ -158,7 +168,7 @@ function M.create_session(tabpage, session_config, panes)
 
   -- Force disable winbar to prevent alignment issues (except in conflict mode)
   local function sync_window_ui(sess, win)
-    -- In conflict mode, preserve existing winbar titles (set by conflict_window.lua)
+    -- In conflict mode, preserve existing winbar titles set by the conflict view.
     if sess and sess.result_win and vim.api.nvim_win_is_valid(sess.result_win) then
       return
     end

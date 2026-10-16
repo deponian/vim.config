@@ -274,8 +274,9 @@ M.vimcmd_entry = function(vimcmd, selected, opts, bufedit)
       elseif not opts.no_action_set_cursor and (entry.line > 0 or entry.col > 0) then
         -- Make sure we have valid line/column
         -- e.g. qf lists from files (no line/col), dap_breakpoints
-        ---@diagnostic disable-next-line: param-type-mismatch
-        pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, entry.line), math.max(1, entry.col) - 1 })
+        pcall(vim.api.nvim_win_set_cursor, 0, {
+          (math.max(1, entry.line --[[@as integer]]) --[[@as integer]]),
+          (math.max(1, entry.col --[[@as integer]]) - 1 --[[@as integer]]) })
       end
       -- Only "zz" after the last entry is loaded into the origin buffer
       if i == #selected and not opts.no_action_zz and not utils.is_term_buffer(0) then
@@ -405,8 +406,10 @@ M.file_switch = function(selected, opts)
   winid = utils.winid_from_tabh(0, entry.bufnr)
   if not winid then return false end
   vim.api.nvim_set_current_win(winid)
-  if entry.line > 0 or entry.col > 0 then ---@diagnostic disable-next-line: param-type-mismatch
-    pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, entry.line), math.max(1, entry.col) - 1 })
+  if entry.line > 0 or entry.col > 0 then
+    pcall(vim.api.nvim_win_set_cursor, 0, {
+      (math.max(1, entry.line --[[@as integer]]) --[[@as integer]]),
+      (math.max(1, entry.col --[[@as integer]]) - 1 --[[@as integer]]) })
   end
   if not utils.is_term_buffer(0) and not opts.no_action_zz then vim.cmd("norm! zvzz") end
   return true
@@ -540,7 +543,7 @@ end
 M.exec_menu = function(selected)
   if not selected[1] then return end
   local cmd = selected[1]
-  vim.cmd("emenu " .. cmd)
+  vim.cmd(string.format("emenu %s %s", utils.__CTX().mode, cmd))
 end
 
 
@@ -1334,7 +1337,8 @@ end
 
 M.undo = function(selected, _opts)
   if not selected[1] then return end
-  local seq = selected[1]:match("%d+")
+  local seq = utils.strip_ansi_coloring(selected[1]):match("%d+")
+  if not seq then return end
   vim.cmd("silent undo " .. tostring(seq))
   utils.info("Undo jump to %s.", seq == "0" and "origin" or "change #" .. tostring(seq))
 end
@@ -1346,6 +1350,7 @@ end
 M.serverlist_kill = function(sel)
   ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
   vim.iter(sel):map(parse_entry):each(function(addr)
+    ---@cast addr string
     local ok, err = utils.rpcexec(addr, "nvim_exec2", "qa!", {})
     assert(ok
       or tostring(err):match("Invalid channel")

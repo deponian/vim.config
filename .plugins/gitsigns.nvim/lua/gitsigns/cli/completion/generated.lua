@@ -39,6 +39,7 @@ return {
     diffthis = {
       flags = {
         split = { 'aboveleft', 'belowright', 'topleft', 'botright' },
+        unified = false,
         vertical = false,
       },
       positional = {
@@ -130,25 +131,14 @@ return {
       },
     },
     show = {
-      positional = {
-        {
-          name = 'revision',
-          required = true,
-          revision = true,
-          values = { 'FILE' },
-        },
+      flags = {
+        open = { 'edit', 'split', 'vsplit', 'tabnew' },
       },
-    },
-    show_commit = {
       positional = {
         {
           name = 'revision',
-          revision = true,
-        },
-        {
-          name = 'open',
           required = true,
-          values = { 'vsplit', 'tabnew' },
+          revision = true,
         },
       },
     },

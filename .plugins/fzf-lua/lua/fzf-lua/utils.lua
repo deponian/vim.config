@@ -450,6 +450,67 @@ M.file_is_readable = function(filepath)
   return false
 end
 
+-- Runs an async libuv fs request (e.g. `uv.fs_stat`, `uv.fs_open`) with
+-- a timeout, when the request fails to complete within `timeout` ms an
+-- attempt is made to cancel it using `uv.cancel` and the callback is
+-- called with `err` set. Cancellation is best-effort, a request already
+-- hung on the threadpool (e.g. stale network mount) can't be cancelled
+-- mid-syscall, its callback is then ignored once (if) it fires (#2793).
+---@param fn function async libuv fs function (e.g. `uv.fs_stat`)
+---@param timeout integer timeout in milliseconds
+---@param cb fun(err?: string, ...: any) called with the request results
+---@param ... any request arguments (i.e. path, flags, mode)
+M.fs_request_timeout = function(fn, timeout, cb, ...)
+  local done = false
+  local timer = assert(uv.new_timer())
+  local finish = function(err, ...)
+    if done then return end
+    done = true
+    timer:stop()
+    timer:close()
+    cb(err, ...)
+  end
+  local argv = { n = select("#", ...), ... }
+  argv[argv.n + 1] = finish
+  local req = fn(unpack(argv, 1, argv.n + 1))
+  if not req then
+    -- failed to queue the request, keep the callback async
+    timer:start(0, 0, function() finish("ECANCELED: failed to queue fs request") end)
+    return
+  end
+  timer:start(timeout, 0, function()
+    -- NOTE: when cancel succeeds the fs callback is still invoked with
+    -- "ECANCELED", when it fails (already executing) the fs callback is
+    -- eventually invoked with the result, both are ignored via `done`
+    if uv.cancel then pcall(uv.cancel, req) end
+    finish("ECANCELED: fs request timed out")
+  end)
+end
+
+--- Async `uv.fs_stat` with a timeout, calls `cb(nil)` when the request
+--- fails or does not complete within `timeout` milliseconds (#2793).
+---@param path string
+---@param timeout integer timeout in milliseconds
+---@param cb fun(stat: table?)
+M.fs_stat_async = function(path, timeout, cb)
+  M.fs_request_timeout(uv.fs_stat, timeout, function(err, stat)
+    cb(not err and stat or nil)
+  end, path)
+end
+
+--- Async `file_is_readable` with a timeout, calls `cb(false)` when the
+--- request fails or does not complete within `timeout` ms (#2793).
+---@param path string
+---@param timeout integer timeout in milliseconds
+---@param cb fun(readable: boolean)
+M.file_is_readable_async = function(path, timeout, cb)
+  M.fs_request_timeout(uv.fs_open, timeout, function(_err, fd)
+    if not fd then return cb(false) end
+    uv.fs_close(fd, function() end)
+    cb(true)
+  end, path, "r", 438)
+end
+
 M.perl_file_is_binary = function(filepath)
   filepath = M.pcall_expand(filepath)
   if vim.fn.executable("perl") ~= 1 or
@@ -597,7 +658,7 @@ end
 function M.tbl_flatten(T)
   if vim.iter then
     ---@diagnostic disable-next-line: redundant-parameter, call-non-callable
-    return vim.iter(T):flatten(math.huge):totable()
+    return vim.iter(T --[[@as table]]):flatten(math.huge --[[@as integer]]):totable()
   else
     ---@diagnostic disable-next-line: deprecated
     return vim.tbl_flatten(T)
@@ -1109,15 +1170,14 @@ function M.load_profiles(profiles, silent)
         -- profile requires loading base profile(s)
         -- silent = 1, only warn if failed to load
         profile_opts = vim.tbl_deep_extend("keep",
-          profile_opts, M.load_profiles(profile_opts[1], 1))
-        ---@cast profile_opts table
+          profile_opts, M.load_profiles(profile_opts[1], 1)) --[[@as table]]
       end
       ---@cast profile_opts table
       if type(profile_opts.fn_load) == "function" then
         profile_opts.fn_load()
         profile_opts.fn_load = nil
       end
-      ret = vim.tbl_deep_extend("force", ret, profile_opts)
+      ret = (vim.tbl_deep_extend("force", ret, profile_opts) --[[@as table]])
     end
   end
   return ret
@@ -1618,7 +1678,7 @@ function M.create_user_command_callback(provider, arg, altmap)
 end
 
 -- setmetatable wrapper support `__gc`
----@generic T
+---@generic T : table
 ---@param t T
 ---@param mt table
 ---@return T
@@ -1631,33 +1691,58 @@ function M.setmetatable(t, mt)
   return setmetatable(t, mt)
 end
 
+local RPC_TIMEOUT = 200
+
 ---always ensure chan is closed on error
 ---@param addr string
+---@param timeout integer? ms to wait before force-closing the channel, `nil` waits indefinitely
 ---@param method string
 ---@param ... any
 ---@return boolean, string|any, ...any
-function M.rpcexec(addr, method, ...)
+local function rpcexec(addr, timeout, method, ...)
   ---@type boolean, any
   local ok, chan = pcall(vim.fn.sockconnect, "pipe", addr, { rpc = true })
   if not ok or chan == 0 then return false, "Invalid channel" end
-  local timer = assert(vim.uv.new_timer())
+  ---@type uv.uv_timer_t?
+  local timer
   local fired = false
-  pcall(function()
-    require("ffi").cdef [[bool channel_close(unsigned long long id, int part, const char **error);]]
-  end)
-  timer:start(200, 0, M.nil_wrap(function()
-    if not timer:is_closing() then timer:close() end
-    fired = true
-    require("ffi").C.channel_close(chan, 3, nil)
-  end))
+  if timeout then
+    local t = assert(vim.uv.new_timer())
+    timer = t
+    pcall(function()
+      require("ffi").cdef [[bool channel_close(unsigned long long id, int part, const char **error);]]
+    end)
+    t:start(timeout, 0, M.nil_wrap(function()
+      if not t:is_closing() then t:close() end
+      fired = true
+      require("ffi").C.channel_close(chan, 3, nil)
+    end))
+  end
   ---@cast chan integer
   local ret = { pcall(vim.rpcrequest, chan, method, ...) }
-  if not timer:is_closing() then timer:close() end
+  if timer and not timer:is_closing() then timer:close() end
   if fired then return false, "Timeout" end
   vim.fn.chanclose(chan)
   local tonil = function(v) if v == vim.NIL then return nil else return v end end
   ---@diagnostic disable-next-line: missing-return-value
   return unpack(vim.tbl_map(tonil, ret))
+end
+
+---Blocking RPC: waits indefinitely for the peer to reply.
+---@param addr string
+---@param method string
+---@param ... any
+---@return boolean, string|any, ...any
+function M.rpcexec(addr, method, ...)
+  return rpcexec(addr, nil, method, ...)
+end
+
+---@param addr string
+---@param method string
+---@param ... any
+---@return boolean, string|any, ...any
+function M.rpcexec_timed(addr, method, ...)
+  return rpcexec(addr, RPC_TIMEOUT, method, ...)
 end
 
 --- Checks if treesitter parser for language is installed

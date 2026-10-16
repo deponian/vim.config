@@ -50,7 +50,7 @@ M.defaults = {
     compute_moves = false, -- Detect moved code blocks (opt-in, may increase diff computation time)
     compact_context_lines = 3, -- Number of context lines around hunks in compact mode
     compact_sync_folds = true, -- Sync fold open/close across panes in compact mode (mirrors Vim diff mode behavior)
-    compact = false, -- Open diffs in compact mode by default (fold unchanged regions to hunks + context; still toggleable with the gc keymap)
+    compact = false, -- Default compact preference for each CodeDiff session; still toggleable with the gc keymap
   },
 
   -- Explorer panel configuration
@@ -59,7 +59,7 @@ M.defaults = {
     hidden = false, -- Initial visibility state
     width = 40, -- Width when position is "left" (columns)
     height = 15, -- Height when position is "bottom" (lines)
-    auto_refresh = true, -- Enable automatic explorer refresh (BufEnter + git watcher)
+    auto_refresh = true, -- Native explorer refresh with polling fallback
     view_mode = "list", -- "list" (flat file list) or "tree" (directory tree)
     indent_markers = true, -- Show indent markers in tree view (│, ├, └)
     initial_focus = "explorer", -- Initial focus: "explorer", "original", or "modified"

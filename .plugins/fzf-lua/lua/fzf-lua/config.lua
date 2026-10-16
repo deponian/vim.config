@@ -56,9 +56,8 @@ end
 function M.resume_opts(opts)
   assert(opts.resume and opts.__call_opts)
   local __call_opts = M.resume_get(nil, opts)
-  opts = vim.tbl_deep_extend("keep", opts, __call_opts or {})
-  opts.__call_opts = vim.tbl_deep_extend("keep", opts.__call_opts, __call_opts or {})
-  -- _G.dump("__call_opts", opts.__call_opts)
+  opts = vim.tbl_deep_extend("keep", opts, __call_opts or {}) --[[@as { resume: boolean, __call_opts: table }]]
+  opts.__call_opts = vim.tbl_deep_extend("keep", opts.__call_opts, __call_opts or {}) --[[@as table]]
   return opts
 end
 
@@ -128,10 +127,11 @@ M.globals = setmetatable({}, {
         or (setup_value and (setup_value.actions or setup_value._actions)) then
       -- (2) the existence of the `actions` key implies we're dealing with a picker
       -- override global provider defaults supplied by the user's setup `defaults` table
-      ret = vim.tbl_deep_extend("force", ret, setup_defaults())
+      ret = (vim.tbl_deep_extend("force", ret, setup_defaults()) --[[@as fzf-lua.config.Defaults]])
     end
     -- (3) override with the specific provider options from the users's `setup` option
-    ret = vim.tbl_deep_extend("force", ret, utils.map_get(setup_opts(), index) or {})
+    ret = (vim.tbl_deep_extend("force", ret, utils.map_get(setup_opts(), index) or {})
+      --[[@as fzf-lua.config.Defaults]])
     return ret
   end,
   __newindex = function(_, index, _)
@@ -996,7 +996,7 @@ function M.normalize_opts(opts, globals, __resume_key) ---@diagnostic disable
   end
 
   if opts.locate and utils.has(opts, "fzf", { 0, 36 }) then
-    table.insert(opts._fzf_cli_args, "--bind=" .. libuv.shellescape("load:+transform:"
+    table.insert(opts._fzf_cli_args, libuv.cli_raw_arg("--bind=", "load:+transform:"
       .. FzfLua.shell.stringify_data(function(_, _, _)
         if opts.__locate_pos then
           return string.format("pos(%d)", opts.__locate_pos)
@@ -1015,7 +1015,7 @@ function M.normalize_opts(opts, globals, __resume_key) ---@diagnostic disable
           return lnum, (subs > 0 and new_q or nil)
         end
     utils.map_set(opts, "winopts.preview.winopts.cursorline", true)
-    table.insert(opts._fzf_cli_args, "--bind=" .. libuv.shellescape("start,change:+transform:"
+    table.insert(opts._fzf_cli_args, libuv.cli_raw_arg("--bind=", "start,change:+transform:"
       .. FzfLua.shell.stringify_data(function(q, _, _)
         local lnum, new_q = opts.line_query(q[1])
         if not new_q then return end

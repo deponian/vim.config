@@ -290,7 +290,7 @@ local function reblame(opts, blame, win, revision, parent)
   vim.cmd.quit()
   api.nvim_set_current_win(win)
 
-  local did_attach = require('gitsigns.actions.diffthis').show(nil, sha)
+  local did_attach = require('gitsigns.actions.diffthis').show(sha)
   if not did_attach then
     return
   end
@@ -314,7 +314,7 @@ local function show_commit(win, bwin, open, bcache)
   local blame = assert(bcache.blame)
   local sha = assert(blame.entries[cursor]).commit.sha
   api.nvim_set_current_win(win)
-  require('gitsigns.actions.show_commit')(sha, open)
+  require('gitsigns.actions.show_commit').show_commit(sha, open)
 end
 
 --- @param augroup integer
@@ -421,7 +421,10 @@ local function diff(bufnr, blm_win, blame)
   local info = assert(blame[lnum])
 
   vim.cmd('tab sbuffer ' .. bufnr)
-  require('gitsigns.actions.diffthis').show(bufnr, info.commit.sha, info.filename)
+  require('gitsigns.actions.diffthis').show(info.commit.sha, {
+    bufnr = bufnr,
+    path = info.filename,
+  })
   if info.previous_sha then
     require('gitsigns.actions').diffthis(info.previous_sha)
   end
@@ -525,9 +528,7 @@ function M.blame(opts)
     blm_wlo.winbar = vim.fn.fnamemodify(name, ':.')
   end
 
-  if vim.fn.exists('&winfixbuf') == 1 then
-    blm_wlo.winfixbuf = true
-  end
+  blm_wlo.winfixbuf = true
 
   vim.cmd(tostring(top))
   vim.cmd('normal! zt')
@@ -555,12 +556,24 @@ function M.blame(opts)
   end, {
     desc = 'Reblame at commit',
     buffer = blm_bufnr,
+    nowait = true,
   })
 
   pmap('n', 'd', function()
     async.run(diff, bufnr, blm_win, blame.entries):raise_on_error()
   end, {
     desc = 'Diff (tab)',
+    buffer = blm_bufnr,
+    nowait = true,
+  })
+
+  pmap('n', 'D', function()
+    local lnum0 = api.nvim_win_get_cursor(blm_win)[1]
+    local sha = assert(blame.entries[lnum0]).commit.sha
+    api.nvim_set_current_win(win)
+    require('gitsigns.actions').diff(sha, nil, { commit = true })
+  end, {
+    desc = 'Diff commit (tab)',
     buffer = blm_bufnr,
   })
 
@@ -569,6 +582,7 @@ function M.blame(opts)
   end, {
     desc = 'Reblame at commit parent',
     buffer = blm_bufnr,
+    nowait = true,
   })
 
   pmap('n', 's', function()
@@ -576,6 +590,7 @@ function M.blame(opts)
   end, {
     desc = 'Show commit in a vertical split',
     buffer = blm_bufnr,
+    nowait = true,
   })
 
   pmap('n', 'S', function()
@@ -583,6 +598,7 @@ function M.blame(opts)
   end, {
     desc = 'Show commit in a new tab',
     buffer = blm_bufnr,
+    nowait = true,
   })
 
   pmap('n', 'e', function()
@@ -596,6 +612,7 @@ function M.blame(opts)
     { 'Reblame at commit', 'r' },
     { 'Reblame at commit parent', 'R' },
     { 'Diff (tab)', 'd' },
+    { 'Diff commit (tab)', 'D' },
     { 'Show commit (vsplit)', 's' },
     { '            (tab)', 'S' },
     { '            (current window)', 'e' },
