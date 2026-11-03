@@ -55,6 +55,12 @@ M.config = function ()
   vim.lsp.enable('pyright')
   vim.lsp.enable('terraformls')
   -- vim.lsp.enable('ts_ls')
+
+  vim.lsp.config('typos_lsp', {
+    init_options = {
+      config = os.getenv("HOME") .. "/.config/typos/config.toml",
+    },
+  })
   vim.lsp.enable('typos_lsp')
 
   vim.lsp.config('lua_ls', {

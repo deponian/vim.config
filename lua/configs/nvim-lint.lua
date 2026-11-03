@@ -31,6 +31,15 @@ M.config = function ()
     "-"
   }
 
+  -- reconfigure codespell
+  local codespell = require("lint").linters.codespell
+  codespell.args = {
+    "--config",
+    os.getenv("HOME") .. "/.config/codespell/config.ini",
+    "--stdin-single-line",
+    "-"
+  }
+
   vim.api.nvim_create_autocmd({ "TextChanged", "InsertLeave", "BufEnter", "CursorHold", "CursorHoldI" }, {
     callback = function()
       require("lint").try_lint()
